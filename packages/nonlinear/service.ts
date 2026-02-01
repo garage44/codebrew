@@ -59,7 +59,7 @@ void cli.usage('Usage: $0 [task]')
             })
             .option('port', {
                 alias: 'p',
-                default: 3030,
+                default: 3032,
                 describe: 'port to run the Nonlinear service on',
                 type: 'number',
             })

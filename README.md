@@ -45,7 +45,7 @@ AI-powered automated project management and platform hub. Manages complete softw
 cd packages/nonlinear
 bun run dev
 # Configure in ~/.nonlinearrc
-# Access at http://localhost:3030
+# Access at http://localhost:3032
 ```
 
 **License:** AGPLv3

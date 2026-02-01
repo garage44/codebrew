@@ -11,7 +11,7 @@ Environment="NODE_ENV=production"
 Environment="BUN_ENV=production"
 Environment="PATH=/home/garage44/.bun/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 Environment="WEBHOOK_SECRET=your-webhook-secret-here"
-ExecStart=/home/garage44/.bun/bin/bun service.ts start --port 3030
+ExecStart=/home/garage44/.bun/bin/bun service.ts start --port 3032
 Restart=always
 RestartSec=10
 StandardOutput=journal

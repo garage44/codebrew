@@ -45,7 +45,7 @@ export async function generateSystemd(domain: string): Promise<string> {
     // Port assignments
     const ports: Record<string, number> = {
         'expressio': 3030,
-        'nonlinear': 3030,
+        'nonlinear': 3032,
         'pyrite': 3031,
     }
 
