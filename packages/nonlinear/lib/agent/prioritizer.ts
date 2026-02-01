@@ -117,6 +117,13 @@ export class PrioritizerAgent extends BaseAgent {
                 }
             })
 
+            // Get relevant prioritization documentation
+            const prioritizationDocs = await this.getRelevantDocs(
+                'prioritization guidelines criteria business value technical debt',
+                {tags: ['type:prioritization', 'role:product-owner']},
+                3
+            )
+
             const systemPrompt = `You are a project management AI agent that prioritizes software development tickets.
 
 Your task is to:
@@ -130,6 +137,9 @@ Consider:
 - Technical complexity and effort required
 - Urgency and deadlines
 - Repository context and project state
+- Prioritization guidelines from documentation
+
+${prioritizationDocs}
 
 Respond with a JSON array of objects, each with:
 - ticket_id: The ticket ID
@@ -240,6 +250,10 @@ ${JSON.stringify(ticketsContext, null, 2)}`
                 }
             }
 
+            // Get relevant documentation for this ticket
+            const searchQuery = `${ticket.title} ${ticket.description || ''}`
+            const relevantDocs = await this.getRelevantDocs(searchQuery, undefined, 3)
+
             const systemPrompt = `You are a project management AI agent that refines and clarifies software development tickets.
 
 Your task is to:
@@ -247,6 +261,10 @@ Your task is to:
 2. Identify any ambiguities, missing details, or unclear requirements
 3. Provide a refined, clear description that makes the ticket actionable
 4. Suggest improvements and considerations
+5. Reference relevant documentation and guidelines when applicable
+
+Relevant Documentation:
+${relevantDocs}
 5. If architectural changes are involved, include Mermaid diagrams to visualize them
 
 Respond with a JSON object containing:

@@ -1,0 +1,116 @@
+.c-doc-editor {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.c-doc-editor .editor-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacer-4);
+}
+
+.c-doc-editor .editor-header h2 {
+    margin: 0;
+    font-size: var(--font-xl);
+}
+
+.c-doc-editor .actions {
+    display: flex;
+    gap: var(--spacer-2);
+}
+
+.c-doc-editor .actions button {
+    display: flex;
+    align-items: center;
+    gap: var(--spacer-1);
+    padding: var(--spacer-1) var(--spacer-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface-1);
+    cursor: pointer;
+    font-size: var(--font-d);
+}
+
+.c-doc-editor .actions button:hover {
+    background: var(--surface-2);
+}
+
+.c-doc-editor .actions button.primary {
+    background: var(--primary-9);
+    color: white;
+    border-color: var(--primary-9);
+}
+
+.c-doc-editor .actions button.primary:hover {
+    background: var(--primary-10);
+}
+
+.c-doc-editor .editor-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacer-4);
+}
+
+.c-doc-editor .field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacer-1);
+}
+
+.c-doc-editor .field label {
+    font-weight: 500;
+    font-size: var(--font-d);
+}
+
+.c-doc-editor .field textarea {
+    width: 100%;
+    padding: var(--spacer-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-family: monospace;
+    font-size: var(--font-d);
+    resize: vertical;
+}
+
+.c-doc-editor .tags-input {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacer-1);
+}
+
+.c-doc-editor .tags-input input {
+    padding: var(--spacer-1) var(--spacer-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: var(--font-d);
+}
+
+.c-doc-editor .tags-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacer-1);
+}
+
+.c-doc-editor .tags-list .tag {
+    display: flex;
+    align-items: center;
+    gap: var(--spacer-1);
+    padding: var(--spacer-1) var(--spacer-2);
+    background: var(--surface-2);
+    border-radius: var(--radius);
+    font-size: var(--font-d);
+}
+
+.c-doc-editor .tags-list .tag-remove {
+    padding: 0;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: var(--font-l);
+    color: var(--text-2);
+}
+
+.c-doc-editor .tags-list .tag-remove:hover {
+    color: var(--text-1);
+}

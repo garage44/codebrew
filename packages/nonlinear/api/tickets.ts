@@ -183,6 +183,15 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
             addTicketAssignee(ticketId, assignee_type, assignee_id)
         }
 
+        // Generate ticket embedding
+        try {
+            const {generateTicketEmbedding} = await import('../lib/docs/embeddings.ts')
+            await generateTicketEmbedding(ticketId, title, description || null)
+        } catch (error) {
+            logger.warn(`[Tickets API] Failed to generate embedding for ticket ${ticketId}:`, error)
+            // Continue anyway - embedding can be regenerated later
+        }
+
         const ticket = db.prepare(`
             SELECT t.*, r.name as repository_name
             FROM tickets t
@@ -354,6 +363,22 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
                 if (!currentSet.has(key)) {
                     addTicketAssignee(ticketId, assignee.assignee_type, assignee.assignee_id)
                 }
+            }
+        }
+
+        // Regenerate ticket embedding if title or description changed
+        if (updates.title !== undefined || updates.description !== undefined) {
+            try {
+                const ticket = db.prepare('SELECT title, description FROM tickets WHERE id = ?').get(ticketId) as {
+                    title: string
+                    description: string | null
+                } | undefined
+                if (ticket) {
+                    const {generateTicketEmbedding} = await import('../lib/docs/embeddings.ts')
+                    await generateTicketEmbedding(ticketId, ticket.title, ticket.description)
+                }
+            } catch (error) {
+                logger.warn(`[Tickets API] Failed to regenerate embedding for ticket ${ticketId}:`, error)
             }
         }
 

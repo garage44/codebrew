@@ -26,6 +26,18 @@ export interface NonlinearState extends CommonState {
         remote_url: string | null
         updated_at: number
     }>
+    docs: Array<{
+        id: string
+        path: string
+        title: string
+        content: string
+        author_id: string
+        created_at: number
+        updated_at: number
+        tags?: string[]
+        labelDefinitions?: Array<{color: string; name: string}>
+    }>
+    selectedDoc: string | null
     selectedLane: 'backlog' | 'todo' | 'in_progress' | 'review' | 'closed' | null
     selectedRepository: string | null
     selectedTicket: string | null

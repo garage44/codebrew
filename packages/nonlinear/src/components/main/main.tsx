@@ -1,6 +1,6 @@
 import {$s} from '@/app'
 import {api, store, ws} from '@garage44/common/app'
-import {Board, Settings, TicketDetail} from '@/components/pages'
+import {Board, Docs, Settings, TicketDetail} from '@/components/pages'
 import {
     AppLayout,
     MenuGroup,
@@ -225,16 +225,20 @@ export const Main = () => {
         return null
     }
 
-    if ($s.profile.authenticated === false) {
+    // Allow public access to docs and board (if configured)
+    const isPublicRoute = $s.env.url === '/docs' || $s.env.url === '/'
+    const showPublicBoard = true // TODO: Get from config.public.showPlanning
+
+    if ($s.profile.authenticated === false && !isPublicRoute && !showPublicBoard) {
         return <Login />
     }
 
     const handleRoute = async({url}: {url: string}) => {
         $s.env.url = url
 
-        // Redirect root to board
+        // Redirect root to docs (public entry point)
         if (url === '/') {
-            route('/board', true)
+            route('/docs', true)
         }
     }
 
@@ -318,7 +322,15 @@ export const Main = () => {
                     navigation={(
                         <MenuGroup collapsed={$s.panels.menu.collapsed}>
                             <MenuItem
-                                active={$s.env.url === '/board' || $s.env.url === '/'}
+                                active={$s.env.url === '/docs'}
+                                collapsed={$s.panels.menu.collapsed}
+                                href='/docs'
+                                icon='description'
+                                iconType='info'
+                                text='Documentation'
+                            />
+                            <MenuItem
+                                active={$s.env.url === '/board' || ($s.env.url === '/' && $s.env.url !== '/docs')}
                                 collapsed={$s.panels.menu.collapsed}
                                 href='/board'
                                 icon='view_kanban'
@@ -335,6 +347,7 @@ export const Main = () => {
         >
             <div class='view'>
                 <Router onChange={handleRoute}>
+                    <Docs path='/docs' />
                     <Board default path='/board' />
                     <Board path='/' />
                     <TicketDetail path='/tickets/:ticketId' />

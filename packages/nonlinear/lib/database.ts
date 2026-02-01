@@ -3,6 +3,7 @@ import {initDatabase as initCommonDatabase} from '@garage44/common/lib/database'
 import {logger} from '../service.ts'
 import path from 'node:path'
 import {homedir} from 'node:os'
+import {randomId} from '@garage44/common/lib/utils'
 
 /**
  * SQLite Database for Nonlinear
@@ -97,6 +98,16 @@ export interface LabelDefinition {
     updated_at: number
 }
 
+export interface Documentation {
+    id: string
+    path: string
+    title: string
+    content: string
+    author_id: string
+    created_at: number
+    updated_at: number
+}
+
 /**
  * Initialize the database connection and create tables if needed
  * Uses common database initialization for users table
@@ -113,10 +124,66 @@ export function initDatabase(dbPath?: string): Database {
     // Initialize common database (creates users table)
     db = initCommonDatabase(finalPath, 'nonlinear', logger)
 
+    // Load sqlite-vec extension for vector search
+    loadVecExtension(db)
+
     // Create Nonlinear-specific tables
     createNonlinearTables()
 
+    // Initialize fixtures in development mode (async, non-blocking)
+    if ((process.env.NODE_ENV === 'development' || process.env.BUN_ENV === 'development') && db) {
+        const workspaceCount = db.prepare('SELECT COUNT(*) as count FROM repositories').get() as {count: number} | undefined
+        if (!workspaceCount || workspaceCount.count === 0) {
+            // Database is empty, initialize fixtures
+            // Use dynamic import to avoid blocking initialization
+            Promise.all([
+                import('./fixtures.ts'),
+                import('./workspace.ts'),
+            ]).then(([{initializeFixtures}, {findWorkspaceRoot}]) => {
+                const workspaceRoot = findWorkspaceRoot() || process.cwd()
+                logger.info(`[Database] Initializing fixtures from ${workspaceRoot}`)
+                return initializeFixtures(db!, workspaceRoot)
+            }).catch((error) => {
+                logger.error('[Database] Failed to initialize fixtures:', error)
+            })
+        } else {
+            logger.info('[Database] Workspace already exists, skipping fixture initialization')
+        }
+    }
+
     return db
+}
+
+/**
+ * Load sqlite-vec extension
+ */
+function loadVecExtension(db: Database): void {
+    try {
+        // Use sqlite-vec's load() function which handles platform-specific binaries
+        // It finds vec0.so in the platform-specific package (e.g., sqlite-vec-linux-x64)
+        if (typeof db.loadExtension === 'function') {
+            // Try CommonJS require first (works in Bun)
+            try {
+                const {load} = require('sqlite-vec')
+                load(db)
+                logger.info('[Database] Loaded sqlite-vec extension')
+                return
+            } catch (requireError) {
+                // Fallback to ES module import
+                import('sqlite-vec').then(({load}) => {
+                    load(db)
+                    logger.info('[Database] Loaded sqlite-vec extension')
+                }).catch((importError) => {
+                    logger.warn('[Database] Failed to load sqlite-vec extension via import:', importError)
+                })
+            }
+        } else {
+            logger.warn('[Database] Database does not support loadExtension')
+        }
+    } catch (error) {
+        logger.warn('[Database] Failed to load sqlite-vec extension:', error)
+        // Continue without vector search - can add embeddings later
+    }
 }
 
 /**
@@ -277,6 +344,85 @@ function createNonlinearTables() {
 
     // Create index on name for faster lookups
     db.exec('CREATE INDEX IF NOT EXISTS idx_label_definitions_name ON label_definitions(name)')
+
+    // Documentation table
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS documentation (
+            id TEXT PRIMARY KEY,
+            path TEXT NOT NULL UNIQUE,
+            title TEXT NOT NULL,
+            content TEXT NOT NULL,
+            author_id TEXT NOT NULL,
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL
+        )
+    `)
+
+    // Documentation labels junction table (reuses label_definitions)
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS documentation_labels (
+            doc_id TEXT NOT NULL,
+            label TEXT NOT NULL,
+            PRIMARY KEY (doc_id, label),
+            FOREIGN KEY (doc_id) REFERENCES documentation(id) ON DELETE CASCADE,
+            FOREIGN KEY (label) REFERENCES label_definitions(name) ON DELETE CASCADE
+        )
+    `)
+
+    // Indexes for documentation
+    db.exec('CREATE INDEX IF NOT EXISTS idx_docs_path ON documentation(path)')
+    db.exec('CREATE INDEX IF NOT EXISTS idx_docs_labels_doc ON documentation_labels(doc_id)')
+    db.exec('CREATE INDEX IF NOT EXISTS idx_docs_labels_label ON documentation_labels(label)')
+
+    // Documentation chunks metadata table
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS documentation_chunks (
+            id TEXT PRIMARY KEY,
+            doc_id TEXT NOT NULL,
+            chunk_index INTEGER NOT NULL,
+            chunk_text TEXT NOT NULL,
+            created_at INTEGER NOT NULL,
+            FOREIGN KEY (doc_id) REFERENCES documentation(id) ON DELETE CASCADE
+        )
+    `)
+
+    db.exec('CREATE INDEX IF NOT EXISTS idx_chunks_doc ON documentation_chunks(doc_id)')
+
+    // Ticket embeddings metadata table
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS ticket_embeddings (
+            id TEXT PRIMARY KEY,
+            ticket_id TEXT NOT NULL,
+            embedding_text TEXT NOT NULL,
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL,
+            FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE
+        )
+    `)
+
+    db.exec('CREATE INDEX IF NOT EXISTS idx_ticket_embeddings_ticket ON ticket_embeddings(ticket_id)')
+
+    // Vector search table (vec0 virtual table)
+    // Only create if sqlite-vec extension is loaded
+    try {
+        const embeddingDim = 1024 // Voyage AI voyage-3 dimension
+        db.exec(`
+            CREATE VIRTUAL TABLE IF NOT EXISTS vec_content USING vec0(
+                embedding float[${embeddingDim}],
+                content_type TEXT NOT NULL,
+                content_id TEXT NOT NULL,
+                chunk_index INTEGER,
+                chunk_text TEXT NOT NULL,
+                metadata TEXT
+            )
+        `)
+        logger.info('[Database] Created vec0 virtual table for vector search')
+    } catch (error) {
+        logger.warn('[Database] Failed to create vec0 table (sqlite-vec may not be loaded):', error)
+    }
+
+    // Initialize preset tags
+    initializePresetTags()
 
     // Migrate existing assignee data from tickets table to ticket_assignees
     migrateAssigneeData()
@@ -539,6 +685,56 @@ export function deleteLabelDefinition(id: string): void {
         DELETE FROM label_definitions
         WHERE id = ?
     `).run(id)
+}
+
+/**
+ * Initialize preset tags (non-editable)
+ * Role tags and essential type tags for documentation
+ */
+function initializePresetTags() {
+    if (!db) throw new Error('Database not initialized')
+
+    const presetTags = [
+        // Role tags
+        {name: 'role:product-owner', color: '#3b82f6'},
+        {name: 'role:developer', color: '#10b981'},
+        {name: 'role:designer', color: '#f59e0b'},
+        {name: 'role:ux', color: '#8b5cf6'},
+        {name: 'role:qa', color: '#ef4444'},
+        {name: 'role:prioritizer', color: '#06b6d4'},
+
+        // Essential type tags
+        {name: 'type:prioritization', color: '#ec4899'},
+        {name: 'type:adr', color: '#8b5cf6'},
+        {name: 'type:rules', color: '#f59e0b'},
+        {name: 'type:guide', color: '#14b8a6'},
+        {name: 'type:api', color: '#6366f1'},
+        {name: 'type:config', color: '#64748b'},
+        {name: 'type:deployment', color: '#ef4444'},
+    ]
+
+    const now = Date.now()
+    const insertStmt = db.prepare(`
+        INSERT OR IGNORE INTO label_definitions (id, name, color, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?)
+    `)
+
+    for (const tag of presetTags) {
+        // Validate tag format (hyphens only)
+        if (!/^[a-z0-9:-]+$/.test(tag.name) || tag.name.includes('_')) {
+            logger.warn(`[Database] Invalid tag format (must use hyphens): ${tag.name}`)
+            continue
+        }
+
+        const tagId = `preset-${tag.name.toLowerCase().replace(/:/g, '-')}`
+        try {
+            insertStmt.run(tagId, tag.name, tag.color, now, now)
+        } catch (error) {
+            // Tag already exists, that's fine
+        }
+    }
+
+    logger.info('[Database] Initialized preset tags')
 }
 
 export {

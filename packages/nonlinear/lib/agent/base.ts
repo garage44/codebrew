@@ -7,6 +7,12 @@ import Anthropic from '@anthropic-ai/sdk'
 import {logger} from '../../service.ts'
 import {config} from '../config.ts'
 import {updateUsageFromHeaders} from './token-usage.ts'
+import {
+    unifiedVectorSearch,
+    searchDocs as searchDocsVector,
+    searchTickets as searchTicketsVector,
+    type DocFilters,
+} from '../docs/search.ts'
 
 export interface AgentContext {
     ticketId?: string
@@ -57,6 +63,79 @@ export abstract class BaseAgent {
     protected async getContext(context: AgentContext): Promise<string> {
         // Base implementation - subclasses should extend this
         return JSON.stringify(context, null, 2)
+    }
+
+    /**
+     * Search documentation and tickets semantically
+     * Returns relevant docs and tickets based on query
+     */
+    protected async semanticSearch(
+        query: string,
+        options: {
+            limit?: number
+            contentType?: 'doc' | 'ticket' | 'both'
+            filters?: DocFilters
+        } = {}
+    ) {
+        try {
+            return await unifiedVectorSearch(query, {
+                limit: options.limit || 5,
+                contentType: options.contentType || 'both',
+                filters: options.filters,
+            })
+        } catch (error) {
+            logger.warn(`[${this.name}] Semantic search failed:`, error)
+            return {docs: [], tickets: []}
+        }
+    }
+
+    /**
+     * Search only documentation
+     */
+    protected async searchDocs(query: string, filters?: DocFilters, limit: number = 5) {
+        try {
+            return await searchDocsVector(query, filters, limit)
+        } catch (error) {
+            logger.warn(`[${this.name}] Doc search failed:`, error)
+            return []
+        }
+    }
+
+    /**
+     * Search only tickets
+     */
+    protected async searchTickets(query: string, filters?: DocFilters, limit: number = 5) {
+        try {
+            return await searchTicketsVector(query, filters, limit)
+        } catch (error) {
+            logger.warn(`[${this.name}] Ticket search failed:`, error)
+            return []
+        }
+    }
+
+    /**
+     * Get relevant documentation for a query
+     * Formats results for inclusion in agent context
+     */
+    protected async getRelevantDocs(query: string, filters?: DocFilters, limit: number = 5): Promise<string> {
+        const results = await this.searchDocs(query, filters, limit)
+
+        if (results.length === 0) {
+            return 'No relevant documentation found.'
+        }
+
+        const formatted = results.map((result, idx) => {
+            return `[Doc ${idx + 1}] ${result.doc.title} (${result.doc.path})
+Score: ${(result.chunk.score * 100).toFixed(1)}%
+Relevant excerpt:
+${result.chunk.text.substring(0, 500)}${result.chunk.text.length > 500 ? '...' : ''}
+
+Full content:
+${result.doc.content}
+`
+        }).join('\n\n---\n\n')
+
+        return `Relevant Documentation (${results.length} results):\n\n${formatted}`
     }
 
     /**

@@ -1,4 +1,5 @@
 export {Board} from './pages/board/board'
+export {Docs} from './pages/docs/docs'
 export {Login} from './pages/login/login'
 export {Settings} from './pages/settings/settings'
 export {TicketDetail} from './pages/ticket-detail/ticket-detail'

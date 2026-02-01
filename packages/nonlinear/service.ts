@@ -96,12 +96,14 @@ void cli.usage('Usage: $0 [task]')
         const {registerAgentsWebSocketApiRoutes} = await import('./api/agents.ts')
         const {registerCIWebSocketApiRoutes} = await import('./api/ci.ts')
         const {registerLabelsWebSocketApiRoutes} = await import('./api/labels.ts')
+        const {registerDocsWebSocketApiRoutes} = await import('./api/docs.ts')
 
         registerTicketsWebSocketApiRoutes(wsManager)
         registerRepositoriesWebSocketApiRoutes(wsManager)
         registerAgentsWebSocketApiRoutes(wsManager)
         registerCIWebSocketApiRoutes(wsManager)
         registerLabelsWebSocketApiRoutes(wsManager)
+        registerDocsWebSocketApiRoutes(wsManager)
 
         // Initialize agent system
         const {initAgentStatusTracking} = await import('./lib/agent/status.ts')

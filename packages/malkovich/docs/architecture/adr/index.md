@@ -50,6 +50,7 @@ AI Decision Records (ADRs) are structured documents that capture important archi
 | [020](./020-docs.md) | Malkovich Platform Documentation System | Architecture | Accepted | 2025-01-27 |
 | [021](./021-nonlinear.md) | Nonlinear - AI-Powered Automated Project Management | Architecture | Proposed | 2025-01-27 |
 | [022](./022-nonlinear-labels-assignees.md) | Nonlinear - Label System and Multiple Assignees Workflow | Architecture | Proposed | 2025-01-27 |
+| [023](./023-wiki-vector-search.md) | Wiki System with Vector Search for Agent-Human Collaboration | Architecture | Accepted | 2026-02-01 |
 
 ### ADRs by Decision Type
 
@@ -71,6 +72,7 @@ AI Decision Records (ADRs) are structured documents that capture important archi
 - [ADR-019](./019-i18n.md): Type-Safe i18n System
 - [ADR-021](./021-nonlinear.md): Nonlinear - AI-Powered Automated Project Management
 - [ADR-022](./022-nonlinear-labels-assignees.md): Nonlinear - Label System and Multiple Assignees Workflow
+- [ADR-023](./023-wiki-vector-search.md): Wiki System with Vector Search for Agent-Human Collaboration
 - Pattern: [Architecture Pattern](./guide/PATTERNS.md#architecture-pattern)
 
 **Tool Adoption/Replacement** (Developer Tooling):

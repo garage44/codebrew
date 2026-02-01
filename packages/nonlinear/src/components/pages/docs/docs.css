@@ -1,0 +1,132 @@
+.c-docs {
+    display: flex;
+    height: 100%;
+    overflow: hidden;
+}
+
+.c-docs .sidebar {
+    width: 300px;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.c-docs .search {
+    padding: var(--spacer-2);
+    border-bottom: 1px solid var(--border);
+}
+
+.c-docs .search input {
+    width: 100%;
+    padding: var(--spacer-1) var(--spacer-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: var(--font-d);
+}
+
+.c-docs .tree {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--spacer-1);
+}
+
+.c-docs .tree ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.c-docs .tree li {
+    padding: var(--spacer-1);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: var(--spacer-1);
+    border-radius: var(--radius);
+    transition: background-color 0.2s;
+}
+
+.c-docs .tree li:hover {
+    background-color: var(--surface-2);
+}
+
+.c-docs .tree li.selected {
+    background-color: var(--primary-2);
+    color: var(--primary-11);
+}
+
+.c-docs .tree li span {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.c-docs .content {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--spacer-4);
+}
+
+.c-docs .doc-viewer {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.c-docs .doc-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: var(--spacer-4);
+}
+
+.c-docs .doc-header h1 {
+    margin: 0;
+    font-size: var(--font-2xl);
+    font-weight: 600;
+}
+
+.c-docs .doc-header button {
+    display: flex;
+    align-items: center;
+    gap: var(--spacer-1);
+    padding: var(--spacer-1) var(--spacer-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface-1);
+    cursor: pointer;
+    font-size: var(--font-d);
+}
+
+.c-docs .doc-header button:hover {
+    background: var(--surface-2);
+}
+
+.c-docs .doc-tags {
+    display: flex;
+    gap: var(--spacer-1);
+    margin-bottom: var(--spacer-4);
+    flex-wrap: wrap;
+}
+
+.c-docs .doc-tags .tag {
+    padding: var(--spacer-1) var(--spacer-2);
+    border-radius: var(--radius);
+    font-size: var(--font-d);
+    color: white;
+}
+
+.c-docs .empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--text-2);
+}
+
+.c-docs .empty p {
+    margin-top: var(--spacer-2);
+    font-size: var(--font-l);
+}

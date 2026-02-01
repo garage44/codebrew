@@ -79,5 +79,8 @@
     "*.css": [
       "stylelint --fix"
     ]
+  },
+  "dependencies": {
+    "sqlite-vec": "^0.1.7-alpha.2"
   }
 }

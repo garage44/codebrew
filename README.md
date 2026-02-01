@@ -4,15 +4,7 @@
 
 > Modern web applications built with Bun, Preact, and DeepSignal.
 
-Garage44 represents a complete approach to automated software development. From writing code to deploying production systems, every step of the development lifecycle is streamlined and automated.
-
-**Development** starts with **Bunchy**—instant hot module replacement and live reloading eliminate the traditional edit-compile-refresh cycle. Write code, see changes immediately.
-
-**AI-assisted workflows** are built into the platform. **Expressio** automates translation workflows, detecting missing translations in your code and translating them using AI providers. **Malkovich** serves as both a documentation hub and an AI discovery platform, enabling AI agents to understand project structure, architectural decisions, and development patterns.
-
-**Deployment** happens automatically. Push to a pull request? Malkovich spins up an isolated preview environment. Merge to main? Production deploys automatically via webhooks. Systemd services, nginx configurations, SSL certificates—all generated and managed automatically.
-
-**Collaboration** is seamless. WebSocket-based real-time synchronization keeps teams in sync. Component styleguides ensure visual consistency. Architecture Decision Records guide both human developers and AI assistants. The result: a development environment where you focus on building features, not configuring tooling. Where AI agents can understand and contribute to your codebase. Where deployment is a push away, not a multi-step manual process.
+Automated software development platform with AI-assisted workflows, instant hot reloading, and automated deployment. **Bunchy** provides hot module replacement. **Expressio** automates i18n translation workflows. **Nonlinear** manages project lifecycle with AI agents. **Malkovich** serves as documentation hub and deployment automation. **Pyrite** is a video conferencing frontend for Galène SFU.
 
 ## Projects
 
@@ -58,6 +50,18 @@ bunx @garage44/expressio start
 **License:** AGPLv3
 **Documentation:** [packages/expressio/docs/index.md](./packages/expressio/docs/index.md)
 
+### Nonlinear
+
+AI-powered automated project management. Manages complete software development lifecycle from backlog to closed tickets using AI agents (prioritizer, developer, reviewer).
+
+```bash
+cd packages/nonlinear
+bun run dev
+# Configure in ~/.nonlinearrc
+```
+
+**License:** AGPLv3
+**Documentation:** [packages/nonlinear/README.md](./packages/nonlinear/README.md)
 
 ### Pyrite
 
@@ -89,10 +93,9 @@ bun run dev
 # Install dependencies
 bun install
 
-# Start Expressio
+# Start any project
 cd packages/expressio && bun run dev
-
-# Or start Pyrite
+cd packages/nonlinear && bun run dev
 cd packages/pyrite && bun run dev
 ```
 

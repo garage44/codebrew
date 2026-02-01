@@ -5,7 +5,8 @@ import {homedir} from 'node:os'
 import path from 'node:path'
 import rc from 'rc'
 
-const config = rc('nonlinear', {
+// Default config structure
+const defaultConfig = {
     agents: {
         developer: {
             enabled: true,
@@ -32,6 +33,25 @@ const config = rc('nonlinear', {
         // 10 minutes
         timeout: 600000,
     },
+    embeddings: {
+        chunkOverlap: 200,
+        chunkSize: 1000,
+        dimension: 1024, // Voyage AI voyage-3 dimension
+        local: {
+            dimension: 384,
+            model: 'Xenova/all-MiniLM-L6-v2',
+        },
+        openai: {
+            apiKey: process.env.OPENAI_API_KEY || '',
+            dimension: 1536,
+            model: 'text-embedding-3-small',
+        },
+        provider: 'voyageai', // 'voyageai' | 'local' | 'openai'
+        voyageai: {
+            apiKey: process.env.VOYAGE_API_KEY || '',
+            model: 'voyage-3',
+        },
+    },
     git: {
         defaultPlatform: 'github',
         github: {
@@ -45,6 +65,9 @@ const config = rc('nonlinear', {
     logger: {
         file: 'nonlinear.log',
         level: 'debug',
+    },
+    public: {
+        showPlanning: true, // Show Planning board to non-authenticated users
     },
     session: {
         // One day
@@ -69,7 +92,34 @@ const config = rc('nonlinear', {
             username: 'admin',
         },
     ],
-})
+}
+
+// Load config with error handling
+let config: typeof defaultConfig
+try {
+    config = rc('nonlinear', defaultConfig)
+} catch(error) {
+    logger.error(`[config] Failed to load config file: ${error}`)
+    logger.warn('[config] Using default config. Fix the config file and restart.')
+    // Use defaults if config file is invalid
+    config = defaultConfig
+    // Try to backup the bad config file (async, non-blocking)
+    const envConfigPath = process.env.CONFIG_PATH
+    const configPath = envConfigPath || path.join(homedir(), '.nonlinearrc')
+    fs.pathExists(configPath).then((exists) => {
+        if (exists) {
+            return fs.copyFile(configPath, `${configPath}.backup.${Date.now()}`)
+                .then(() => {
+                    logger.info(`[config] Backed up invalid config to ${configPath}.backup.${Date.now()}`)
+                })
+                .catch(() => {
+                    // Backup failed, ignore
+                })
+        }
+    }).catch(() => {
+        // Ignore errors during backup attempt
+    })
+}
 
 async function initConfig(config) {
     // Check for environment variable first (for PR deployments and isolated instances)
@@ -91,7 +141,18 @@ async function saveConfig() {
     delete data.config
     delete data._
 
-    await fs.writeFile(configPath, JSON.stringify(data, null, 4))
+    // Validate JSON before writing
+    let jsonString: string
+    try {
+        jsonString = JSON.stringify(data, null, 4)
+        // Validate by parsing it back
+        JSON.parse(jsonString)
+    } catch(error) {
+        logger.error(`[config] Failed to serialize config: ${error}`)
+        throw new Error(`Config serialization failed: ${error instanceof Error ? error.message : String(error)}`)
+    }
+
+    await fs.writeFile(configPath, jsonString)
     logger.info(`[config] saved config to ${configPath}`)
 }
 
