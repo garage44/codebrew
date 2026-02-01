@@ -32,7 +32,7 @@
     "lint:ts-syntax": "bun run --filter './packages/**' lint:ts-syntax",
     "lint:ts-style": "bun run --filter './packages/**' lint:ts-style",
     "lint:ts-types": "bun run --filter './packages/**' lint:ts-types",
-    "malkovich": "bun packages/malkovich/service.ts",
+    "nonlinear": "bun packages/nonlinear/service.ts",
     "playwright:install": "bunx playwright install chromium",
     "prepublishOnly": "bun run lint:ts-syntax && bun run build",
     "publish": "bun lib/publish-workspace.ts",

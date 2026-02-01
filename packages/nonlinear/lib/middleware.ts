@@ -92,6 +92,12 @@ async function initMiddleware(_bunchyConfig) {
     const apiDocs = (await import('../api/docs.ts')).default
     apiDocs(router)
 
+    // Register webhook endpoint (signature validation, no auth required)
+    router.post('/webhook', async(req) => {
+        const {handleWebhook} = await import('./deploy/webhook')
+        return await handleWebhook(req)
+    })
+
     const publicPath = path.join(runtime.service_dir, 'public')
 
     /*
@@ -114,6 +120,7 @@ async function initMiddleware(_bunchyConfig) {
             '/api/docs/by-path',
             '/api/docs/search',
             '/api/search',
+            '/webhook',
         ],
         logger,
         mimeTypes: {
@@ -147,6 +154,7 @@ async function initMiddleware(_bunchyConfig) {
             '/api/docs/by-path',
             '/api/docs/search',
             '/api/search',
+            '/webhook',
         ],
         packageName: 'nonlinear',
         sessionCookieName: 'nonlinear-session',

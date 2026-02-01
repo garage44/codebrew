@@ -6,8 +6,8 @@ After=network.target
 Type=oneshot
 User=garage44
 Group=garage44
-WorkingDirectory=/home/garage44/garage44/packages/malkovich
+WorkingDirectory=/home/garage44/garage44/packages/nonlinear
 Environment="PATH=/home/garage44/.bun/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-ExecStart=/home/garage44/.bun/bin/bun run malkovich cleanup-stale-prs
+ExecStart=/home/garage44/.bun/bin/bun run nonlinear cleanup-stale-prs
 StandardOutput=journal
 StandardError=journal

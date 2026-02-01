@@ -97,6 +97,7 @@ void cli.usage('Usage: $0 [task]')
         const {registerCIWebSocketApiRoutes} = await import('./api/ci.ts')
         const {registerLabelsWebSocketApiRoutes} = await import('./api/labels.ts')
         const {registerDocsWebSocketApiRoutes} = await import('./api/docs.ts')
+        const {registerDeployWebSocketApiRoutes} = await import('./api/deploy.ts')
 
         registerTicketsWebSocketApiRoutes(wsManager)
         registerRepositoriesWebSocketApiRoutes(wsManager)
@@ -104,6 +105,7 @@ void cli.usage('Usage: $0 [task]')
         registerCIWebSocketApiRoutes(wsManager)
         registerLabelsWebSocketApiRoutes(wsManager)
         registerDocsWebSocketApiRoutes(wsManager)
+        registerDeployWebSocketApiRoutes(wsManager)
 
         // Initialize agent system
         const {initAgentStatusTracking} = await import('./lib/agent/status.ts')
@@ -136,6 +138,150 @@ void cli.usage('Usage: $0 [task]')
 
         logger.info(`Nonlinear service started on http://${argv.host}:${argv.port}`)
     })
+    .command('deploy-pr', 'Deploy a PR branch manually (for Cursor agent)', (yargs) =>
+        yargs
+            .option('number', {
+                demandOption: true,
+                describe: 'PR number to deploy',
+                type: 'number',
+            })
+            .option('branch', {
+                demandOption: true,
+                describe: 'Branch name (e.g., feature/new-ui)',
+                type: 'string',
+            })
+            .option('sha', {
+                describe: 'Commit SHA (defaults to latest)',
+                type: 'string',
+            })
+            .option('author', {
+                default: 'local',
+                describe: 'Author name',
+                type: 'string',
+            })
+    , async (argv) => {
+        const {deployPR} = await import('./lib/deploy/pr-deploy')
+
+        const pr = {
+            author: argv.author,
+            head_ref: argv.branch,
+            head_sha: argv.sha || undefined,
+            is_fork: false,
+            number: argv.number,
+            repo_full_name: 'garage44/garage44',
+        }
+
+        const result = await deployPR(pr)
+
+        if (result.success && result.deployment) {
+            console.log('\n✅ PR Deployment Successful!\n')
+
+            const {extractWorkspacePackages, isApplicationPackage} = await import('./lib/deploy/workspace')
+            const repoDir = `${result.deployment.directory}/repo`
+            const {existsSync} = await import('fs')
+            let packagesToShow: string[] = []
+
+            if (existsSync(repoDir)) {
+                const allPackages = extractWorkspacePackages(repoDir)
+                const appPackages = allPackages.filter((pkg) => isApplicationPackage(pkg))
+                packagesToShow = [...appPackages, 'nonlinear']
+            } else {
+                packagesToShow = ['expressio', 'pyrite', 'nonlinear']
+            }
+
+            console.log(`URLs:`)
+            for (const packageName of packagesToShow) {
+                const port = result.deployment.ports[packageName as keyof typeof result.deployment.ports] || result.deployment.ports.nonlinear
+                console.log(`  ${packageName}: https://pr-${argv.number}-${packageName}.garage44.org (port ${port})`)
+            }
+
+            console.log(`\nNote: Deployment is publicly accessible (no token required)`)
+        } else {
+            console.error(`\n❌ Deployment failed: ${result.message}`)
+            process.exit(1)
+        }
+    })
+    .command('list-pr-deployments', 'List all active PR deployments', async () => {
+        const {listPRDeployments} = await import('./lib/deploy/pr-cleanup')
+        await listPRDeployments()
+    })
+    .command('cleanup-pr', 'Cleanup a specific PR deployment', (yargs) =>
+        yargs.option('number', {
+            demandOption: true,
+            describe: 'PR number to cleanup',
+            type: 'number',
+        })
+    , async (argv) => {
+        const {cleanupPRDeployment} = await import('./lib/deploy/pr-cleanup')
+        const result = await cleanupPRDeployment(argv.number)
+        console.log(result.message)
+        process.exit(result.success ? 0 : 1)
+    })
+    .command('cleanup-stale-prs', 'Cleanup stale PR deployments', (yargs) =>
+        yargs.option('max-age-days', {
+            default: 7,
+            describe: 'Maximum age in days',
+            type: 'number',
+        })
+    , async (argv) => {
+        const {cleanupStaleDeployments} = await import('./lib/deploy/pr-cleanup')
+        const result = await cleanupStaleDeployments(argv.maxAgeDays)
+        console.log(result.message)
+    })
+    .command('regenerate-pr-nginx', 'Regenerate nginx configs for an existing PR deployment', (yargs) =>
+        yargs.option('number', {
+            demandOption: true,
+            describe: 'PR number to regenerate nginx configs for',
+            type: 'number',
+        })
+    , async (argv) => {
+        const {regeneratePRNginx} = await import('./lib/deploy/pr-deploy')
+        const result = await regeneratePRNginx(argv.number)
+        console.log(result.message)
+        process.exit(result.success ? 0 : 1)
+    })
+    .command('generate-systemd', 'Generate systemd service files', (yargs) =>
+        yargs
+            .option('domain', {
+                demandOption: true,
+                describe: 'Domain name (e.g., garage44.org)',
+                type: 'string',
+            })
+    , async (argv) => {
+        const {generateSystemd} = await import('./lib/deploy/deploy/systemd')
+        const output = await generateSystemd(argv.domain)
+        console.log(output)
+    })
+    .command('generate-nginx', 'Generate nginx configuration', (yargs) =>
+        yargs
+            .option('domain', {
+                demandOption: true,
+                describe: 'Domain name (e.g., garage44.org)',
+                type: 'string',
+            })
+    , async (argv) => {
+        const {generateNginx} = await import('./lib/deploy/deploy/nginx')
+        const output = generateNginx(argv.domain)
+        console.log(output)
+    })
+    .command('publish', 'Publish all workspace packages to npm', async () => {
+        const {publish} = await import('./lib/deploy/publish')
+        await publish()
+    })
+    .command('init', 'Initialize Cursor rules and AGENTS.md', async () => {
+        const {init} = await import('./lib/deploy/init')
+        const {rules} = await import('./lib/deploy/rules')
+        await init()
+        await rules()
+        console.log('\n✅ Cursor setup complete!')
+    })
+    .command('rules', 'Create symlink from .cursor/rules to nonlinear/lib/fixtures/rules', async () => {
+        const {rules} = await import('./lib/deploy/rules')
+        await rules()
+    })
+    .demandCommand()
+    .help('help')
+    .showHelpOnFail(true)
     .parse()
 
 export {

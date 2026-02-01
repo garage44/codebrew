@@ -4,24 +4,9 @@
 
 > Modern web applications built with Bun, Preact, and DeepSignal.
 
-Automated software development platform with AI-assisted workflows, instant hot reloading, and automated deployment. **Bunchy** provides hot module replacement. **Expressio** automates i18n translation workflows. **Nonlinear** manages project lifecycle with AI agents. **Malkovich** serves as documentation hub and deployment automation. **Pyrite** is a video conferencing frontend for Galène SFU.
+Automated software development platform with AI-assisted workflows, instant hot reloading, and automated deployment. **Bunchy** provides hot module replacement. **Expressio** automates i18n translation workflows. **Nonlinear** manages project lifecycle with AI agents and provides platform documentation and deployment automation. **Pyrite** is a video conferencing frontend for Galène SFU.
 
 ## Projects
-
-### Malkovich
-
-Platform documentation and deployment automation hub. Provides unified documentation, component styleguide, automated PR deployments, and AI discovery mechanisms for the entire monorepo.
-
-**🌐 Live:** [garage44.org](https://garage44.org)
-
-```bash
-cd packages/malkovich
-bun run dev
-# Access at http://localhost:3032
-```
-
-**License:** MIT
-**Documentation:** [packages/malkovich/docs/index.md](./packages/malkovich/docs/index.md)
 
 ### Bunchy
 
@@ -52,12 +37,15 @@ bunx @garage44/expressio start
 
 ### Nonlinear
 
-AI-powered automated project management. Manages complete software development lifecycle from backlog to closed tickets using AI agents (prioritizer, developer, reviewer).
+AI-powered automated project management and platform hub. Manages complete software development lifecycle from backlog to closed tickets using AI agents (prioritizer, developer, reviewer). Also provides unified documentation, deployment automation, and AI discovery mechanisms for the entire monorepo.
+
+**🌐 Live:** [garage44.org](https://garage44.org)
 
 ```bash
 cd packages/nonlinear
 bun run dev
 # Configure in ~/.nonlinearrc
+# Access at http://localhost:3030
 ```
 
 **License:** AGPLv3
