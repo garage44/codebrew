@@ -4,10 +4,9 @@
  */
 
 import {logger} from '../service.ts'
-import {db} from './database.ts'
 import {randomId} from '@garage44/common/lib/utils'
-import {findWorkspaceRoot, extractWorkspacePackages, hasWorkspacePackages} from './workspace.ts'
-import {readFileSync, existsSync, readdirSync, statSync} from 'fs'
+import {extractWorkspacePackages} from './workspace.ts'
+import {readFileSync, existsSync, readdirSync} from 'fs'
 import {join, relative} from 'path'
 import {generateDocEmbeddings} from './docs/embeddings.ts'
 import type {Database} from 'bun:sqlite'
@@ -29,13 +28,13 @@ export async function initializeFixtures(db: Database, workspaceRoot: string): P
     // Create garage44 workspace
     const workspaceId = await createGarage44Workspace(db, workspaceRoot)
 
-    // Import fixture docs
-    await importFixtureDocs(db, workspaceRoot, workspaceId)
-
-    // Create preset tickets
+    // Create preset tickets first (for early testing)
     await createPresetTickets(db, workspaceId)
 
-    logger.info('[Fixtures] Initialized garage44 workspace with docs and preset tickets')
+    // Import fixture docs (takes longer due to embeddings)
+    await importFixtureDocs(db, workspaceRoot, workspaceId)
+
+    logger.info('[Fixtures] Initialized garage44 workspace with tickets and docs')
 }
 
 async function createGarage44Workspace(
@@ -90,7 +89,8 @@ function inferTagsFromPath(pkg: string, filePath: string, workspaceRoot: string)
 
     // Add package name as tag if it's a package doc
     if (pkg !== 'workspace') {
-        tags.push(`workspace:garage44/packages/${pkg}`)
+        // Replace / with - to comply with tag format (hyphens only)
+        tags.push(`workspace:garage44-packages-${pkg}`)
     }
 
     return tags
@@ -203,15 +203,22 @@ async function importDocsFromDirectory(
 
                 // Add tags
                 for (const tag of tags) {
+                    // Normalize tag before ensuring it exists
+                    const normalizedTag = tag
+                        .toLowerCase()
+                        .replace(/\s+/g, '-')
+                        .replace(/\//g, '-')
+                        .replace(/[^a-z0-9:-]/g, '')
+
                     // Ensure tag exists in label_definitions
-                    ensureLabelExists(db, tag)
+                    ensureLabelExists(db, normalizedTag)
 
                     // Add to documentation_labels
                     try {
                         db.prepare(`
                             INSERT INTO documentation_labels (doc_id, label)
                             VALUES (?, ?)
-                        `).run(docId, tag)
+                        `).run(docId, normalizedTag)
                     } catch {
                         // Tag already exists, ignore
                     }
@@ -236,15 +243,22 @@ async function importDocsFromDirectory(
  * Ensure label exists in label_definitions
  */
 function ensureLabelExists(db: Database, label: string): void {
-    // Validate tag format (hyphens only)
-    if (!/^[a-z0-9:-]+$/.test(label) || label.includes('_')) {
-        logger.warn(`[Fixtures] Invalid tag format (must use hyphens): ${label}`)
+    /* Normalize tag: replace spaces and slashes with hyphens, remove invalid chars */
+    const normalizedLabel = label
+        .toLowerCase()
+        .replace(/\s+/g, '-')
+        .replace(/\//g, '-')
+        .replace(/[^a-z0-9:-]/g, '')
+
+    // Validate tag format (hyphens only, no underscores)
+    if (!/^[a-z0-9:-]+$/.test(normalizedLabel) || normalizedLabel.includes('_')) {
+        logger.warn(`[Fixtures] Invalid tag format (must use hyphens): ${label} -> ${normalizedLabel}`)
         return
     }
 
-    const existing = db.prepare('SELECT id FROM label_definitions WHERE name = ?').get(label)
+    const existing = db.prepare('SELECT id FROM label_definitions WHERE name = ?').get(normalizedLabel)
     if (!existing) {
-        const labelId = `label-${label.toLowerCase().replace(/:/g, '-')}`
+        const labelId = `label-${normalizedLabel.toLowerCase().replace(/:/g, '-')}`
         const now = Date.now()
         const defaultColor = '#64748b'
 
@@ -252,7 +266,7 @@ function ensureLabelExists(db: Database, label: string): void {
             db.prepare(`
                 INSERT INTO label_definitions (id, name, color, created_at, updated_at)
                 VALUES (?, ?, ?, ?, ?)
-            `).run(labelId, label, defaultColor, now, now)
+            `).run(labelId, normalizedLabel, defaultColor, now, now)
         } catch {
             // Label already exists, ignore
         }
@@ -365,8 +379,6 @@ async function createPresetTickets(db: Database, workspaceId: string): Promise<v
     ]
 
     const now = Date.now()
-    const adminUser = db.prepare('SELECT id FROM users WHERE username = ?').get('admin') as {id: string} | undefined
-    const adminUserId = adminUser?.id || randomId()
 
     for (const ticket of presetTickets) {
         const ticketId = randomId()

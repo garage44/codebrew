@@ -88,6 +88,10 @@ async function initMiddleware(_bunchyConfig) {
     const apiRepositories = (await import('../api/repositories.ts')).default
     await apiRepositories(router)
 
+    // Register HTTP docs API endpoints (public access)
+    const apiDocs = (await import('../api/docs.ts')).default
+    apiDocs(router)
+
     const publicPath = path.join(runtime.service_dir, 'public')
 
     /*
@@ -104,7 +108,13 @@ async function initMiddleware(_bunchyConfig) {
         },
         customWebSocketHandlers: [],
         devContext,
-        endpointAllowList: ['/api/login'],
+        endpointAllowList: [
+            '/api/login',
+            '/api/docs',
+            '/api/docs/by-path',
+            '/api/docs/search',
+            '/api/search',
+        ],
         logger,
         mimeTypes: {
             '.css': 'text/css',
@@ -131,7 +141,13 @@ async function initMiddleware(_bunchyConfig) {
     const unifiedMiddleware = createMiddleware({
         configPath,
         customWebSocketHandlers: [],
-        endpointAllowList: ['/api/login'],
+        endpointAllowList: [
+            '/api/login',
+            '/api/docs',
+            '/api/docs/by-path',
+            '/api/docs/search',
+            '/api/search',
+        ],
         packageName: 'nonlinear',
         sessionCookieName: 'nonlinear-session',
     }, userManager)

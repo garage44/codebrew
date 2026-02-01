@@ -193,7 +193,7 @@ export const Docs = () => {
                             {filteredItems.map((item) => {
                                 if (item.type === 'dir') {
                                     return (
-                                        <li key={item.path} style={`padding-left: ${item.depth * 16}px`}>
+                                        <li key={item.path} class="dir" style={`padding-left: ${item.depth * 16}px`}>
                                             <Icon name="folder" type="info" />
                                             <span>{item.name}</span>
                                         </li>

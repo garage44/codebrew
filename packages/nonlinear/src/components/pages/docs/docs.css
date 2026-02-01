@@ -2,10 +2,13 @@
     display: flex;
     height: 100%;
     overflow: hidden;
+    background: var(--surface-0);
+    color: var(--text-1);
 }
 
 .c-docs .sidebar {
-    width: 300px;
+    width: 320px;
+    background: var(--surface-1);
     border-right: 1px solid var(--border);
     display: flex;
     flex-direction: column;
@@ -13,22 +16,73 @@
 }
 
 .c-docs .search {
-    padding: var(--spacer-2);
+    padding: var(--spacer-3);
     border-bottom: 1px solid var(--border);
+    background: var(--surface-1);
 }
 
 .c-docs .search input {
     width: 100%;
     padding: var(--spacer-1) var(--spacer-2);
-    border: 1px solid var(--border);
+    border: 1px solid var(--input-border);
     border-radius: var(--radius);
+    background: var(--input-bg);
+    color: var(--input-text);
     font-size: var(--font-d);
+    font-family: inherit;
+    transition: border-color 0.2s, background-color 0.2s;
+}
+
+.c-docs .search input::placeholder {
+    color: var(--input-placeholder);
+}
+
+.c-docs .search input:focus {
+    outline: none;
+    border-color: var(--primary-4);
+    background: var(--surface-2);
 }
 
 .c-docs .tree {
     flex: 1;
     overflow-y: auto;
-    padding: var(--spacer-1);
+    overflow-x: hidden;
+    padding: var(--spacer-2);
+}
+
+/* Custom scrollbar styling */
+.c-docs .tree::-webkit-scrollbar {
+    width: 8px;
+}
+
+.c-docs .tree::-webkit-scrollbar-track {
+    background: var(--surface-1);
+}
+
+.c-docs .tree::-webkit-scrollbar-thumb {
+    background: var(--surface-3);
+    border-radius: 4px;
+}
+
+.c-docs .tree::-webkit-scrollbar-thumb:hover {
+    background: var(--surface-4);
+}
+
+.c-docs .content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.c-docs .content::-webkit-scrollbar-track {
+    background: var(--surface-0);
+}
+
+.c-docs .content::-webkit-scrollbar-thumb {
+    background: var(--surface-3);
+    border-radius: 4px;
+}
+
+.c-docs .content::-webkit-scrollbar-thumb:hover {
+    background: var(--surface-4);
 }
 
 .c-docs .tree ul {
@@ -38,22 +92,48 @@
 }
 
 .c-docs .tree li {
-    padding: var(--spacer-1);
+    padding: var(--spacer-1) var(--spacer-2);
     cursor: pointer;
     display: flex;
     align-items: center;
     gap: var(--spacer-1);
     border-radius: var(--radius);
-    transition: background-color 0.2s;
+    transition: background-color 0.15s ease;
+    color: var(--text-2);
+    font-size: var(--font-d);
+    user-select: none;
+    min-height: 32px;
 }
 
 .c-docs .tree li:hover {
     background-color: var(--surface-2);
+    color: var(--text-1);
 }
 
 .c-docs .tree li.selected {
     background-color: var(--primary-2);
-    color: var(--primary-11);
+    color: var(--primary-8);
+    font-weight: 500;
+}
+
+.c-docs .tree li.dir {
+    color: var(--text-3);
+    font-weight: 500;
+    font-size: var(--font-s);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: var(--spacer-2);
+    margin-bottom: var(--spacer-1);
+    cursor: default;
+}
+
+.c-docs .tree li.dir:hover {
+    background-color: transparent;
+    color: var(--text-3);
+}
+
+.c-docs .tree li.dir:first-child {
+    margin-top: 0;
 }
 
 .c-docs .tree li span {
@@ -61,30 +141,50 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    line-height: 1.4;
+}
+
+.c-docs .tree li .icon {
+    flex-shrink: 0;
+    opacity: 0.6;
+    width: 16px;
+    height: 16px;
+}
+
+.c-docs .tree li.selected .icon {
+    opacity: 1;
 }
 
 .c-docs .content {
     flex: 1;
     overflow-y: auto;
-    padding: var(--spacer-4);
+    overflow-x: hidden;
+    background: var(--surface-0);
+    padding: 0;
 }
 
 .c-docs .doc-viewer {
-    max-width: 800px;
+    max-width: 900px;
     margin: 0 auto;
+    padding: var(--spacer-6) var(--spacer-5);
+    min-height: 100%;
 }
 
 .c-docs .doc-header {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    margin-bottom: var(--spacer-4);
+    margin-bottom: var(--spacer-5);
+    gap: var(--spacer-3);
 }
 
 .c-docs .doc-header h1 {
     margin: 0;
-    font-size: var(--font-2xl);
+    font-size: var(--font-xxl);
     font-weight: 600;
+    line-height: 1.2;
+    color: var(--text-1);
+    flex: 1;
 }
 
 .c-docs .doc-header button {
@@ -94,27 +194,56 @@
     padding: var(--spacer-1) var(--spacer-2);
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    background: var(--surface-1);
+    background: var(--surface-2);
+    color: var(--text-1);
     cursor: pointer;
     font-size: var(--font-d);
+    font-family: inherit;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+    flex-shrink: 0;
 }
 
 .c-docs .doc-header button:hover {
-    background: var(--surface-2);
+    background: var(--surface-3);
+    border-color: var(--primary-4);
 }
 
 .c-docs .doc-tags {
     display: flex;
     gap: var(--spacer-1);
-    margin-bottom: var(--spacer-4);
+    margin-bottom: var(--spacer-5);
     flex-wrap: wrap;
 }
 
 .c-docs .doc-tags .tag {
-    padding: var(--spacer-1) var(--spacer-2);
-    border-radius: var(--radius);
-    font-size: var(--font-d);
-    color: white;
+    padding: var(--spacer-05) var(--spacer-2);
+    border-radius: calc(var(--radius) * 0.75);
+    font-size: var(--font-xs);
+    font-weight: 500;
+    background: var(--primary-2);
+    color: var(--primary-8);
+    border: 1px solid var(--primary-3);
+    transition: background-color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+    display: inline-block;
+}
+
+.c-docs .doc-tags .tag:hover {
+    background: var(--primary-3);
+    border-color: var(--primary-4);
+    opacity: 0.9;
+}
+
+/* Override with label color if provided via inline style */
+.c-docs .doc-tags .tag[style*="background-color"] {
+    border-color: transparent;
+    color: var(--text-1);
+    /* Ensure text is readable on colored backgrounds */
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.c-docs .doc-tags .tag[style*="background-color"]:hover {
+    opacity: 0.9;
+    filter: brightness(1.05);
 }
 
 .c-docs .empty {
@@ -123,10 +252,19 @@
     align-items: center;
     justify-content: center;
     height: 100%;
-    color: var(--text-2);
+    color: var(--text-3);
+    padding: var(--spacer-6);
 }
 
 .c-docs .empty p {
     margin-top: var(--spacer-2);
     font-size: var(--font-l);
+    color: var(--text-2);
+}
+
+.c-docs .loading {
+    padding: var(--spacer-4);
+    text-align: center;
+    color: var(--text-3);
+    font-size: var(--font-d);
 }

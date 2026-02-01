@@ -37,6 +37,165 @@ function enrichDoc(doc: {
     }
 }
 
+/**
+ * HTTP API routes for documentation (public access)
+ * These routes are accessible without authentication
+ */
+export default function apiDocs(router: {
+    get: (path: string, handler: (req: Request, params: Record<string, string>, session?: unknown) => Promise<Response>) => void
+    post: (path: string, handler: (req: Request, params: Record<string, string>, session?: unknown) => Promise<Response>) => void
+    put: (path: string, handler: (req: Request, params: Record<string, string>, session?: unknown) => Promise<Response>) => void
+    delete: (path: string, handler: (req: Request, params: Record<string, string>, session?: unknown) => Promise<Response>) => void
+}) {
+    // List docs (public)
+    router.get('/api/docs', async(_req: Request, _params: Record<string, string>, _session: unknown) => {
+        const url = new URL(_req.url)
+        const tags = url.searchParams.get('tags') ? url.searchParams.get('tags')!.split(',') : undefined
+        const workspace = url.searchParams.get('workspace') || undefined
+
+        let query = 'SELECT * FROM documentation WHERE 1=1'
+        const params: any[] = []
+
+        if (workspace) {
+            const workspaceTag = `workspace:${workspace}`
+            query += ` AND id IN (
+                SELECT doc_id FROM documentation_labels WHERE label = ?
+            )`
+            params.push(workspaceTag)
+        }
+
+        if (tags && tags.length > 0) {
+            query += ` AND id IN (
+                SELECT doc_id FROM documentation_labels WHERE label IN (${tags.map(() => '?').join(',')})
+            )`
+            params.push(...tags)
+        }
+
+        query += ' ORDER BY updated_at DESC'
+
+        const docs = db.prepare(query).all(...params) as Array<{
+            id: string
+            path: string
+            title: string
+            content: string
+            author_id: string
+            created_at: number
+            updated_at: number
+        }>
+
+        return new Response(JSON.stringify({docs: docs.map(enrichDoc)}), {
+            headers: {'Content-Type': 'application/json'},
+        })
+    })
+
+    // Get doc by path (public)
+    router.get('/api/docs/by-path', async(_req: Request, _params: Record<string, string>, _session: unknown) => {
+        const url = new URL(_req.url)
+        const path = url.searchParams.get('path')
+
+        if (!path) {
+            return new Response(JSON.stringify({error: 'Path parameter required'}), {
+                headers: {'Content-Type': 'application/json'},
+                status: 400,
+            })
+        }
+
+        const doc = db.prepare('SELECT * FROM documentation WHERE path = ?').get(path) as {
+            id: string
+            path: string
+            title: string
+            content: string
+            author_id: string
+            created_at: number
+            updated_at: number
+        } | undefined
+
+        if (!doc) {
+            return new Response(JSON.stringify({error: 'Documentation not found'}), {
+                headers: {'Content-Type': 'application/json'},
+                status: 404,
+            })
+        }
+
+        return new Response(JSON.stringify({doc: enrichDoc(doc)}), {
+            headers: {'Content-Type': 'application/json'},
+        })
+    })
+
+    // Semantic search (public)
+    router.get('/api/docs/search', async(_req: Request, _params: Record<string, string>, _session: unknown) => {
+        const url = new URL(_req.url)
+        const query = url.searchParams.get('query') || ''
+        const limit = parseInt(url.searchParams.get('limit') || '10', 10)
+        const tags = url.searchParams.get('tags') ? url.searchParams.get('tags')!.split(',') : undefined
+        const workspace = url.searchParams.get('workspace') || undefined
+
+        if (!query) {
+            return new Response(JSON.stringify({error: 'Query parameter required'}), {
+                headers: {'Content-Type': 'application/json'},
+                status: 400,
+            })
+        }
+
+        try {
+            const {searchDocs} = await import('../lib/docs/search.ts')
+            const filters: {tags?: string[]; workspace?: string} = {}
+            if (tags) filters.tags = tags
+            if (workspace) filters.workspace = workspace
+
+            const results = await searchDocs(query, filters, limit)
+
+            return new Response(JSON.stringify({results}), {
+                headers: {'Content-Type': 'application/json'},
+            })
+        } catch (error) {
+            return new Response(JSON.stringify({error: error instanceof Error ? error.message : String(error)}), {
+                headers: {'Content-Type': 'application/json'},
+                status: 500,
+            })
+        }
+    })
+
+    // Unified search (public)
+    router.get('/api/search', async(_req: Request, _params: Record<string, string>, _session: unknown) => {
+        const url = new URL(_req.url)
+        const query = url.searchParams.get('query') || ''
+        const limit = parseInt(url.searchParams.get('limit') || '10', 10)
+        const contentType = (url.searchParams.get('contentType') || 'both') as 'doc' | 'ticket' | 'both'
+        const tags = url.searchParams.get('tags') ? url.searchParams.get('tags')!.split(',') : undefined
+        const workspace = url.searchParams.get('workspace') || undefined
+
+        if (!query) {
+            return new Response(JSON.stringify({error: 'Query parameter required'}), {
+                headers: {'Content-Type': 'application/json'},
+                status: 400,
+            })
+        }
+
+        try {
+            const {unifiedVectorSearch} = await import('../lib/docs/search.ts')
+            const filters: {tags?: string[]; workspace?: string} = {}
+            if (tags) filters.tags = tags
+            if (workspace) filters.workspace = workspace
+
+            const results = await unifiedVectorSearch(query, {
+                limit,
+                contentType,
+                filters,
+            })
+
+            return new Response(JSON.stringify(results), {
+                headers: {'Content-Type': 'application/json'},
+            })
+        } catch (error) {
+            return new Response(JSON.stringify({error: error instanceof Error ? error.message : String(error)}), {
+                headers: {'Content-Type': 'application/json'},
+                status: 500,
+            })
+        }
+    })
+}
+
 export function registerDocsWebSocketApiRoutes(wsManager: WebSocketServerManager) {
     // List docs (filter by tags, workspace)
     wsManager.api.get('/api/docs', async(_ctx, req) => {

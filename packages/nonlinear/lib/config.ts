@@ -13,8 +13,8 @@ const defaultConfig = {
             maxConcurrent: 3,
         },
         prioritizer: {
-            checkInterval: 300000,
             // 5 minutes
+            checkInterval: 300000,
             enabled: true,
         },
         reviewer: {
@@ -25,8 +25,8 @@ const defaultConfig = {
     anthropic: {
         apiKey: process.env.ANTHROPIC_API_KEY || '',
         model: 'claude-3-5-sonnet-20241022',
-        tokenLimit: parseInt(process.env.ANTHROPIC_TOKEN_LIMIT || '1000000', 10),
         // Default: 1M tokens per month
+        tokenLimit: parseInt(process.env.ANTHROPIC_TOKEN_LIMIT || '1000000', 10),
     },
     ci: {
         maxFixAttempts: 3,
@@ -36,7 +36,8 @@ const defaultConfig = {
     embeddings: {
         chunkOverlap: 200,
         chunkSize: 1000,
-        dimension: 1024, // Voyage AI voyage-3 dimension
+        // Local model dimension (Xenova/all-MiniLM-L6-v2)
+        dimension: 384,
         local: {
             dimension: 384,
             model: 'Xenova/all-MiniLM-L6-v2',
@@ -46,7 +47,8 @@ const defaultConfig = {
             dimension: 1536,
             model: 'text-embedding-3-small',
         },
-        provider: 'voyageai', // 'voyageai' | 'local' | 'openai'
+        // 'voyageai' | 'local' | 'openai'
+        provider: 'local',
         voyageai: {
             apiKey: process.env.VOYAGE_API_KEY || '',
             model: 'voyage-3',
@@ -67,7 +69,8 @@ const defaultConfig = {
         level: 'debug',
     },
     public: {
-        showPlanning: true, // Show Planning board to non-authenticated users
+        // Show Planning board to non-authenticated users
+        showPlanning: true,
     },
     session: {
         // One day

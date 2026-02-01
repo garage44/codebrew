@@ -28,7 +28,7 @@ export function chunkMarkdown(content: string, maxChunkSize: number = 1000, chun
         const line = lines[i]
         const headingMatch = line.match(headingRegex)
 
-        if (headingMatch) {
+        if (headingMatch && headingMatch[2]) {
             // Found a heading
             const headingText = headingMatch[2].trim()
 

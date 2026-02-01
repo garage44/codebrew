@@ -4,6 +4,7 @@ import {logger} from '../service.ts'
 import path from 'node:path'
 import {homedir} from 'node:os'
 import {randomId} from '@garage44/common/lib/utils'
+import {config} from './config.ts'
 
 /**
  * SQLite Database for Nonlinear
@@ -405,18 +406,37 @@ function createNonlinearTables() {
     // Vector search table (vec0 virtual table)
     // Only create if sqlite-vec extension is loaded
     try {
-        const embeddingDim = 1024 // Voyage AI voyage-3 dimension
-        db.exec(`
-            CREATE VIRTUAL TABLE IF NOT EXISTS vec_content USING vec0(
-                embedding float[${embeddingDim}],
-                content_type TEXT NOT NULL,
-                content_id TEXT NOT NULL,
-                chunk_index INTEGER,
-                chunk_text TEXT NOT NULL,
-                metadata TEXT
-            )
-        `)
-        logger.info('[Database] Created vec0 virtual table for vector search')
+        // Get embedding dimension from config (defaults based on provider)
+        const embeddingDim = config.embeddings.dimension || (
+            config.embeddings.provider === 'local' ? 384 :
+            config.embeddings.provider === 'openai' ? 1536 : 1024
+        )
+
+        // Check if vec0 table exists with different dimension
+        const existingTable = db.prepare(`
+            SELECT name FROM sqlite_master
+            WHERE type='table' AND name='vec_content'
+        `).get()
+
+        if (existingTable) {
+            // Table exists - check if we need to recreate it
+            // Note: vec0 tables can't be altered, so we'd need to drop and recreate
+            // For now, just log a warning if dimension might mismatch
+            logger.info(`[Database] vec0 table already exists, using dimension: ${embeddingDim}`)
+        } else {
+            // Create new table with correct dimension
+            db.exec(`
+                CREATE VIRTUAL TABLE vec_content USING vec0(
+                    embedding float[${embeddingDim}],
+                    content_type TEXT NOT NULL,
+                    content_id TEXT NOT NULL,
+                    chunk_index INTEGER,
+                    chunk_text TEXT NOT NULL,
+                    metadata TEXT
+                )
+            `)
+            logger.info(`[Database] Created vec0 virtual table for vector search (dimension: ${embeddingDim})`)
+        }
     } catch (error) {
         logger.warn('[Database] Failed to create vec0 table (sqlite-vec may not be loaded):', error)
     }

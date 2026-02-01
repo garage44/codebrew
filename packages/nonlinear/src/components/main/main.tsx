@@ -208,7 +208,11 @@ export const Main = () => {
                     }
                 })
             } else {
-                route('/login')
+                // Don't redirect to login if on public routes
+                const currentUrl = window.location.pathname
+                if (currentUrl !== '/docs' && !currentUrl.startsWith('/docs/') && currentUrl !== '/') {
+                    route('/login')
+                }
             }
         })()
     }, [])
@@ -226,9 +230,10 @@ export const Main = () => {
     }
 
     // Allow public access to docs and board (if configured)
-    const isPublicRoute = $s.env.url === '/docs' || $s.env.url === '/'
+    const isPublicRoute = $s.env.url === '/docs' || $s.env.url === '/' || $s.env.url.startsWith('/docs/')
     const showPublicBoard = true // TODO: Get from config.public.showPlanning
 
+    // Don't redirect to login if on public routes
     if ($s.profile.authenticated === false && !isPublicRoute && !showPublicBoard) {
         return <Login />
     }
@@ -283,23 +288,31 @@ export const Main = () => {
             menu={(
                 <PanelMenu
                     actions={(
-                        <UserMenu
-                            collapsed={$s.panels.menu.collapsed}
-                            onLogout={async() => {
-                                const result = await api.get('/api/logout')
-                                $s.profile.authenticated = result.authenticated || false
-                                $s.profile.admin = result.admin || false
-                                route('/board')
-                            }}
-                            settingsHref='/settings'
-                            user={{
-                                id: $s.profile.id || null,
-                                profile: {
-                                    avatar: $s.profile.avatar || null,
-                                    displayName: $s.profile.displayName || $s.profile.username || 'User',
-                                },
-                            }}
-                        />
+                        $s.profile.authenticated ? (
+                            <UserMenu
+                                collapsed={$s.panels.menu.collapsed}
+                                onLogout={async() => {
+                                    const result = await api.get('/api/logout')
+                                    $s.profile.authenticated = result.authenticated || false
+                                    $s.profile.admin = result.admin || false
+                                    route('/docs')
+                                }}
+                                settingsHref='/settings'
+                                user={{
+                                    id: $s.profile.id || null,
+                                    profile: {
+                                        avatar: $s.profile.avatar || null,
+                                        displayName: $s.profile.displayName || $s.profile.username || 'User',
+                                    },
+                                }}
+                            />
+                        ) : (
+                            <div style="padding: var(--spacer-2);">
+                                <Link href="/login" style="color: var(--text-1); text-decoration: none;">
+                                    Login
+                                </Link>
+                            </div>
+                        )
                       )}
                     collapsed={$s.panels.menu.collapsed}
                     footer={

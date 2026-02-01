@@ -101,11 +101,24 @@ const populateNoSecuritySession = async(session: unknown, userManager: UserManag
 }
 
 // Auth middleware for Bun.serve
-const authMiddleware = async(request: Request, session: unknown, userManager: UserManager) => {
+const authMiddleware = async(request: Request, session: unknown, userManager: UserManager, endpointAllowList: string[] = []) => {
     const url = new URL(request.url)
 
     if (!url.pathname.startsWith('/api')) {
         return true
+    }
+
+    // Check endpoint allow list (public endpoints)
+    // Support exact matches and path prefixes (e.g., '/api/docs' matches '/api/docs' and '/api/docs/by-path')
+    for (const allowedPath of endpointAllowList) {
+        if (url.pathname === allowedPath) {
+            return true
+        }
+        // Check if pathname starts with allowed path followed by '/' or '?'
+        // This allows '/api/docs' to match '/api/docs/by-path' but not '/api/docsomething'
+        if (url.pathname.startsWith(allowedPath + '/') || url.pathname.startsWith(allowedPath + '?')) {
+            return true
+        }
     }
 
     // Allow authentication endpoints to pass through to handlers
@@ -212,7 +225,7 @@ export const createMiddleware = (config: MiddlewareConfig, userManager: UserMana
             // Handle session and auth
             const {session} = sessionMiddleware(request, config.sessionCookieName)
 
-            if (!await authMiddleware(request, session, userManager)) {
+            if (!await authMiddleware(request, session, userManager, config.endpointAllowList)) {
                 return new Response('Unauthorized', {status: 401})
             }
 
