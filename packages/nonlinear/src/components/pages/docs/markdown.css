@@ -1,7 +1,56 @@
 .markdown-content {
     line-height: 1.7;
-    color: var(--text-1);
+    color: var(--surface-8);
     font-size: var(--font-d);
+}
+
+.markdown-content .doc-metadata {
+    margin-bottom: var(--spacer-5);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface-1);
+    overflow: hidden;
+}
+
+.markdown-content .doc-metadata table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0;
+}
+
+.markdown-content .doc-metadata table tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background-color 0.15s ease;
+}
+
+.markdown-content .doc-metadata table tbody tr:last-child {
+    border-bottom: none;
+}
+
+.markdown-content .doc-metadata table tbody tr:hover {
+    background: var(--surface-2);
+}
+
+.markdown-content .doc-metadata .metadata-key {
+    padding: var(--spacer-2) var(--spacer-3);
+    font-weight: 600;
+    font-size: var(--font-s);
+    color: var(--primary-6);
+    text-transform: lowercase;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', 'Monaco', monospace;
+    white-space: nowrap;
+    vertical-align: top;
+    width: 1%;
+    border-right: 1px solid var(--border);
+}
+
+.markdown-content .doc-metadata .metadata-value {
+    padding: var(--spacer-2) var(--spacer-3);
+    font-size: var(--font-d);
+    color: var(--surface-8);
+    word-break: break-word;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', 'Monaco', monospace;
+    line-height: 1.6;
 }
 
 .markdown-content h1 {
@@ -11,7 +60,7 @@
     margin-bottom: var(--spacer-4);
     padding-bottom: var(--spacer-3);
     border-bottom: 2px solid var(--border);
-    color: var(--text-1);
+    color: var(--surface-8);
     line-height: 1.2;
 }
 
@@ -26,7 +75,7 @@
     margin-bottom: var(--spacer-3);
     padding-bottom: var(--spacer-2);
     border-bottom: 1px solid var(--border);
-    color: var(--text-1);
+    color: var(--surface-8);
     line-height: 1.3;
 }
 
@@ -35,7 +84,7 @@
     font-weight: 600;
     margin-top: var(--spacer-5);
     margin-bottom: var(--spacer-2);
-    color: var(--text-1);
+    color: var(--surface-8);
     line-height: 1.4;
 }
 
@@ -44,21 +93,21 @@
     font-weight: 600;
     margin-top: var(--spacer-4);
     margin-bottom: var(--spacer-2);
-    color: var(--text-1);
+    color: var(--surface-8);
     line-height: 1.4;
 }
 
 .markdown-content p {
     margin-bottom: var(--spacer-3);
     line-height: 1.7;
-    color: var(--text-1);
+    color: var(--surface-8);
 }
 
 .markdown-content ul,
 .markdown-content ol {
     margin-bottom: var(--spacer-4);
     padding-left: var(--spacer-5);
-    color: var(--text-1);
+    color: var(--surface-8);
 }
 
 .markdown-content li {
@@ -100,7 +149,7 @@
     background: none;
     padding: 0;
     border: none;
-    color: var(--text-1);
+    color: var(--surface-8);
     font-size: var(--font-s);
 }
 
@@ -110,7 +159,7 @@
     margin-left: 0;
     margin-bottom: var(--spacer-4);
     margin-top: var(--spacer-4);
-    color: var(--text-2);
+    color: var(--surface-7);
     font-style: italic;
     background: var(--surface-1);
     padding-top: var(--spacer-2);
@@ -147,13 +196,13 @@
 .markdown-content table th {
     background: var(--surface-2);
     font-weight: 600;
-    color: var(--text-1);
+    color: var(--surface-8);
     font-size: var(--font-s);
 }
 
 .markdown-content table td {
     background: var(--surface-0);
-    color: var(--text-1);
+    color: var(--surface-8);
 }
 
 .markdown-content table tr:hover td {
@@ -190,10 +239,10 @@
 
 .markdown-content strong {
     font-weight: 600;
-    color: var(--text-1);
+    color: var(--surface-8);
 }
 
 .markdown-content em {
     font-style: italic;
-    color: var(--text-1);
+    color: var(--surface-8);
 }

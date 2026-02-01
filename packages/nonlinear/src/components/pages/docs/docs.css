@@ -3,7 +3,7 @@
     height: 100%;
     overflow: hidden;
     background: var(--surface-0);
-    color: var(--text-1);
+    color: var(--surface-8);
 }
 
 .c-docs .sidebar {
@@ -99,7 +99,7 @@
     gap: var(--spacer-1);
     border-radius: var(--radius);
     transition: background-color 0.15s ease;
-    color: var(--text-2);
+    color: var(--surface-7);
     font-size: var(--font-d);
     user-select: none;
     min-height: 32px;
@@ -107,7 +107,7 @@
 
 .c-docs .tree li:hover {
     background-color: var(--surface-2);
-    color: var(--text-1);
+    color: var(--surface-8);
 }
 
 .c-docs .tree li.selected {
@@ -117,7 +117,7 @@
 }
 
 .c-docs .tree li.dir {
-    color: var(--text-3);
+    color: var(--surface-5);
     font-weight: 500;
     font-size: var(--font-s);
     text-transform: uppercase;
@@ -129,7 +129,7 @@
 
 .c-docs .tree li.dir:hover {
     background-color: transparent;
-    color: var(--text-3);
+    color: var(--surface-5);
 }
 
 .c-docs .tree li.dir:first-child {
@@ -183,7 +183,7 @@
     font-size: var(--font-xxl);
     font-weight: 600;
     line-height: 1.2;
-    color: var(--text-1);
+    color: var(--surface-8);
     flex: 1;
 }
 
@@ -195,7 +195,7 @@
     border: 1px solid var(--border);
     border-radius: var(--radius);
     background: var(--surface-2);
-    color: var(--text-1);
+    color: var(--surface-8);
     cursor: pointer;
     font-size: var(--font-d);
     font-family: inherit;
@@ -236,9 +236,10 @@
 /* Override with label color if provided via inline style */
 .c-docs .doc-tags .tag[style*="background-color"] {
     border-color: transparent;
-    color: var(--text-1);
+    color: var(--surface-8);
     /* Ensure text is readable on colored backgrounds */
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    font-weight: 500;
 }
 
 .c-docs .doc-tags .tag[style*="background-color"]:hover {
@@ -252,19 +253,19 @@
     align-items: center;
     justify-content: center;
     height: 100%;
-    color: var(--text-3);
+    color: var(--surface-6);
     padding: var(--spacer-6);
 }
 
 .c-docs .empty p {
     margin-top: var(--spacer-2);
     font-size: var(--font-l);
-    color: var(--text-2);
+    color: var(--surface-7);
 }
 
 .c-docs .loading {
     padding: var(--spacer-4);
     text-align: center;
-    color: var(--text-3);
+    color: var(--surface-6);
     font-size: var(--font-d);
 }
