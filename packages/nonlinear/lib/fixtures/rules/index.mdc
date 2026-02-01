@@ -1,0 +1,50 @@
+---
+description: "Garage44 monorepo project rules - core development guidelines and rule organization"
+globs:
+  - "**/*"
+alwaysApply: true
+---
+
+# Garage44 Project Rules
+
+This is the main project rule file for the Garage44 monorepo. Always apply this rule alongside other relevant rules.
+
+## ⚠️ CRITICAL: Read Linting Rules First
+
+**BEFORE making any code changes, read `@linting.mdc` - it contains mandatory linting requirements.**
+
+All code MUST pass linting checks before being committed. The git hook will catch errors, but agents should fix them proactively.
+
+## Rule Organization
+
+This project uses multiple rule files for different contexts. Consult the appropriate rule file based on what you're working on:
+
+- **🚨 LINTING (READ FIRST)**: See `@linting.mdc` - mandatory linting requirements for all code
+- **Backend code** (`packages/expressio/api/**`, `packages/expressio/lib/**`, `packages/bunchy/**`): See `@backend.mdc`
+- **Frontend code** (`packages/*/src/**`, `packages/common/components/**`, `**/*.tsx`, `**/*.css`): See `@frontend.mdc`
+- **Architecture decisions**: See `@adr.mdc` before making significant architectural or technology choices
+- **PR deployment testing**: See `@pr-deployment.mdc` when testing features on PR deployments
+
+## Core Principles
+
+When working on this codebase:
+
+1. **🚨 ALWAYS run lint checks before committing**: Use `bun run lint:ts` and `bun run lint:css` - see `@linting.mdc` for details
+2. **Consult ADRs for architectural decisions**: Before proposing new technologies, patterns, or significant changes, check `@adr.mdc` for guidance
+3. **Respect package boundaries**: Follow ADR-001 principles - separate packages by business domain, not technical layers
+4. **Use established patterns**: Check existing code for patterns before introducing new approaches
+
+## Rule Application
+
+- Rules with `alwaysApply: true` are always active (this file, `@linting.mdc`, `@backend.mdc`, `@frontend.mdc`)
+- Rules with `alwaysApply: false` activate based on file patterns or task relevance (`@adr.mdc`)
+- **`@linting.mdc` has priority 1** - it's the most important rule and should be consulted first
+- When multiple rules apply, merge their guidance - more specific rules take precedence
+
+## Quick Reference
+
+- **Backend**: Bun runtime, Bun.serve() (not Express), async file operations, WebSocket server
+- **Frontend**: Preact (not React), DeepSignal (not useState), modern CSS nesting (not BEM), Icon component
+- **Architecture**: Real-time first, package boundary discipline, developer experience priority
+
+When in doubt, check the specific rule file for detailed guidance.

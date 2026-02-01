@@ -1,0 +1,266 @@
+---
+description: "Architecture Decision Records (ADR) consultation workflow - guides AI to maintain architectural consistency"
+globs:
+  - "**/*"
+alwaysApply: false
+---
+
+# Garage44 Cursor AI Rules - ADR Consultation
+
+This file contains rules for AI assistants working on the Garage44 monorepo. These rules ensure architectural consistency by consulting Architecture Decision Records (ADRs) before making significant decisions.
+
+## Project Overview
+
+Garage44 is a monorepo containing multiple applications (Expressio, Pyrite, Styleguide) with shared packages (common, bunchy). The projects follow specific architectural patterns and technology choices documented in Architecture Decision Records (ADRs).
+
+## Architecture Decision Records (ADRs)
+
+**Critical**: Before creating plans for significant architectural or technology decisions, consult existing ADRs to ensure consistency with established patterns and principles.
+
+### 1. Consult Existing ADRs
+
+Read relevant ADRs before making decisions:
+
+- **Start here**: `packages/malkovich/docs/adr/ARCHITECTURE.md` - Current system state with diagrams
+- **Quick reference**: `packages/malkovich/docs/adr/index.md` - ADR index by category
+- **Learn patterns**: `packages/malkovich/docs/adr/guide/PATTERNS.md` - Reusable decision patterns
+- **Get guidance**: `packages/malkovich/docs/adr/guide/AI-REASONING-GUIDE.md` - How to use ADRs effectively
+
+**Search strategies**:
+```bash
+# Use codebase_search for topics
+"How are WebSocket connections handled?" → ADR-004, ADR-006
+
+# Use grep for specific technologies
+grep -i "websocket\|bun\|preact" packages/malkovich/docs/adr/*.md
+
+# Check ARCHITECTURE.md for current state overview
+```
+
+### 2. Cite ADRs in Plans
+
+Reference specific ADRs to show consistency with established patterns:
+
+```markdown
+## Architectural Alignment
+
+This approach follows:
+- ADR-003 (Bun Runtime): Using Bun's native features for...
+- ADR-004 (Preact/WebSocket): Implementing real-time updates via...
+- Pattern: Technology Adoption Pattern (see PATTERNS.md)
+```
+
+### 3. Flag Deviations
+
+If proposing something that contradicts existing ADRs:
+- **Explicitly call out** the contradiction
+- **Justify** why deviation is necessary
+- **Suggest** updating or superseding the old ADR
+
+Example:
+```markdown
+⚠️ **Deviation from ADR-011**: Proposing SCSS instead of native CSS because [specific reason]. This may require updating ADR-011 or creating an exception for [use case].
+```
+
+### 4. Suggest New ADRs
+
+Recommend creating an ADR when making architecturally significant decisions:
+
+**Always create ADR for:**
+- Technology choices (language, framework, tool, runtime)
+- Architectural patterns (structure, communication, boundaries)
+- System-wide changes (design system, logging, build process)
+- Tool adoption/replacement (linters, bundlers, etc.)
+
+**Consider ADR for:**
+- Setting precedent within a package
+- Changes to API design patterns
+- Developer workflow modifications
+
+**Skip ADR for:**
+- Implementation details within existing patterns
+- Bug fixes without architectural changes
+- Routine dependency updates
+
+### 5. Plan-to-ADR Workflow
+
+After successful implementation of significant decisions:
+1. Document the decision as an ADR
+2. Use `packages/malkovich/docs/adr/guide/TEMPLATE-LLM.md` for structure (optimized for AI consumption)
+3. Follow `packages/malkovich/docs/adr/guide/PLAN-TO-ADR-TEMPLATE.md` for conversion
+4. Include diagrams (C4 or Mermaid) where appropriate
+5. Add to `packages/malkovich/docs/adr/index.md` index
+6. Update `packages/malkovich/docs/adr/ARCHITECTURE.md` if system-wide impact
+
+## Core Architectural Principles
+
+Validate decisions against these principles (from `adr/README.md`):
+
+### 1. Real-time First
+- Default to WebSocket communication for user-facing features
+- Prioritize live updates over request/response patterns
+- Build collaboration features with real-time synchronization
+- **Reference**: ADR-004, ADR-006
+
+### 2. Package Boundary Discipline
+- Separate packages by business domain, not technical layers
+- Respect licensing boundaries (AGPL for core, MIT for utilities)
+- Avoid circular dependencies between packages
+- **Reference**: ADR-001
+
+### 3. Developer Experience Priority
+- Choose tools that optimize for fast iteration (Bun, TypeScript, hot reload)
+- Prefer modern standards over legacy compatibility (ES2023, ES modules)
+- Simplify toolchain complexity where possible
+- Adopt Rust-based tooling for performance gains (OxLint, Bun)
+- **Reference**: ADR-003, ADR-007, ADR-010
+
+### 4. Commercial/Community Balance
+- Protect core business logic with AGPL
+- Enable community growth with MIT utilities
+- Build extensible foundations for future commercial features
+- **Reference**: ADR-002
+
+### 5. LLM-Optimized Strategic Reasoning
+- Structure documentation to support AI-assisted decision making
+- Maintain clear traceability between technical and business decisions
+- Centralize strategic context for improved reasoning capabilities
+- **Reference**: ADR-009
+
+### 6. Unified Design System
+- Maintain consistent visual identity across all projects
+- Share design tokens and components through `@garage44/common` package
+- Use modern CSS features (native nesting, custom properties, OKLCH colors)
+- **Reference**: ADR-011, ADR-012
+
+## Technology Stack (Established by ADRs)
+
+**Verify compatibility with established stack before proposing changes:**
+
+- **Runtime**: Bun (ADR-003)
+- **Frontend**: Preact with JSX (ADR-004)
+- **State Management**: DeepSignal (ADR-004)
+- **Communication**: WebSocket-first (ADR-004, ADR-006)
+- **Server**: Bun.serve() - NOT Express.js (ADR-007)
+- **CSS**: Modern native CSS with OKLCH colors (ADR-011)
+- **Linting**: OxLint - NOT ESLint (ADR-010)
+- **Package Manager**: Bun workspaces (ADR-001, ADR-003)
+- **Module System**: ES modules (type: "module") (ADR-003)
+
+## Decision Types & Patterns
+
+Use appropriate pattern from `adr/guide/PATTERNS.md`:
+
+**Technology Choice** (ADR-003, ADR-010):
+- Evaluate: DX (9/10), Performance (8/10), Ecosystem (7/10), Team (6/10)
+- Have fallback plan, proof-of-concept validation
+- Measure build times, bundle sizes, developer feedback
+
+**Migration** (ADR-006, ADR-007, ADR-011):
+- Incremental approach with rollback plan
+- Validate with small scope first
+- Maintain old system during transition
+- Document lessons learned
+
+**Architecture** (ADR-001, ADR-004):
+- Define clear boundaries and domains
+- Consider scalability and maintainability
+- Validate against architectural principles
+- Document coupling changes
+
+**Design System** (ADR-011, ADR-012):
+- Use shared tokens from `@garage44/common/css/theme.css`
+- Generic components in common, project-specific in apps
+- Ensure accessibility (WCAG compliance)
+
+**Tool Replacement** (ADR-010):
+- Benchmark current vs new (10x improvement target)
+- Verify feature parity
+- Validate on real codebase before committing
+- Simplify toolchain when possible
+
+## Quick Consistency Checks
+
+Before proposing changes, verify:
+
+- [ ] Does this use WebSocket for real-time features? (ADR-004, ADR-006)
+- [ ] Does this respect package boundaries? (ADR-001)
+- [ ] Does this use Bun runtime features? (ADR-003)
+- [ ] Does this use modern native CSS? (ADR-011)
+- [ ] Does this use shared design tokens? (ADR-012)
+- [ ] Does this follow established patterns? (PATTERNS.md)
+- [ ] Is this consistent with architectural principles?
+
+## Common Anti-Patterns to Avoid
+
+Based on ADRs, explicitly avoid:
+
+**Technology**:
+- ❌ Express.js (use Bun.serve per ADR-007)
+- ❌ ESLint (use OxLint per ADR-010)
+- ❌ SCSS (use native CSS per ADR-011)
+- ❌ Node.js-specific APIs in shared code (use isomorphic per ADR-008)
+
+**Architecture**:
+- ❌ REST for real-time user features (use WebSocket per ADR-004)
+- ❌ Circular package dependencies (violates ADR-001)
+- ❌ Business logic in common package (violates ADR-001)
+
+**Design System**:
+- ❌ Inline styles (use CSS classes per ADR-011)
+- ❌ Importing individual CSS files (use theme.css per ADR-011)
+- ❌ Hardcoded colors/spacing (use design tokens per ADR-012)
+
+## Example: Evaluating New Feature
+
+```markdown
+## Feature: Real-time Notifications
+
+**ADR Consultation**:
+- ADR-004: Use WebSocket for real-time features ✅
+- ADR-012: Use design tokens for UI components ✅
+- Pattern: Architecture Pattern (defining notification system)
+
+**Architectural Alignment**:
+- Real-time First: Using WebSocket ✅
+- Package Boundaries: Notification logic in expressio, UI in common ✅
+- Unified Design System: Using common design tokens ✅
+
+**Implementation**:
+- Communication: WebSocket subscription to /notifications channel
+- UI: Notification component using design tokens from common
+- State: DeepSignal for notification state management
+
+**ADR Needed**: No - follows existing patterns (ADR-004, ADR-012)
+```
+
+## Resources
+
+- **Architecture Reference**: `packages/malkovich/docs/adr/ARCHITECTURE.md` - Current state with diagrams
+- **ADR Index**: `packages/malkovich/docs/adr/index.md` - Categorized index
+- **Decision Patterns**: `packages/malkovich/docs/adr/guide/PATTERNS.md` - Reusable frameworks
+- **AI Guide**: `packages/malkovich/docs/adr/guide/AI-REASONING-GUIDE.md` - Detailed guidance
+- **ADR Template**: `packages/malkovich/docs/adr/guide/TEMPLATE-LLM.md` - AI-optimized template
+- **Plan Conversion**: `packages/malkovich/docs/adr/guide/PLAN-TO-ADR-TEMPLATE.md` - Conversion guide
+
+## Notes for AI Assistants
+
+1. **Always start** with `ARCHITECTURE.md` for current system state overview
+2. **Search ADRs** by category/tag in `index.md` when evaluating decisions
+3. **Cite specific ADRs** in plans to demonstrate consistency
+4. **Flag contradictions** explicitly with justification
+5. **Suggest ADRs** for architecturally significant decisions
+6. **Use patterns** from `guide/PATTERNS.md` as decision frameworks
+7. **Include diagrams** (C4 or Mermaid) in new ADRs where appropriate
+8. **Check principles** against architectural principles in `ARCHITECTURE.md`
+9. **Update ARCHITECTURE.md** if decision has system-wide impact
+
+**Key Changes in New ADR System**:
+- `ARCHITECTURE.md` provides current state (not history - Git handles that)
+- Higher information density - structured, less prose
+- Diagrams included where appropriate (C4, Mermaid)
+- `TEMPLATE-LLM.md` optimized for AI consumption
+- Removed "Evolution Log" sections (Git is the log)
+
+This approach ensures continuous improvement through the feedback loop:
+**Plan → Build → ADR → Learning → Better Future Plans**

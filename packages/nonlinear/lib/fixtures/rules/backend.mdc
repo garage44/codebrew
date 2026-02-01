@@ -1,0 +1,81 @@
+---
+description: "Backend development rules for Expressio - Bun server, CLI tools, and translation services"
+globs:
+  - "packages/expressio/api/**"
+  - "packages/expressio/lib/**"
+  - "packages/expressio/service.ts"
+  - "packages/bunchy/**"
+  - "packages/common/lib/**"
+alwaysApply: true
+---
+
+# Garage44 Backend Development Rules
+
+Backend development guidelines for the Expressio AI-powered i18n tooling project.
+
+## Tech Stack
+
+- **Runtime**: Bun (modern JavaScript runtime)
+- **Server**: Bun.serve() with custom routing - NOT Express.js
+- **Architecture**: Service-oriented with dependency injection
+- **CLI**: yargs-based command interface
+- **Logging**: Custom isomorphic logger service
+- **Config**: RC file-based configuration management
+
+## Project Structure (Backend Focus)
+
+```
+packages/
+├── expressio/
+│   ├── api/           # REST API endpoints
+│   ├── lib/           # Core business logic
+│   └── service.ts     # CLI entry point
+├── bunchy/            # Development tooling
+└── common/            # Shared backend utilities
+```
+
+## Code Style and ESLint Compliance
+
+**🚨 CRITICAL: See `@linting.mdc` for complete linting requirements.**
+
+**All code must pass ESLint checks before committing.**
+
+### Before Committing
+
+Always run lint checks and fix any errors before committing:
+
+```bash
+# Check TypeScript files
+bun run lint:ts
+```
+
+**Auto-fixing:**
+- Many formatting issues can be auto-fixed: `bun run lint:ts --fix`
+- Always verify auto-fixes don't break functionality
+- Fix any remaining errors manually according to ESLint output
+
+**ESLint configuration:**
+- Rules are defined in `eslint.config.js` at the workspace root
+- Follow ESLint error messages to fix code style issues
+- Do not commit code with linting errors
+
+**For detailed linting rules and workflow, see `@linting.mdc`.**
+
+## Common Anti-patterns
+
+❌ **Don't do:**
+- Use Express.js patterns - this is Bun with custom routing
+- Block the main thread with synchronous file operations
+- Store sensitive API keys in workspace files
+- Skip input validation on user-provided paths
+- Ignore WebSocket connection cleanup
+- Commit code without running lint checks
+
+✅ **Do:**
+- Use Bun.serve() and native Web APIs (Request/Response)
+- Leverage Bun's fast file I/O with async operations
+- Use environment variables or rc config file for sensitive configuration
+- Validate and sanitize all file paths and user inputs
+- Use the websocket protocol
+- Use structured logging with relevant context
+- Always run `bun run lint:ts` before committing

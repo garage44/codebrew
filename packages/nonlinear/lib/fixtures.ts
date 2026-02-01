@@ -7,7 +7,8 @@ import {logger} from '../service.ts'
 import {randomId} from '@garage44/common/lib/utils'
 import {extractWorkspacePackages} from './workspace.ts'
 import {readFileSync, existsSync, readdirSync} from 'fs'
-import {join, relative} from 'path'
+import {join, relative, dirname} from 'path'
+import {fileURLToPath} from 'url'
 import {generateDocEmbeddings} from './docs/embeddings.ts'
 import type {Database} from 'bun:sqlite'
 
@@ -99,8 +100,14 @@ function inferTagsFromPath(pkg: string, filePath: string, workspaceRoot: string)
 /**
  * Convert file path to wiki path
  */
-function convertToWikiPath(filePath: string, workspaceRoot: string, pkg: string): string {
-    const relativePath = relative(workspaceRoot, filePath)
+function convertToWikiPath(filePath: string, workspaceRoot: string, pkg: string, fixturesDir?: string): string {
+    let relativePath = relative(workspaceRoot, filePath)
+
+    // If this is a fixtures file, convert it to look like it came from packages/malkovich/docs/
+    if (fixturesDir && filePath.startsWith(fixturesDir)) {
+        const fixturesRelativePath = relative(fixturesDir, filePath)
+        relativePath = `packages/malkovich/docs/${fixturesRelativePath}`
+    }
 
     // Remove .md/.mdc extension
     let wikiPath = relativePath.replace(/\.(md|mdc)$/, '')
@@ -133,6 +140,7 @@ async function importDocsFromDirectory(
     workspaceId: string,
     pkg: string,
     workspaceRoot: string,
+    fixturesDir?: string,
 ): Promise<void> {
     if (!existsSync(dirPath)) {
         return
@@ -157,6 +165,7 @@ async function importDocsFromDirectory(
                 workspaceId,
                 pkg,
                 workspaceRoot,
+                fixturesDir,
             )
         } else if (entry.isFile() && (entry.name.endsWith('.md') || entry.name.endsWith('.mdc'))) {
             // Skip index files (handled separately)
@@ -175,7 +184,7 @@ async function importDocsFromDirectory(
                 }
 
                 // Convert to wiki path
-                const wikiPath = convertToWikiPath(fullPath, workspaceRoot, pkg)
+                const wikiPath = convertToWikiPath(fullPath, workspaceRoot, pkg, fixturesDir)
 
                 // Infer tags
                 const tags = inferTagsFromPath(pkg, fullPath, workspaceRoot)
@@ -280,12 +289,31 @@ async function importFixtureDocs(
 ): Promise<void> {
     logger.info('[Fixtures] Importing fixture docs...')
 
-    // Scan packages/*/docs/ directories
+    // Import malkovich docs from local fixtures directory
+    const fixturesDir = join(dirname(fileURLToPath(import.meta.url)), 'fixtures')
+    if (existsSync(fixturesDir)) {
+        await importDocsFromDirectory(
+            db,
+            fixturesDir,
+            'workspaces/garage44/packages/malkovich',
+            workspaceId,
+            'malkovich',
+            workspaceRoot,
+            fixturesDir,
+        )
+    }
+
+    // Scan packages/*/docs/ directories (excluding malkovich)
     const packagesDir = join(workspaceRoot, 'packages')
     if (existsSync(packagesDir)) {
         const packages = extractWorkspacePackages(workspaceRoot)
 
         for (const pkg of packages) {
+            // Skip malkovich since we import it from fixtures directory
+            if (pkg === 'malkovich') {
+                continue
+            }
+
             const docsPath = join(packagesDir, pkg, 'docs')
             if (existsSync(docsPath)) {
                 await importDocsFromDirectory(
