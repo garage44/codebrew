@@ -239,32 +239,9 @@ export function registerDocsWebSocketApiRoutes(wsManager: WebSocketServerManager
         }
     })
 
-    // Get doc by ID
-    wsManager.api.get('/api/docs/:id', async(_ctx, req) => {
-        const docId = req.params.id
-
-        const doc = db.prepare('SELECT * FROM documentation WHERE id = ?').get(docId) as {
-            id: string
-            path: string
-            title: string
-            content: string
-            author_id: string
-            created_at: number
-            updated_at: number
-        } | undefined
-
-        if (!doc) {
-            return {error: 'Documentation not found'}
-        }
-
-        return {
-            doc: enrichDoc(doc),
-        }
-    })
-
-    // Get doc by path
+    // Get doc by path (must be registered before /api/docs/:id to avoid route conflict)
     wsManager.api.get('/api/docs/by-path', async(_ctx, req) => {
-        const path = req.query.path as string | undefined
+        const path = req.query?.path as string | undefined
 
         if (!path) {
             return {error: 'Path parameter required'}

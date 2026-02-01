@@ -292,6 +292,27 @@ class WebSocketServerManager extends EventEmitter {
                     url,
                 })
             } catch {}
+            // Parse query parameters from URL (once, before route matching)
+            let queryParams: Record<string, unknown> = {}
+            let pathname = url
+            try {
+                // URL might be a path like '/api/docs' or full URL like 'http://example.com/api/docs?tags=foo'
+                const urlObj = url.startsWith('http') ? new URL(url) : new URL(url, 'http://localhost')
+                pathname = urlObj.pathname
+                // URLSearchParams automatically decodes values
+                queryParams = Object.fromEntries(urlObj.searchParams.entries())
+            } catch (error) {
+                // If URL parsing fails, try to extract query string manually
+                const queryMatch = url.match(/^([^?]+)(\?.+)?$/)
+                if (queryMatch) {
+                    pathname = queryMatch[1]
+                    if (queryMatch[2]) {
+                        const searchParams = new URLSearchParams(queryMatch[2].slice(1))
+                        queryParams = Object.fromEntries(searchParams.entries())
+                    }
+                }
+            }
+
             // Create context for this request
             const ctx: WebSocketContext = {
                 broadcast: this.broadcast.bind(this),
@@ -306,7 +327,7 @@ class WebSocketServerManager extends EventEmitter {
             // Find matching route handler
             let matched = false
             for (const {handler, matchFn, method: handlerMethod} of this.routeHandlers) {
-                const matchResult = matchFn(url)
+                const matchResult = matchFn(pathname)
 
                 // Check both URL pattern match AND matching HTTP method
                 if (matchResult !== false && handlerMethod === method) {
@@ -316,6 +337,7 @@ class WebSocketServerManager extends EventEmitter {
                             data,
                             id,
                             params: matchResult.params,
+                            query: queryParams || {},
                         }
 
                         const result = await handler(ctx, request)

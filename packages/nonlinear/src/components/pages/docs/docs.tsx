@@ -52,13 +52,20 @@ export const Docs = () => {
     const handleDocSelect = async(path: string) => {
         try {
             const apiClient = getApi()
-            const result = await apiClient.get(`/api/docs/by-path?path=${encodeURIComponent(path)}`)
-            if (result.doc) {
+            const url = `/api/docs/by-path?path=${encodeURIComponent(path)}`
+            console.log('[Docs] Loading doc:', {path, url, apiClient: apiClient === ws ? 'ws' : 'api', authenticated: $s.profile.authenticated})
+            const result = await apiClient.get(url)
+            console.log('[Docs] Result:', result)
+            if (result?.doc) {
                 state.selectedDoc = result.doc
                 state.editing = false
+            } else if (result?.error) {
+                console.error('[Docs] API error:', result.error)
+            } else {
+                console.warn('[Docs] Unexpected result format:', result)
             }
         } catch (error) {
-            console.error('Failed to load doc:', error)
+            console.error('[Docs] Failed to load doc:', error)
         }
     }
 
