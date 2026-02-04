@@ -13,8 +13,6 @@ interface TicketFormProps {
 
 // State defined outside component for stability
 const createFormState = () => deepSignal({
-    assignee_id: '',
-    assignee_type: '' as '' | 'agent' | 'human',
     description: '',
     priority: '',
     repository_id: '',
@@ -37,8 +35,6 @@ export const TicketForm = ({initialStatus, onClose, onSuccess}: TicketFormProps)
 
         try {
             const ticketData: {
-                assignee_id?: string | null
-                assignee_type?: 'agent' | 'human' | null
                 description?: string
                 priority?: number
                 repository_id: string
@@ -61,13 +57,6 @@ export const TicketForm = ({initialStatus, onClose, onSuccess}: TicketFormProps)
                 }
             }
 
-            if (state.assignee_type) {
-                ticketData.assignee_type = state.assignee_type
-                if (state.assignee_id) {
-                    ticketData.assignee_id = state.assignee_id
-                }
-            }
-
             await ws.post('/api/tickets', ticketData)
 
             notifier.notify({
@@ -84,22 +73,6 @@ export const TicketForm = ({initialStatus, onClose, onSuccess}: TicketFormProps)
         }
     }
 
-    // Get assignee options based on assignee_type
-    const getAssigneeOptions = () => {
-        if (state.assignee_type === 'agent') {
-            return $s.agents
-                .filter((agent) => agent.enabled)
-                .map((agent) => ({
-                    id: agent.id,
-                    name: `${agent.name} (${agent.type})`,
-                }))
-        }
-        if (state.assignee_type === 'human') {
-            // For now, return empty - would need user list
-            return []
-        }
-        return []
-    }
 
     return (
         <div class='c-ticket-form'>
@@ -148,31 +121,6 @@ export const TicketForm = ({initialStatus, onClose, onSuccess}: TicketFormProps)
                     placeholder='Enter priority number'
                     type='number'
                 />
-                <div class='field-group'>
-                    <FieldSelect
-                        help='Optional assignee type'
-                        label='Assignee Type'
-                        model={state.$assignee_type}
-                        onChange={() => {
-                            // Reset assignee_id when type changes
-                            state.assignee_id = ''
-                        }}
-                        options={[
-                            {id: '', name: 'None'},
-                            {id: 'agent', name: 'Agent'},
-                            {id: 'human', name: 'Human'},
-                        ]}
-                        placeholder='Select assignee type'
-                    />
-                    {state.assignee_type &&
-                        <FieldSelect
-                            help='Select specific assignee'
-                            label='Assignee'
-                            model={state.$assignee_id}
-                            options={getAssigneeOptions()}
-                            placeholder='Select assignee'
-                        />}
-                </div>
             </div>
             <div class='actions'>
                 <Button

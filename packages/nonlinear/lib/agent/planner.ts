@@ -58,11 +58,7 @@ export class PlannerAgent extends BaseAgent {
                     } else {
                         // Regular refinement (automatic or manual trigger)
                         this.log(`Regular refinement trigger (no mention)`)
-                        if (ticket.repository_path) {
-                            await this.refineTicket(ticket)
-                        } else {
-                            this.log(`Skipping refinement - no repository_path for ticket ${ticketId}`)
-                        }
+                        await this.refineTicket(ticket)
                     }
                 } else {
                     this.log(`Ticket ${ticketId} not found`)
@@ -259,18 +255,21 @@ ${JSON.stringify(ticketsContext, null, 2)}`
 Your task is to:
 1. Analyze the ticket title and description
 2. Identify any ambiguities, missing details, or unclear requirements
-3. Provide a refined, clear description that makes the ticket actionable
-4. Suggest improvements and considerations
-5. Reference relevant documentation and guidelines when applicable
+3. If there are open questions or missing critical information, ask clarifying questions FIRST before refining
+4. Provide a refined, clear description that makes the ticket actionable (only if you have enough information)
+5. Suggest improvements and considerations
+6. Reference relevant documentation and guidelines when applicable
 
 Relevant Documentation:
 ${relevantDocs}
-5. If architectural changes are involved, include Mermaid diagrams to visualize them
+
+IMPORTANT: If the ticket is missing critical information or has ambiguities that prevent you from creating an actionable description, you MUST ask clarifying questions in a comment. Only refine the description if you have enough information to make it actionable.
 
 Respond with a JSON object containing:
-- refined_description: A clear, detailed description that improves upon the original (use markdown formatting, code blocks for examples, Mermaid diagrams for architecture)
+- refined_description: A clear, detailed description that improves upon the original (use markdown formatting, code blocks for examples, Mermaid diagrams for architecture). Leave empty if you need to ask questions first.
+- clarifying_questions: An array of specific questions to ask the ticket creator if critical information is missing. Each question should be clear and actionable. If no questions are needed, use an empty array.
 - analysis: Your analysis of issues found and suggestions for improvement (use markdown formatting)
-- should_update_description: boolean indicating if the refined_description is significantly better than the original (only true if substantial improvements were made)
+- should_update_description: boolean indicating if the refined_description is significantly better than the original (only true if substantial improvements were made AND you have enough information)
 
 The refined_description should:
 - Be clear and actionable
@@ -302,6 +301,7 @@ Provide a refined description and analysis.`
             // Parse the response
             let refinement: {
                 refined_description: string
+                clarifying_questions?: string[]
                 analysis: string
                 should_update_description?: boolean
             }
@@ -316,9 +316,27 @@ Provide a refined description and analysis.`
                 this.log(`Failed to parse refinement response, using as analysis: ${error}`)
                 refinement = {
                     refined_description: ticket.description || '',
+                    clarifying_questions: [],
                     analysis: response,
                     should_update_description: false,
                 }
+            }
+
+            // Ensure clarifying_questions is an array
+            if (!refinement.clarifying_questions) {
+                refinement.clarifying_questions = []
+            }
+
+            // Ask clarifying questions first if needed
+            if (refinement.clarifying_questions && refinement.clarifying_questions.length > 0) {
+                const questionsText = refinement.clarifying_questions
+                    .map((q, i) => `${i + 1}. ${q}`)
+                    .join('\n')
+                const commentContent = `## Clarifying Questions\n\nBefore I can refine this ticket, I need some additional information:\n\n${questionsText}\n\nPlease provide answers to these questions so I can create a clear, actionable ticket description.`
+                await addAgentComment(ticket.id, this.name, commentContent)
+                this.log(`Added clarifying questions comment to ticket ${ticket.id}`)
+                // Don't add "refined" label if we're asking questions
+                return
             }
 
             // Always update ticket description with refined version if available

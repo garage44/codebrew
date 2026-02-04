@@ -205,6 +205,20 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
         } else if (assignee_type && assignee_id) {
             // Backward compatibility: add single assignee
             addTicketAssignee(ticketId, assignee_type, assignee_id)
+        } else {
+            // Automatically assign to planner agent if no assignees provided
+            const plannerAgent = db.prepare(`
+                SELECT id FROM agents
+                WHERE type = 'planner' AND enabled = 1
+                LIMIT 1
+            `).get() as {id: string} | undefined
+
+            if (plannerAgent) {
+                logger.info(`[API] Auto-assigning new ticket ${ticketId} to planner agent ${plannerAgent.id}`)
+                addTicketAssignee(ticketId, 'agent', plannerAgent.id)
+            } else {
+                logger.warn('[API] No enabled planner agent found to auto-assign new ticket')
+            }
         }
 
         // Generate ticket embedding
@@ -271,7 +285,7 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
                     50, // Medium priority for backlog refinement
                 )
 
-                // Broadcast task event to agent via WebSocket
+                // Broadcast task event to agent via WebSocket (for agent service)
                 wsManager.emitEvent(`/agents/${plannerAgent.id}/tasks`, {
                     task_id: taskId,
                     task_type: 'refinement',
@@ -280,7 +294,11 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
                     },
                 })
 
-                logger.info(`[API] Created and broadcast refinement task ${taskId} for PlannerAgent`)
+                logger.info(`[API] Created and broadcast refinement task ${taskId} for PlannerAgent (ticket: ${ticketId})`)
+
+                // Log task details for debugging
+                const task = db.prepare('SELECT * FROM agent_tasks WHERE id = ?').get(taskId)
+                logger.debug(`[API] Task details: ${JSON.stringify(task)}`)
             } else {
                 logger.warn('[API] No enabled PlannerAgent found to refine new ticket')
             }
