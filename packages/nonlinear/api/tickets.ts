@@ -17,18 +17,24 @@ import {randomId} from '@garage44/common/lib/utils'
 import {logger} from '../service.ts'
 import {parseMentions, validateMentions} from '../lib/comments/mentions.ts'
 import {createTask} from '../lib/agent/tasks.ts'
+import {
+    CommentSchema,
+    CreateCommentRequestSchema,
+    CreateTicketRequestSchema,
+    EnrichedTicketSchema,
+    TicketCommentParamsSchema,
+    TicketParamsSchema,
+    TicketWithRepositoryPathSchema,
+    TicketWithRepositorySchema,
+    UpdateTicketRequestSchema,
+} from '../lib/schemas/tickets.ts'
+import {validateRequest} from '../lib/api/validate.ts'
+import {z} from 'zod'
 
 /**
  * Enrich ticket with labels and assignees
  */
-function enrichTicket(ticket: {
-    [key: string]: unknown
-    id: string
-}): typeof ticket & {
-    assignees: Array<{assignee_id: string; assignee_type: 'agent' | 'human'}>
-    labelDefinitions?: Array<{color: string; name: string}>
-    labels: string[]
-} {
+function enrichTicket(ticket: z.infer<typeof TicketWithRepositorySchema>): z.infer<typeof EnrichedTicketSchema> {
     const labels = getTicketLabels(ticket.id)
     const labelDefinitions = labels.map((label) => {
         const def = getLabelDefinition(label)
@@ -38,7 +44,7 @@ function enrichTicket(ticket: {
     return {
         ...ticket,
         assignees: getTicketAssignees(ticket.id),
-        labelDefinitions,
+        labelDefinitions: labelDefinitions.length > 0 ? labelDefinitions : undefined,
         labels,
     }
 }
@@ -46,21 +52,37 @@ function enrichTicket(ticket: {
 export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerManager) {
     // Broadcast comment update (called by agent services)
     wsManager.api.post('/api/tickets/:ticketId/comments/:commentId/broadcast', async(_ctx, req) => {
-        const ticketId = req.params.ticketId
-        const commentId = req.params.commentId
-        const {type} = req.data as {type: 'created' | 'updated' | 'completed'}
+        const params = validateRequest(TicketCommentParamsSchema, {
+            commentId: req.params.commentId,
+            ticketId: req.params.ticketId,
+        })
+        const data = validateRequest(z.object({
+            type: z.enum(['created', 'updated', 'completed']),
+        }), req.data)
 
         // Get comment from database
-        const comment = db.prepare('SELECT * FROM comments WHERE id = ?').get(commentId)
+        const comment = db.prepare('SELECT * FROM comments WHERE id = ?').get(params.commentId) as {
+            author_id: string
+            author_type: 'agent' | 'human'
+            content: string
+            created_at: number
+            id: string
+            mentions: string | null
+            responding_to: string | null
+            status: 'generating' | 'completed' | 'failed'
+            ticket_id: string
+            updated_at?: number
+        } | undefined
 
         if (comment) {
+            const validatedComment = validateRequest(CommentSchema, comment)
             // Broadcast to all clients
             wsManager.broadcast('/tickets', {
-                comment,
-                ticketId,
-                type: `comment:${type}`,
+                comment: validatedComment,
+                ticketId: params.ticketId,
+                type: `comment:${data.type}`,
             })
-            logger.debug(`[API] Broadcast comment ${type} event for comment ${commentId} on ticket ${ticketId}`)
+            logger.debug(`[API] Broadcast comment ${data.type} event for comment ${params.commentId} on ticket ${params.ticketId}`)
         }
 
         return {success: true}
@@ -75,7 +97,7 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
             ORDER BY t.created_at DESC
         `).all() as Array<{
             assignee_id: string | null
-            assignee_type: string | null
+            assignee_type: 'agent' | 'human' | null
             branch_name: string | null
             created_at: number
             description: string | null
@@ -85,28 +107,33 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
             repository_id: string
             repository_name: string | null
             solution_plan: string | null
-            status: string
+            status: 'backlog' | 'todo' | 'in_progress' | 'review' | 'closed'
             title: string
             updated_at: number
         }>
 
+        const validatedTickets = tickets.map((ticket) => {
+            const validated = validateRequest(TicketWithRepositorySchema, ticket)
+            return enrichTicket(validated)
+        })
+
         return {
-            tickets: tickets.map(enrichTicket),
+            tickets: validatedTickets,
         }
     })
 
     // Get ticket by ID
     wsManager.api.get('/api/tickets/:id', async(_ctx, req) => {
-        const ticketId = req.params.id
+        const params = validateRequest(TicketParamsSchema, req.params)
 
         const ticket = db.prepare(`
             SELECT t.*, r.name as repository_name, r.path as repository_path
             FROM tickets t
             LEFT JOIN repositories r ON t.repository_id = r.id
             WHERE t.id = ?
-        `).get(ticketId) as {
+        `).get(params.id) as {
             assignee_id: string | null
-            assignee_type: string | null
+            assignee_type: 'agent' | 'human' | null
             branch_name: string | null
             created_at: number
             description: string | null
@@ -117,7 +144,7 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
             repository_name: string | null
             repository_path: string | null
             solution_plan: string | null
-            status: string
+            status: 'backlog' | 'todo' | 'in_progress' | 'review' | 'closed'
             title: string
             updated_at: number
         } | undefined
@@ -126,46 +153,41 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
             throw new Error('Ticket not found')
         }
 
+        // Validate ticket (without repository_path for enrichment)
+        const ticketForEnrichment = validateRequest(TicketWithRepositorySchema, {
+            ...ticket,
+            repository_path: undefined,
+        })
+
         // Get comments
         const comments = db.prepare(`
             SELECT * FROM comments
             WHERE ticket_id = ?
             ORDER BY created_at ASC
-        `).all(ticketId)
+        `).all(params.id) as Array<{
+            author_id: string
+            author_type: 'agent' | 'human'
+            content: string
+            created_at: number
+            id: string
+            mentions: string | null
+            responding_to: string | null
+            status: 'generating' | 'completed' | 'failed'
+            ticket_id: string
+            updated_at?: number
+        }>
+
+        const validatedComments = comments.map((comment) => validateRequest(CommentSchema, comment))
 
         return {
-            comments,
-            ticket: enrichTicket(ticket),
+            comments: validatedComments,
+            ticket: enrichTicket(ticketForEnrichment),
         }
     })
 
     // Create ticket
     wsManager.api.post('/api/tickets', async(_ctx, req) => {
-        const {
-            assignee_id,
-            assignee_type,
-            assignees,
-            description,
-            labels,
-            priority,
-            repository_id,
-            status = 'backlog',
-            title,
-        } = req.data as {
-            assignee_id?: string | null
-            assignee_type?: 'agent' | 'human' | null
-            assignees?: Array<{assignee_id: string; assignee_type: 'agent' | 'human'}>
-            description?: string
-            labels?: string[]
-            priority?: number
-            repository_id: string
-            status?: 'backlog' | 'todo' | 'in_progress' | 'review' | 'closed'
-            title: string
-        }
-
-        if (!repository_id || !title) {
-            throw new Error('repository_id and title are required')
-        }
+        const data = validateRequest(CreateTicketRequestSchema, req.data)
 
         const ticketId = randomId()
         const now = Date.now()
@@ -179,32 +201,32 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
             ticketId,
-            repository_id,
-            title,
-            description || null,
-            status,
-            priority || null,
-            assignee_type || null,
-            assignee_id || null,
+            data.repository_id,
+            data.title,
+            data.description || null,
+            data.status,
+            data.priority || null,
+            data.assignee_type || null,
+            data.assignee_id || null,
             now,
             now,
         )
 
         // Add labels if provided
-        if (labels && Array.isArray(labels)) {
-            for (const label of labels) {
+        if (data.labels && Array.isArray(data.labels)) {
+            for (const label of data.labels) {
                 addTicketLabel(ticketId, label)
             }
         }
 
         // Add assignees if provided
-        if (assignees && Array.isArray(assignees)) {
-            for (const assignee of assignees) {
+        if (data.assignees && Array.isArray(data.assignees)) {
+            for (const assignee of data.assignees) {
                 addTicketAssignee(ticketId, assignee.assignee_type, assignee.assignee_id)
             }
-        } else if (assignee_type && assignee_id) {
+        } else if (data.assignee_type && data.assignee_id) {
             // Backward compatibility: add single assignee
-            addTicketAssignee(ticketId, assignee_type, assignee_id)
+            addTicketAssignee(ticketId, data.assignee_type, data.assignee_id)
         } else {
             // Automatically assign to planner agent if no assignees provided
             const plannerAgent = db.prepare(`
@@ -241,7 +263,7 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
             WHERE t.id = ?
         `).get(ticketId) as {
             assignee_id: string | null
-            assignee_type: string | null
+            assignee_type: 'agent' | 'human' | null
             branch_name: string | null
             created_at: number
             description: string | null
@@ -250,21 +272,28 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
             priority: number | null
             repository_id: string
             repository_name: string | null
-            status: string
+            status: 'backlog' | 'todo' | 'in_progress' | 'review' | 'closed'
             title: string
             updated_at: number
+        } | undefined
+
+        if (!ticket) {
+            throw new Error('Failed to create ticket')
         }
+
+        const validatedTicket = validateRequest(TicketWithRepositorySchema, ticket)
+        const enrichedTicket = enrichTicket(validatedTicket)
 
         // Broadcast ticket creation
         wsManager.broadcast('/tickets', {
-            ticket: enrichTicket(ticket),
+            ticket: enrichedTicket,
             type: 'ticket:created',
         })
 
-        logger.info(`[API] Created ticket ${ticketId}: ${title}`)
+        logger.info(`[API] Created ticket ${ticketId}: ${data.title}`)
 
         // If ticket is in backlog, create task for PlannerAgent to refine it
-        if (status === 'backlog') {
+        if (data.status === 'backlog') {
             // Find PlannerAgent ID
             const plannerAgent = db.prepare(`
                 SELECT id FROM agents
@@ -305,24 +334,14 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
         }
 
         return {
-            ticket: enrichTicket(ticket),
+            ticket: enrichedTicket,
         }
     })
 
     // Update ticket
     wsManager.api.put('/api/tickets/:id', async(_ctx, req) => {
-        const ticketId = req.params.id
-        const updates = req.data as Partial<{
-            assignee_id: string
-            assignee_type: string
-            assignees: Array<{assignee_id: string; assignee_type: 'agent' | 'human'}>
-            description: string
-            labels: string[]
-            priority: number
-            solution_plan: string
-            status: string
-            title: string
-        }>
+        const params = validateRequest(TicketParamsSchema, req.params)
+        const updates = validateRequest(UpdateTicketRequestSchema, req.data)
 
         // Build update query dynamically
         const fields: string[] = []
@@ -366,7 +385,7 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
         if (fields.length > 0) {
             fields.push('updated_at = ?')
             values.push(Date.now())
-            values.push(ticketId)
+            values.push(params.id)
 
             const result = db.prepare(`
                 UPDATE tickets
@@ -375,7 +394,7 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
             `).run(...values)
 
             if (result.changes === 0) {
-                throw new Error(`Ticket ${ticketId} not found`)
+                throw new Error(`Ticket ${params.id} not found`)
             }
         } else {
             // If only labels/assignees are being updated, still update the timestamp
@@ -383,26 +402,26 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
                 UPDATE tickets
                 SET updated_at = ?
                 WHERE id = ?
-            `).run(Date.now(), ticketId)
+            `).run(Date.now(), params.id)
         }
 
         // Handle labels update
         if (updates.labels !== undefined) {
             // Get current labels
-            const currentLabels = getTicketLabels(ticketId)
+            const currentLabels = getTicketLabels(params.id)
             const newLabels = updates.labels
 
             // Remove labels that are no longer present
             for (const label of currentLabels) {
                 if (!newLabels.includes(label)) {
-                    removeTicketLabel(ticketId, label)
+                    removeTicketLabel(params.id, label)
                 }
             }
 
             // Add new labels
             for (const label of newLabels) {
                 if (!currentLabels.includes(label)) {
-                    addTicketLabel(ticketId, label)
+                    addTicketLabel(params.id, label)
                 }
             }
         }
@@ -410,7 +429,7 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
         // Handle assignees update
         if (updates.assignees !== undefined) {
             // Get current assignees
-            const currentAssignees = getTicketAssignees(ticketId)
+            const currentAssignees = getTicketAssignees(params.id)
             const newAssignees = updates.assignees
 
             // Create sets for comparison
@@ -421,7 +440,7 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
             for (const assignee of currentAssignees) {
                 const key = `${assignee.assignee_type}:${assignee.assignee_id}`
                 if (!newSet.has(key)) {
-                    removeTicketAssignee(ticketId, assignee.assignee_type, assignee.assignee_id)
+                    removeTicketAssignee(params.id, assignee.assignee_type, assignee.assignee_id)
                 }
             }
 
@@ -429,7 +448,7 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
             for (const assignee of newAssignees) {
                 const key = `${assignee.assignee_type}:${assignee.assignee_id}`
                 if (!currentSet.has(key)) {
-                    addTicketAssignee(ticketId, assignee.assignee_type, assignee.assignee_id)
+                    addTicketAssignee(params.id, assignee.assignee_type, assignee.assignee_id)
                 }
             }
         }
@@ -437,7 +456,7 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
         // Regenerate ticket embedding if title or description changed
         if (updates.title !== undefined || updates.description !== undefined) {
             try {
-                const ticket = db.prepare('SELECT title, description FROM tickets WHERE id = ?').get(ticketId) as {
+                const ticket = db.prepare('SELECT title, description FROM tickets WHERE id = ?').get(params.id) as {
                     title: string
                     description: string | null
                 } | undefined
@@ -445,12 +464,12 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
                     // Queue indexing job (processed by indexing service)
                     const {queueIndexingJob} = await import('../lib/indexing/queue.ts')
                     await queueIndexingJob({
+                        ticketId: params.id,
                         type: 'ticket',
-                        ticketId,
                     })
                 }
             } catch (error) {
-                logger.warn(`[Tickets API] Failed to regenerate embedding for ticket ${ticketId}:`, error)
+                logger.warn(`[Tickets API] Failed to regenerate embedding for ticket ${params.id}:`, error)
             }
         }
 
@@ -459,9 +478,9 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
             FROM tickets t
             LEFT JOIN repositories r ON t.repository_id = r.id
             WHERE t.id = ?
-        `).get(ticketId) as {
+        `).get(params.id) as {
             assignee_id: string | null
-            assignee_type: string | null
+            assignee_type: 'agent' | 'human' | null
             branch_name: string | null
             created_at: number
             description: string | null
@@ -470,39 +489,42 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
             priority: number | null
             repository_id: string
             repository_name: string | null
-            status: string
+            status: 'backlog' | 'todo' | 'in_progress' | 'review' | 'closed'
             title: string
             updated_at: number
-        }
+        } | undefined
 
         if (!ticket) {
-            throw new Error(`Ticket ${ticketId} not found`)
+            throw new Error(`Ticket ${params.id} not found`)
         }
+
+        const validatedTicket = validateRequest(TicketWithRepositorySchema, ticket)
+        const enrichedTicket = enrichTicket(validatedTicket)
 
         // Broadcast ticket update
         wsManager.broadcast('/tickets', {
-            ticket: enrichTicket(ticket),
+            ticket: enrichedTicket,
             type: 'ticket:updated',
         })
 
         return {
-            ticket: enrichTicket(ticket),
+            ticket: enrichedTicket,
         }
     })
 
     // Delete ticket
     wsManager.api.delete('/api/tickets/:id', async(_ctx, req) => {
-        const ticketId = req.params.id
+        const params = validateRequest(TicketParamsSchema, req.params)
 
-        db.prepare('DELETE FROM tickets WHERE id = ?').run(ticketId)
+        db.prepare('DELETE FROM tickets WHERE id = ?').run(params.id)
 
         // Broadcast ticket deletion
         wsManager.broadcast('/tickets', {
-            ticketId,
+            ticketId: params.id,
             type: 'ticket:deleted',
         })
 
-        logger.info(`[API] Deleted ticket ${ticketId}`)
+        logger.info(`[API] Deleted ticket ${params.id}`)
 
         return {
             success: true,
@@ -511,22 +533,13 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
 
     // Add comment to ticket
     wsManager.api.post('/api/tickets/:id/comments', async(_ctx, req) => {
-        const ticketId = req.params.id
-        const {author_id, author_type, content, mentions: providedMentions} = req.data as {
-            author_id: string
-            author_type: 'agent' | 'human'
-            content: string
-            mentions?: string[]
-        }
-
-        if (!content || !author_type || !author_id) {
-            throw new Error('content, author_type, and author_id are required')
-        }
+        const params = validateRequest(TicketParamsSchema, req.params)
+        const data = validateRequest(CreateCommentRequestSchema, req.data)
 
         // Parse mentions from content if not provided
-        const parsedMentions = providedMentions ?
-                providedMentions.map((name) => ({name, original: `@${name}`, type: 'agent' as const})) :
-                parseMentions(content)
+        const parsedMentions = data.mentions ?
+                data.mentions.map((name) => ({name, original: `@${name}`, type: 'agent' as const})) :
+                parseMentions(data.content)
         const {invalid: invalidMentions, valid: validMentions} = validateMentions(parsedMentions)
 
         // Log parsing results
@@ -550,15 +563,32 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
             VALUES (?, ?, ?, ?, ?, ?, ?)
         `).run(
             commentId,
-            ticketId,
-            author_type,
-            author_id,
-            content,
+            params.id,
+            data.author_type,
+            data.author_id,
+            data.content,
             mentionNames.length > 0 ? JSON.stringify(mentionNames) : null,
             now,
         )
 
-        const comment = db.prepare('SELECT * FROM comments WHERE id = ?').get(commentId)
+        const comment = db.prepare('SELECT * FROM comments WHERE id = ?').get(commentId) as {
+            author_id: string
+            author_type: 'agent' | 'human'
+            content: string
+            created_at: number
+            id: string
+            mentions: string | null
+            responding_to: string | null
+            status: 'generating' | 'completed' | 'failed'
+            ticket_id: string
+            updated_at?: number
+        } | undefined
+
+        if (!comment) {
+            throw new Error('Failed to create comment')
+        }
+
+        const validatedComment = validateRequest(CommentSchema, comment)
 
         // Create tasks for mentioned agents
         for (const mention of validMentions) {
@@ -585,19 +615,19 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
                     continue
                 }
 
-                logger.info(`[API] Creating task for agent ${agent.name} (${agent.id}) via mention in comment for ticket ${ticketId}`)
+                logger.info(`[API] Creating task for agent ${agent.name} (${agent.id}) via mention in comment for ticket ${params.id}`)
 
                 // Create task with high priority (mentions are urgent)
                 const taskId = createTask(
                     agent.id,
                     'mention',
                     {
-                        author_id: author_id,
-                        author_type: author_type,
-                        comment_content: content,
+                        author_id: data.author_id,
+                        author_type: data.author_type,
+                        comment_content: data.content,
                         comment_id: commentId,
                         mentions: mentionNames,
-                        ticket_id: ticketId,
+                        ticket_id: params.id,
                     },
                     100, // High priority for mentions
                 )
@@ -607,12 +637,12 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
                     task_id: taskId,
                     task_type: 'mention',
                     task_data: {
-                        author_id: author_id,
-                        author_type: author_type,
-                        comment_content: content,
+                        author_id: data.author_id,
+                        author_type: data.author_type,
+                        comment_content: data.content,
                         comment_id: commentId,
                         mentions: mentionNames,
-                        ticket_id: ticketId,
+                        ticket_id: params.id,
                     },
                 })
 
@@ -622,25 +652,25 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
 
         // Broadcast comment creation
         wsManager.broadcast('/tickets', {
-            comment,
-            ticketId,
+            comment: validatedComment,
+            ticketId: params.id,
             type: 'comment:created',
         })
 
-        logger.info(`[API] Added comment to ticket ${ticketId}`)
+        logger.info(`[API] Added comment to ticket ${params.id}`)
 
         return {
-            comment,
+            comment: validatedComment,
         }
     })
 
     // Approve ticket (human confirms closure)
     wsManager.api.post('/api/tickets/:id/approve', async(_ctx, req) => {
-        const ticketId = req.params.id
+        const params = validateRequest(TicketParamsSchema, req.params)
 
-        const ticket = db.prepare('SELECT * FROM tickets WHERE id = ?').get(ticketId) as {
+        const ticket = db.prepare('SELECT * FROM tickets WHERE id = ?').get(params.id) as {
             id: string
-            status: string
+            status: 'backlog' | 'todo' | 'in_progress' | 'review' | 'closed'
         } | undefined
 
         if (!ticket) {
@@ -656,11 +686,11 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
          * Could add an approval tracking field if needed in the future
          */
 
-        logger.info(`[API] Ticket ${ticketId} approved by human`)
+        logger.info(`[API] Ticket ${params.id} approved by human`)
 
         // Broadcast approval
         wsManager.broadcast('/tickets', {
-            ticketId,
+            ticketId: params.id,
             type: 'ticket:approved',
         })
 
@@ -672,12 +702,14 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
 
     // Reopen ticket
     wsManager.api.post('/api/tickets/:id/reopen', async(_ctx, req) => {
-        const ticketId = req.params.id
-        const {reason} = req.data as {reason?: string}
+        const params = validateRequest(TicketParamsSchema, req.params)
+        const data = validateRequest(z.object({
+            reason: z.string().optional(),
+        }), req.data)
 
-        const ticket = db.prepare('SELECT * FROM tickets WHERE id = ?').get(ticketId) as {
+        const ticket = db.prepare('SELECT * FROM tickets WHERE id = ?').get(params.id) as {
             id: string
-            status: string
+            status: 'backlog' | 'todo' | 'in_progress' | 'review' | 'closed'
         } | undefined
 
         if (!ticket) {
@@ -685,16 +717,16 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
         }
 
         // Add comment explaining reopen
-        if (reason) {
+        if (data.reason) {
             const commentId = randomId()
             db.prepare(`
                 INSERT INTO comments (id, ticket_id, author_type, author_id, content, created_at)
                 VALUES (?, ?, 'human', ?, ?, ?)
             `).run(
                 commentId,
-                ticketId,
+                params.id,
                 'system',
-                `Reopening ticket: ${reason}`,
+                `Reopening ticket: ${data.reason}`,
                 Date.now(),
             )
         }
@@ -707,25 +739,46 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
                 assignee_id = NULL,
                 updated_at = ?
             WHERE id = ?
-        `).run(Date.now(), ticketId)
+        `).run(Date.now(), params.id)
 
         const updatedTicket = db.prepare(`
             SELECT t.*, r.name as repository_name
             FROM tickets t
             LEFT JOIN repositories r ON t.repository_id = r.id
             WHERE t.id = ?
-        `).get(ticketId)
+        `).get(params.id) as {
+            assignee_id: string | null
+            assignee_type: 'agent' | 'human' | null
+            branch_name: string | null
+            created_at: number
+            description: string | null
+            id: string
+            merge_request_id: string | null
+            priority: number | null
+            repository_id: string
+            repository_name: string | null
+            status: 'backlog' | 'todo' | 'in_progress' | 'review' | 'closed'
+            title: string
+            updated_at: number
+        } | undefined
+
+        if (!updatedTicket) {
+            throw new Error('Ticket not found')
+        }
+
+        const validatedTicket = validateRequest(TicketWithRepositorySchema, updatedTicket)
+        const enrichedTicket = enrichTicket(validatedTicket)
 
         // Broadcast ticket update
         wsManager.broadcast('/tickets', {
-            ticket: updatedTicket,
+            ticket: enrichedTicket,
             type: 'ticket:updated',
         })
 
-        logger.info(`[API] Ticket ${ticketId} reopened`)
+        logger.info(`[API] Ticket ${params.id} reopened`)
 
         return {
-            ticket: updatedTicket,
+            ticket: enrichedTicket,
         }
     })
 

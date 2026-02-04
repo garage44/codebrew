@@ -11,6 +11,13 @@ import {
 } from '../lib/database.ts'
 import {logger} from '../service.ts'
 import {randomId} from '@garage44/common/lib/utils'
+import {
+    CreateLabelRequestSchema,
+    LabelNameParamsSchema,
+    LabelParamsSchema,
+    UpdateLabelRequestSchema,
+} from '../lib/schemas/labels.ts'
+import {validateRequest} from '../lib/api/validate.ts'
 
 export function registerLabelsWebSocketApiRoutes(wsManager: WebSocketServerManager) {
     // Get all label definitions
@@ -24,8 +31,8 @@ export function registerLabelsWebSocketApiRoutes(wsManager: WebSocketServerManag
 
     // Get label definition by name
     wsManager.api.get('/api/labels/:name', async(_ctx, req) => {
-        const name = req.params.name
-        const label = getLabelDefinition(name)
+        const params = validateRequest(LabelNameParamsSchema, req.params)
+        const label = getLabelDefinition(params.name)
 
         if (!label) {
             throw new Error('Label not found')
@@ -38,24 +45,16 @@ export function registerLabelsWebSocketApiRoutes(wsManager: WebSocketServerManag
 
     // Create or update label definition
     wsManager.api.post('/api/labels', async(_ctx, req) => {
-        const {
-            id,
-            color,
-            name,
-        } = req.data as {
-            color: string
-            id?: string
-            name: string
+        const data = validateRequest(CreateLabelRequestSchema, req.data)
+
+        const labelId = data.id || `label-${data.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${Date.now()}`
+        upsertLabelDefinition(labelId, data.name, data.color)
+
+        const label = getLabelDefinition(data.name)
+
+        if (!label) {
+            throw new Error('Failed to create label')
         }
-
-        if (!name || !color) {
-            throw new Error('Name and color are required')
-        }
-
-        const labelId = id || `label-${name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${Date.now()}`
-        upsertLabelDefinition(labelId, name, color)
-
-        const label = getLabelDefinition(name)
 
         // Broadcast label update
         wsManager.broadcast('/labels', {
@@ -63,7 +62,7 @@ export function registerLabelsWebSocketApiRoutes(wsManager: WebSocketServerManag
             type: 'label:updated',
         })
 
-        logger.info(`[API] Created/updated label definition: ${name}`)
+        logger.info(`[API] Created/updated label definition: ${data.name}`)
 
         return {
             label,
@@ -72,26 +71,24 @@ export function registerLabelsWebSocketApiRoutes(wsManager: WebSocketServerManag
 
     // Update label definition
     wsManager.api.put('/api/labels/:id', async(_ctx, req) => {
-        const labelId = req.params.id
-        const {
-            color,
-            name,
-        } = req.data as {
-            color?: string
-            name?: string
-        }
+        const params = validateRequest(LabelParamsSchema, req.params)
+        const data = validateRequest(UpdateLabelRequestSchema, req.data)
 
-        const existing = getLabelDefinitions().find((l) => l.id === labelId)
+        const existing = getLabelDefinitions().find((l) => l.id === params.id)
         if (!existing) {
             throw new Error('Label not found')
         }
 
-        const updatedName = name || existing.name
-        const updatedColor = color || existing.color
+        const updatedName = data.name || existing.name
+        const updatedColor = data.color || existing.color
 
-        upsertLabelDefinition(labelId, updatedName, updatedColor)
+        upsertLabelDefinition(params.id, updatedName, updatedColor)
 
         const label = getLabelDefinition(updatedName)
+
+        if (!label) {
+            throw new Error('Failed to update label')
+        }
 
         // Broadcast label update
         wsManager.broadcast('/labels', {
@@ -99,7 +96,7 @@ export function registerLabelsWebSocketApiRoutes(wsManager: WebSocketServerManag
             type: 'label:updated',
         })
 
-        logger.info(`[API] Updated label definition: ${labelId}`)
+        logger.info(`[API] Updated label definition: ${params.id}`)
 
         return {
             label,
@@ -108,22 +105,22 @@ export function registerLabelsWebSocketApiRoutes(wsManager: WebSocketServerManag
 
     // Delete label definition
     wsManager.api.delete('/api/labels/:id', async(_ctx, req) => {
-        const labelId = req.params.id
+        const params = validateRequest(LabelParamsSchema, req.params)
 
-        const existing = getLabelDefinitions().find((l) => l.id === labelId)
+        const existing = getLabelDefinitions().find((l) => l.id === params.id)
         if (!existing) {
             throw new Error('Label not found')
         }
 
-        deleteLabelDefinition(labelId)
+        deleteLabelDefinition(params.id)
 
         // Broadcast label deletion
         wsManager.broadcast('/labels', {
-            labelId,
+            labelId: params.id,
             type: 'label:deleted',
         })
 
-        logger.info(`[API] Deleted label definition: ${labelId}`)
+        logger.info(`[API] Deleted label definition: ${params.id}`)
 
         return {
             success: true,

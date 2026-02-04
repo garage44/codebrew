@@ -15,6 +15,21 @@ import {config} from '../lib/config.ts'
 import {getTaskStats} from '../lib/agent/tasks.ts'
 import {getAgentState, setAgentState, updateAgentState} from '../lib/agent/state.ts'
 import path from 'path'
+import {
+    AgentDbSchema,
+    AgentParamsSchema,
+    AgentStatsResponseSchema,
+    AgentServiceStatusResponseSchema,
+    CreateAgentRequestSchema,
+    EnrichedAgentSchema,
+    StartAgentServiceResponseSchema,
+    StopAgentServiceResponseSchema,
+    TriggerAgentRequestSchema,
+    TriggerAgentResponseSchema,
+    UpdateAgentRequestSchema,
+} from '../lib/schemas/agents.ts'
+import {validateRequest} from '../lib/api/validate.ts'
+import {z} from 'zod'
 
 // Track PIDs of API-started agent services
 const agentServicePids = new Map<string, number>()
@@ -197,17 +212,17 @@ export async function autostartAgents(
 export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManager) {
     // Subscribe to agent task topic
     wsManager.api.post('/api/agents/:id/subscribe', async(ctx, req) => {
-        const agentId = req.params.id
-        const topic = `/agents/${agentId}/tasks`
+        const params = validateRequest(AgentParamsSchema, req.params)
+        const topic = `/agents/${params.id}/tasks`
         ctx.subscribe?.(topic)
-        logger.info(`[API] Agent ${agentId} subscribed to topic ${topic}, connection readyState=${ctx.ws.readyState}`)
+        logger.info(`[API] Agent ${params.id} subscribed to topic ${topic}, connection readyState=${ctx.ws.readyState}`)
 
         // Verify subscription was added
         const subscribers = wsManager.subscriptions[topic]
         logger.info(`[API] Subscription verified: topic=${topic}, subscribers=${subscribers?.size || 0}`)
 
         // Update agent state - proxy will automatically broadcast
-        setAgentState(agentId, 'serviceOnline', true)
+        setAgentState(params.id, 'serviceOnline', true)
 
         return {success: true, topic}
     })
@@ -231,6 +246,10 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
 
         // Enrich with status information, stats, and service status
         const enrichedAgents = agents.map((agent) => {
+            const validatedAgent = validateRequest(AgentDbSchema, {
+                ...agent,
+                status: agent.status as 'idle' | 'working' | 'error' | 'offline',
+            })
             const status = getAgentStatus(agent.id)
             const stats = getTaskStats(agent.id)
             const agentState = getAgentState(agent.id)
@@ -240,23 +259,23 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
 
             // Determine agent status - if service is offline, status should be 'offline'
             // Otherwise use the actual agent status (idle, working, error)
-            let agentStatus: 'idle' | 'working' | 'error' | 'offline' = (status?.status || (agent.status as 'idle' | 'working' | 'error' | 'offline') || 'idle') as 'idle' | 'working' | 'error' | 'offline'
+            let agentStatus: 'idle' | 'working' | 'error' | 'offline' = (status?.status || validatedAgent.status || 'idle')
 
             // Override to 'offline' if service is not online (unless agent is actually working)
             if (!serviceOnline && agentStatus !== 'working') {
                 agentStatus = 'offline'
             }
 
-            return {
-                ...agent,
-                avatar: agent.avatar || DEFAULT_AVATARS[agent.type],
+            return validateRequest(EnrichedAgentSchema, {
+                ...validatedAgent,
+                avatar: validatedAgent.avatar || DEFAULT_AVATARS[validatedAgent.type],
                 currentTicketId: status?.currentTicketId || null,
-                display_name: agent.display_name || `${agent.name} Agent`,
-                lastActivity: status?.lastActivity || agent.created_at,
+                display_name: validatedAgent.display_name || `${validatedAgent.name} Agent`,
+                lastActivity: status?.lastActivity || validatedAgent.created_at,
                 serviceOnline,
                 stats,
                 status: agentStatus,
-            }
+            })
         })
 
         return {
@@ -266,54 +285,73 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
 
     // Get agent by ID
     wsManager.api.get('/api/agents/:id', async(_ctx, req) => {
-        const agentId = req.params.id
+        const params = validateRequest(AgentParamsSchema, req.params)
 
-        const agent = db.prepare('SELECT * FROM agents WHERE id = ?').get(agentId)
+        const agent = db.prepare('SELECT * FROM agents WHERE id = ?').get(params.id) as {
+            avatar: string | null
+            config: string
+            created_at: number
+            display_name: string | null
+            enabled: number
+            id: string
+            name: string
+            status: 'idle' | 'working' | 'error' | 'offline'
+            type: 'planner' | 'developer' | 'reviewer'
+        } | undefined
 
         if (!agent) {
             throw new Error('Agent not found')
         }
 
+        const validatedAgent = validateRequest(AgentDbSchema, agent)
+
         return {
-            agent,
+            agent: validatedAgent,
         }
     })
 
     // Register/create agent
     wsManager.api.post('/api/agents', async(ctx, req) => {
-        const {config, enabled, name, type} = req.data as {
-            config?: Record<string, unknown>
-            enabled?: boolean
-            name: string
-            type: 'planner' | 'developer' | 'reviewer'
-        }
-
-        if (!name || !type) {
-            throw new Error('name and type are required')
-        }
+        const data = validateRequest(CreateAgentRequestSchema, req.data)
 
         const agentId = randomId()
         const now = Date.now()
 
-        const defaultAvatar = DEFAULT_AVATARS[type]
-        const defaultDisplayName = `${name} Agent`
+        const defaultAvatar = DEFAULT_AVATARS[data.type]
+        const defaultDisplayName = `${data.name} Agent`
 
         db.prepare(`
             INSERT INTO agents (id, name, type, config, enabled, avatar, display_name, status, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
             agentId,
-            name,
-            type,
-            JSON.stringify(config || {}),
-            enabled === false ? 0 : 1,
+            data.name,
+            data.type,
+            JSON.stringify(data.config || {}),
+            data.enabled === false ? 0 : 1,
             defaultAvatar,
             defaultDisplayName,
             'idle',
             now,
         )
 
-        const agent = db.prepare('SELECT * FROM agents WHERE id = ?').get(agentId)
+        const agent = db.prepare('SELECT * FROM agents WHERE id = ?').get(agentId) as {
+            avatar: string | null
+            config: string
+            created_at: number
+            display_name: string | null
+            enabled: number
+            id: string
+            name: string
+            status: 'idle' | 'working' | 'error' | 'offline'
+            type: 'planner' | 'developer' | 'reviewer'
+        } | undefined
+
+        if (!agent) {
+            throw new Error('Failed to create agent')
+        }
+
+        const validatedAgent = validateRequest(AgentDbSchema, agent)
 
         // Initialize agent state
         updateAgentState(agentId, {
@@ -322,24 +360,24 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
 
         // Broadcast agent creation
         wsManager.broadcast('/agents', {
-            agent,
+            agent: validatedAgent,
             type: 'agent:created',
         })
 
-        logger.info(`[API] Registered agent ${agentId}: ${name} (${type})`)
+        logger.info(`[API] Registered agent ${agentId}: ${data.name} (${data.type})`)
 
         return {
-            agent,
+            agent: validatedAgent,
         }
     })
 
     // Trigger agent to process work (creates task instead of direct execution)
     wsManager.api.post('/api/agents/:id/trigger', async(ctx, req) => {
-        const agentId = req.params.id
-        const context = req.data as Record<string, unknown> || {}
-        const stream = req.query?.stream === 'true'
+        const params = validateRequest(AgentParamsSchema, req.params)
+        const data = validateRequest(TriggerAgentRequestSchema, req.data)
+        const stream = req.query?.stream === 'true' || data.stream === true
 
-        const agent = db.prepare('SELECT * FROM agents WHERE id = ?').get(agentId) as {
+        const agent = db.prepare('SELECT * FROM agents WHERE id = ?').get(params.id) as {
             config: string
             enabled: number
             id: string
@@ -357,9 +395,12 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
 
         logger.info(`[API] Creating task for agent ${agent.name} (${agent.type})`)
 
+        // Extract context (all fields except stream)
+        const {stream: _stream, ...context} = data
+
         // Create task with low priority (manual triggers are less urgent than mentions)
         const taskId = createTask(
-            agentId,
+            params.id,
             'manual',
             {
                 ...context,
@@ -369,7 +410,7 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
         )
 
         // Broadcast task event to agent via WebSocket
-        wsManager.emitEvent(`/agents/${agentId}/tasks`, {
+        wsManager.emitEvent(`/agents/${params.id}/tasks`, {
             task_id: taskId,
             task_type: 'manual',
             task_data: {
@@ -390,12 +431,8 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
 
     // Update agent
     wsManager.api.put('/api/agents/:id', async(ctx, req) => {
-        const agentId = req.params.id
-        const updates = req.data as Partial<{
-            config: Record<string, unknown>
-            enabled: boolean
-            name: string
-        }>
+        const params = validateRequest(AgentParamsSchema, req.params)
+        const updates = validateRequest(UpdateAgentRequestSchema, req.data)
 
         const fields: string[] = []
         const values: unknown[] = []
@@ -417,7 +454,7 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
             throw new Error('No fields to update')
         }
 
-        values.push(agentId)
+        values.push(params.id)
 
         db.prepare(`
             UPDATE agents
@@ -425,32 +462,48 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
             WHERE id = ?
         `).run(...(values as Array<string | number>))
 
-        const agent = db.prepare('SELECT * FROM agents WHERE id = ?').get(agentId)
+        const agent = db.prepare('SELECT * FROM agents WHERE id = ?').get(params.id) as {
+            avatar: string | null
+            config: string
+            created_at: number
+            display_name: string | null
+            enabled: number
+            id: string
+            name: string
+            status: 'idle' | 'working' | 'error' | 'offline'
+            type: 'planner' | 'developer' | 'reviewer'
+        } | undefined
+
+        if (!agent) {
+            throw new Error('Agent not found')
+        }
+
+        const validatedAgent = validateRequest(AgentDbSchema, agent)
 
         // Broadcast agent update
         wsManager.broadcast('/agents', {
-            agent,
+            agent: validatedAgent,
             type: 'agent:updated',
         })
 
         return {
-            agent,
+            agent: validatedAgent,
         }
     })
 
     // Delete agent
     wsManager.api.delete('/api/agents/:id', async(_ctx, req) => {
-        const agentId = req.params.id
+        const params = validateRequest(AgentParamsSchema, req.params)
 
-        db.prepare('DELETE FROM agents WHERE id = ?').run(agentId)
+        db.prepare('DELETE FROM agents WHERE id = ?').run(params.id)
 
         // Broadcast agent deletion
         wsManager.broadcast('/agents', {
-            agentId,
+            agentId: params.id,
             type: 'agent:deleted',
         })
 
-        logger.info(`[API] Deleted agent ${agentId}`)
+        logger.info(`[API] Deleted agent ${params.id}`)
 
         return {
             success: true,
@@ -459,32 +512,32 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
 
     // Get agent task statistics
     wsManager.api.get('/api/agents/:id/stats', async(_ctx, req) => {
-        const agentId = req.params.id
+        const params = validateRequest(AgentParamsSchema, req.params)
 
-        const agent = db.prepare('SELECT id FROM agents WHERE id = ?').get(agentId)
+        const agent = db.prepare('SELECT id FROM agents WHERE id = ?').get(params.id)
         if (!agent) {
             throw new Error('Agent not found')
         }
 
-        const stats = getTaskStats(agentId)
+        const stats = getTaskStats(params.id)
 
         return {
-            agentId,
+            agentId: params.id,
             stats,
         }
     })
 
     // Get agent service status (online/offline)
     wsManager.api.get('/api/agents/:id/service-status', async(_ctx, req) => {
-        const agentId = req.params.id
+        const params = validateRequest(AgentParamsSchema, req.params)
 
-        const agent = db.prepare('SELECT id FROM agents WHERE id = ?').get(agentId)
+        const agent = db.prepare('SELECT id FROM agents WHERE id = ?').get(params.id)
         if (!agent) {
             throw new Error('Agent not found')
         }
 
         // Check if agent service is connected by checking WebSocket subscriptions
-        const taskTopic = `/agents/${agentId}/tasks`
+        const taskTopic = `/agents/${params.id}/tasks`
         const subscribers = wsManager.subscriptions[taskTopic]
 
         // Check if any subscribed connections are still open
@@ -512,22 +565,22 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
         }
 
         return {
-            agentId,
+            agentId: params.id,
             online: isOnline,
         }
     })
 
     // Start agent service
     wsManager.api.post('/api/agents/:id/service/start', async(_ctx, req) => {
-        const agentId = req.params.id
-        return await startAgentService(agentId, wsManager)
+        const params = validateRequest(AgentParamsSchema, req.params)
+        return await startAgentService(params.id, wsManager)
     })
 
     // Stop agent service
     wsManager.api.post('/api/agents/:id/service/stop', async(_ctx, req) => {
-        const agentId = req.params.id
+        const params = validateRequest(AgentParamsSchema, req.params)
 
-        const agent = db.prepare('SELECT id, name FROM agents WHERE id = ?').get(agentId) as {
+        const agent = db.prepare('SELECT id, name FROM agents WHERE id = ?').get(params.id) as {
             id: string
             name: string
         } | undefined
@@ -537,21 +590,21 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
         }
 
         // Check if service is online
-        const taskTopic = `/agents/${agentId}/tasks`
+        const taskTopic = `/agents/${params.id}/tasks`
         const subscribers = wsManager.subscriptions[taskTopic]
         const isOnline = subscribers && subscribers.size > 0
 
         if (!isOnline) {
             // Service is not online, but clean up PID if we have it
-            if (agentServicePids.has(agentId)) {
-                const pid = agentServicePids.get(agentId)!
+            if (agentServicePids.has(params.id)) {
+                const pid = agentServicePids.get(params.id)!
                 try {
                     // Try to kill the process if it exists
                     process.kill(pid, 'SIGTERM')
                 } catch {
                     // Process doesn't exist or already dead
                 }
-                agentServicePids.delete(agentId)
+                agentServicePids.delete(params.id)
             }
 
             return {
@@ -564,15 +617,15 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
         // Send stop command via WebSocket broadcast
         // Use broadcast instead of emitEvent since agent services don't explicitly subscribe to stop topic
         // The agent service listens via onRoute which receives broadcast messages
-        wsManager.broadcast(`/agents/${agentId}/stop`, {
+        wsManager.broadcast(`/agents/${params.id}/stop`, {
             timestamp: Date.now(),
         })
 
-        logger.info(`[API] Sent stop command to agent service ${agent.name} (${agentId})`)
+        logger.info(`[API] Sent stop command to agent service ${agent.name} (${params.id})`)
 
         // Clean up PID if we have it
-        if (agentServicePids.has(agentId)) {
-            agentServicePids.delete(agentId)
+        if (agentServicePids.has(params.id)) {
+            agentServicePids.delete(params.id)
         }
 
         return {

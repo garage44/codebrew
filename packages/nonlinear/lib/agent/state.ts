@@ -50,7 +50,7 @@ class AgentStateTracker {
     private createDeepProxy<T extends Record<string, unknown>>(obj: T, onChange: () => void): T {
         return new Proxy(obj, {
             deleteProperty: (target, prop) => {
-                if (prop in target && !this.batchUpdateInProgress) {
+                if (typeof prop === 'string' && prop in target && !this.batchUpdateInProgress) {
                     delete target[prop]
                     this.pendingChanges = true
                     this.trackOperation(onChange)
@@ -58,6 +58,9 @@ class AgentStateTracker {
                 return true
             },
             get: (target, prop) => {
+                if (typeof prop === 'symbol') {
+                    return target[prop as keyof typeof target]
+                }
                 const value = target[prop]
                 // Only proxy objects, not primitive values
                 if (value && typeof value === 'object' && !this.batchUpdateInProgress) {
@@ -66,8 +69,12 @@ class AgentStateTracker {
                 return value
             },
             set: (target, prop, value) => {
-                const oldValue = target[prop]
-                target[prop] = value
+                if (typeof prop === 'symbol') {
+                    return true
+                }
+                const oldValue = target[prop as keyof typeof target]
+                const targetRecord = target as Record<string, unknown>
+                targetRecord[prop] = value
 
                 // If this is a real change and not part of a batch update
                 if (oldValue !== value && !this.batchUpdateInProgress) {
@@ -181,7 +188,7 @@ class AgentStateTracker {
     /**
      * Set a specific state property (proxy will automatically trigger broadcast)
      */
-    setState(agentId: string, key: keyof AgentState, value: AgentState[keyof AgentState]): void {
+    setState<K extends keyof AgentState>(agentId: string, key: K, value: AgentState[K]): void {
         // Ensure agent state exists (this will be proxied automatically)
         if (!this._state[agentId]) {
             // Create new state object - proxy will wrap it when accessed

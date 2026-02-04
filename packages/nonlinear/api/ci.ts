@@ -6,77 +6,97 @@ import type {WebSocketServerManager} from '@garage44/common/lib/ws-server'
 import {db} from '../lib/database.ts'
 import {logger} from '../service.ts'
 import {CIRunner} from '../lib/ci/runner.ts'
+import {
+    CIRunIdParamsSchema,
+    CIRunParamsSchema,
+    CIRunSchema,
+    TriggerCIRunRequestSchema,
+} from '../lib/schemas/ci.ts'
+import {validateRequest} from '../lib/api/validate.ts'
 
 export function registerCIWebSocketApiRoutes(wsManager: WebSocketServerManager) {
     // Get CI runs for a ticket
     wsManager.api.get('/api/ci/runs/:ticketId', async(_ctx, req) => {
-        const ticketId = req.params.ticketId
+        const params = validateRequest(CIRunParamsSchema, req.params)
 
         const runs = db.prepare(`
             SELECT * FROM ci_runs
             WHERE ticket_id = ?
             ORDER BY started_at DESC
-        `).all(ticketId)
+        `).all(params.ticketId) as Array<{
+            completed_at: number | null
+            fixes_applied: string | null
+            id: string
+            output: string | null
+            started_at: number
+            status: 'running' | 'success' | 'failed' | 'fixed'
+            ticket_id: string
+        }>
+
+        const validatedRuns = runs.map((run) => validateRequest(CIRunSchema, run))
 
         return {
-            runs,
+            runs: validatedRuns,
         }
     })
 
     // Get CI run by ID
     wsManager.api.get('/api/ci/runs/id/:id', async(_ctx, req) => {
-        const runId = req.params.id
+        const params = validateRequest(CIRunIdParamsSchema, req.params)
 
-        const run = db.prepare('SELECT * FROM ci_runs WHERE id = ?').get(runId)
+        const run = db.prepare('SELECT * FROM ci_runs WHERE id = ?').get(params.id) as {
+            completed_at: number | null
+            fixes_applied: string | null
+            id: string
+            output: string | null
+            started_at: number
+            status: 'running' | 'success' | 'failed' | 'fixed'
+            ticket_id: string
+        } | undefined
 
         if (!run) {
             throw new Error('CI run not found')
         }
 
+        const validatedRun = validateRequest(CIRunSchema, run)
+
         return {
-            run,
+            run: validatedRun,
         }
     })
 
     // Trigger CI run for a ticket
     wsManager.api.post('/api/ci/run', async(_ctx, req) => {
-        const {repository_path, ticket_id} = req.data as {
-            repository_path: string
-            ticket_id: string
-        }
-
-        if (!ticket_id || !repository_path) {
-            throw new Error('ticket_id and repository_path are required')
-        }
+        const data = validateRequest(TriggerCIRunRequestSchema, req.data)
 
         // Verify ticket exists
-        const ticket = db.prepare('SELECT * FROM tickets WHERE id = ?').get(ticket_id)
+        const ticket = db.prepare('SELECT * FROM tickets WHERE id = ?').get(data.ticket_id)
         if (!ticket) {
             throw new Error('Ticket not found')
         }
 
-        logger.info(`[API] Triggering CI run for ticket ${ticket_id}`)
+        logger.info(`[API] Triggering CI run for ticket ${data.ticket_id}`)
 
         // Run CI asynchronously
         const runner = new CIRunner()
-        runner.run(ticket_id, repository_path).then((result) => {
+        runner.run(data.ticket_id, data.repository_path).then((result) => {
             // Broadcast CI completion
             wsManager.broadcast('/ci', {
                 result,
-                ticketId: ticket_id,
+                ticketId: data.ticket_id,
                 type: 'ci:completed',
             })
 
-            logger.info(`[API] CI run completed for ticket ${ticket_id}: ${result.success ? 'success' : 'failed'}`)
+            logger.info(`[API] CI run completed for ticket ${data.ticket_id}: ${result.success ? 'success' : 'failed'}`)
         }).catch((error) => {
             // Broadcast CI error
             wsManager.broadcast('/ci', {
                 error: error.message,
-                ticketId: ticket_id,
+                ticketId: data.ticket_id,
                 type: 'ci:error',
             })
 
-            logger.error(`[API] CI run error for ticket ${ticket_id}: ${error}`)
+            logger.error(`[API] CI run error for ticket ${data.ticket_id}: ${error}`)
         })
 
         return {

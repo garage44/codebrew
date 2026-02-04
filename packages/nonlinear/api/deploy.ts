@@ -8,6 +8,11 @@ import {deployPR, regeneratePRNginx, type PRMetadata} from '../lib/deploy/pr-dep
 import {cleanupPRDeployment} from '../lib/deploy/pr-cleanup'
 import {getPRDeployment} from '../lib/deploy/pr-registry'
 import {logger} from '../service.ts'
+import {
+    DeployPRNumberParamsSchema,
+    DeployPRRequestSchema,
+} from '../lib/schemas/deploy.ts'
+import {validateRequest} from '../lib/api/validate.ts'
 
 export function registerDeployWebSocketApiRoutes(wsManager: WebSocketServerManager) {
     // Deploy a PR (agent-controlled)
@@ -17,28 +22,20 @@ export function registerDeployWebSocketApiRoutes(wsManager: WebSocketServerManag
             return {error: 'Unauthorized'}
         }
 
-        const body = await req.json() as {
-            pr_number: number
-            branch: string
-            sha?: string
-            author?: string
-        }
-
-        if (!body.pr_number || !body.branch) {
-            return {error: 'Missing required fields: pr_number, branch'}
-        }
+        const body = await req.json()
+        const data = validateRequest(DeployPRRequestSchema, body)
 
         try {
             const pr: PRMetadata = {
-                author: body.author || 'agent',
-                head_ref: body.branch,
-                head_sha: body.sha || '',
+                author: data.author || 'agent',
+                head_ref: data.branch,
+                head_sha: data.sha || '',
                 is_fork: false,
-                number: body.pr_number,
+                number: data.pr_number,
                 repo_full_name: 'garage44/garage44',
             }
 
-            logger.info(`[Deploy API] Agent ${userId} triggering deployment for PR #${body.pr_number}`)
+            logger.info(`[Deploy API] Agent ${userId} triggering deployment for PR #${data.pr_number}`)
             const result = await deployPR(pr)
 
             if (result.success && result.deployment) {
@@ -49,7 +46,7 @@ export function registerDeployWebSocketApiRoutes(wsManager: WebSocketServerManag
                         status: result.deployment.status,
                         urls: Object.keys(result.deployment.ports).map((pkg) => ({
                             package: pkg,
-                            url: `https://pr-${body.pr_number}-${pkg}.garage44.org`,
+                            url: `https://pr-${data.pr_number}-${pkg}.garage44.org`,
                         })),
                     },
                     message: result.message,
@@ -77,16 +74,13 @@ export function registerDeployWebSocketApiRoutes(wsManager: WebSocketServerManag
             return {error: 'Unauthorized'}
         }
 
-        const prNumber = parseInt(req.params.prNumber, 10)
-        if (isNaN(prNumber)) {
-            return {error: 'Invalid PR number'}
-        }
+        const params = validateRequest(DeployPRNumberParamsSchema, req.params)
 
         try {
-            const deployment = await getPRDeployment(prNumber)
+            const deployment = await getPRDeployment(params.prNumber)
             if (!deployment) {
                 return {
-                    error: `PR #${prNumber} deployment not found`,
+                    error: `PR #${params.prNumber} deployment not found`,
                     success: false,
                 }
             }
@@ -101,7 +95,7 @@ export function registerDeployWebSocketApiRoutes(wsManager: WebSocketServerManag
                     updated: deployment.updated,
                     urls: Object.keys(deployment.ports).map((pkg) => ({
                         package: pkg,
-                        url: `https://pr-${prNumber}-${pkg}.garage44.org`,
+                        url: `https://pr-${params.prNumber}-${pkg}.garage44.org`,
                     })),
                 },
                 success: true,
@@ -122,14 +116,11 @@ export function registerDeployWebSocketApiRoutes(wsManager: WebSocketServerManag
             return {error: 'Unauthorized'}
         }
 
-        const prNumber = parseInt(req.params.prNumber, 10)
-        if (isNaN(prNumber)) {
-            return {error: 'Invalid PR number'}
-        }
+        const params = validateRequest(DeployPRNumberParamsSchema, req.params)
 
         try {
-            logger.info(`[Deploy API] Agent ${userId} triggering cleanup for PR #${prNumber}`)
-            const result = await cleanupPRDeployment(prNumber)
+            logger.info(`[Deploy API] Agent ${userId} triggering cleanup for PR #${params.prNumber}`)
+            const result = await cleanupPRDeployment(params.prNumber)
 
             return {
                 message: result.message,

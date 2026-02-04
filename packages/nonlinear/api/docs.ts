@@ -9,6 +9,12 @@ import {logger} from '../service.ts'
 import {queueIndexingJob} from '../lib/indexing/queue.ts'
 import {unifiedVectorSearch, searchDocs, searchTickets} from '../lib/docs/search.ts'
 import type {DocFilters} from '../lib/docs/search.ts'
+import {
+    DocDbSchema,
+    EnrichedDocSchema,
+} from '../lib/schemas/docs.ts'
+import {validateRequest} from '../lib/api/validate.ts'
+import {z} from 'zod'
 
 /**
  * Enrich doc with labels
@@ -16,10 +22,8 @@ import type {DocFilters} from '../lib/docs/search.ts'
 function enrichDoc(doc: {
     [key: string]: unknown
     id: string
-}): typeof doc & {
-    labelDefinitions?: Array<{color: string; name: string}>
-    tags: string[]
-} {
+}): z.infer<typeof EnrichedDocSchema> {
+    const validatedDoc = validateRequest(DocDbSchema, doc)
     const labels = db.prepare(`
         SELECT label FROM documentation_labels WHERE doc_id = ?
     `).all(doc.id) as Array<{label: string}>
@@ -30,11 +34,11 @@ function enrichDoc(doc: {
         return def ? {color: def.color, name: def.name} : null
     }).filter((def): def is {color: string; name: string} => def !== null)
 
-    return {
-        ...doc,
-        labelDefinitions,
+    return validateRequest(EnrichedDocSchema, {
+        ...validatedDoc,
+        labelDefinitions: labelDefinitions.length > 0 ? labelDefinitions : undefined,
         tags,
-    }
+    })
 }
 
 /**

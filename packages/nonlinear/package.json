@@ -25,7 +25,8 @@
     "preact-router": "catalog:",
     "rc": "catalog:",
     "sqlite-vec": "^0.1.7-alpha.2",
-    "yargs": "catalog:"
+    "yargs": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@types/node": "catalog:dev",
