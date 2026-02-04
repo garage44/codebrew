@@ -45,7 +45,14 @@ function userMessage(c, r) {
     connection.userMessage(c, id, p[1])
 }
 
-let commands = {}
+interface Command {
+    description?: string
+    f: (c?: any, r?: any) => void
+    parameters?: string
+    predicate?: () => string | null
+}
+
+let commands: Record<string, Command> = {}
 
 function operatorPredicate() {
     if (connection && $s.permissions.op)

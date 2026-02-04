@@ -33,10 +33,20 @@ export default function GroupsContext() {
                 const channelSlug = group.name
                 if (!$s.sfu.channels[channelSlug]) {
                     // Initialize channel entry if it doesn't exist
-                    $s.sfu.channels[channelSlug] = {
-                        audio: false,
-                        connected: false,
-                        video: false,
+                    if (!$s.sfu.channels[channelSlug]) {
+                        const channelEntry = {
+                            audio: false,
+                            connected: false,
+                            video: false,
+                        }
+                        // Use Object.assign to update existing entry or create new one
+                        const existing = $s.sfu.channels[channelSlug]
+                        if (existing) {
+                            Object.assign(existing, channelEntry)
+                        } else {
+                            // Create new entry - TypeScript will infer the correct type
+                            ($s.sfu.channels as Record<string, typeof channelEntry>)[channelSlug] = channelEntry
+                        }
                     }
                 }
 
@@ -111,7 +121,7 @@ export default function GroupsContext() {
                     })}
                     onClick={toggleUnlisted}
                 >
-                    <Icon class='icon item-icon icon-d' name='incognito' />
+                    <Icon className='icon item-icon icon-d' name='incognito' />
                     <div class='flex-column'>
                         {isListedGroup || !$s.sfu.channel.name ?
                             <div class='name'>...</div> :
@@ -120,14 +130,19 @@ export default function GroupsContext() {
                 </div>
             </div>
             {Object.entries($s.sfu.channels).map(([channelSlug, channelData]) => {
+                // Extract channel data from DeepSignal - access properties directly
+                const channel = (typeof channelData === 'object' && channelData !== null && 'audio' in channelData)
+                    ? channelData as {audio: boolean; clientCount?: number; comment?: string; connected?: boolean; description?: string; locked?: boolean; video: boolean}
+                    : {audio: false, video: false}
+                
                 /*
                  * Only show channels that have group metadata (from public groups API)
                  * A channel with group metadata has at least one of: description, comment, clientCount defined
                  */
                 const hasGroupMetadata =
-                    channelData.description !== undefined ||
-                    channelData.comment !== undefined ||
-                    channelData.clientCount !== undefined
+                    channel.description !== undefined ||
+                    channel.comment !== undefined ||
+                    channel.clientCount !== undefined
 
                 if (!hasGroupMetadata) {
                     return null
@@ -135,29 +150,27 @@ export default function GroupsContext() {
 
                 return (
                     <Link
-                        class={classnames('group item', {active: currentGroupData.name === channelSlug})}
-                        href={groupLink(channelSlug)}
+                        {...({class: classnames('group item', {active: currentGroupData.name === channelSlug}), href: groupLink(channelSlug), onClick: setAutofocus} as Record<string, unknown>)}
                         key={channelSlug}
-                        onClick={setAutofocus}
                     >
                         <Icon
-                            class='icon item-icon icon-d'
-                            name={channelData.locked ? 'GroupLocked' : 'Group'}
+                            className='icon item-icon icon-d'
+                            name={channel.locked ? 'GroupLocked' : 'Group'}
                         />
 
                         <div class='flex-column'>
                             <div class='name'>
                                 {channelSlug}
                             </div>
-                            {channelData.description &&
+                            {channel.description &&
                                 <div class='item-properties'>
-                                    {channelData.description}
+                                    {channel.description}
                                 </div>}
                         </div>
 
-                        <div class={classnames('stats', {active: (channelData.clientCount || 0) > 0})}>
-                            {channelData.clientCount || 0}
-                            <Icon class='icon-d' name='user' />
+                        <div class={classnames('stats', {active: (channel.clientCount || 0) > 0})}>
+                            {channel.clientCount || 0}
+                            <Icon className='icon-d' name='user' />
                         </div>
                     </Link>
                 )
@@ -165,7 +178,7 @@ export default function GroupsContext() {
 
             {Object.keys($s.sfu.channels).length === 0 &&
                 <div class='group item no-presence'>
-                    <Icon class='item-icon icon-d' name='group' />
+                    <Icon className='item-icon icon-d' name='group' />
                     <div class='name'>
                         {$t('group.no_groups_public')}
                     </div>

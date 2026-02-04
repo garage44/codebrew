@@ -102,16 +102,14 @@ export default function ChannelsContext() {
 
                         return (
                             <Link
-                                class={classnames('channel item', {
+                                {...({class: classnames('channel item', {
                                     active: currentChannel?.slug === channel.slug,
                                     'has-unread': hasUnread,
-                                })}
-                                href={channelLink(channel.slug)}
-                                key={channel.id}
-                                onClick={() => {
+                                }), href: channelLink(channel.slug), onClick: () => {
                                     $s.chat.activeChannelSlug = channel.slug
                                     setAutofocus()
-                                }}
+                                }} as Record<string, unknown>)}
+                                key={channel.id}
                             >
                                 <Icon name='chat' type='info' />
                                 <div class='flex-column'>
@@ -167,17 +165,21 @@ export default function ChannelsContext() {
                         }
 
                         return uniqueUsers.map(([userId, userInfo]) => {
-                            const avatarUrl = getAvatarUrl(userInfo.avatar, userId)
+                            // Extract user info - handle both Signal and plain object types
+                            const user = (typeof userInfo === 'object' && userInfo !== null && 'avatar' in userInfo && 'username' in userInfo) 
+                                ? userInfo as {avatar: string; status?: 'busy' | 'offline' | 'online'; username: string}
+                                : {avatar: '', username: '', status: 'offline' as const}
+                            const avatarUrl = getAvatarUrl(user.avatar, String(userId))
                             const isCurrentUser = String($s.profile.id) === String(userId)
-                            const status = userInfo.status || 'offline'
+                            const status = user.status || 'offline'
                             const statusClass = status === 'online' ? 'online' : status === 'busy' ? 'busy' : 'offline'
 
                             return (
 <div class='person item' key={String(userId)}>
                                 <span class={`status-indicator ${statusClass}`} />
-                                <img alt={userInfo.username} class='person-avatar' src={avatarUrl} />
+                                <img alt={user.username} class='person-avatar' src={avatarUrl} />
                                 <span class='person-name'>
-                                    {userInfo.username || $t('user.anonymous')}
+                                    {user.username || $t('user.anonymous')}
                                     {isCurrentUser &&
                                         <span class='you-label'>
 {' '}

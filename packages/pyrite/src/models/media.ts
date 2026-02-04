@@ -21,8 +21,8 @@ export async function getUserMedia(presence) {
         }
     }
 
-    let selectedAudioDevice = false
-    let selectedVideoDevice = false
+    let selectedAudioDevice: boolean | {deviceId: string} = false
+    let selectedVideoDevice: boolean | {deviceId: string; width?: {ideal: number; min: number}; height?: {ideal: number; min: number}} = false
     let userAction = false // Track if this was triggered by user action
 
     // Validate and check if devices are selected
@@ -102,7 +102,7 @@ export async function getUserMedia(presence) {
     logger.debug(`[media] using cam ${$s.devices.cam.selected.name}`)
     logger.debug(`[media] using mic ${$s.devices.mic.selected.name}`)
 
-    if (selectedVideoDevice) {
+    if (selectedVideoDevice && typeof selectedVideoDevice === 'object') {
         if ($s.devices.cam.resolution.id === '720p') {
             logger.debug(`[media] using 720p resolution`)
             selectedVideoDevice.width = {ideal: 1280, min: 640}
@@ -149,16 +149,16 @@ export async function getUserMedia(presence) {
             logger.warn(`[media] selected device not found, falling back to browser default`)
 
             // Retry with browser default (no deviceId specified)
-            const fallbackConstraints = {
+            const fallbackConstraints: {audio: boolean | {deviceId: string} | null; video: boolean | {deviceId: string; width?: {ideal: number; min: number}; height?: {ideal: number; min: number}} | null} = {
                 audio: selectedAudioDevice ? (typeof selectedAudioDevice === 'object' ? true : selectedAudioDevice) : false,
                 video: selectedVideoDevice ? (typeof selectedVideoDevice === 'object' ? true : selectedVideoDevice) : false,
             }
 
             // Remove deviceId if it was specified - let browser choose
-            if (typeof fallbackConstraints.audio === 'object' && fallbackConstraints.audio.deviceId) {
+            if (fallbackConstraints.audio && typeof fallbackConstraints.audio === 'object' && 'deviceId' in fallbackConstraints.audio) {
                 fallbackConstraints.audio = true
             }
-            if (typeof fallbackConstraints.video === 'object' && fallbackConstraints.video.deviceId) {
+            if (fallbackConstraints.video && typeof fallbackConstraints.video === 'object' && 'deviceId' in fallbackConstraints.video) {
                 fallbackConstraints.video = true
             }
 
@@ -169,11 +169,11 @@ export async function getUserMedia(presence) {
                     logger.debug(`[media] getUserMedia with browser default successful`)
 
                     // Clear invalid device selection - browser will use default
-                    if (typeof constraints.audio === 'object' && constraints.audio.deviceId) {
+                    if (constraints.audio && typeof constraints.audio === 'object' && 'deviceId' in constraints.audio && constraints.audio.deviceId) {
                         logger.debug(`[media] clearing invalid mic device selection`)
                         $s.devices.mic.selected = {id: null, name: ''}
                     }
-                    if (typeof constraints.video === 'object' && constraints.video.deviceId) {
+                    if (constraints.video && typeof constraints.video === 'object' && 'deviceId' in constraints.video && constraints.video.deviceId) {
                         logger.debug(`[media] clearing invalid cam device selection`)
                         $s.devices.cam.selected = {id: null, name: ''}
                     }

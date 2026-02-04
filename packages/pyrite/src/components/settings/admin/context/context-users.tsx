@@ -62,7 +62,9 @@ export default function ContextUsers({path: _path, userId}: ContextUsersProps) {
         if ($s.admin.user._unsaved) {
             const nextUnsavedUserIndex = orderedUsers.findIndex((i) => i._unsaved)
             if (nextUnsavedUserIndex >= 0) {
-                toggleSelection(orderedUsers[nextUnsavedUserIndex].id)
+                const nextUser = orderedUsers[nextUnsavedUserIndex]
+                const nextUserId = typeof nextUser.id === 'number' ? nextUser.id : parseInt(String(nextUser.id || '0'), 10)
+                toggleSelection(nextUserId)
             }
         }
     }
@@ -78,7 +80,9 @@ export default function ContextUsers({path: _path, userId}: ContextUsersProps) {
 
         const similarStateUsers = orderedUsers.filter((i) => i._delete !== $s.admin.user?._delete)
         if (similarStateUsers.length) {
-            toggleSelection(similarStateUsers[0].id)
+            const nextUser = similarStateUsers[0]
+            const nextUserId = typeof nextUser.id === 'number' ? nextUser.id : parseInt(String(nextUser.id || '0'), 10)
+            toggleSelection(nextUserId)
         }
     }
 
@@ -115,43 +119,45 @@ export default function ContextUsers({path: _path, userId}: ContextUsersProps) {
             <div class='actions'>
                 <button class='btn' disabled={!$s.admin.user} onClick={toggleMarkDelete}>
                     <Icon
-                        class='item-icon icon-d'
+                        className='item-icon icon-d'
                         name='minus'
                     />
                 </button>
                 <button class='btn'>
                     <Icon
-                        class='item-icon icon-d'
+                        className='item-icon icon-d'
                         name='plus'
                         onClick={addUser}
                     />
                 </button>
                 <button class='btn' disabled={!deletionUsers.length} onClick={deleteUsers}>
                     <Icon
-                        class='icon-d'
+                        className='icon-d'
                         name='trash'
                     />
                 </button>
                 <button class='btn' disabled={!$s.admin.user} onClick={saveUserAction}>
-                    <Icon class='icon-d' name='save' />
+                    <Icon className='icon-d' name='save' />
                 </button>
             </div>
-            {orderedUsers.map((user) => <Link
-                class={classnames('user item', {
-                    active: parseInt(userId || '0') === user.id,
-                })}
-                href={userLink(user.id)}
-                key={user.id}
-            >
+            {orderedUsers.map((user) => {
+                const userIdNum = typeof user.id === 'number' ? user.id : parseInt(String(user.id || '0'), 10)
+                return <Link
+                    {...({class: classnames('user item', {
+                        active: parseInt(userId || '0', 10) === userIdNum,
+                    }), href: userLink(userIdNum)} as Record<string, unknown>)}
+                    key={userIdNum}
+                >
                     <Icon
-                        class={classnames('item-icon icon-d', {delete: user._delete, unsaved: user._unsaved})}
+                        className={classnames('item-icon icon-d', {delete: user._delete, unsaved: user._unsaved})}
                         name={user._delete ? 'Trash' : 'User'}
                     />
 
                     <div class='name'>
-                        {user.name}
+                        {typeof user.name === 'string' ? user.name : String(user.name || '')}
                     </div>
-            </Link>)}
+            </Link>
+            })}
         </section>
     )
 }

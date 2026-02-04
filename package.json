@@ -29,6 +29,7 @@
     "clean": "rm bun.lock;bun run --filter './packages/**' clean",
     "lint": "bun run lint:ts-syntax && bun run lint:ts-style && bun run lint:ts-types && bun run lint:css",
     "lint:css": "bun run --filter './packages/**' lint:css",
+    "lint:ts": "bun run lint:ts-syntax && bun run lint:ts-style && bun run lint:ts-types",
     "lint:ts-syntax": "bun run --filter './packages/**' lint:ts-syntax",
     "lint:ts-style": "bun run --filter './packages/**' lint:ts-style",
     "lint:ts-types": "bun run --filter './packages/**' lint:ts-types",

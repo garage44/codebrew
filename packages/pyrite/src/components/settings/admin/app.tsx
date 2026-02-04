@@ -6,19 +6,19 @@ import {Notifications, PanelContext} from '@garage44/common/components'
 import {Groups} from './groups'
 import {Users} from './users/users'
 import {$s} from '@/app'
-import animate from '@/lib/animate'
 
 export const AdminApp = () => {
     useEffect(() => {
         const themeColor = getComputedStyle(document.querySelector('.app')).getPropertyValue('--grey-4')
         const metaTheme = document.querySelector('meta[name="theme-color"]')
-        if (metaTheme) metaTheme.content = themeColor
+        if (metaTheme && metaTheme instanceof HTMLMetaElement) {
+            metaTheme.content = themeColor
+        }
     }, [])
 
     return (
         <div class='c-admin-app app'>
             <PanelContext
-                animate={animate}
                 collapsed={$s.panels.context.collapsed}
             >
                 <GroupsContext />

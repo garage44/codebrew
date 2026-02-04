@@ -11,54 +11,69 @@ export default function TabPermissions() {
     }
 
     const toggleCategory = (category: string) => {
-        const allSelected = !$s.admin.groups.some((i) => !$s.admin.user._permissions?.[category]?.includes(i.name))
+        const adminUser = $s.admin.user as {_permissions?: Record<string, string[]>} | null
+        if (!adminUser) return
+        
+        if (!adminUser._permissions) adminUser._permissions = {}
+        
+        const allSelected = !$s.admin.groups.some((i) => {
+            const groupName = typeof i.name === 'string' ? i.name : String(i.name || '')
+            return !adminUser._permissions![category]?.includes(groupName)
+        })
         if (allSelected) {
-            if (!$s.admin.user._permissions) $s.admin.user._permissions = {}
-            $s.admin.user._permissions[category] = []
+            adminUser._permissions[category] = []
         } else {
-            if (!$s.admin.user._permissions) $s.admin.user._permissions = {}
-            $s.admin.user._permissions[category] = $s.admin.groups.map((i) => i.name)
+            adminUser._permissions[category] = $s.admin.groups.map((i) => {
+                return typeof i.name === 'string' ? i.name : String(i.name || '')
+            })
         }
     }
 
     const toggleGroup = (groupname: string) => {
-        if (!$s.admin.user._permissions) $s.admin.user._permissions = {}
+        const adminUser = $s.admin.user as {_permissions?: Record<string, string[]>} | null
+        if (!adminUser) return
+        
+        if (!adminUser._permissions) adminUser._permissions = {}
 
-        const allSelected = categories.every((c) => $s.admin.user._permissions?.[c]?.includes(groupname))
+        const allSelected = categories.every((c) => adminUser._permissions?.[c]?.includes(groupname))
         if (allSelected) {
             for (const category of categories) {
-                if (!$s.admin.user._permissions[category]) $s.admin.user._permissions[category] = []
-                const groupIndex = $s.admin.user._permissions[category].indexOf(groupname)
+                if (!adminUser._permissions[category]) adminUser._permissions[category] = []
+                const groupIndex = adminUser._permissions[category].indexOf(groupname)
                 if (groupIndex > -1) {
-                    $s.admin.user._permissions[category].splice(groupIndex, 1)
+                    adminUser._permissions[category].splice(groupIndex, 1)
                 }
             }
         } else {
             for (const category of categories) {
-                if (!$s.admin.user._permissions[category]) $s.admin.user._permissions[category] = []
-                if (!$s.admin.user._permissions[category].includes(groupname)) {
-                    $s.admin.user._permissions[category].push(groupname)
+                if (!adminUser._permissions[category]) adminUser._permissions[category] = []
+                if (!adminUser._permissions[category].includes(groupname)) {
+                    adminUser._permissions[category].push(groupname)
                 }
             }
         }
     }
 
     const isChecked = (category: string, groupname: string) => {
-        return $s.admin.user._permissions?.[category]?.includes(groupname) || false
+        const adminUser = $s.admin.user as {_permissions?: Record<string, string[]>} | null
+        return adminUser?._permissions?.[category]?.includes(groupname) || false
     }
 
     const handleCheckboxChange = (category: string, groupname: string, checked: boolean) => {
-        if (!$s.admin.user._permissions) $s.admin.user._permissions = {}
-        if (!$s.admin.user._permissions[category]) $s.admin.user._permissions[category] = []
+        const adminUser = $s.admin.user as {_permissions?: Record<string, string[]>} | null
+        if (!adminUser) return
+        
+        if (!adminUser._permissions) adminUser._permissions = {}
+        if (!adminUser._permissions[category]) adminUser._permissions[category] = []
 
         if (checked) {
-            if (!$s.admin.user._permissions[category].includes(groupname)) {
-                $s.admin.user._permissions[category].push(groupname)
+            if (!adminUser._permissions[category].includes(groupname)) {
+                adminUser._permissions[category].push(groupname)
             }
         } else {
-            const index = $s.admin.user._permissions[category].indexOf(groupname)
+            const index = adminUser._permissions[category].indexOf(groupname)
             if (index > -1) {
-                $s.admin.user._permissions[category].splice(index, 1)
+                adminUser._permissions[category].splice(index, 1)
             }
         }
     }
@@ -81,7 +96,7 @@ export default function TabPermissions() {
                         role='button'
                         tabIndex={0}
                     >
-                        <Icon class='icon-d' name='operator' tip={$t('group.settings.permission.operator')} />
+                        <Icon className='icon-d' name='operator' tip={$t('group.settings.permission.operator')} />
                     </div>
                     <div
                         class='category'
@@ -90,7 +105,7 @@ export default function TabPermissions() {
                         role='button'
                         tabIndex={0}
                     >
-                        <Icon class='icon-d' name='present' tip={$t('group.settings.permission.presenter')} />
+                        <Icon className='icon-d' name='present' tip={$t('group.settings.permission.presenter')} />
                     </div>
                     <div
                         class='category'
@@ -99,36 +114,39 @@ export default function TabPermissions() {
                         role='button'
                         tabIndex={0}
                     >
-                        <Icon class='icon-d' name='otherpermissions' tip={$t('group.settings.permission.misc')} />
+                        <Icon className='icon-d' name='otherpermissions' tip={$t('group.settings.permission.misc')} />
                     </div>
                 </div>
             </div>
 
-            {$s.admin.groups.map((group) => <div class='permission-group item' key={group.name}>
+            {$s.admin.groups.map((group) => {
+                const groupName = typeof group.name === 'string' ? group.name : String(group.name || '')
+                return <div class='permission-group item' key={groupName}>
                     <div
                         class='group-name'
-                        onClick={() => toggleGroup(group.name)}
-                        onKeyPress={(e) => e.key === 'Enter' && toggleGroup(group.name)}
+                        onClick={() => toggleGroup(groupName)}
+                        onKeyPress={(e) => e.key === 'Enter' && toggleGroup(groupName)}
                         role='button'
                         tabIndex={0}
                     >
-                        {group.name}
+                        {groupName}
                     </div>
 
                     <div class='categories'>
                         {categories.map((category) => <div class='category' key={category}>
                                 <input
-                                    checked={isChecked(category, group.name)}
+                                    checked={isChecked(category, groupName)}
                                     onChange={(e) => handleCheckboxChange(
                                         category,
-                                        group.name,
+                                        groupName,
                                         (e.target as HTMLInputElement).checked,
                                     )}
                                     type='checkbox'
                                 />
                         </div>)}
                     </div>
-            </div>)}
+            </div>
+            })}
         </section>
     )
 }

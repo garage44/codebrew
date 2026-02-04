@@ -13,11 +13,18 @@ export interface Channel {
 }
 
 export interface PyriteState extends CommonState {
+    panels: CommonState['panels'] & {
+        chat?: {
+            collapsed: boolean
+            width?: number
+        }
+    }
     admin: {
         authenticated: boolean | null
-        group: Record<string, unknown>
+        group: Record<string, unknown> | null
+        groups: Array<Record<string, unknown>>
         permission: boolean
-        user: Record<string, unknown>
+        user: Record<string, unknown> | null
         users: Array<Record<string, unknown>>
     }
     channels: Channel[]
@@ -68,11 +75,14 @@ export interface PyriteState extends CommonState {
         }
     }
     env: {
-        isBrowser: boolean
+        ctrlKey: boolean
+        isBrowser?: boolean
         isFirefox: boolean
-        isSafari: boolean
-        layout: string
-        ua: string
+        isSafari?: boolean
+        layout: 'desktop' | 'mobile' | 'tablet'
+        shiftKey: boolean
+        ua?: string
+        url: string
     }
     files: {
         playing: Array<unknown>

@@ -32,45 +32,40 @@ export default function Settings({groupId, path, tabId = 'misc'}: SettingsProps)
             <header>
                 <div class='notice' />
                 <div class='title'>
-                    {$s.admin.group && <span>{$s.admin.group._name}</span>}
-                    <Icon class='icon icon-regular' name='group' />
+                    {$s.admin.group && typeof $s.admin.group === 'object' && $s.admin.group !== null && '_name' in $s.admin.group && <span>{String($s.admin.group._name)}</span>}
+                    <Icon className='icon icon-regular' name='group' />
                 </div>
             </header>
 
             <ul class='tabs'>
                 <Link
-                    class={classnames('btn btn-menu tab', {active: tabId === 'misc'})}
-                    href={routeSettings('misc')}
+                    {...({class: classnames('btn btn-menu tab', {active: tabId === 'misc'}), href: routeSettings('misc')} as Record<string, unknown>)}
                 >
-                    <Icon class='icon-d' name='pirate' />
+                    <Icon className='icon-d' name='pirate' />
                 </Link>
 
                 <Link
-                    class={classnames('btn btn-menu tab', {active: tabId === 'access'})}
-                    href={routeSettings('access')}
+                    {...({class: classnames('btn btn-menu tab', {active: tabId === 'access'}), href: routeSettings('access')} as Record<string, unknown>)}
                 >
-                    <Icon class='icon-d' name='access' />
+                    <Icon className='icon-d' name='access' />
                 </Link>
 
                 <Link
-                    class={classnames('btn btn-menu tab', {active: tabId === 'permissions'})}
-                    href={routeSettings('permissions')}
+                    {...({class: classnames('btn btn-menu tab', {active: tabId === 'permissions'}), href: routeSettings('permissions')} as Record<string, unknown>)}
                 >
-                    <Icon class='icon-d' name='operator' />
+                    <Icon className='icon-d' name='operator' />
                 </Link>
 
                 <Link
-                    class={classnames('btn btn-menu tab', {active: tabId === 'stats'})}
-                    href={routeSettings('stats')}
+                    {...({class: classnames('btn btn-menu tab', {active: tabId === 'stats'}), href: routeSettings('stats')} as Record<string, unknown>)}
                 >
-                    <Icon class='icon-d' name='stats' />
+                    <Icon className='icon-d' name='stats' />
                 </Link>
 
                 <Link
-                    class={classnames('btn btn-menu tab', {active: tabId === 'recordings'})}
-                    href={routeSettings('recordings')}
+                    {...({class: classnames('btn btn-menu tab', {active: tabId === 'recordings'}), href: routeSettings('recordings')} as Record<string, unknown>)}
                 >
-                    <Icon class='icon-d' name='record' />
+                    <Icon className='icon-d' name='record' />
                 </Link>
             </ul>
 
@@ -84,7 +79,7 @@ export default function Settings({groupId, path, tabId = 'misc'}: SettingsProps)
                 {path?.includes('/settings/groups') &&
                     <div class='actions'>
                         <button class='btn btn-menu btn-save' onClick={saveGroupAction}>
-                            <Icon class='icon-d' name='save' />
+                            <Icon className='icon-d' name='save' />
                         </button>
                     </div>}
             </div>

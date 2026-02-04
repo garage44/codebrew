@@ -81,7 +81,7 @@ export default function TabChannels() {
         if (!confirm('Are you sure you want to delete this channel? This will also delete the associated Galene group.')) return
 
         try {
-            await api.delete(`/api/channels/${channelId}`)
+            await api.delete(`/api/channels/${channelId}`, {})
             state.channels = state.channels.filter((c) => c.id !== channelId)
             notifier.notify({level: 'success', message: 'Channel deleted and Galene group removed'})
         } catch(error) {

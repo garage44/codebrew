@@ -8,6 +8,13 @@ export default function tween({
     ease = easeOut,
     onFinish,
     onUpdate,
+}: {
+    from?: number
+    to?: number
+    duration?: number
+    ease?: (progress: number, power?: number) => number
+    onFinish?: () => void
+    onUpdate?: (value: number) => void
 } = {}) {
     const delta = to - from
     const startTime = performance.now()

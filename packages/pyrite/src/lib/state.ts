@@ -7,7 +7,7 @@ import {mergeDeep} from '@garage44/common/lib/utils'
 // Pyrite state management using DeepSignal pattern
 import type {PyriteState} from '../types.ts'
 
-export const persistantState: Partial<PyriteState> = mergeDeep({
+export const persistantState = mergeDeep({
     chat: {
         emoji: {
             list: [],
@@ -36,10 +36,16 @@ export const persistantState: Partial<PyriteState> = mergeDeep({
         accept: {id: 'everything', name: ''},
         upstream: {id: 'normal', name: ''},
     },
-}, commonPersistantState)
+    panels: {
+        chat: {
+            collapsed: false,
+            width: 375,
+        },
+    },
+}, commonPersistantState as Record<string, unknown>) as Partial<PyriteState>
 
 // State is always overwritten by these properties
-export const volatileState: Partial<PyriteState> = mergeDeep({
+export const volatileState = mergeDeep({
     admin: {
         authenticated: null,
         group: null,
@@ -117,4 +123,10 @@ export const volatileState: Partial<PyriteState> = mergeDeep({
         video: [],
     },
     users: [],
-}, commonVolatileState)
+    panels: {
+        chat: {
+            collapsed: false,
+            width: 375,
+        },
+    },
+}, commonVolatileState) as Partial<PyriteState>

@@ -9,10 +9,19 @@ import * as sfu from '@/models/sfu/sfu'
 interface StreamProps {
     controls?: boolean
     modelValue: {
+        aspectRatio?: number
+        direction?: 'down' | 'up'
+        enlarged?: boolean
         hasAudio?: boolean
+        hasVideo?: boolean
         id: string
+        kind?: string
+        mirror?: boolean
+        playing?: boolean
         settings?: {audio?: Record<string, unknown>; video?: Record<string, unknown>}
-        src?: File | string
+        src?: File | string | MediaStream
+        username?: string
+        volume?: {locked?: boolean; value?: number}
     }
     onUpdate?: (value: unknown) => void
 }
@@ -306,9 +315,9 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
         setBar({active})
     }
 
-    const handleVolumeChange = (volume: number) => {
+    const handleVolumeChange = (sliderValue: {value: number; locked?: boolean | null}) => {
         if (onUpdate) {
-            onUpdate({...modelValue, volume: {...modelValue.volume, value: volume}})
+            onUpdate({...modelValue, volume: {...modelValue.volume, value: sliderValue.value, locked: sliderValue.locked ?? null}})
         }
     }
 
@@ -401,7 +410,7 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
 
             {!modelValue.playing &&
                 <div class='loading-container'>
-                    <Icon class='spinner' name='spinner' />
+                    <Icon className='spinner' name='spinner' />
                 </div>}
 
             {modelValue.playing && !modelValue.hasVideo &&
@@ -411,16 +420,16 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
                     </svg>
                 </div>}
 
-            {stats.visible && <Reports description={modelValue} onClickStop={toggleStats} />}
+            {stats.visible && <Reports description={modelValue} onClick={toggleStats} />}
 
             {controls && modelValue.playing &&
                 <div class='user-info'>
-                    {audioEnabled &&
+                    {audioEnabled && stream &&
                         <SoundMeter
                             class='soundmeter'
                             orientation='vertical'
                             stream={stream}
-                            stream-id={stream?.id}
+                            streamId={stream.id}
                         />}
 
                     {audioEnabled && modelValue.direction === 'down' &&
@@ -428,7 +437,7 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
                             <FieldSlider
                                 IconComponent={Icon}
                                 onChange={handleVolumeChange}
-                                value={modelValue.volume?.value || 100}
+                                value={{value: modelValue.volume?.value || 100, locked: modelValue.volume?.locked ?? null}}
                             />
                         </div>}
 
@@ -441,7 +450,7 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
                 {pip.enabled &&
                     <Button
                         icon='Pip'
-                        onClickStop={setPipMode}
+                        onClick={setPipMode}
                         size='s'
                         tip={$t('stream.pip')}
                         variant='menu'
@@ -449,7 +458,7 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
 
                 <Button
                     icon='Fullscreen'
-                    onClickStop={setFullscreen}
+                    onClick={setFullscreen}
                     size='s'
                     tip={$t('stream.fullscreen')}
                     variant='menu'
@@ -459,7 +468,7 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
                     <Button
                         active={stats.visible}
                         icon='Info'
-                        onClickStop={toggleStats}
+                        onClick={toggleStats}
                         size='s'
                         tip={$t('stream.info')}
                         variant='menu'

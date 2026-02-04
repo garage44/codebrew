@@ -23,19 +23,21 @@ export default function UsersContext() {
         // Sort deduplicated users
         const users = [...uniqueUsers]
         users.sort(function(a, b) {
-            if (!a.username || !b.username) return 0
-            const aLowerName = a.username.toLowerCase()
-            const bLowerName = b.username.toLowerCase()
+            const aUsername = typeof a.username === 'string' ? a.username : ''
+            const bUsername = typeof b.username === 'string' ? b.username : ''
+            if (!aUsername || !bUsername) return 0
+            const aLowerName = aUsername.toLowerCase()
+            const bLowerName = bUsername.toLowerCase()
             if (aLowerName < bLowerName) return -1
             else if (aLowerName > bLowerName) return +1
-            else if (a.username < b.username) return -1
-            else if (a.username > b.username) return +1
+            else if (aUsername < bUsername) return -1
+            else if (aUsername > bUsername) return +1
             return 0
         })
         return users
     }, [$s.users])
 
-    const className = (user: {data?: {availability?: {id: string}; raisehand?: boolean}}) => {
+    const className = (user: {data?: {availability?: {id: string}; mic?: boolean; raisehand?: boolean}; id: string; permissions?: {op?: boolean; present?: boolean}; username?: string}) => {
         const classes: Record<string, boolean> = {}
         if (user.data?.raisehand) {
             classes.hand = true
@@ -53,40 +55,50 @@ export default function UsersContext() {
 
     return (
         <section class='c-users-context presence'>
-            {sortedUsers.map((user) => <div class='user item' key={user.id}>
+            {sortedUsers.map((user) => {
+                const userObj = user as {data?: {availability?: {id: string}; mic?: boolean; raisehand?: boolean}; id: string; permissions?: {op?: boolean; present?: boolean}; username?: string}
+                return <div class='user item' key={userObj.id}>
                     <Icon
-                        class={classnames('icon item-icon icon-d', className(user))}
-                        name={user.data.raisehand ? 'Hand' : 'User'}
+                        className={classnames('icon item-icon icon-d', className(userObj))}
+                        name={userObj.data?.raisehand ? 'Hand' : 'User'}
                     />
 
                     <div class='name'>
-                        {user.username ?
+                        {userObj.username ?
                             <div class='username'>
-                                {user.username === 'RECORDING' ? $t('user.recorder') : user.username}
+                                {userObj.username === 'RECORDING' ? $t('user.recorder') : userObj.username}
                             </div> :
                             <div class='username'>
                                 {$t('user.anonymous')}
                             </div>}
 
                         <div class='status'>
-                            {user.data.mic ?
-                                <Icon class='icon icon-s' name='mic' /> :
-                                <Icon class='icon icon-s error' name='micmute' />}
+                            {userObj.data?.mic ?
+                                <Icon className='icon icon-s' name='mic' /> :
+                                <Icon className='icon icon-s error' name='micmute' />}
                         </div>
 
                         <div class='permissions'>
-                            {user.permissions.present &&
+                            {userObj.permissions?.present &&
                                 <span>
-                                    <Icon class='icon icon-s' name='present' />
+                                    <Icon className='icon icon-s' name='present' />
                                 </span>}
-                            {user.permissions.op &&
+                            {userObj.permissions?.op &&
                                 <span>
-                                    <Icon class='icon icon-s' name='operator' />
+                                    <Icon className='icon icon-s' name='operator' />
                                 </span>}
                         </div>
                     </div>
-                    {user.username !== 'RECORDING' && <ContextMenu user={user} />}
-            </div>)}
+                    {userObj.username !== 'RECORDING' && <ContextMenu user={{
+                        data: userObj.data && typeof userObj.data === 'object' && 'availability' in userObj.data && typeof userObj.data.availability === 'object' && userObj.data.availability !== null && 'id' in userObj.data.availability
+                            ? {availability: String(userObj.data.availability.id), raisehand: Boolean(userObj.data.raisehand)}
+                            : {availability: typeof userObj.data?.availability === 'string' ? userObj.data.availability : undefined, raisehand: Boolean(userObj.data?.raisehand)},
+                        id: userObj.id,
+                        permissions: userObj.permissions,
+                        username: userObj.username || '',
+                    }} />}
+            </div>
+            })}
         </section>
     )
 }

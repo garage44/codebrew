@@ -6,7 +6,12 @@ import {$t, events, notifier} from '@garage44/common/app'
 import {connection} from '@/models/sfu/sfu'
 
 interface UsersContextMenuProps {
-    user: {data?: {availability?: string; raisehand?: boolean}; id: string; username: string}
+    user: {
+        data?: {availability?: string; raisehand?: boolean}
+        id: string
+        permissions?: {op?: boolean; present?: boolean}
+        username: string
+    }
 }
 
 export default function UsersContextMenu({user}: UsersContextMenuProps) {
@@ -32,18 +37,20 @@ export default function UsersContextMenu({user}: UsersContextMenuProps) {
             },
             channelId: user.id,
         })
-        $s.panels.chat.collapsed = false
+        if ($s.panels) {
+            $s.panels.context.collapsed = false
+        }
         toggleMenu()
     }
 
     const kickUser = (text: string) => {
-        notifier.message('kicked', {dir: 'source', target: user.username})
+        notifier.notify({message: $t('user.action.kicked', {username: user.username}), type: 'info'})
         connection?.userAction('kick', user.id, text)
         toggleMenu()
     }
 
     const muteUser = () => {
-        notifier.message('mute', {dir: 'source', target: user.username})
+        notifier.notify({message: $t('user.action.mute', {username: user.username}), type: 'info'})
         connection?.userMessage('mute', user.id, null)
         toggleMenu()
     }
@@ -57,7 +64,7 @@ export default function UsersContextMenu({user}: UsersContextMenuProps) {
     }
 
     const sendNotification = (message: string) => {
-        notifier.message('notification', {dir: 'source', message, target: user.username})
+        notifier.notify({message: $t('user.action.notification', {username: user.username, message}), type: 'info'})
         connection?.userMessage('notification', user.id, message)
         toggleMenu()
     }
@@ -78,44 +85,50 @@ export default function UsersContextMenu({user}: UsersContextMenuProps) {
 
     const toggleOperator = () => {
         let action
-        if (user.permissions.op) action = 'unop'
+        if (user.permissions?.op) action = 'unop'
         else action = 'op'
 
-        notifier.message(action, {dir: 'source', target: user.username})
+        notifier.notify({message: $t(`user.action.${action}`, {username: user.username}), type: 'info'})
         connection?.userAction(action, user.id)
         toggleMenu()
     }
 
     const togglePresenter = () => {
         let action
-        if (user.permissions.present) action = 'unpresent'
+        if (user.permissions?.present) action = 'unpresent'
         else action = 'present'
 
-        notifier.message(action, {dir: 'source', target: user.username})
+        notifier.notify({message: $t(`user.action.${action}`, {username: user.username}), type: 'info'})
         connection?.userAction(action, user.id)
         toggleMenu()
     }
 
     return (
         <div class={classnames('c-users-context-menu context-menu', {active: active})}>
-            <Icon class='icon icon-d' name='menu' onClick={toggleMenu} />
+            <Icon className='icon icon-d' name='menu' onClick={toggleMenu} />
             {active &&
                 <div class='context-actions'>
                 {user.id !== $s.profile.id &&
                     <button class='action' onClick={activateUserChat}>
-                    <Icon class='icon icon-s' name='chat' />
+                    <Icon className='icon icon-s' name='chat' />
                     {`${$t('user.action.chat', {username: user.username})}`}
                     </button>}
 
                 {user.id !== $s.profile.id &&
-                    <button class='action'>
-                    <FieldFile
-                        accept='*'
-                        icon='Upload'
-                        label={$t('user.action.share_file.send')}
-                        onFile={sendFile}
-                        value={$s.files.upload}
-                    />
+                    <button class='action' onClick={() => {
+                        const input = document.createElement('input')
+                        input.type = 'file'
+                        input.accept = '*'
+                        input.onchange = (e) => {
+                            const file = (e.target as HTMLInputElement).files?.[0]
+                            if (file) {
+                                sendFile(file)
+                            }
+                        }
+                        input.click()
+                    }}>
+                    <Icon className='icon icon-s' name='upload' />
+                    {$t('user.action.share_file.send')}
                     </button>}
 
                 {($s.permissions.op && user.id !== $s.profile.id) &&
@@ -127,20 +140,20 @@ export default function UsersContextMenu({user}: UsersContextMenuProps) {
 
                 {($s.permissions.op && user.id !== $s.profile.id) &&
                     <button class='action' onClick={muteUser}>
-                    <Icon class='icon icon-s' name='mic' />
+                    <Icon className='icon icon-s' name='mic' />
                     {$t('user.action.mute_mic')}
                     </button>}
 
                 {($s.permissions.op && user.id !== $s.profile.id) &&
                     <button class='action' onClick={toggleOperator}>
-                    <Icon class='icon icon-s' name='operator' />
-                    {user.permissions.op ? $t('user.action.set_role.op_retract') : $t('user.action.set_role.op_assign')}
+                    <Icon className='icon icon-s' name='operator' />
+                    {user.permissions?.op ? $t('user.action.set_role.op_retract') : $t('user.action.set_role.op_assign')}
                     </button>}
 
                 {($s.permissions.op && user.id !== $s.profile.id) &&
                     <button class='action' onClick={togglePresenter}>
-                    <Icon class='icon icon-s' name='present' />
-                    {user.permissions.present ?
+                    <Icon className='icon icon-s' name='present' />
+                    {user.permissions?.present ?
                             $t('user.action.set_role.present_retract') :
                             $t('user.action.set_role.present_assign')}
                     </button>}

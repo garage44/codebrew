@@ -78,16 +78,22 @@ export async function onMessage(messageData: {
         channelId = sourceId
         const activeUser = $s.users.find((user) => user.id === sourceId)
         if (activeUser) {
-            if (!$s.chat.channels[sourceId]) {
-                $s.chat.channels[sourceId] = {
+            const channels = $s.chat.channels as Record<string, {
+                id: string
+                members?: Record<string, {avatar: string}>
+                messages: Array<Record<string, unknown>>
+                typing?: {[userId: string]: {timestamp: number; userId: string | number; username: string}}
+                unread: number
+            }>
+            if (!channels[sourceId]) {
+                channels[sourceId] = {
                     id: sourceId,
                     messages: [],
-                    name: nick,
                     unread: 0,
                 }
             }
 
-            $s.chat.channels[sourceId].messages.push({kind, message, nick, time})
+            channels[sourceId].messages.push({kind, message, nick, time})
         }
     }
 
@@ -100,7 +106,16 @@ export async function onMessage(messageData: {
         $s.chat.channels[$s.chat.channel] &&
         ((channelId !== $s.chat.channel) || $s.panels.chat.collapsed)
     ) {
-        $s.chat.channels[channelId].unread += 1
+        const channels = $s.chat.channels as Record<string, {
+            id: string
+            members?: Record<string, {avatar: string}>
+            messages: Array<Record<string, unknown>>
+            typing?: {[userId: string]: {timestamp: number; userId: string | number; username: string}}
+            unread: number
+        }>
+        if (channels[channelId]) {
+            channels[channelId].unread += 1
+        }
     }
 
 }
@@ -200,25 +215,27 @@ export async function loadGlobalUsers() {
         if ($s.channels.length) {
             for (const channel of $s.channels) {
                 const membersResponse = await ws.get(`/channels/${channel.slug}/members`)
-                if (membersResponse && membersResponse.success && membersResponse.members) {
-                    for (const member of membersResponse.members) {
+                if (membersResponse && membersResponse.success && membersResponse.members && Array.isArray(membersResponse.members)) {
+                    const members = membersResponse.members as Array<{user_id?: string | number; avatar?: string; [key: string]: unknown}>
+                    for (const member of members) {
                         // Update existing user or create if doesn't exist
                         if (member.user_id) {
                             // Normalize user ID to string to prevent duplicates
                             const userId = String(member.user_id)
-                            if (!$s.chat.users[userId]) {
-                                $s.chat.users[userId] = {
-                                    username: member.username,
-                                    avatar: member.avatar,
+                            const users = $s.chat.users as Record<string, {avatar: string; status?: 'online' | 'offline' | 'busy'; username: string}>
+                            if (!users[userId]) {
+                                users[userId] = {
+                                    username: (member.username as string) || '',
+                                    avatar: (member.avatar as string) || '',
                                     status: 'online', // Users in channels are online
                                 }
                             } else {
                                 // Update avatar/username if changed
                                 if (member.avatar) {
-                                    $s.chat.users[userId].avatar = member.avatar
+                                    users[userId].avatar = member.avatar as string
                                 }
                                 if (member.username) {
-                                    $s.chat.users[userId].username = member.username
+                                    users[userId].username = member.username as string
                                 }
                                 // Mark as online if in channel
                                 if (!$s.chat.users[userId].status) {
@@ -270,28 +287,33 @@ export async function loadChannelHistory(channelSlug: string | number) {
         const membersResponse = await ws.get(`/channels/${channelSlug}/members`)
         const members: Record<string, {avatar: string}> = {}
 
-        if (membersResponse && membersResponse.success && membersResponse.members) {
-            for (const member of membersResponse.members) {
-                members[member.user_id] = {avatar: member.avatar}
+        if (membersResponse && membersResponse.success && membersResponse.members && Array.isArray(membersResponse.members)) {
+            const membersList = membersResponse.members as Array<{user_id?: string | number; username?: string; avatar?: string; [key: string]: unknown}>
+            for (const member of membersList) {
+                if (member.user_id) {
+                    members[String(member.user_id)] = {avatar: member.avatar || ''}
 
-                // Also update global users
-                if (!$s.chat.users) {
-                    $s.chat.users = {}
-                }
-                $s.chat.users[member.user_id] = {
-                    username: member.username,
-                    avatar: member.avatar,
+                    // Also update global users
+                    if (!$s.chat.users) {
+                        $s.chat.users = {}
+                    }
+                    const users = $s.chat.users as Record<string, {avatar: string; status?: 'online' | 'offline' | 'busy'; username: string}>
+                    users[String(member.user_id)] = {
+                        username: member.username || '',
+                        avatar: member.avatar || '',
+                    }
                 }
             }
         }
 
         const response = await ws.get(`/channels/${channelSlug}/messages`)
 
-        if (response && response.success && response.messages) {
+        if (response && response.success && response.messages && Array.isArray(response.messages)) {
             // Transform database message format to frontend format
             // DB format: {id, channel_id, user_id, username, message, timestamp, kind}
             // Frontend format: {kind, message, nick, time, user_id}
-            const transformedMessages = response.messages.map((msg: any) => ({
+            const messages = response.messages as Array<{kind?: string; message?: string; username?: string; timestamp?: number; user_id?: string | number; [key: string]: unknown}>
+            const transformedMessages = messages.map((msg) => ({
                 kind: msg.kind || 'message',
                 message: msg.message,
                 nick: msg.username,
@@ -388,7 +410,7 @@ export async function sendMessage(message: string) {
         if (!response.success) {
             notifier.notify({
                 level: 'error',
-                message: response.error || 'Failed to send message'
+                message: (response.error as string) || 'Failed to send message'
             })
         }
     } catch (error) {
@@ -403,7 +425,14 @@ export async function sendMessage(message: string) {
 export function unreadMessages() {
     let unread = 0
 
-    for (const channel of Object.values($s.chat.channels)) {
+    const channels = $s.chat.channels as Record<string, {
+        id: string
+        members?: Record<string, {avatar: string}>
+        messages: Array<Record<string, unknown>>
+        typing?: {[userId: string]: {timestamp: number; userId: string | number; username: string}}
+        unread: number
+    }>
+    for (const channel of Object.values(channels)) {
         unread += channel.unread
     }
     return unread

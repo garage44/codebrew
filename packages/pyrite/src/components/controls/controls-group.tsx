@@ -1,5 +1,5 @@
-import {useEffect, useState, useMemo} from 'preact/hooks'
-import {Button, FieldUpload as FieldFile, FieldSlider, Icon} from '@garage44/common/components'
+import {useEffect, useState, useMemo, useRef} from 'preact/hooks'
+import {Button, FieldSlider, Icon} from '@garage44/common/components'
 import {unreadMessages} from '@/models/chat'
 import {$s} from '@/app'
 import {$t, logger, store} from '@garage44/common/app'
@@ -128,8 +128,9 @@ export const GroupControls = () => {
     useEffect(() => {
         for (const description of $s.streams) {
             // Only downstreams have volume control:
-            if (description.direction === 'down' && !description.volume.locked) {
-                description.volume = volume
+            const stream = description as {direction?: string; volume?: {locked?: boolean | null; value?: number}}
+            if (stream.direction === 'down' && stream.volume && !stream.volume.locked) {
+                stream.volume = volume
             }
         }
     }, [volume])
@@ -176,14 +177,20 @@ export const GroupControls = () => {
 
                     <Button
                         active={!!$s.upMedia.video.length}
+                        onClick={() => {
+                            const input = document.createElement('input')
+                            input.type = 'file'
+                            input.accept = fileMediaAccept
+                            input.onchange = (e) => {
+                                const file = (e.target as HTMLInputElement).files?.[0]
+                                togglePlayFile(file || null)
+                            }
+                            input.click()
+                        }}
+                        tip={filePlayTooltip}
                         variant='toggle'
                     >
-                        <FieldFile
-                            accept={fileMediaAccept}
-                            onFile={togglePlayFile}
-                            tooltip={filePlayTooltip}
-                            value={$s.files.playing}
-                        />
+                        <Icon name='upload' />
                     </Button>
                 </>}
 
@@ -201,7 +208,7 @@ export const GroupControls = () => {
                 tip={`${volume.value}% ${$t('group.audio_volume')}`}
                 variant='unset'
             >
-                <FieldSlider IconComponent={Icon} onChange={setVolume} value={volume} />
+                <FieldSlider IconComponent={Icon} onChange={(v) => setVolume({locked: v.locked ?? null, value: v.value})} value={volume} />
             </Button>
         </div>
     )

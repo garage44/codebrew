@@ -6,6 +6,7 @@ import fs from 'fs-extra'
 import path from 'node:path'
 import {getDatabase} from './database.ts'
 import {Database} from 'bun:sqlite'
+import type {User} from '@garage44/common/lib/user-manager'
 
 /*
  * Initialize GroupManager for Pyrite
@@ -79,7 +80,7 @@ async function loadGroupsFromDisk() {
  * Path: config.sfu.path/data/config.json
  * Format: {"users": {"username": {"password": "...", "permissions": "admin"}}}
  */
-async function syncUsersToGlobalConfig(users: unknown[], _db: Database) {
+async function syncUsersToGlobalConfig(users: User[], _db: Database) {
     const configFile = path.join(config.sfu.path, 'data', 'config.json')
 
     // Ensure data directory exists
@@ -156,6 +157,10 @@ async function updateGroupWithChannelMembers(groupName: string, db: Database) {
     if (!groupData.op) groupData.op = []
     if (!groupData.other) groupData.other = []
     if (!groupData.presenter) groupData.presenter = []
+    
+    // Ensure arrays are typed correctly
+    const opArray = Array.isArray(groupData.op) ? (groupData.op as string[]) : []
+    const otherArray = Array.isArray(groupData.other) ? (groupData.other as string[]) : []
 
     // Initialize users dictionary for native Galene format
     groupData.users = {}
@@ -200,14 +205,18 @@ async function updateGroupWithChannelMembers(groupName: string, db: Database) {
         let galenePermission: string
         if (member.role === 'admin') {
             galenePermission = 'op'
-            if (!groupData.op.includes(user.username)) {
-                groupData.op.push(user.username)
+            const opArray = Array.isArray(groupData.op) ? (groupData.op as string[]) : []
+            if (!opArray.includes(user.username)) {
+                opArray.push(user.username)
             }
+            groupData.op = opArray
         } else {
             galenePermission = 'present'
-            if (!groupData.other.includes(user.username)) {
-                groupData.other.push(user.username)
+            const otherArray = Array.isArray(groupData.other) ? (groupData.other as string[]) : []
+            if (!otherArray.includes(user.username)) {
+                otherArray.push(user.username)
             }
+            groupData.other = otherArray
         }
 
         // Convert password to Galene format

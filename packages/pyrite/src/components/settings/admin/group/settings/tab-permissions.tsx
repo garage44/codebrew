@@ -11,43 +11,67 @@ export default function TabPermissions() {
     }
 
     const toggleCategory = (category: string) => {
-        const allSelected = !$s.admin.users.some((i) => !$s.admin.group._permissions[category].includes(i.name))
+        const adminGroup = $s.admin.group as {_permissions?: Record<string, string[]>} | null
+        if (!adminGroup || !adminGroup._permissions) return
+        
+        const allSelected = !$s.admin.users.some((i) => {
+            const userName = typeof i.name === 'string' ? i.name : String(i.name || '')
+            return !adminGroup._permissions![category]?.includes(userName)
+        })
         if (allSelected) {
-            $s.admin.group._permissions[category] = []
+            adminGroup._permissions[category] = []
         } else {
-            $s.admin.group._permissions[category] = $s.admin.users.map((i) => i.name)
+            adminGroup._permissions[category] = $s.admin.users.map((i) => {
+                return typeof i.name === 'string' ? i.name : String(i.name || '')
+            })
         }
     }
 
     const toggleUser = (username: string) => {
-        const allSelected = categories.every((c) => $s.admin.group._permissions[c].includes(username))
+        const adminGroup = $s.admin.group as {_permissions?: Record<string, string[]>} | null
+        if (!adminGroup || !adminGroup._permissions) return
+        
+        const allSelected = categories.every((c) => adminGroup._permissions![c]?.includes(username))
         if (allSelected) {
             for (const category of categories) {
-                const userIndex = $s.admin.group._permissions[category].indexOf(username)
-                $s.admin.group._permissions[category].splice(userIndex, 1)
+                const userIndex = adminGroup._permissions![category].indexOf(username)
+                if (userIndex > -1) {
+                    adminGroup._permissions[category].splice(userIndex, 1)
+                }
             }
         } else {
             for (const category of categories) {
-                if (!$s.admin.group._permissions[category].includes(username)) {
-                    $s.admin.group._permissions[category].push(username)
+                if (!adminGroup._permissions[category]) {
+                    adminGroup._permissions[category] = []
+                }
+                if (!adminGroup._permissions[category].includes(username)) {
+                    adminGroup._permissions[category].push(username)
                 }
             }
         }
     }
 
     const isChecked = (category: string, username: string) => {
-        return $s.admin.group._permissions[category]?.includes(username) || false
+        const adminGroup = $s.admin.group as {_permissions?: Record<string, string[]>} | null
+        return adminGroup?._permissions?.[category]?.includes(username) || false
     }
 
     const handleCheckboxChange = (category: string, username: string, checked: boolean) => {
+        const adminGroup = $s.admin.group as {_permissions?: Record<string, string[]>} | null
+        if (!adminGroup || !adminGroup._permissions) return
+        
+        if (!adminGroup._permissions[category]) {
+            adminGroup._permissions[category] = []
+        }
+        
         if (checked) {
-            if (!$s.admin.group._permissions[category].includes(username)) {
-                $s.admin.group._permissions[category].push(username)
+            if (!adminGroup._permissions[category].includes(username)) {
+                adminGroup._permissions[category].push(username)
             }
         } else {
-            const index = $s.admin.group._permissions[category].indexOf(username)
+            const index = adminGroup._permissions[category].indexOf(username)
             if (index > -1) {
-                $s.admin.group._permissions[category].splice(index, 1)
+                adminGroup._permissions[category].splice(index, 1)
             }
         }
     }
@@ -64,36 +88,39 @@ export default function TabPermissions() {
                 <div class='group-name' />
                 <div class='categories'>
                     <div class='category' onClick={() => toggleCategory('op')}>
-                        <Icon class='icon-d' name='operator' />
+                        <Icon className='icon-d' name='operator' />
                     </div>
                     <div class='category' onClick={() => toggleCategory('presenter')}>
-                        <Icon class='icon-d' name='present' />
+                        <Icon className='icon-d' name='present' />
                     </div>
                     <div class='category' onClick={() => toggleCategory('other')}>
-                        <Icon class='icon-d' name='otherpermissions' />
+                        <Icon className='icon-d' name='otherpermissions' />
                     </div>
                 </div>
             </div>
 
-            {$s.admin.users.map((user) => <div class='permission-group item' key={user.name}>
-                    <div class='group-name' onClick={() => toggleUser(user.name)}>
-                        {user.name}
+            {$s.admin.users.map((user) => {
+                const userName = typeof user.name === 'string' ? user.name : String(user.name || '')
+                return <div class='permission-group item' key={userName}>
+                    <div class='group-name' onClick={() => toggleUser(userName)}>
+                        {userName}
                     </div>
 
                     <div class='categories'>
                         {categories.map((category) => <div class='category' key={category}>
                                 <input
-                                    checked={isChecked(category, user.name)}
+                                    checked={isChecked(category, userName)}
                                     onChange={(e) => handleCheckboxChange(
                                         category,
-                                        user.name,
+                                        userName,
                                         (e.target as HTMLInputElement).checked,
                                     )}
                                     type='checkbox'
                                 />
                         </div>)}
                     </div>
-            </div>)}
+            </div>
+            })}
         </section>
     )
 }

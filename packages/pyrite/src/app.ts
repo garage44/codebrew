@@ -1,4 +1,4 @@
-import {App, store} from '@garage44/common/app'
+import {App, store, api, notifier, logger, $t} from '@garage44/common/app'
 import {createTypedI18n, i18nFormat} from '@garage44/expressio'
 import {h, render} from 'preact'
 import {persistantState, volatileState} from './lib/state'
@@ -7,10 +7,14 @@ import {Main} from './components/main/main'
 import {initWebSocketSubscriptions} from '@/lib/ws-subscriptions'
 import {type DeepSignal} from 'deepsignal'
 import workspace from '@/.expressio.json'
+import type {CommonState} from '@garage44/common/types'
 
 const $s = store.state as unknown as DeepSignal<PyriteState>
 
-store.load(persistantState, volatileState)
+store.load(
+    persistantState as unknown as CommonState & Record<string, unknown>,
+    volatileState as unknown as CommonState & Record<string, unknown>,
+)
 
 // Initialize WebSocket subscriptions
 initWebSocketSubscriptions()
@@ -31,4 +35,4 @@ app.init(
  */
 const i18n = createTypedI18n(workspace)
 
-export {$s, app, i18n, store}
+export {$s, app, i18n, store, api, notifier, logger, $t}

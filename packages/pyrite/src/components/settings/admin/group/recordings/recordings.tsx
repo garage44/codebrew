@@ -43,7 +43,7 @@ export default function Recordings({groupId}: RecordingsProps) {
     if (!recordings.length) {
         return (
             <section class='c-admin-recordings tab-content active no-results'>
-                <Icon class='icon icon-l' name='record' />
+                <Icon className='icon icon-l' name='record' />
                 <span>{$t('group.recording.no_recordings')}</span>
             </section>
         )
@@ -57,21 +57,22 @@ export default function Recordings({groupId}: RecordingsProps) {
                             class='btn btn-menu btn-small'
                             onClick={() => deleteRecording(rec)}
                         >
-                            <Icon class='icon-s' name='trash' tip={$t('group.recording.delete')} />
+                            <Icon className='icon-s' name='trash' tip={$t('group.recording.delete')} />
                         </button>
                         <a
                             class='btn btn-menu btn-small'
                             download={`${rec.filename}.${rec.extension}`}
                             href={`/api/recordings/${$s.admin.group._name}/${rec.filename}.${rec.extension}`}
                         >
-                            <Icon class='icon-s' name='download' tip={$t('group.recording.download')} />
+                            <Icon className='icon-s' name='download' tip={$t('group.recording.download')} />
                         </a>
                     </div>
                     <video
                         controls
-                        src={`/api/recordings/${$s.admin.group._name}/${rec.filename}.${rec.extension}`}
-                        type='video/webm'
-                    />
+                        src={`/api/recordings/${typeof $s.admin.group === 'object' && $s.admin.group !== null && '_name' in $s.admin.group ? String($s.admin.group._name) : ''}/${rec.filename}.${rec.extension}`}
+                    >
+                        <source src={`/api/recordings/${typeof $s.admin.group === 'object' && $s.admin.group !== null && '_name' in $s.admin.group ? String($s.admin.group._name) : ''}/${rec.filename}.${rec.extension}`} type='video/webm' />
+                    </video>
                     <div class='info'>
                         <div class='line'>
                             <div class='key'>

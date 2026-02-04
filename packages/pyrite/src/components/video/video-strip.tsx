@@ -55,7 +55,7 @@ export const VideoStrip = ({streams}: VideoStripProps) => {
                         <Stream modelValue={sortedStreams[index]} onUpdate={handleStreamUpdate} />
                     </div>) :
                 <div class='video-strip-placeholder'>
-                    <Icon class='icon icon-l' name='webcam' />
+                    <Icon className='icon icon-l' name='webcam' />
                     <p>No video streams</p>
                 </div>}
         </div>

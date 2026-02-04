@@ -454,7 +454,15 @@ ServerConnection.prototype.connect = async function(url) {
  * @param {Object<string,any>} [data] - the initial associated data.
  */
 ServerConnection.prototype.join = async function(group, username, credentials, data) {
-    let m = {
+    let m: {
+        type: string
+        kind: string
+        group: any
+        username: any
+        password?: string
+        token?: string
+        data?: any
+    } = {
         type: 'join',
         kind: 'join',
         group: group,
@@ -1707,7 +1715,11 @@ TransferredFile.prototype.cancel = function(data) {
     if(f.state === 'closed')
         return;
     if(f.state !== '' && f.state !== 'done' && f.state !== 'cancelled') {
-        let m = {
+        let m: {
+            type: string
+            id: any
+            message?: string
+        } = {
             type: f.up ? 'cancel' : 'reject',
             id: f.id,
         };
@@ -1944,7 +1956,7 @@ TransferredFile.prototype.send = async function() {
                         return;
                     }
                     f.dc.onbufferedamountlow = null;
-                    resolve();
+                    resolve(undefined);
                 }
             });
         }
@@ -2020,7 +2032,7 @@ TransferredFile.prototype.receiveData = async function(data) {
     let blob = f.getBufferedData();
     f.event('done', blob);
 
-    await new Promise((resolve, reject) => {
+    await new Promise<void>((resolve, reject) => {
         let timer = setTimeout(function(e) { resolve(); }, 2000);
         f.dc.onclose = function(e) {
             clearTimeout(timer);

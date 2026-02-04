@@ -114,8 +114,15 @@ const initChatSubscriptions = () => {
 
                 // Find or create the chat channel (use slug as key)
                 const channelKey = channelSlug
-                if (!$s.chat.channels[channelKey]) {
-                    $s.chat.channels[channelKey] = {
+                const channels = $s.chat.channels as Record<string, {
+                    id: string
+                    members?: Record<string, {avatar: string}>
+                    messages: Array<Record<string, unknown>>
+                    typing?: {[userId: string]: {timestamp: number; userId: string | number; username: string}}
+                    unread: number
+                }>
+                if (!channels[channelKey]) {
+                    channels[channelKey] = {
                         id: channelKey,
                         messages: [],
                         unread: 0,
@@ -125,23 +132,24 @@ const initChatSubscriptions = () => {
 
                 // Ensure user is in global users map for avatar lookup
                 if (userId && username) {
+                    const users = ($s.chat.users || {}) as Record<string, {avatar: string; status?: 'online' | 'offline' | 'busy'; username: string}>
                     if (!$s.chat.users) {
                         $s.chat.users = {}
                     }
                     // Get avatar from channel members if available, or use placeholder
-                    const channel = $s.chat.channels[channelKey]
+                    const channel = channels[channelKey]
                     const memberAvatar = channel?.members?.[userId]?.avatar
 
-                    if (!$s.chat.users[userId]) {
-                        $s.chat.users[userId] = {
+                    if (!users[userId]) {
+                        users[userId] = {
                             avatar: memberAvatar || 'placeholder-1.png',
                             username,
                         }
                     } else {
                         // Update username/avatar if they changed
-                        $s.chat.users[userId].username = username
+                        users[userId].username = username
                         if (memberAvatar) {
-                            $s.chat.users[userId].avatar = memberAvatar
+                            users[userId].avatar = memberAvatar
                         }
                     }
                 }
@@ -156,13 +164,13 @@ const initChatSubscriptions = () => {
                 }
 
                 // Push to array - DeepSignal tracks array mutations
-                $s.chat.channels[channelKey].messages.push(newMessage)
+                channels[channelKey].messages.push(newMessage)
 
-                logger.debug(`[Chat WS] Added message to channel ${channelKey}, total messages: ${$s.chat.channels[channelKey].messages.length}`)
+                logger.debug(`[Chat WS] Added message to channel ${channelKey}, total messages: ${channels[channelKey].messages.length}`)
 
                 // Increment unread count if not the active channel
                 if ($s.chat.activeChannelSlug !== channelSlug) {
-                    $s.chat.channels[channelKey].unread++
+                    channels[channelKey].unread++
                 }
             }
 
@@ -176,29 +184,41 @@ const initChatSubscriptions = () => {
 
                 if (userId) {
                     const channelKey = channelSlug
+                    const channels = $s.chat.channels as Record<string, {
+                        id: string
+                        members?: Record<string, {avatar: string}>
+                        messages: Array<Record<string, unknown>>
+                        typing?: {[userId: string]: {timestamp: number; userId: string | number; username: string}}
+                        unread: number
+                    }>
 
                     // Ensure channel exists
-                    if (!$s.chat.channels[channelKey]) {
-                        $s.chat.channels[channelKey] = {
+                    if (!channels[channelKey]) {
+                        channels[channelKey] = {
                             id: channelKey,
                             messages: [],
                             typing: {},
                             unread: 0,
                         }
-                    } else if (!$s.chat.channels[channelKey].typing) {
-                        $s.chat.channels[channelKey].typing = {}
+                    } else if (!channels[channelKey].typing) {
+                        channels[channelKey].typing = {}
                     }
 
                     // Update typing state for this user in this channel
                     if (typing) {
-                        $s.chat.channels[channelKey].typing[userId] = {
+                        if (!channels[channelKey].typing) {
+                            channels[channelKey].typing = {}
+                        }
+                        channels[channelKey].typing![userId] = {
                             timestamp: Date.now(),
                             userId,
                             username: username || 'Unknown',
                         }
                     } else {
                         // Remove typing indicator when user stops typing
-                        delete $s.chat.channels[channelKey].typing[userId]
+                        if (channels[channelKey].typing) {
+                            delete channels[channelKey].typing[userId]
+                        }
                     }
                 }
             }
@@ -221,14 +241,24 @@ const initPresenceSubscriptions = () => {
             // Update presence status in chat.users
             if ($s.chat.users && userId) {
                 const normalizedUserId = String(userId)
-                if ($s.chat.users[normalizedUserId]) {
-                    $s.chat.users[normalizedUserId].status = 'online'
+                const users = $s.chat.users as Record<string, {avatar: string; status?: 'online' | 'offline' | 'busy'; username: string}>
+                if (users[normalizedUserId]) {
+                    users[normalizedUserId].status = 'online'
                 }
             }
 
             // Update current group member count if relevant
-            if ($s.sfu.channels[groupId]) {
-                $s.sfu.channels[groupId].clientCount = ($s.sfu.channels[groupId].clientCount || 0) + 1
+            const sfuChannels = $s.sfu.channels as Record<string, {
+                audio: boolean
+                clientCount?: number
+                comment?: string
+                connected?: boolean
+                description?: string
+                locked?: boolean
+                video: boolean
+            }>
+            if (sfuChannels[groupId]) {
+                sfuChannels[groupId].clientCount = (sfuChannels[groupId].clientCount || 0) + 1
             }
 
             // If this is the current group, add user to users list
@@ -283,13 +313,27 @@ const initPresenceSubscriptions = () => {
             // Update presence status in chat.users (check if user is still in any group)
             if ($s.chat.users && userId) {
                 const normalizedUserId = String(userId)
+                const users = $s.chat.users as Record<string, {avatar: string; status?: 'online' | 'offline' | 'busy'; username: string}>
                 // Note: We don't set offline here because user might be in another group
                 // The presence API will handle this
+                // Access users for type checking
+                if (users[normalizedUserId]) {
+                    // User exists, but we don't update status here
+                }
             }
 
             // Update current group member count if relevant
-            if ($s.sfu.channels[groupId] && ($s.sfu.channels[groupId].clientCount || 0) > 0) {
-                $s.sfu.channels[groupId].clientCount = ($s.sfu.channels[groupId].clientCount || 0) - 1
+            const sfuChannels = $s.sfu.channels as Record<string, {
+                audio: boolean
+                clientCount?: number
+                comment?: string
+                connected?: boolean
+                description?: string
+                locked?: boolean
+                video: boolean
+            }>
+            if (sfuChannels[groupId] && (sfuChannels[groupId].clientCount || 0) > 0) {
+                sfuChannels[groupId].clientCount = (sfuChannels[groupId].clientCount || 0) - 1
             }
 
             // If this is the current group, remove user from users list
@@ -312,10 +356,11 @@ const initPresenceSubscriptions = () => {
             // Update presence status in chat.users
             if ($s.chat.users && userId) {
                 const normalizedUserId = String(userId)
-                if ($s.chat.users[normalizedUserId]) {
+                const users = $s.chat.users as Record<string, {avatar: string; status?: 'online' | 'offline' | 'busy'; username: string}>
+                if (users[normalizedUserId]) {
                     // Update status if provided in the status object
                     if (status && typeof status === 'object' && 'status' in status) {
-                        $s.chat.users[normalizedUserId].status = status.status as 'online' | 'offline' | 'busy'
+                        users[normalizedUserId].status = status.status as 'online' | 'offline' | 'busy'
                     }
                 }
             }
@@ -323,8 +368,8 @@ const initPresenceSubscriptions = () => {
             // Normalize userId to string for consistent comparison
             const normalizedUserId = String(userId).trim()
             const user = $s.users.find((u) => u && u.id && String(u.id).trim() === normalizedUserId)
-            if (user) {
-                Object.assign(user.data, status)
+            if (user && user.data) {
+                Object.assign(user.data as Record<string, unknown>, status as Record<string, unknown>)
             }
             // Always deduplicate after any modification (safety net)
             deduplicateUsers()
@@ -336,8 +381,9 @@ const initPresenceSubscriptions = () => {
 
             if ($s.chat.users && userid) {
                 const normalizedUserId = String(userid)
-                if ($s.chat.users[normalizedUserId]) {
-                    $s.chat.users[normalizedUserId].status = status as 'online' | 'offline' | 'busy'
+                const users = $s.chat.users as Record<string, {avatar: string; status?: 'online' | 'offline' | 'busy'; username: string}>
+                if (users[normalizedUserId]) {
+                    users[normalizedUserId].status = status as 'online' | 'offline' | 'busy'
                 }
             }
         })
@@ -358,8 +404,17 @@ const initGroupSubscriptions = () => {
             logger.debug(`Group ${groupId} lock status: ${locked}`)
 
             // Update channel data
-            if ($s.sfu.channels[groupId]) {
-                $s.sfu.channels[groupId].locked = locked
+            const sfuChannels = $s.sfu.channels as Record<string, {
+                audio: boolean
+                clientCount?: number
+                comment?: string
+                connected?: boolean
+                description?: string
+                locked?: boolean
+                video: boolean
+            }>
+            if (sfuChannels[groupId]) {
+                sfuChannels[groupId].locked = locked
             }
 
             // If this is the current group, update state
@@ -389,8 +444,17 @@ const initGroupSubscriptions = () => {
             logger.debug(`Group ${groupId} config updated`)
 
             // Update channel data
-            if ($s.sfu.channels[groupId]) {
-                Object.assign($s.sfu.channels[groupId], config)
+            const sfuChannels = $s.sfu.channels as Record<string, {
+                audio: boolean
+                clientCount?: number
+                comment?: string
+                connected?: boolean
+                description?: string
+                locked?: boolean
+                video: boolean
+            }>
+            if (sfuChannels[groupId]) {
+                Object.assign(sfuChannels[groupId], config)
             }
         })
 
@@ -400,17 +464,26 @@ const initGroupSubscriptions = () => {
 
             logger.debug(`Group ${groupId} ${action}`)
 
+            const sfuChannels = $s.sfu.channels as Record<string, {
+                audio: boolean
+                clientCount?: number
+                comment?: string
+                connected?: boolean
+                description?: string
+                locked?: boolean
+                video: boolean
+            }>
             if (action === 'created' && group) {
                 // Add new group to channels if it doesn't exist
-                if (!$s.sfu.channels[groupId]) {
-                    $s.sfu.channels[groupId] = {
+                if (!sfuChannels[groupId]) {
+                    sfuChannels[groupId] = {
                         audio: false,
                         connected: false,
                         video: false,
                     }
                 }
                 // Update group metadata
-                Object.assign($s.sfu.channels[groupId], {
+                Object.assign(sfuChannels[groupId], {
                     locked: group.locked,
                     clientCount: group.clientCount,
                     comment: group.comment,
@@ -419,11 +492,11 @@ const initGroupSubscriptions = () => {
             } else if (action === 'deleted') {
                 // Note: We don't delete from sfu.channels to preserve audio/video state
                 // Only clear group metadata, keep audio/video preferences
-                if ($s.sfu.channels[groupId]) {
-                    delete $s.sfu.channels[groupId].locked
-                    delete $s.sfu.channels[groupId].clientCount
-                    delete $s.sfu.channels[groupId].comment
-                    delete $s.sfu.channels[groupId].description
+                if (sfuChannels[groupId]) {
+                    delete sfuChannels[groupId].locked
+                    delete sfuChannels[groupId].clientCount
+                    delete sfuChannels[groupId].comment
+                    delete sfuChannels[groupId].description
                 }
             }
         })
@@ -451,8 +524,17 @@ const initGroupSubscriptions = () => {
                         $s.sfu.channel.name = ''
 
                         // Update channel connection state
-                        if (channelSlug && $s.sfu.channels[channelSlug]) {
-                            $s.sfu.channels[channelSlug].connected = false
+                        const sfuChannels = $s.sfu.channels as Record<string, {
+                            audio: boolean
+                            clientCount?: number
+                            comment?: string
+                            connected?: boolean
+                            description?: string
+                            locked?: boolean
+                            video: boolean
+                        }>
+                        if (channelSlug && sfuChannels[channelSlug]) {
+                            sfuChannels[channelSlug].connected = false
                         }
                     } else if (targetUser) {
                         // Another user was kicked
@@ -468,7 +550,8 @@ const initGroupSubscriptions = () => {
                     if (targetUserId === $s.profile.id) {
                         $s.devices.mic.enabled = false
                     } else if (targetUser) {
-                        targetUser.data.mic = false
+                        const userData = targetUser.data as Record<string, unknown>
+                        userData.mic = false
                     }
                     break
 
@@ -476,7 +559,8 @@ const initGroupSubscriptions = () => {
                 case 'unop':
                     // Update operator permissions
                     if (targetUser) {
-                        targetUser.permissions.op = (action === 'op')
+                        const userPermissions = targetUser.permissions as Record<string, unknown>
+                        userPermissions.op = (action === 'op')
                     }
                     if (targetUserId === $s.profile.id) {
                         $s.permissions.op = (action === 'op')
@@ -487,7 +571,8 @@ const initGroupSubscriptions = () => {
                 case 'unpresent':
                     // Update presenter permissions
                     if (targetUser) {
-                        targetUser.permissions.present = (action === 'present')
+                        const userPermissions = targetUser.permissions as Record<string, unknown>
+                        userPermissions.present = (action === 'present')
                     }
                     if (targetUserId === $s.profile.id) {
                         $s.permissions.present = (action === 'present')
@@ -535,14 +620,15 @@ export const joinGroup = async (groupId: string) => {
     })
 
     // Response contains current members list
-    if (response && response.members) {
+    if (response && response.members && Array.isArray(response.members)) {
         // Clear existing users for this group first to avoid stale data
         // Then add all current members
         const currentGroupId = $s.sfu.channel.name
         if (currentGroupId === groupId) {
             // Remove users that are no longer in the group (keep only current members)
+            const members = response.members as Array<{id?: string | number; [key: string]: unknown}>
             const memberIds = new Set(
-                response.members
+                members
                     .filter(m => m && m.id)
                     .map(m => String(m.id).trim())
             )
@@ -555,7 +641,7 @@ export const joinGroup = async (groupId: string) => {
             })
             
             // Add/update all current members
-            for (const member of response.members) {
+            for (const member of members) {
                 // Normalize member.id to string for consistent comparison
                 if (!member || !member.id) {
                     logger.warn(`[joinGroup] Skipping member: invalid member data`)

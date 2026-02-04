@@ -95,9 +95,9 @@ export const registerChannelsWebSocket = (wsManager: WebSocketServerManager) => 
      */
     api.post('/channels', async(context, request) => {
         try {
-            const {description, galeneGroup, name} = request.data
+            const {description, galeneGroup, name} = request.data as {description?: string; galeneGroup?: string; name?: string}
 
-            if (!name || !galeneGroup) {
+            if (!name || typeof name !== 'string' || !galeneGroup || typeof galeneGroup !== 'string') {
                 return {
                     error: 'Name and galeneGroup are required',
                     success: false,
@@ -105,13 +105,7 @@ export const registerChannelsWebSocket = (wsManager: WebSocketServerManager) => 
             }
 
             // Get user ID from context (context.session.userid contains username)
-            let creatorId: string | null = null
-            if (context.session?.userid) {
-                const user = await userManager.getUserByUsername(context.session.userid)
-                if (user) {
-                    creatorId = user.id
-                }
-            }
+            const creatorId = await getUserIdFromContext(context)
 
             if (!creatorId) {
                 return {
@@ -358,7 +352,7 @@ export const registerChannelsWebSocket = (wsManager: WebSocketServerManager) => 
         try {
             const {channelId} = request.params
             const channelIdNum = parseInt(channelId, 10)
-            const {role = 'member', userId} = request.data
+            const {role = 'member', userId} = request.data as {role?: 'member' | 'admin'; userId?: string}
 
             if (isNaN(channelIdNum)) {
                 return {
@@ -367,15 +361,21 @@ export const registerChannelsWebSocket = (wsManager: WebSocketServerManager) => 
                 }
             }
 
-            if (!userId) {
+            if (!userId || typeof userId !== 'string') {
                 return {
                     error: 'User ID is required',
                     success: false,
                 }
             }
 
-            // Get current user ID from session/context and check admin permissions - placeholder for now
-            const currentUserId = 1
+            // Get current user ID from session/context and check admin permissions
+            const currentUserId = await getUserIdFromContext(context)
+            if (!currentUserId) {
+                return {
+                    error: 'Authentication required',
+                    success: false,
+                }
+            }
 
             if (!channelManager!.canAccessChannel(channelIdNum, currentUserId)) {
                 return {
@@ -430,17 +430,29 @@ export const registerChannelsWebSocket = (wsManager: WebSocketServerManager) => 
         try {
             const {channelId, userId} = request.params
             const channelIdNum = parseInt(channelId, 10)
-            const userIdNum = parseInt(userId, 10)
 
-            if (isNaN(channelIdNum) || isNaN(userIdNum)) {
+            if (isNaN(channelIdNum)) {
                 return {
-                    error: 'Invalid channel ID or user ID',
+                    error: 'Invalid channel ID',
                     success: false,
                 }
             }
 
-            // Get current user ID from session/context and check admin permissions - placeholder for now
-            const currentUserId = 1
+            if (!userId || typeof userId !== 'string') {
+                return {
+                    error: 'Invalid user ID',
+                    success: false,
+                }
+            }
+
+            // Get current user ID from session/context and check admin permissions
+            const currentUserId = await getUserIdFromContext(context)
+            if (!currentUserId) {
+                return {
+                    error: 'Authentication required',
+                    success: false,
+                }
+            }
 
             if (!channelManager!.canAccessChannel(channelIdNum, currentUserId)) {
                 return {
@@ -449,7 +461,8 @@ export const registerChannelsWebSocket = (wsManager: WebSocketServerManager) => 
                 }
             }
 
-            const success = await channelManager!.removeMember(channelIdNum, userIdNum)
+            // removeMember expects userId as string, not number
+            const success = await channelManager!.removeMember(channelIdNum, userId)
 
             if (!success) {
                 return {
@@ -471,7 +484,7 @@ export const registerChannelsWebSocket = (wsManager: WebSocketServerManager) => 
                 action: 'removed',
                 channelId: channelIdNum,
                 timestamp: Date.now(),
-                userId: userIdNum,
+                userId,
             })
 
             return {

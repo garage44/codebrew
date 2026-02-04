@@ -14,34 +14,41 @@ import {config} from '../lib/config.ts'
 import {loadGroups} from './group.js'
 import path from 'node:path'
 
+// Type definitions
+export type Session = {userid?: string}
+
+export type Server = {
+    upgrade: (request: Request, options: {data: unknown}) => boolean
+}
+
 // Simple HTTP router for Bun.serve that mimics Express pattern
-class Router {
+export class Router {
     routes: Array<{
-        handler: (req: Request, params: Record<string, string>, session?: unknown) => Promise<Response>
+        handler: (req: Request, params: Record<string, string>, session?: Session) => Promise<Response>
         method: string
         path: RegExp
     }> = []
 
-    get(path: string, handler: (req: Request, params: Record<string, string>, session?: unknown) => Promise<Response>) {
+    get(path: string, handler: (req: Request, params: Record<string, string>, session?: Session) => Promise<Response>) {
         this.add('GET', path, handler)
     }
 
-    post(path: string, handler: (req: Request, params: Record<string, string>, session?: unknown) => Promise<Response>) {
+    post(path: string, handler: (req: Request, params: Record<string, string>, session?: Session) => Promise<Response>) {
         this.add('POST', path, handler)
     }
 
-    put(path: string, handler: (req: Request, params: Record<string, string>, session?: unknown) => Promise<Response>) {
+    put(path: string, handler: (req: Request, params: Record<string, string>, session?: Session) => Promise<Response>) {
         this.add('PUT', path, handler)
     }
 
-    delete(path: string, handler: (req: Request, params: Record<string, string>, session?: unknown) => Promise<Response>) {
+    delete(path: string, handler: (req: Request, params: Record<string, string>, session?: Session) => Promise<Response>) {
         this.add('DELETE', path, handler)
     }
 
     private add(
         method: string,
         path: string,
-        handler: (req: Request, params: Record<string, string>, session?: unknown) => Promise<Response>,
+        handler: (req: Request, params: Record<string, string>, session?: Session) => Promise<Response>,
     ) {
         // Convert path params (e.g. /api/groups/:id) to regex
         const regex = new RegExp('^' + path.replaceAll(/:[^/]+/g, '([^/]+)') + '$')
@@ -52,7 +59,7 @@ class Router {
         })
     }
 
-    async route(req: Request, session?: unknown): Promise<Response | null> {
+    async route(req: Request, session?: Session): Promise<Response | null> {
         const url = new URL(req.url)
         const pathname = url.pathname
         for (const {handler, method, path} of this.routes) {
@@ -74,7 +81,7 @@ class Router {
  * SFU Proxy - proxies WebSocket connections to Galène
  * This is a pass-through proxy that doesn't require WebSocket server management
  */
-async function proxySFUWebSocket(request: Request, server: unknown) {
+async function proxySFUWebSocket(request: Request, server: Server) {
     const sfuUrl = config.sfu.url.replace('http://', 'ws://').replace('https://', 'wss://')
     const url = new URL(request.url)
 
@@ -169,7 +176,7 @@ async function proxySFUWebSocket(request: Request, server: unknown) {
 
 
 // Auth middleware that can be reused across routes
-const requireAdmin = async(ctx, next) => {
+const requireAdmin = async(ctx: {session?: Session}, next: (ctx: {session?: Session}) => Promise<unknown>) => {
     if (!ctx.session?.userid) {
         throw new Error('Unauthorized')
     }

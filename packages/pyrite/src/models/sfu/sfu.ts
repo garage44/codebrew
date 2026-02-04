@@ -59,14 +59,16 @@ export async function addShareMedia() {
     try {
         if (!('getDisplayMedia' in navigator.mediaDevices))
             throw new Error('Your browser does not support screen sharing')
-            /** @ts-expect-error - getDisplayMedia may not be in all types */
-        stream = await navigator.mediaDevices.getDisplayMedia({audio: true, video: true})
+        stream = await (navigator.mediaDevices as any).getDisplayMedia({audio: true, video: true})
     } catch (e) {
         notifier.notify({message: String(e), type: 'error'})
         return
     }
 
-    const {glnStream, streamState} = newUpStream()
+    const {glnStream, streamState} = newUpStream(null, {
+        direction: 'up',
+        mirror: false,
+    })
     glnStream.label = 'screenshare'
     $s.upMedia[glnStream.label].push(glnStream.id)
     glnStream.stream = stream
@@ -109,7 +111,10 @@ export async function addUserMedia() {
     }
 
     logger.debug(`[sfu] creating new upstream stream`)
-    const {glnStream, streamState} = newUpStream(localStreamId)
+    const {glnStream, streamState} = newUpStream(localStreamId, {
+        direction: 'up',
+        mirror: false,
+    })
     glnStream.label = 'camera'
     glnStream.stream = localStream
     localGlnStream = glnStream
@@ -288,8 +293,19 @@ export function disconnect() {
     $s.streams = []
 
     // Update channel connection state
-    if (channelSlug && $s.sfu.channels[channelSlug]) {
-        $s.sfu.channels[channelSlug].connected = false
+    if (channelSlug) {
+        const sfuChannels = $s.sfu.channels as Record<string, {
+            audio: boolean
+            clientCount?: number
+            comment?: string
+            connected?: boolean
+            description?: string
+            locked?: boolean
+            video: boolean
+        }>
+        if (sfuChannels[channelSlug]) {
+            sfuChannels[channelSlug].connected = false
+        }
     }
 
     // Always reset active channel on disconnect
@@ -363,7 +379,8 @@ function fileTransferEvent(this: any, state: string, data: any) {
                     progress: null,
                 })
             }
-            notifier.setTimeout(f.notifier)
+            // Update notification with timeout - notify method handles timeout automatically
+            notifier.notify(f.notifier, 3000)
             break
         case 'cancelled':
             Object.assign(f.notifier, {
@@ -372,7 +389,8 @@ function fileTransferEvent(this: any, state: string, data: any) {
                 message: $t('user.action.share_file.transfer_cancelled', {file: f.name}),
                 progress: null,
             })
-            notifier.setTimeout(f.notifier)
+            // Update notification with timeout - notify method handles timeout automatically
+            notifier.notify(f.notifier, 3000)
             break
         case 'closed':
             break
@@ -383,7 +401,8 @@ function fileTransferEvent(this: any, state: string, data: any) {
                 message: $t('error', {error: state}),
                 progress: null,
             })
-            notifier.setTimeout(f.notifier)
+            // Update notification with timeout - notify method handles timeout automatically
+            notifier.notify(f.notifier, 3000)
             f.cancel(`unexpected state "${state}" (this shouldn't happen)`)
             break
     }
@@ -500,8 +519,19 @@ function onClose(code, reason) {
     $s.sfu.channel.connected = false
 
     // Update channel connection state
-    if (channelSlug && $s.sfu.channels[channelSlug]) {
-        $s.sfu.channels[channelSlug].connected = false
+    if (channelSlug) {
+        const sfuChannels = $s.sfu.channels as Record<string, {
+            audio: boolean
+            clientCount?: number
+            comment?: string
+            connected?: boolean
+            description?: string
+            locked?: boolean
+            video: boolean
+        }>
+        if (sfuChannels[channelSlug]) {
+            sfuChannels[channelSlug].connected = false
+        }
     }
 
     delUpMediaKind(null)
@@ -605,20 +635,30 @@ async function onJoined(kind, group, permissions, status, data, message) {
             for (const permission of permissions) {
                 _permissions[permission] = true
             }
-            $s.permissions.op = _permissions.op || false
-            $s.permissions.present = _permissions.present || false
-            $s.permissions.record = _permissions.record || false
+            const permissionsState = $s.permissions as {op: boolean; present: boolean; record: boolean}
+            permissionsState.op = (_permissions as Record<string, boolean>).op || false
+            permissionsState.present = (_permissions as Record<string, boolean>).present || false
+            permissionsState.record = (_permissions as Record<string, boolean>).record || false
 
             // Update connection state - group is the channel slug
             $s.sfu.channel.connected = true
             $s.sfu.channel.name = group
 
             // Initialize channel state if it doesn't exist
-            if (!$s.sfu.channels[group]) {
-                $s.sfu.channels[group] = {audio: false, connected: false, video: false}
+            const sfuChannels = $s.sfu.channels as Record<string, {
+                audio: boolean
+                clientCount?: number
+                comment?: string
+                connected?: boolean
+                description?: string
+                locked?: boolean
+                video: boolean
+            }>
+            if (!sfuChannels[group]) {
+                sfuChannels[group] = {audio: false, connected: false, video: false}
             }
             // Set channel as connected
-            $s.sfu.channels[group].connected = true
+            sfuChannels[group].connected = true
 
             if (promiseConnect) {
                 promiseConnect.resolve(message)
@@ -630,9 +670,10 @@ async function onJoined(kind, group, permissions, status, data, message) {
             for (const permission of permissions) {
                 _permissions[permission] = true
             }
-            $s.permissions.op = _permissions.op || false
-            $s.permissions.present = _permissions.present || false
-            $s.permissions.record = _permissions.record || false
+            const permissionsStateChange = $s.permissions as {op: boolean; present: boolean; record: boolean}
+            permissionsStateChange.op = (_permissions as Record<string, boolean>).op || false
+            permissionsStateChange.present = (_permissions as Record<string, boolean>).present || false
+            permissionsStateChange.record = (_permissions as Record<string, boolean>).record || false
 
             if (status && status.locked) {
                 currentGroupData.locked = true

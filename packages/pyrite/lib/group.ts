@@ -6,15 +6,45 @@ import fs from 'fs-extra'
 import {Glob} from 'bun'
 import path from 'node:path'
 import {uniqueNamesGenerator} from 'unique-names-generator'
+import type {User} from '@garage44/common/lib/user-manager'
 
-const ROLES = ['op', 'other', 'presenter']
+const ROLES = ['op', 'other', 'presenter'] as const
+
+// Group data type with Pyrite-specific metadata
+export interface GroupData {
+    _name: string
+    _newName?: string
+    _permissions?: {op: string[]; other: string[]; presenter: string[]}
+    _unsaved?: boolean
+    _delete?: boolean
+    _isNativeGalene?: boolean
+    'allow-anonymous': boolean
+    'allow-recording': boolean
+    'allow-subgroups': boolean
+    autokick: boolean
+    autolock: boolean
+    codecs: string[]
+    comment: string
+    contact: string
+    description: string
+    displayName: string
+    'max-clients': number
+    'max-history-age': number
+    op: string[]
+    other: (string | Record<string, unknown>)[]
+    presenter: string[]
+    public: boolean
+    'public-access'?: boolean
+    redirect: string
+    [key: string]: unknown
+}
 
 // Helper functions to use UserManager from service
-const loadUsers = () => userManager.listUsers()
-const saveUsers = async(users) => {
+const loadUsers = (): Promise<User[]> => userManager.listUsers()
+const saveUsers = async(users: User[]) => {
     // Save users by updating each user individually
     for (const user of users) {
-        await userManager.updateUser(user.id || user.username || user.name, user)
+        await userManager.updateUser(user.id || user.username, user)
     }
 }
 
@@ -35,15 +65,17 @@ const PUBLIC_GROUP_FIELDS = [
     'public-access',
 ]
 
-export function groupTemplate(groupId = null) {
-    const template = {
-        _name: groupId || uniqueNamesGenerator({
-            dictionaries: [dictionary.adjs, dictionary.nouns],
-            length: 2,
-            separator: '-',
-            style: 'lowercase',
-        }),
-        _permissions: {},
+export function groupTemplate(groupId: string | null = null): GroupData {
+    const name = groupId || uniqueNamesGenerator({
+        dictionaries: [dictionary.adjs, dictionary.nouns],
+        length: 2,
+        separator: '-',
+        style: 'lowerCase',
+    })
+    const template: GroupData = {
+        _name: name,
+        _newName: name,
+        _permissions: {op: [], other: [], presenter: []},
         _unsaved: true,
         'allow-anonymous': false,
         'allow-recording': true,
@@ -65,21 +97,21 @@ export function groupTemplate(groupId = null) {
         redirect: '',
     }
 
-    template._newName = template._name
     return template
 }
 
-export async function loadGroupPermissions(groupName) {
-    const permissions = {op: [], other: [], presenter: []}
+export async function loadGroupPermissions(groupName: string): Promise<{op: string[]; other: string[]; presenter: string[]}> {
+    const permissions = {op: [] as string[], other: [] as string[], presenter: [] as string[]}
     // Permissions from a group perspective; transformed from settings.users
     const users = await loadUsers()
     for (const user of users) {
-        // Handle both old format (user.groups) and new format (user.permissions.groups)
-        const userGroups = user.permissions?.groups || user.groups || {}
+        // Use user.permissions.groups (User type has permissions.groups, not groups directly)
+        const userGroups = user.permissions?.groups || {}
         for (const permissionName of Object.keys(userGroups)) {
-            for (const _groupName of userGroups[permissionName]) {
-                if (groupName === _groupName) {
-                    permissions[permissionName].push(user.username || user.name)
+            const groups = userGroups[permissionName] || []
+            for (const _groupName of groups) {
+                if (groupName === _groupName && (permissionName === 'op' || permissionName === 'other' || permissionName === 'presenter')) {
+                    permissions[permissionName].push(user.username)
                 }
             }
         }
@@ -87,7 +119,7 @@ export async function loadGroupPermissions(groupName) {
     return permissions
 }
 
-export async function saveGroupPermissions(groupName, groupPermissions) {
+export async function saveGroupPermissions(groupName: string, groupPermissions: Record<string, string[]>) {
     /*
      * Save the group permissions to settings.users and
      * sync back to the group files afterwards.
@@ -97,16 +129,28 @@ export async function saveGroupPermissions(groupName, groupPermissions) {
         for (const user of users) {
             let userGroupMatch = false
             for (const username of groupPermissions[permissionName]) {
-                if (user.name === username) {
+                if (user.username === username) {
                     userGroupMatch = true
-                    if (!user.groups[permissionName].includes(groupName)) {
-                        user.groups[permissionName].push(groupName)
+                    // Use user.permissions.groups instead of user.groups
+                    if (!user.permissions.groups) {
+                        user.permissions.groups = {}
+                    }
+                    if (!user.permissions.groups[permissionName]) {
+                        user.permissions.groups[permissionName] = []
+                    }
+                    if (!user.permissions.groups[permissionName].includes(groupName)) {
+                        user.permissions.groups[permissionName].push(groupName)
                     }
                 }
             }
 
-            if (!userGroupMatch && user.groups[permissionName].includes(groupName)) {
-                user.groups[permissionName].splice(user.groups[permissionName].indexOf(groupName), 1)
+            // Use user.permissions.groups instead of user.groups
+            if (!userGroupMatch && user.permissions.groups?.[permissionName]?.includes(groupName)) {
+                const groups = user.permissions.groups[permissionName]
+                const index = groups.indexOf(groupName)
+                if (index !== -1) {
+                    groups.splice(index, 1)
+                }
             }
         }
     }
@@ -114,12 +158,12 @@ export async function saveGroupPermissions(groupName, groupPermissions) {
     await saveUsers(users)
 }
 
-export async function loadGroup(groupName) {
+export async function loadGroup(groupName: string): Promise<GroupData | null> {
     logger.debug(`load group ${groupName}`)
     const groupFile = path.join(config.sfu.path, 'groups', `${groupName}.json`)
     const exists = await fs.pathExists(groupFile)
     if (!exists) return null
-    const groupData = JSON.parse(await fs.promises.readFile(groupFile, 'utf8'))
+    const groupData = JSON.parse(await fs.promises.readFile(groupFile, 'utf8')) as GroupData
 
     /*
      * PYRITE GROUP LOADING - Handle Multiple Formats
@@ -187,7 +231,7 @@ export async function loadGroup(groupName) {
     // Flag for UI to show read-only state
     groupData._isNativeGalene = isNativeGaleneFormat
 
-    return groupData
+    return groupData as GroupData
 }
 
 export async function loadGroups(publicEndpoint = false) {
@@ -254,10 +298,12 @@ export async function pingGroups(groupNames) {
     await Promise.all(groupNames.map((i) => fetch(`${config.sfu.url}/group/${i}`)))
 }
 
-export async function renameGroup(oldGroupName, newGroupName) {
+export async function renameGroup(oldGroupName: string, newGroupName: string) {
     const users = await loadUsers()
     for (const user of users) {
-        for (const role of Object.values(user.groups)) {
+        // Use user.permissions.groups instead of user.groups
+        const userGroups = user.permissions?.groups || {}
+        for (const role of Object.values(userGroups)) {
             for (const [roleIndex, groupName] of role.entries()) {
                 if (groupName === oldGroupName) {
                     role[roleIndex] = newGroupName
@@ -270,7 +316,7 @@ export async function renameGroup(oldGroupName, newGroupName) {
     await saveUsers(users)
 }
 
-export async function saveGroup(groupName, data) {
+export async function saveGroup(groupName: string, data: GroupData): Promise<{data: GroupData; groupId: string}> {
     const saveData = JSON.parse(JSON.stringify(data))
     // Remove non-group data.
     delete saveData.name
@@ -319,22 +365,32 @@ export async function saveGroup(groupName, data) {
 /**
  * Updates users in settings.users from a Galène group.
  */
-export async function syncGroup(groupId, groupData) {
+export async function syncGroup(groupId: string, groupData: GroupData) {
     logger.debug(`sync group ${groupId}`)
     const users = await loadUsers()
     let changed = false
     for (const role of ROLES) {
-        for (const username of groupData[role]) {
-            const _user = users.find((i) => i.name === username)
+        for (const username of groupData[role] || []) {
+            // Use user.username instead of user.name
+            const _user = users.find((i) => i.username === username)
 
             /*
              * User from groups definition is in settings.users;
              * Make sure the group is there as well...
              */
-            if (_user && !_user.groups[role].includes(groupId)) {
-                logger.debug(`add group ${groupId} to user ${_user.name}`)
-                _user.groups[role].push(groupId)
-                changed = true
+            if (_user) {
+                // Use user.permissions.groups instead of user.groups
+                if (!_user.permissions.groups) {
+                    _user.permissions.groups = {}
+                }
+                if (!_user.permissions.groups[role]) {
+                    _user.permissions.groups[role] = []
+                }
+                if (!_user.permissions.groups[role].includes(groupId)) {
+                    logger.debug(`add group ${groupId} to user ${_user.username}`)
+                    _user.permissions.groups[role].push(groupId)
+                    changed = true
+                }
             }
         }
     }

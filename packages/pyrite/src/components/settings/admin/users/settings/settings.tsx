@@ -30,26 +30,24 @@ export default function Settings({tabId = 'misc', userId}: SettingsProps) {
             <header>
                 <div class='notice' />
                 <div class='title'>
-                    <span>{$s.admin.user.name}</span>
-                    <Icon class='icon icon-regular' name='user' />
+                    <span>{typeof $s.admin.user === 'object' && $s.admin.user !== null && 'name' in $s.admin.user ? String($s.admin.user.name) : ''}</span>
+                    <Icon className='icon icon-regular' name='user' />
                 </div>
             </header>
 
             <ul class='tabs'>
                 <Link
-                    class={classnames('btn btn-menu', {active: tabId === 'misc'})}
-                    href={routeSettings('misc')}
+                    {...({class: classnames('btn btn-menu', {active: tabId === 'misc'}), href: routeSettings('misc')} as Record<string, unknown>)}
                 >
-                    <Icon class='icon-d' name='pirate' />
+                    <Icon className='icon-d' name='pirate' />
                 </Link>
                 <Link
-                    class={classnames('btn btn-menu tab', {
+                    {...({class: classnames('btn btn-menu tab', {
                         active: tabId === 'permissions',
                         disabled: $s.admin.groups.length === 0,
-                    })}
-                    href={$s.admin.groups.length > 0 ? routeSettings('permissions') : '#'}
+                    }), href: $s.admin.groups.length > 0 ? routeSettings('permissions') : '#'} as Record<string, unknown>)}
                 >
-                    <Icon class='icon-d' name='operator' />
+                    <Icon className='icon-d' name='operator' />
                 </Link>
             </ul>
 
@@ -59,7 +57,7 @@ export default function Settings({tabId = 'misc', userId}: SettingsProps) {
 
                 <div class='actions'>
                     <button class='btn btn-menu' onClick={saveUserAction}>
-                        <Icon class='icon-d' name='save' />
+                        <Icon className='icon-d' name='save' />
                     </button>
                 </div>
             </div>

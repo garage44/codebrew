@@ -36,7 +36,7 @@ export default function Stats({groupId}: StatsProps) {
         loss: false,
         maxBitrate: false,
     })
-    const [setIntervalId] = useState<number | null>(null)
+    const [intervalId, setIntervalId] = useState<number | null>(null)
 
     const statEnabled = (track: TrackStats, property: keyof TrackStats) => {
         // Already enabled; return quick

@@ -46,7 +46,7 @@ export const registerChatWebSocket = (wsManager: WebSocketServerManager) => {
     api.post('/channels/:channelSlug/messages', async(context, request) => {
         try {
             const {channelSlug} = request.params
-            const {kind = 'message', message} = request.data
+            const {kind = 'message', message} = request.data as {kind?: string; message?: string}
 
             if (!channelSlug || typeof channelSlug !== 'string') {
                 return {
@@ -61,6 +61,9 @@ export const registerChatWebSocket = (wsManager: WebSocketServerManager) => {
                     success: false,
                 }
             }
+
+            // Ensure kind is a string
+            const messageKind: string = typeof kind === 'string' ? kind : 'message'
 
             // Get user ID and username from context
             const {userId, username} = await getUserIdFromContext(context)
@@ -98,7 +101,7 @@ export const registerChatWebSocket = (wsManager: WebSocketServerManager) => {
                 VALUES (?, ?, ?, ?, ?, ?)
             `)
 
-            const result = insertMessage.run(channel.id, userId, username, message, now, kind)
+            const result = insertMessage.run(channel.id, userId, username, message, now, messageKind)
             const messageId = result.lastInsertRowid
 
             const messageData = {
@@ -194,7 +197,10 @@ export const registerChatWebSocket = (wsManager: WebSocketServerManager) => {
     api.get('/channels/:channelSlug/messages', async(context, request) => {
         try {
             const {channelSlug} = request.params
-            const {limit = 100} = request.data || {}
+            const {limit = 100} = (request.data || {}) as {limit?: number}
+            
+            // Ensure limit is a number
+            const messageLimit: number = typeof limit === 'number' ? limit : 100
 
             if (!channelSlug || typeof channelSlug !== 'string') {
                 return {
@@ -232,7 +238,7 @@ export const registerChatWebSocket = (wsManager: WebSocketServerManager) => {
                 LIMIT ?
             `)
 
-            const messages = stmt.all(channel.id, limit) as Array<{
+            const messages = stmt.all(channel.id, messageLimit) as Array<{
                 channel_id: number
                 id: number
                 kind: string

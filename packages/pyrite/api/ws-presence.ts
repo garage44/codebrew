@@ -31,7 +31,14 @@ export const registerPresenceWebSocket = (wsManager: WebSocketServerManager) => 
      */
     api.post('/api/presence/:groupId/join', async(context, request) => {
         const {groupId} = request.params
-        const {userId, username} = request.data
+        const {userId, username} = request.data as {userId?: string; username?: string}
+
+        if (!userId || typeof userId !== 'string') {
+            return {error: 'User ID is required', success: false}
+        }
+        if (!username || typeof username !== 'string') {
+            return {error: 'Username is required', success: false}
+        }
 
         // Add user to group
         if (!state.groups.has(groupId)) {
@@ -72,7 +79,11 @@ export const registerPresenceWebSocket = (wsManager: WebSocketServerManager) => 
      */
     api.post('/api/presence/:groupId/leave', async(context, request) => {
         const {groupId} = request.params
-        const {userId} = request.data
+        const {userId} = request.data as {userId?: string}
+
+        if (!userId || typeof userId !== 'string') {
+            return {error: 'User ID is required', success: false}
+        }
 
         // Remove user from group
         const group = state.groups.get(groupId)
@@ -142,7 +153,11 @@ export const registerPresenceWebSocket = (wsManager: WebSocketServerManager) => 
      */
     api.post('/api/presence/:groupId/status', async(context, request) => {
         const {groupId} = request.params
-        const {status, userId} = request.data
+        const {status, userId} = request.data as {status?: Record<string, unknown>; userId?: string}
+
+        if (!userId || typeof userId !== 'string') {
+            return {error: 'User ID is required', success: false}
+        }
 
         const user = state.users.get(userId)
         if (user) {

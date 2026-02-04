@@ -14,8 +14,10 @@ const handleKeyDown = (e: KeyboardEvent) => {
     }
 }
 
+import type {Channel} from '../../types'
+
 interface ChannelChatProps {
-    channel?: {id: string; messages: unknown[]; name: string; unread: number}
+    channel?: Channel
     channelSlug: string
 }
 
@@ -194,7 +196,7 @@ export default function ChannelChat({channel, channelSlug}: ChannelChatProps) {
         <div class='channel-header'>
             <Icon className='icon icon-s' name='chat' />
             <h1>{currentChannel.name}</h1>
-            {currentChannel.description &&
+            {currentChannel?.description &&
                 <p class='channel-description'>{currentChannel.description}</p>}
         </div>
 
@@ -207,7 +209,11 @@ export default function ChannelChat({channel, channelSlug}: ChannelChatProps) {
                 // Access messages directly in render for DeepSignal reactivity
                 const channelData = $s.chat.channels[channelKey]
                 const msgs = channelData?.messages || []
-                const sorted = msgs.length > 0 ? [...msgs].toSorted((a, b) => a.time - b.time) : []
+                const sorted = msgs.length > 0 ? [...msgs].toSorted((a, b) => {
+                    const timeA = (a as {time?: number}).time ?? 0
+                    const timeB = (b as {time?: number}).time ?? 0
+                    return timeA - timeB
+                }) : []
 
                 // Get typing indicators for this channel
                 const typingUsers = channelData?.typing ? Object.values(channelData.typing) : []
@@ -241,7 +247,10 @@ export default function ChannelChat({channel, channelSlug}: ChannelChatProps) {
 
                 return (
                     <>
-                        {sorted.map((message, index) => <ChatMessage channelSlug={channelSlug} key={index} message={message} />)}
+                        {sorted.map((message, index) => {
+                            const msg = message as {kind: string; message: string; nick?: string; time: number; user_id?: string}
+                            return <ChatMessage channelSlug={channelSlug} key={index} message={msg} />
+                        })}
                         {otherTypingUsers.length > 0 &&
                             <div class='typing-indicator'>
                                 {otherTypingUsers.length === 1 ?
