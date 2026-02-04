@@ -10,6 +10,11 @@
         <% if (settings.enableBunchy !== false) { %>
         <script src="/public/bunchy.<%= settings.buildId %>.js" type="module"></script>
         <% } %>
+        <% if (settings.bootstrapState) { %>
+        <script>
+            window.__NONLINEAR_BOOTSTRAP_STATE__ = <%- JSON.stringify(settings.bootstrapState) %>;
+        </script>
+        <% } %>
         <script src="/public/app.<%= settings.buildId %>.js" type="module"></script>
     </head>
     <body>

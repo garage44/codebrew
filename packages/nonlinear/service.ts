@@ -109,6 +109,7 @@ void cli.usage('Usage: $0 [task]')
 
         // Initialize agent system
         const {initAgentStatusTracking} = await import('./lib/agent/status.ts')
+        const {initAgentStateTracking} = await import('./lib/agent/state.ts')
         const {initAgentScheduler} = await import('./lib/agent/scheduler.ts')
         const {initAgentAvatars} = await import('./lib/agent/avatars.ts')
         const {initTokenUsageTracking} = await import('./lib/agent/token-usage.ts')
@@ -116,6 +117,7 @@ void cli.usage('Usage: $0 [task]')
         const {initAgentTicketUpdateBroadcasting} = await import('./lib/agent/ticket-updates.ts')
 
         initAgentStatusTracking(wsManager)
+        initAgentStateTracking(wsManager)
         initAgentAvatars()
         initTokenUsageTracking(wsManager)
         initAgentCommentBroadcasting(wsManager)

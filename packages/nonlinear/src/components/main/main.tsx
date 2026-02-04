@@ -1,5 +1,6 @@
 import {$s} from '@/app'
-import {api, store, ws} from '@garage44/common/app'
+import {api, logger, store, ws} from '@garage44/common/app'
+import {copyObject, mergeDeep} from '@garage44/common/lib/utils'
 import {Board, Docs, Settings, TicketDetail} from '@/components/pages'
 import {
     AppLayout,
@@ -61,6 +62,18 @@ export const Main = () => {
                     }
                 }
 
+                // Load bootstrap state from HTML if available (SSR hydration pattern)
+                // This should be loaded BEFORE the API call so we can merge it
+                const bootstrapState = typeof window !== 'undefined' && (window as {__NONLINEAR_BOOTSTRAP_STATE__?: {agents: Record<string, {status: 'idle' | 'working' | 'error' | 'offline'; stats?: {pending: number; processing: number; completed: number; failed: number}}>}}).__NONLINEAR_BOOTSTRAP_STATE__
+
+                if (bootstrapState?.agents) {
+                    const agentIds = Object.keys(bootstrapState.agents)
+                    logger.info(`[Bootstrap] Applying bootstrap state for ${agentIds.length} agents: ${agentIds.join(', ')}`)
+                    for (const [agentId, state] of Object.entries(bootstrapState.agents)) {
+                        logger.debug(`[Bootstrap] Agent ${agentId}: status=${state.status}, stats=${JSON.stringify(state.stats)}, statsExists=${!!state.stats}`)
+                    }
+                }
+
                 const agentsResult = await ws.get('/api/agents')
                 if (agentsResult.agents) {
                     $s.agents = agentsResult.agents.map((agent: {
@@ -72,57 +85,73 @@ export const Main = () => {
                         id: string
                         lastActivity: number
                         name: string
+                        serviceOnline?: boolean
+                        stats?: {
+                            completed: number
+                            failed: number
+                            pending: number
+                            processing: number
+                        }
                         status: string
                         type: 'planner' | 'developer' | 'reviewer'
-                    }) => ({
-                        id: agent.id,
-                        name: agent.name,
-                        username: agent.name,
-                        displayName: agent.display_name || `${agent.name} Agent`,
-                        avatar: agent.avatar || 'placeholder-2.png',
-                        status: (agent.status || 'idle') as 'idle' | 'working' | 'error' | 'offline',
-                        type: agent.type,
-                        config: '',
-                        enabled: agent.enabled,
-                        created_at: agent.created_at,
-                        isAgent: true as const,
-                        currentTicketId: agent.currentTicketId || null,
-                        lastActivity: agent.lastActivity || agent.created_at,
-                    }))
+                    }) => {
+                        // Start with base agent data from API
+                        const baseAgent = {
+                            id: agent.id,
+                            name: agent.name,
+                            username: agent.name,
+                            displayName: agent.display_name || `${agent.name} Agent`,
+                            avatar: agent.avatar || 'placeholder-2.png',
+                            status: (agent.status || 'idle') as 'idle' | 'working' | 'error' | 'offline',
+                            type: agent.type,
+                            config: '',
+                            enabled: agent.enabled,
+                            created_at: agent.created_at,
+                            isAgent: true as const,
+                            currentTicketId: agent.currentTicketId || null,
+                            lastActivity: agent.lastActivity || agent.created_at,
+                            serviceOnline: agent.serviceOnline ?? false,
+                            stats: agent.stats || {
+                                completed: 0,
+                                failed: 0,
+                                pending: 0,
+                                processing: 0,
+                            },
+                        }
+
+                        // Merge bootstrap state over base agent (bootstrap takes precedence)
+                        const bootstrapAgent = bootstrapState?.agents?.[agent.id]
+                        if (bootstrapAgent) {
+                            // Create a copy of baseAgent before merging (mergeDeep mutates the target)
+                            const agentCopy = copyObject(baseAgent)
+
+                            // Use mergeDeep to merge bootstrap state over base agent
+                            // Bootstrap state has status and stats, which will override base values
+                            mergeDeep(agentCopy, {
+                                status: bootstrapAgent.status,
+                                stats: bootstrapAgent.stats,
+                            })
+
+                            // serviceOnline is derived from status
+                            agentCopy.serviceOnline = agentCopy.status !== 'offline'
+
+                            if (process.env.NODE_ENV === 'development') {
+                                logger.debug(`[Bootstrap] Merged agent ${agent.id} using mergeDeep: status=${agentCopy.status}, stats=${JSON.stringify(agentCopy.stats)}`)
+                            }
+
+                            return agentCopy
+                        }
+
+                        // No bootstrap state - derive serviceOnline from status
+                        baseAgent.serviceOnline = baseAgent.status !== 'offline'
+                        return baseAgent
+                    })
                 }
 
                 // Load label definitions
                 const labelsResult = await ws.get('/api/labels')
                 if (labelsResult.labels) {
                     $s.labelDefinitions = labelsResult.labels
-                } {
-                    // Transform agents into user-like objects
-                    $s.agents = agentsResult.agents.map((agent: {
-                        avatar: string | null
-                        created_at: number
-                        currentTicketId: string | null
-                        display_name: string | null
-                        enabled: number
-                        id: string
-                        lastActivity: number
-                        name: string
-                        status: string
-                        type: 'planner' | 'developer' | 'reviewer'
-                    }) => ({
-                        id: agent.id,
-                        name: agent.name,
-                        username: agent.name,
-                        displayName: agent.display_name || `${agent.name} Agent`,
-                        avatar: agent.avatar || 'placeholder-2.png',
-                        status: (agent.status || 'idle') as 'idle' | 'working' | 'error' | 'offline',
-                        type: agent.type,
-                        config: '',
-                        enabled: agent.enabled,
-                        created_at: agent.created_at,
-                        isAgent: true as const,
-                        currentTicketId: agent.currentTicketId || null,
-                        lastActivity: agent.lastActivity || agent.created_at,
-                    }))
                 }
 
                 // Subscribe to real-time updates
@@ -155,6 +184,43 @@ export const Main = () => {
                     }
                 })
 
+                // Listen for agent state updates (watched state pattern)
+                ws.on('/agents/state', ({agents: agentStates, timestamp}) => {
+                    if (process.env.NODE_ENV === 'development') {
+                        console.log('[Frontend] Received /agents/state broadcast:', {agentStates, timestamp})
+                    }
+
+                    // Update status and stats for all agents from watched state
+                    // Create a new array to ensure DeepSignal detects the change
+                    const updatedAgents = $s.agents.map((agent) => {
+                        const state = agentStates[agent.id]
+                        if (state) {
+                            // Use mergeDeep to merge state updates (status and stats)
+                            const agentCopy = copyObject(agent)
+                            mergeDeep(agentCopy, {
+                                status: state.status,
+                                stats: state.stats,
+                            })
+
+                            // serviceOnline is derived from status
+                            agentCopy.serviceOnline = agentCopy.status !== 'offline'
+
+                            return agentCopy
+                        }
+                        return agent
+                    })
+                    // Assign new array to trigger reactivity
+                    // DeepSignal tracks array assignment and will trigger component re-renders
+                    $s.agents = updatedAgents
+
+                    if (process.env.NODE_ENV === 'development') {
+                        logger.info(`[Frontend] Updated ${updatedAgents.length} agents from /agents/state broadcast`)
+                        for (const agent of updatedAgents) {
+                            logger.debug(`[Frontend] Agent ${agent.id}: status=${agent.status}, stats=${JSON.stringify(agent.stats)}`)
+                        }
+                    }
+                })
+
                 ws.on('/agents', (data) => {
                     if (data.type === 'agent:created' || data.type === 'agent:updated') {
                         const agent = data.agent
@@ -173,6 +239,7 @@ export const Main = () => {
                             isAgent: true as const,
                             currentTicketId: null,
                             lastActivity: Date.now(),
+                            serviceOnline: false,
                         }
                         if (index >= 0) {
                             const updatedAgents = [...$s.agents]

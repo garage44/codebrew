@@ -13,6 +13,7 @@ import {createTask} from '../lib/agent/tasks.ts'
 import {getTokenUsage} from '../lib/agent/token-usage.ts'
 import {config} from '../lib/config.ts'
 import {getTaskStats} from '../lib/agent/tasks.ts'
+import {getAgentState, setAgentState, updateAgentState} from '../lib/agent/state.ts'
 import path from 'path'
 
 // Track PIDs of API-started agent services
@@ -30,12 +31,8 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
         const subscribers = wsManager.subscriptions[topic]
         logger.info(`[API] Subscription verified: topic=${topic}, subscribers=${subscribers?.size || 0}`)
 
-        // Broadcast that agent service came online for instant UI update
-        wsManager.broadcast('/agents', {
-            agentId,
-            type: 'agent:service-online',
-            online: true,
-        })
+        // Update agent state - proxy will automatically broadcast
+        setAgentState(agentId, 'serviceOnline', true)
 
         return {success: true, topic}
     })
@@ -61,45 +58,10 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
         const enrichedAgents = agents.map((agent) => {
             const status = getAgentStatus(agent.id)
             const stats = getTaskStats(agent.id)
+            const agentState = getAgentState(agent.id)
 
-            // Check if agent service is online by checking WebSocket subscriptions
-            const taskTopic = `/agents/${agent.id}/tasks`
-            const subscribers = wsManager.subscriptions[taskTopic]
-
-            // Check if any subscribed connections are still open
-            let serviceOnline = false
-            if (subscribers && subscribers.size > 0) {
-                for (const ws of subscribers) {
-                    // Check if connection is open (readyState 1 = OPEN)
-                    // Note: WebSocket.OPEN = 1, WebSocket.CONNECTING = 0, WebSocket.CLOSING = 2, WebSocket.CLOSED = 3
-                    if (ws.readyState === 1) {
-                        serviceOnline = true
-                        break
-                    }
-                }
-            }
-
-            // Fallback: check all connections for subscriptions to this topic
-            // This handles cases where subscription was added but not yet in subscriptions map
-            if (!serviceOnline) {
-                for (const ws of wsManager.connections) {
-                    // Only check open connections
-                    if (ws.readyState === 1) {
-                        const clientSubs = wsManager.clientSubscriptions.get(ws)
-                        if (clientSubs && clientSubs.has(taskTopic)) {
-                            serviceOnline = true
-                            break
-                        }
-                    }
-                }
-            }
-
-            // Debug logging for subscription detection (only log when offline to reduce noise)
-            if (!serviceOnline) {
-                const allTopics = Object.keys(wsManager.subscriptions)
-                const agentTopics = allTopics.filter(t => t.includes(agent.id))
-                logger.debug(`[API] Agent ${agent.id} (${agent.name}): serviceOnline=false, topic=${taskTopic}, subscribers=${subscribers?.size || 0}, totalConnections=${wsManager.connections.size}, agentTopics=[${agentTopics.join(', ')}]`)
-            }
+            // Get service online status from watched state
+            const serviceOnline = agentState?.serviceOnline ?? false
 
             // Determine agent status - if service is offline, status should be 'offline'
             // Otherwise use the actual agent status (idle, working, error)
@@ -177,6 +139,11 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
         )
 
         const agent = db.prepare('SELECT * FROM agents WHERE id = ?').get(agentId)
+
+        // Initialize agent state
+        updateAgentState(agentId, {
+            serviceOnline: false,
+        })
 
         // Broadcast agent creation
         wsManager.broadcast('/agents', {
@@ -543,12 +510,8 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
                 const match = topic.match(/^\/agents\/([^/]+)\/tasks$/)
                 if (match) {
                     const agentId = match[1]
-                    // Broadcast that agent service went offline
-                    wsManager.broadcast('/agents', {
-                        agentId,
-                        type: 'agent:service-offline',
-                        online: false,
-                    })
+                    // Update agent state - proxy will automatically broadcast
+                    setAgentState(agentId, 'serviceOnline', false)
                     logger.info(`[API] Agent ${agentId} service went offline`)
                 }
             }

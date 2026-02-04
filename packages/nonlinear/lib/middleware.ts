@@ -105,7 +105,9 @@ async function initMiddleware(_bunchyConfig) {
      * Use environment variable for config path if set (for PR deployments)
      */
     const configPath = process.env.CONFIG_PATH || '~/.nonlinearrc'
-    const finalHandleRequest = createFinalHandler({
+
+    // Create a wrapper around finalHandleRequest to inject bootstrap state into index.html
+    const originalFinalHandleRequest = createFinalHandler({
         configPath,
         contextFunctions: {
             adminContext: async() => ({admin: true}),
@@ -143,6 +145,66 @@ async function initMiddleware(_bunchyConfig) {
         sessionCookieName: 'nonlinear-session',
         userManager,
     })
+
+    // Wrap finalHandleRequest to inject bootstrap state into index.html
+    const finalHandleRequest = async(request: Request, server?: unknown): Promise<Response | undefined> => {
+        const response = await originalFinalHandleRequest(request, server)
+
+        // Inject bootstrap state into index.html responses
+        if (response && response.headers.get('Content-Type')?.includes('text/html')) {
+            const url = new URL(request.url)
+            // Only inject for HTML responses (not API or assets)
+            if (!url.pathname.startsWith('/api') && !url.pathname.startsWith('/public')) {
+                try {
+                    const html = await response.text()
+
+                    // Get agent state and stats for bootstrap
+                    // Use the same structure as the API response (status, stats)
+                    const {getAllAgentStates} = await import('../lib/agent/state.ts')
+                    const {getTaskStats} = await import('../lib/agent/tasks.ts')
+                    const {getAgentStatus} = await import('../lib/agent/status.ts')
+                    const agentStates = getAllAgentStates()
+
+                    // Enrich with status and stats (matching API response structure)
+                    const bootstrapAgents: Record<string, {status: 'idle' | 'working' | 'error' | 'offline'; stats?: {pending: number; processing: number; completed: number; failed: number}}> = {}
+                    for (const [agentId, state] of Object.entries(agentStates)) {
+                        const agentStatus = getAgentStatus(agentId)
+                        const serviceOnline = state.serviceOnline
+
+                        // Determine status - if service is offline, status should be 'offline'
+                        // Otherwise use the actual agent status (idle, working, error)
+                        let status: 'idle' | 'working' | 'error' | 'offline' = (agentStatus?.status || 'idle') as 'idle' | 'working' | 'error' | 'offline'
+                        if (!serviceOnline && status !== 'working') {
+                            status = 'offline'
+                        }
+
+                        bootstrapAgents[agentId] = {
+                            status,
+                            stats: getTaskStats(agentId),
+                        }
+                    }
+
+                    // Inject bootstrap state script before closing </head>
+                    const bootstrapScript = `
+        <script>
+            window.__NONLINEAR_BOOTSTRAP_STATE__ = ${JSON.stringify({agents: bootstrapAgents})};
+        </script>`
+
+                    const modifiedHtml = html.replace('</head>', `${bootstrapScript}\n    </head>`)
+
+                    return new Response(modifiedHtml, {
+                        headers: response.headers,
+                        status: response.status,
+                    })
+                } catch(error) {
+                    logger.warn(`[Middleware] Failed to inject bootstrap state: ${error}`)
+                    return response
+                }
+            }
+        }
+
+        return response
+    }
 
     // Create middleware to get sessionMiddleware for WebSocket managers
     const unifiedMiddleware = createMiddleware({
