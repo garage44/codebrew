@@ -94,6 +94,7 @@ export function Autocomplete<T = unknown>({
     const [matchStart, setMatchStart] = useState(0)
     const [query, setQuery] = useState('')
     const suggestionsRef = useRef<HTMLDivElement>(null)
+    const lastKeyRef = useRef<string | null>(null)
 
     // Check for trigger pattern and show suggestions
     useEffect(() => {
@@ -125,7 +126,11 @@ export function Autocomplete<T = unknown>({
                 const filtered = filterItems(items, queryText)
 
                 setSuggestions(filtered)
-                setSelectedIndex(0)
+                // Only reset selectedIndex if the last key wasn't an arrow key
+                // This prevents resetting selection when navigating with arrow keys
+                if (lastKeyRef.current !== 'ArrowDown' && lastKeyRef.current !== 'ArrowUp') {
+                    setSelectedIndex(0)
+                }
                 setShowSuggestions(filtered.length > 0)
             } else {
                 setShowSuggestions(false)
@@ -180,18 +185,24 @@ export function Autocomplete<T = unknown>({
 
             if (e.key === 'ArrowDown') {
                 e.preventDefault()
+                lastKeyRef.current = 'ArrowDown'
                 setSelectedIndex((prev) => (prev + 1) % suggestions.length)
             } else if (e.key === 'ArrowUp') {
                 e.preventDefault()
+                lastKeyRef.current = 'ArrowUp'
                 setSelectedIndex((prev) => (prev - 1 + suggestions.length) % suggestions.length)
             } else if (e.key === 'Enter' || e.key === 'Tab') {
                 e.preventDefault()
+                lastKeyRef.current = null
                 if (suggestions[selectedIndex]) {
                     insertItem(suggestions[selectedIndex])
                 }
             } else if (e.key === 'Escape') {
                 e.preventDefault()
+                lastKeyRef.current = null
                 setShowSuggestions(false)
+            } else {
+                lastKeyRef.current = null
             }
         }
 
