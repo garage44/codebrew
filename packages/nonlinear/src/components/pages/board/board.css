@@ -182,6 +182,48 @@
         }
     }
 
+    .ticket-card-container {
+        position: relative;
+
+        &.dragging {
+            opacity: 0.5;
+            transform: rotate(2deg);
+        }
+    }
+
+    .drop-indicator {
+        background: var(--primary-5);
+        border-radius: 2px;
+        height: 3px;
+        margin: calc(var(--spacer-05) / 2) 0;
+        pointer-events: none;
+        position: relative;
+        width: 100%;
+        z-index: 10;
+
+        &::before {
+            background: var(--primary-5);
+            border-radius: 50%;
+            content: '';
+            height: 8px;
+            left: -4px;
+            position: absolute;
+            top: -2.5px;
+            width: 8px;
+        }
+
+        &::after {
+            background: var(--primary-5);
+            border-radius: 50%;
+            content: '';
+            height: 8px;
+            position: absolute;
+            right: -4px;
+            top: -2.5px;
+            width: 8px;
+        }
+    }
+
     .lane-empty {
         align-items: center;
         border: 2px dashed var(--surface-3);

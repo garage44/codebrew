@@ -3,6 +3,7 @@ import {ws} from '@garage44/common/app'
 import {Button} from '@garage44/common/components'
 import {TicketCard} from '@/components/elements/ticket/ticket'
 import {useEffect} from 'preact/hooks'
+import {deepSignal} from 'deepsignal'
 
 const LANES = [
     {id: 'backlog', label: 'Backlog'},
@@ -12,11 +13,37 @@ const LANES = [
     {id: 'closed', label: 'Closed'},
 ] as const
 
+// Local state for drag and drop
+const dragState = deepSignal({
+    draggingTicketId: null as string | null,
+    dropTargetTicketId: null as string | null,
+    dropPosition: null as 'above' | 'below' | null,
+})
+
 const handleDragStart = (e: DragEvent, ticketId: string) => {
     if (e.dataTransfer) {
         e.dataTransfer.effectAllowed = 'move'
         e.dataTransfer.setData('text/plain', ticketId)
     }
+    dragState.draggingTicketId = ticketId
+    const target = e.currentTarget as HTMLElement
+    if (target) {
+        target.classList.add('dragging')
+    }
+}
+
+const handleDragEnd = (e: DragEvent) => {
+    dragState.draggingTicketId = null
+    dragState.dropTargetTicketId = null
+    dragState.dropPosition = null
+    const target = e.currentTarget as HTMLElement
+    if (target) {
+        target.classList.remove('dragging')
+    }
+    // Remove all drop indicators
+    document.querySelectorAll('.drop-indicator').forEach((el) => {
+        el.remove()
+    })
 }
 
 const handleDragOver = (e: DragEvent) => {
@@ -35,6 +62,63 @@ const handleDragLeave = (e: DragEvent) => {
     const target = e.currentTarget as HTMLElement
     if (target) {
         target.classList.remove('drag-over')
+    }
+}
+
+const handleTicketDragOver = (e: DragEvent, ticketId: string, ticketIndex: number, tickets: typeof $s.tickets) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (e.dataTransfer) {
+        e.dataTransfer.dropEffect = 'move'
+    }
+
+    if (!dragState.draggingTicketId || dragState.draggingTicketId === ticketId) {
+        dragState.dropTargetTicketId = null
+        dragState.dropPosition = null
+        return
+    }
+
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    const mouseY = e.clientY
+    const ticketCenter = rect.top + rect.height / 2
+    const dropPosition = mouseY < ticketCenter ? 'above' : 'below'
+
+    dragState.dropTargetTicketId = ticketId
+    dragState.dropPosition = dropPosition
+
+    // Remove existing drop indicators
+    document.querySelectorAll('.drop-indicator').forEach((el) => {
+        el.remove()
+    })
+
+    // Create drop indicator
+    const indicator = document.createElement('div')
+    indicator.className = 'drop-indicator'
+    const targetElement = e.currentTarget as HTMLElement
+    const parent = targetElement.parentElement
+    if (parent) {
+        if (dropPosition === 'above') {
+            parent.insertBefore(indicator, targetElement)
+        } else {
+            const nextSibling = targetElement.nextSibling
+            if (nextSibling) {
+                parent.insertBefore(indicator, nextSibling)
+            } else {
+                parent.appendChild(indicator)
+            }
+        }
+    }
+}
+
+const handleTicketDragLeave = (e: DragEvent) => {
+    // Only remove indicator if we're actually leaving the ticket area
+    const relatedTarget = e.relatedTarget as HTMLElement | null
+    if (relatedTarget && !relatedTarget.closest('.ticket-card-container')) {
+        dragState.dropTargetTicketId = null
+        dragState.dropPosition = null
+        document.querySelectorAll('.drop-indicator').forEach((el) => {
+            el.remove()
+        })
     }
 }
 
@@ -57,7 +141,134 @@ export const Board = () => {
     }
 
     const getTicketsForLane = (status: string) => {
-        return $s.tickets.filter((ticket) => ticket.status === status)
+        const laneTickets = $s.tickets.filter((ticket) => ticket.status === status)
+        // Sort by priority: higher priority first, null priorities at the end
+        return [...laneTickets].sort((a, b) => {
+            // Handle null priorities - put them at the end
+            if (a.priority === null && b.priority === null) return 0
+            if (a.priority === null) return 1
+            if (b.priority === null) return -1
+            // Higher priority first (descending order)
+            return b.priority - a.priority
+        })
+    }
+
+    const calculateNewPriority = (
+        draggedTicketId: string,
+        targetTicketId: string,
+        targetStatus: string,
+        dropPosition: 'above' | 'below',
+    ): number => {
+        const laneTickets = getTicketsForLane(targetStatus).filter((t) => t.id !== draggedTicketId)
+        const targetIndex = laneTickets.findIndex((t) => t.id === targetTicketId)
+        const draggedTicket = $s.tickets.find((t) => t.id === draggedTicketId)
+
+        if (targetIndex === -1 || !draggedTicket) return draggedTicket?.priority ?? 5
+
+        const targetTicket = laneTickets[targetIndex]
+        const targetPriority = targetTicket.priority ?? 0
+
+        // If dropping above, we want priority higher than target
+        // If dropping below, we want priority lower than target
+        if (dropPosition === 'above') {
+            // Check if there's a ticket above the target
+            if (targetIndex > 0) {
+                const ticketAbove = laneTickets[targetIndex - 1]
+                const abovePriority = ticketAbove.priority ?? 0
+                // Set priority between above and target (closer to target)
+                const midPriority = Math.floor((abovePriority + targetPriority) / 2)
+                const newPriority = midPriority > abovePriority ? midPriority : targetPriority + 1
+                // Constrain to valid range (0-10)
+                return Math.min(10, Math.max(0, newPriority))
+            } else {
+                // Dropping at the top - set priority higher than target
+                return Math.min(10, targetPriority + 1)
+            }
+        } else {
+            // Dropping below
+            if (targetIndex < laneTickets.length - 1) {
+                const ticketBelow = laneTickets[targetIndex + 1]
+                const belowPriority = ticketBelow.priority ?? 0
+                // Set priority between target and below (closer to target)
+                const midPriority = Math.floor((targetPriority + belowPriority) / 2)
+                const newPriority = midPriority < targetPriority ? midPriority : Math.max(0, targetPriority - 1)
+                // Constrain to valid range (0-10)
+                return Math.min(10, Math.max(0, newPriority))
+            } else {
+                // Dropping at the bottom - set priority lower than target
+                return Math.max(0, targetPriority - 1)
+            }
+        }
+    }
+
+    const handleTicketDrop = async(e: DragEvent, targetTicketId: string, targetStatus: string) => {
+        e.preventDefault()
+        e.stopPropagation()
+
+        const ticketId = e.dataTransfer?.getData('text/plain')
+        if (!ticketId || ticketId === targetTicketId) {
+            dragState.dropTargetTicketId = null
+            dragState.dropPosition = null
+            document.querySelectorAll('.drop-indicator').forEach((el) => {
+                el.remove()
+            })
+            return
+        }
+
+        const draggedTicket = $s.tickets.find((t) => t.id === ticketId)
+        if (!draggedTicket) return
+
+        const isSameLane = draggedTicket.status === targetStatus
+        const dropPosition = dragState.dropPosition ?? 'below'
+
+        try {
+            const updates: {status?: string; priority?: number} = {}
+
+            if (!isSameLane) {
+                // Moving to different lane - update status
+                updates.status = targetStatus
+                // Set priority based on position in new lane
+                const newPriority = calculateNewPriority(ticketId, targetTicketId, targetStatus, dropPosition)
+                updates.priority = newPriority
+            } else {
+                // Reordering within same lane - only update priority
+                const newPriority = calculateNewPriority(ticketId, targetTicketId, targetStatus, dropPosition)
+                updates.priority = newPriority
+            }
+
+            // Optimistic update
+            const ticketIndex = $s.tickets.findIndex((t) => t.id === ticketId)
+            if (ticketIndex >= 0) {
+                const updatedTickets = [...$s.tickets]
+                updatedTickets[ticketIndex] = {
+                    ...updatedTickets[ticketIndex],
+                    ...updates,
+                }
+                $s.tickets = updatedTickets
+            }
+
+            // Update via API
+            await ws.put(`/api/tickets/${ticketId}`, updates)
+
+            // Clean up drag state
+            dragState.dropTargetTicketId = null
+            dragState.dropPosition = null
+            document.querySelectorAll('.drop-indicator').forEach((el) => {
+                el.remove()
+            })
+        } catch(error) {
+            // Revert optimistic update on error
+            const result = await ws.get('/api/tickets')
+            if (result.tickets) {
+                $s.tickets = result.tickets
+            }
+            console.error('Failed to update ticket:', error)
+            dragState.dropTargetTicketId = null
+            dragState.dropPosition = null
+            document.querySelectorAll('.drop-indicator').forEach((el) => {
+                el.remove()
+            })
+        }
     }
 
     const handleDrop = async(e: DragEvent, targetStatus: string) => {
@@ -66,8 +277,23 @@ export const Board = () => {
         if (target) {
             target.classList.remove('drag-over')
         }
+
+        // If dropping on a ticket, that handler will take care of it
+        if (dragState.dropTargetTicketId) {
+            return
+        }
+
         const ticketId = e.dataTransfer?.getData('text/plain')
         if (!ticketId) return
+
+        const draggedTicket = $s.tickets.find((t) => t.id === ticketId)
+        if (!draggedTicket) return
+
+        // Only handle lane drops if not dropping on a specific ticket
+        if (draggedTicket.status === targetStatus) {
+            // Same lane, but no specific ticket target - no change needed
+            return
+        }
 
         try {
             // Update ticket status optimistically for immediate UI feedback
@@ -135,10 +361,15 @@ export const Board = () => {
                                                 No tickets
                                             </div> :
 
-                                        tickets.map((ticket) => <div
+                                        tickets.map((ticket, index) => <div
+                                            class='ticket-card-container'
                                             draggable
                                             key={ticket.id}
+                                            onDragEnd={handleDragEnd}
+                                            onDragLeave={handleTicketDragLeave}
+                                            onDragOver={(e) => handleTicketDragOver(e, ticket.id, index, tickets)}
                                             onDragStart={(e) => handleDragStart(e, ticket.id)}
+                                            onDrop={(e) => handleTicketDrop(e, ticket.id, lane.id)}
                                         >
                                                 <TicketCard ticket={ticket} />
                                         </div>)}
