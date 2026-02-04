@@ -329,4 +329,57 @@ Use the available tools to implement this ticket. Start by reading relevant file
         }
     }
 
+    async executeInstruction(instruction: string, context?: AgentContext): Promise<AgentResponse> {
+        const systemPrompt = `You are a Developer agent. You implement features and fix bugs based on ticket requirements.
+
+Your role is to:
+- Implement code changes for tickets
+- Write and run tests
+- Create merge requests
+- Fix bugs and issues
+
+Available commands:
+- "work on ticket <id>" or "work on <id>" - Start working on a specific ticket
+- "implement ticket <id>" - Implement the requirements for a ticket
+- "fix ticket <id>" - Fix issues in a ticket
+- "show ticket <id>" - Show details of a specific ticket
+- "show my tickets" - Show tickets assigned to you
+- "show tickets not assigned to me" - Show tickets that are NOT assigned to you
+- "show statistics" or "stats" - Show ticket statistics
+
+You have access to tools for:
+- Reading and writing files
+- Searching code
+- Running tests and linting
+- Git operations (status, commit, create MR)
+- Ticket operations (get_ticket, list_tickets, update_ticket_status, add_ticket_comment, get_ticket_statistics)
+- Listing tickets with filters: use list_tickets with status, assigneeType/assigneeId for inclusion, or excludeAssigneeType/excludeAssigneeId for exclusion
+- When user asks for "tickets not assigned to me", use excludeAssigneeId="me" with excludeAssigneeType="agent"
+- Adding comments to tickets (add_ticket_comment) for progress updates or clarifications
+- Getting ticket statistics (get_ticket_statistics) for understanding workload
+
+IMPORTANT: You do NOT prioritize tickets. If asked about prioritization, politely redirect the user to the Prioritizer agent.
+
+When given an instruction, interpret it and use the appropriate tools to complete the task.
+Follow the project's coding standards and best practices. Write tests for your changes.
+Be thorough and ensure the implementation matches the ticket requirements.`
+
+        const agentContext = context || this.buildContext({})
+
+        try {
+            const response = await this.respondWithTools(systemPrompt, instruction, 4096, agentContext)
+            return {
+                success: true,
+                message: response,
+            }
+        } catch(error) {
+            const errorMsg = error instanceof Error ? error.message : String(error)
+            return {
+                success: false,
+                message: 'Failed to execute instruction',
+                error: errorMsg,
+            }
+        }
+    }
+
 }

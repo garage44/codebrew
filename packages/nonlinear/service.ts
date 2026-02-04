@@ -427,9 +427,13 @@ void cli.usage('Usage: $0 [task]')
             })
             .option('interactive', {
                 alias: 'i',
-                describe: 'Run in interactive mode with real-time reasoning',
+                describe: 'Run in interactive REPL mode (default: true)',
                 type: 'boolean',
                 default: true,
+            })
+            .option('instruction', {
+                describe: 'Single instruction to execute (non-interactive mode)',
+                type: 'string',
             })
             .option('ticket-id', {
                 alias: 't',
@@ -441,7 +445,7 @@ void cli.usage('Usage: $0 [task]')
         initDatabase()
 
         const {getAgentById} = await import('./lib/agent/index.ts')
-        const {runAgentInteractive, formatReasoningMessage, formatToolExecution, formatToolResult} = await import('./lib/cli/interactive.ts')
+        const {runAgentInteractive, runAgentOneShot} = await import('./lib/cli/interactive.ts')
         const {runAgent} = await import('./lib/agent/scheduler.ts')
 
         const agent = getAgentById(argv.agentId)
@@ -457,20 +461,17 @@ void cli.usage('Usage: $0 [task]')
         }
 
         if (argv.interactive) {
+            // REPL mode - starts idle, waits for instructions
             await runAgentInteractive({
                 agent,
                 context,
-                onReasoning: (message) => {
-                    process.stdout.write(formatReasoningMessage(message))
-                },
-                onToolExecution: (toolName, params) => {
-                    process.stdout.write(formatToolExecution(toolName, params))
-                },
-                onToolResult: (toolName, result) => {
-                    process.stdout.write(formatToolResult(toolName, result.success, result.error))
-                },
             })
+        } else if (argv.instruction) {
+            // One-shot mode - execute single instruction
+            const response = await runAgentOneShot(agent, argv.instruction, context)
+            process.exit(response.success ? 0 : 1)
         } else {
+            // Legacy mode - run agent.process() once
             await runAgent(argv.agentId, context)
         }
     })

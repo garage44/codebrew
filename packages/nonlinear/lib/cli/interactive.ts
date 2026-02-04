@@ -1,24 +1,15 @@
 /**
- * Interactive CLI for agent execution
- * Provides real-time reasoning display similar to Cursor CLI
+ * Interactive CLI for running agents with REPL mode
  */
 
-import {logger} from '../../service.ts'
-import type {BaseAgent} from '../agent/base.ts'
-import type {AgentContext} from '../agent/base.ts'
-
-export interface InteractiveCLIOptions {
-    agent: BaseAgent
-    context: AgentContext
-    onReasoning?: (message: string) => void
-    onToolExecution?: (toolName: string, params: Record<string, unknown>) => void
-    onToolResult?: (toolName: string, result: {error?: string; success: boolean}) => void
-}
+import {BaseAgent, type AgentContext, type AgentResponse} from '../agent/base.ts'
+import {REPL, type REPLOptions} from './repl.ts'
+import {executeToolCommand, getToolsHelp} from './command-parser.ts'
 
 /**
  * Create a writable stream for agent reasoning output
  */
-export function createReasoningStream(
+function createReasoningStream(
     onMessage: (message: string) => void,
 ): WritableStream<string> {
     return new WritableStream({
@@ -31,13 +22,22 @@ export function createReasoningStream(
     })
 }
 
+export interface InteractiveCLIOptions {
+    agent: BaseAgent
+    context?: AgentContext
+    onReasoning?: (message: string) => void
+    onToolExecution?: (toolName: string, params: Record<string, unknown>) => void
+    onToolResult?: (toolName: string, result: {error?: string; success: boolean}) => void
+}
+
 /**
- * Run agent with interactive CLI output
+ * Run agent in interactive REPL mode
+ * Agent starts idle and waits for user instructions
  */
 export async function runAgentInteractive(options: InteractiveCLIOptions): Promise<void> {
-    const {agent, context, onReasoning, onToolExecution: _onToolExecution, onToolResult: _onToolResult} = options
+    const {agent, context, onReasoning} = options
 
-    // Set up streaming
+    // Create reasoning stream for real-time output
     const stream = createReasoningStream((message) => {
         if (onReasoning) {
             onReasoning(message)
@@ -47,29 +47,157 @@ export async function runAgentInteractive(options: InteractiveCLIOptions): Promi
     })
     agent.setStream(stream)
 
+    // Build default context if not provided
+    const agentContext = context || agent.buildContext({})
+
+    // Create REPL interface
+    const agentName = agent.name || 'Agent'
+    const agentType = agent.getType()
+    const prompt = `${agentName}> `
+
+    const welcomeMessage = `\n🤖 ${agentName} Interactive Mode\nType 'help' for available commands, 'exit' to quit.\n`
+
+    // Agent-specific help messages
+    const toolsHelp = getToolsHelp(agent.getTools())
+    let helpMessage = ''
+    if (agentType === 'prioritizer') {
+        helpMessage = `\nAvailable commands:
+  - Natural language instructions (e.g., "prioritize tickets", "prioritize ticket abc123", "show backlog")
+  - Direct tool invocation: tool:tool_name --param=value (e.g., "tool:list_tickets --status=todo")
+  - tools - List all available tools
+  - help, h - Show this help message
+  - clear, cls - Clear the screen
+  - exit, quit, q - Exit interactive mode\n`
+    } else if (agentType === 'developer') {
+        helpMessage = `\nAvailable commands:
+  - Natural language instructions (e.g., "work on ticket abc123", "implement ticket xyz", "show my tickets")
+  - Direct tool invocation: tool:tool_name --param=value (e.g., "tool:list_tickets --status=todo")
+  - tools - List all available tools
+  - help, h - Show this help message
+  - clear, cls - Clear the screen
+  - exit, quit, q - Exit interactive mode\n`
+    } else if (agentType === 'reviewer') {
+        helpMessage = `\nAvailable commands:
+  - Natural language instructions (e.g., "review tickets", "review ticket abc123", "show reviews")
+  - Direct tool invocation: tool:tool_name --param=value (e.g., "tool:list_tickets --status=todo")
+  - tools - List all available tools
+  - help, h - Show this help message
+  - clear, cls - Clear the screen
+  - exit, quit, q - Exit interactive mode\n`
+    } else {
+        helpMessage = `\nAvailable commands:
+  - Natural language instructions
+  - Direct tool invocation: tool:tool_name --param=value
+  - tools - List all available tools
+  - help, h - Show this help message
+  - clear, cls - Clear the screen
+  - exit, quit, q - Exit interactive mode\n`
+    }
+
+    const replOptions: REPLOptions = {
+        prompt,
+        welcomeMessage,
+        helpMessage,
+        async onInput(input: string): Promise<void> {
+            try {
+                const trimmed = input.trim()
+
+                // Handle "tools" command
+                if (trimmed === 'tools') {
+                    console.log(getToolsHelp(agent.getTools()))
+                    return
+                }
+
+                // Try direct tool invocation first
+                const toolContext = agent.buildToolContext(agentContext)
+                const toolResult = await executeToolCommand(trimmed, agent.getTools(), toolContext)
+
+                if (toolResult !== null) {
+                    // Direct tool invocation
+                    console.log('\n🔧 Direct Tool Execution:\n')
+                    if (toolResult.success) {
+                        console.log('✅ Tool executed successfully\n')
+                        if (toolResult.data) {
+                            console.log(JSON.stringify(toolResult.data, null, 2))
+                        }
+                        if (toolResult.context) {
+                            console.log('\n📊 Context:')
+                            console.log(JSON.stringify(toolResult.context, null, 2))
+                        }
+                    } else {
+                        console.error(`❌ Tool execution failed: ${toolResult.error || 'Unknown error'}\n`)
+                    }
+                    return
+                }
+
+                // Process instruction through agent (natural language)
+                const response: AgentResponse = await agent.executeInstruction(trimmed, agentContext)
+
+                // Display result
+                console.log('\n') // New line after reasoning stream
+                if (response.success) {
+                    console.log(`✅ ${response.message}`)
+                    if (response.data) {
+                        console.log(JSON.stringify(response.data, null, 2))
+                    }
+                } else {
+                    console.error(`❌ ${response.message}`)
+                    if (response.error) {
+                        console.error(`Error: ${response.error}`)
+                    }
+                }
+                console.log('') // Blank line for readability
+            } catch(error) {
+                const errorMsg = error instanceof Error ? error.message : String(error)
+                console.error(`\n❌ Error processing instruction: ${errorMsg}\n`)
+            }
+        },
+        onExit() {
+            console.log('\n👋 Goodbye!\n')
+        },
+    }
+
+    const repl = new REPL(replOptions)
+    repl.start()
+}
+
+/**
+ * Run agent in one-shot mode (non-interactive)
+ * Processes a single instruction and exits
+ */
+export async function runAgentOneShot(
+    agent: BaseAgent,
+    instruction: string,
+    context?: AgentContext,
+): Promise<AgentResponse> {
+    const agentContext = context || agent.buildContext({})
+
+    const stream = createReasoningStream((message) => {
+        process.stdout.write(message)
+    })
+    agent.setStream(stream)
+
     try {
-        const agentName = (agent as unknown as {name: string}).name
-        logger.info(`[InteractiveCLI] Starting agent: ${agentName}`)
+        const response = await agent.executeInstruction(instruction, agentContext)
+        console.log('\n') // New line after reasoning stream
 
-        // Run agent process
-        const result = await agent.process(context)
-
-        if (result.success) {
-            logger.info(`[InteractiveCLI] Agent completed: ${result.message}`)
-            if (onReasoning) {
-                onReasoning(`\n✅ Agent completed successfully: ${result.message}\n`)
+        if (response.success) {
+            console.log(`✅ ${response.message}`)
+            if (response.data) {
+                console.log(JSON.stringify(response.data, null, 2))
             }
         } else {
-            logger.error(`[InteractiveCLI] Agent failed: ${result.error}`)
-            if (onReasoning) {
-                onReasoning(`\n❌ Agent failed: ${result.error || result.message}\n`)
+            console.error(`❌ ${response.message}`)
+            if (response.error) {
+                console.error(`Error: ${response.error}`)
             }
         }
+
+        return response
     } catch(error) {
-        logger.error('[InteractiveCLI] Error running agent:', error)
-        if (onReasoning) {
-            onReasoning(`\n❌ Error: ${error instanceof Error ? error.message : String(error)}\n`)
-        }
+        const errorMsg = error instanceof Error ? error.message : String(error)
+        console.error(`\n❌ Fatal error: ${errorMsg}`)
+        throw error
     }
 }
 

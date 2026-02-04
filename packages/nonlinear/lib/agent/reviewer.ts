@@ -226,4 +226,39 @@ Please review the changes and provide feedback.`
         return lines.join('\n')
     }
 
+    async executeInstruction(instruction: string, context?: AgentContext): Promise<AgentResponse> {
+        const systemPrompt = `You are a Reviewer agent. You review merge requests and provide feedback.
+
+Available commands:
+- "review tickets" or "review" - Review all tickets in review status
+- "review ticket <id>" - Review a specific ticket's merge request
+- "show reviews" - List tickets waiting for review
+
+You have access to tools for:
+- Reading tickets and merge request information
+- Accessing git platform APIs (GitHub, GitLab)
+- Adding comments to merge requests and tickets
+- Updating ticket statuses based on review results
+
+When given an instruction, interpret it and use the appropriate tools to complete the task.
+Provide constructive feedback and check for code quality, tests, and adherence to requirements.`
+
+        const agentContext = context || this.buildContext({})
+
+        try {
+            const response = await this.respondWithTools(systemPrompt, instruction, 4096, agentContext)
+            return {
+                success: true,
+                message: response,
+            }
+        } catch(error) {
+            const errorMsg = error instanceof Error ? error.message : String(error)
+            return {
+                success: false,
+                message: 'Failed to execute instruction',
+                error: errorMsg,
+            }
+        }
+    }
+
 }

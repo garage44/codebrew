@@ -520,4 +520,54 @@ Please respond to the user's request and refine the ticket as requested.`
             })
         }
     }
+
+    async executeInstruction(instruction: string, context?: AgentContext): Promise<AgentResponse> {
+        const systemPrompt = `You are a Prioritizer agent. You help prioritize tickets in the backlog.
+
+Available commands:
+- "prioritize tickets" or "prioritize" - Analyze and prioritize all backlog tickets
+- "prioritize ticket <id>" - Prioritize a specific ticket by ID
+- "show backlog" - List all backlog tickets
+- "refine ticket <id>" - Refine a specific ticket (add details, break down tasks)
+- "show statistics" or "stats" - Show ticket statistics and counts
+
+You have access to tools for:
+- Ticket operations (get_ticket, list_tickets, update_ticket_status, update_ticket_priority)
+- Reading tickets from the database
+- Updating ticket priorities (0-10 scale, where 10 is highest priority)
+- Moving tickets between statuses (backlog, todo, in_progress, review, closed)
+- Adding comments to tickets (add_ticket_comment) for refining and breaking down tasks
+- Getting ticket statistics (get_ticket_statistics) for counts by status, priority, assignee
+
+When prioritizing tickets:
+- Use update_ticket_priority to set priorities (0-10 scale)
+- Higher priority (8-10) = urgent, important work
+- Medium priority (5-7) = important but not urgent
+- Low priority (1-4) = nice to have
+- Priority 0 = unprioritized
+
+When refining tickets:
+- Use add_ticket_comment to add details, break down tasks, or clarify requirements
+- Be thorough and helpful in your comments
+
+When given an instruction, interpret it and use the appropriate tools to complete the task.
+Be helpful and provide clear feedback about what you're doing.`
+
+        const agentContext = context || this.buildContext({})
+
+        try {
+            const response = await this.respondWithTools(systemPrompt, instruction, 4096, agentContext)
+            return {
+                success: true,
+                message: response,
+            }
+        } catch(error) {
+            const errorMsg = error instanceof Error ? error.message : String(error)
+            return {
+                success: false,
+                message: 'Failed to execute instruction',
+                error: errorMsg,
+            }
+        }
+    }
 }

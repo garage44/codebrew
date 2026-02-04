@@ -72,6 +72,12 @@ export abstract class BaseAgent {
     abstract process(context: AgentContext): Promise<AgentResponse>
 
     /**
+     * Execute a natural language instruction
+     * Used by interactive REPL mode to process user commands
+     */
+    abstract executeInstruction(instruction: string, context?: AgentContext): Promise<AgentResponse>
+
+    /**
      * Get context for the agent (ticket info, repository state, etc.)
      * Subclasses can override this to provide additional context
      */
@@ -154,6 +160,20 @@ ${result.doc.content}
     }
 
     /**
+     * Get agent type
+     */
+    getType(): 'prioritizer' | 'developer' | 'reviewer' {
+        return this.type
+    }
+
+    /**
+     * Get available tools (for REPL direct invocation)
+     */
+    getTools(): Record<string, Tool> {
+        return this.tools
+    }
+
+    /**
      * Set streaming output for interactive CLI
      */
     setStream(stream: WritableStream<string>): void {
@@ -162,13 +182,31 @@ ${result.doc.content}
 
     /**
      * Stream reasoning message
+     * Uses a queued approach to prevent WritableStream locking issues
      */
+    private streamWriteQueue: Promise<void> = Promise.resolve()
+
     protected async streamReasoning(message: string): Promise<void> {
-        if (this.stream) {
-            const writer = this.stream.getWriter()
-            await writer.write(`REASONING: ${message}\n`)
-            writer.releaseLock()
+        if (!this.stream) {
+            return
         }
+
+        // Queue writes to prevent concurrent access to the stream
+        this.streamWriteQueue = this.streamWriteQueue.then(async () => {
+            try {
+                const writer = this.stream!.getWriter()
+                await writer.write(`REASONING: ${message}\n`)
+                writer.releaseLock()
+            } catch (error) {
+                // If stream is locked or closed, ignore silently
+                // This prevents errors from breaking the agent flow
+                if (error instanceof Error && !error.message.includes('locked')) {
+                    logger.warn(`[${this.name}] Stream write error: ${error.message}`)
+                }
+            }
+        })
+
+        await this.streamWriteQueue
     }
 
     /**
@@ -308,9 +346,9 @@ ${result.doc.content}
                     if (!tool) {
                         await this.streamReasoning(`ERROR: Tool not found: ${toolUse.name}`)
                         return {
+                            type: 'tool_result',
                             tool_use_id: toolUse.id,
                             content: 'Tool not found',
-                            is_error: true,
                         }
                     }
 
@@ -319,13 +357,22 @@ ${result.doc.content}
                     const result = await tool.execute(toolUse.input, toolContext)
                     await this.streamReasoning(`Tool ${toolUse.name} completed: ${result.success ? 'success' : 'error'}`)
 
-                    return {
-                        tool_use_id: toolUse.id,
-                        content: JSON.stringify({
-                            success: result.success,
+                    // Format result as JSON string for tool result content
+                    const resultContent = result.success
+                        ? JSON.stringify({
+                            success: true,
                             data: result.data,
                             context: result.context,
-                        }),
+                        })
+                        : JSON.stringify({
+                            success: false,
+                            error: result.error,
+                        })
+
+                    return {
+                        type: 'tool_result',
+                        tool_use_id: toolUse.id,
+                        content: resultContent,
                     }
                 })
             )
