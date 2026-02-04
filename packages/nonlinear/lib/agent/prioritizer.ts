@@ -419,13 +419,13 @@ Your task is to:
 IMPORTANT: The user mentioned you and asked you to do something. You MUST:
 - Acknowledge the mention and respond to their request
 - Be concise and direct (especially if they asked you to be brief)
-- Update the description if they asked for refinement
+- ALWAYS provide a refined_description when refinement is requested - this will update the ticket description
 - Always add a comment responding to their request
 
 Respond with a JSON object containing:
-- refined_description: A clear, detailed description that improves upon the original (use markdown formatting, code blocks for examples, Mermaid diagrams for architecture). Only update if the user requested refinement or if significant improvements are needed.
-- response_comment: A conversational comment responding to the user's request. Acknowledge what they asked and explain what you did.
-- should_update_description: boolean indicating if the refined_description should replace the current description
+- refined_description: A clear, detailed description that improves upon the original (use markdown formatting, code blocks for examples, Mermaid diagrams for architecture). When refinement is requested, you MUST provide this field with an improved version of the description.
+- response_comment: A conversational comment responding to the user's request. Acknowledge what they asked and explain what you did. Do NOT put the refined description here - it goes in refined_description.
+- should_update_description: boolean - set to TRUE when you've provided a refined_description that should replace the current description. When refinement is explicitly requested, this should be TRUE.
 
 The refined_description should:
 - Be clear and actionable
@@ -484,18 +484,23 @@ Please respond to the user's request and refine the ticket as requested.`
                 }
             }
 
-            // Update ticket description if requested and appropriate
+            // Update ticket description if refined_description is provided
+            // When refinement is explicitly requested (via mention), always update if refined_description exists
+            const hasRefinedDescription = refinement.refined_description && refinement.refined_description.trim()
             const shouldUpdate = refinement.should_update_description === true ||
-                (!ticket.description || ticket.description.trim() === '')
+                (!ticket.description || ticket.description.trim() === '') ||
+                (hasRefinedDescription && refinement.refined_description.trim() !== ticket.description?.trim())
 
-            this.log(`Should update description: ${shouldUpdate}, has refined_description: ${!!refinement.refined_description}`)
+            this.log(`Should update description: ${shouldUpdate}, has refined_description: ${!!hasRefinedDescription}`)
 
-            if (shouldUpdate && refinement.refined_description && refinement.refined_description.trim()) {
+            if (shouldUpdate && hasRefinedDescription) {
                 this.log(`Updating ticket ${ticket.id} description...`)
                 await updateTicketFromAgent(ticket.id, {
                     description: refinement.refined_description.trim(),
                 })
                 this.log(`Updated ticket ${ticket.id} description in response to mention`)
+            } else if (hasRefinedDescription) {
+                this.log(`Refined description provided but not updating (should_update_description=${refinement.should_update_description}, has existing description=${!!ticket.description})`)
             }
 
             // Add comment responding to the mention
@@ -529,23 +534,24 @@ Available commands:
 - "show statistics" or "stats" - Show ticket statistics and counts
 
 You have access to tools for:
-- Ticket operations (get_ticket, list_tickets, update_ticket_status, update_ticket_priority)
+- Ticket operations (get_ticket, list_tickets, update_ticket, update_ticket_status, update_ticket_priority, add_ticket_comment, get_ticket_statistics)
 - Reading tickets from the database
-- Updating ticket priorities (0-10 scale, where 10 is highest priority)
-- Moving tickets between statuses (backlog, todo, in_progress, review, closed)
+- Updating ticket fields (title, description, status, priority) using update_ticket tool
 - Adding comments to tickets (add_ticket_comment) for refining and breaking down tasks
 - Getting ticket statistics (get_ticket_statistics) for counts by status, priority, assignee
 
 When prioritizing tickets:
-- Use update_ticket_priority to set priorities (0-10 scale)
+- Use update_ticket with priority field to set priorities (0-10 scale)
 - Higher priority (8-10) = urgent, important work
 - Medium priority (5-7) = important but not urgent
 - Low priority (1-4) = nice to have
 - Priority 0 = unprioritized
+- You can update priority and status together in a single update_ticket call
 
 When refining tickets:
+- Use update_ticket with description field to update the ticket description
 - Use add_ticket_comment to add details, break down tasks, or clarify requirements
-- Be thorough and helpful in your comments
+- Be thorough and helpful - update the description with refined content, not just comments
 
 When given an instruction, interpret it and use the appropriate tools to complete the task.
 Be helpful and provide clear feedback about what you're doing.`

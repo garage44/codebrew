@@ -5,6 +5,7 @@
 import {logger} from '../../../service.ts'
 import type {Tool, ToolContext, ToolResult} from './types.ts'
 import {db} from '../../database.ts'
+import {updateTicketFields} from '../../agent/ticket-updates.ts'
 
 export const ticketTools: Record<string, Tool> = {
     get_ticket: {
@@ -283,9 +284,112 @@ export const ticketTools: Record<string, Tool> = {
         },
     },
 
+    update_ticket: {
+        name: 'update_ticket',
+        description: 'Update ticket fields (title, description, status, priority, solution_plan). Only include fields you want to update. All fields are optional.',
+        parameters: [
+            {
+                name: 'ticketId',
+                type: 'string',
+                description: 'Ticket ID',
+                required: true,
+            },
+            {
+                name: 'title',
+                type: 'string',
+                description: 'Ticket title',
+                required: false,
+            },
+            {
+                name: 'description',
+                type: 'string',
+                description: 'Ticket description (use markdown formatting, code blocks, Mermaid diagrams for architecture)',
+                required: false,
+            },
+            {
+                name: 'status',
+                type: 'string',
+                description: 'Ticket status (e.g., "todo", "in_progress", "review", "closed", "backlog")',
+                required: false,
+            },
+            {
+                name: 'priority',
+                type: 'number',
+                description: 'Ticket priority (0-10, where 10 is highest priority)',
+                required: false,
+            },
+            {
+                name: 'solution_plan',
+                type: 'string',
+                description: 'Solution plan for implementing the ticket (used by Developer agent)',
+                required: false,
+            },
+        ],
+        execute: async (params: {
+            ticketId: string
+            title?: string | null
+            description?: string | null
+            status?: string | null
+            priority?: number | null
+            solution_plan?: string | null
+        }, context: ToolContext): Promise<ToolResult> => {
+            try {
+                const agentType = context.agent?.getType()
+                const result = await updateTicketFields(
+                    params.ticketId,
+                    {
+                        title: params.title,
+                        description: params.description,
+                        status: params.status,
+                        priority: params.priority,
+                        solution_plan: params.solution_plan,
+                    },
+                    agentType,
+                )
+
+                if (!result.success) {
+                    return {
+                        success: false,
+                        error: result.error || 'Failed to update ticket',
+                    }
+                }
+
+                // Get updated ticket to return
+                const ticket = db.prepare(`
+                    SELECT t.*, r.name as repository_name
+                    FROM tickets t
+                    LEFT JOIN repositories r ON t.repository_id = r.id
+                    WHERE t.id = ?
+                `).get(params.ticketId) as {
+                    id: string
+                    title: string
+                    description: string | null
+                    status: string
+                    priority: number | null
+                    solution_plan: string | null
+                } | undefined
+
+                return {
+                    success: true,
+                    data: {
+                        ticketId: params.ticketId,
+                        ticket: ticket || null,
+                        updatedFields: Object.keys(params).filter(key => key !== 'ticketId' && params[key as keyof typeof params] !== undefined),
+                    },
+                }
+            } catch (error) {
+                logger.error(`[TicketTool] Failed to update ticket:`, error)
+                return {
+                    success: false,
+                    error: error instanceof Error ? error.message : String(error),
+                }
+            }
+        },
+    },
+
     update_ticket_status: {
         name: 'update_ticket_status',
-        description: 'Update ticket status (e.g., "todo", "in_progress", "review", "closed", "backlog")',
+        description: 'Update ticket status (e.g., "todo", "in_progress", "review", "closed", "backlog"). Deprecated: Use update_ticket instead.',
         parameters: [
             {
                 name: 'ticketId',
@@ -302,11 +406,19 @@ export const ticketTools: Record<string, Tool> = {
         ],
         execute: async (params: {ticketId: string; status: string}, context: ToolContext): Promise<ToolResult> => {
             try {
-                db.prepare(`
-                    UPDATE tickets
-                    SET status = ?, updated_at = ?
-                    WHERE id = ?
-                `).run(params.status, Date.now(), params.ticketId)
+                const agentType = context.agent?.getType()
+                const result = await updateTicketFields(
+                    params.ticketId,
+                    {status: params.status},
+                    agentType,
+                )
+
+                if (!result.success) {
+                    return {
+                        success: false,
+                        error: result.error || 'Failed to update ticket status',
+                    }
+                }
 
                 return {
                     success: true,
@@ -327,7 +439,7 @@ export const ticketTools: Record<string, Tool> = {
 
     update_ticket_priority: {
         name: 'update_ticket_priority',
-        description: 'Update ticket priority (0-10, where 10 is highest priority)',
+        description: 'Update ticket priority (0-10, where 10 is highest priority). Deprecated: Use update_ticket instead.',
         parameters: [
             {
                 name: 'ticketId',
@@ -344,19 +456,19 @@ export const ticketTools: Record<string, Tool> = {
         ],
         execute: async (params: {ticketId: string; priority: number}, context: ToolContext): Promise<ToolResult> => {
             try {
-                // Validate priority range
-                if (params.priority < 0 || params.priority > 10) {
+                const agentType = context.agent?.getType()
+                const result = await updateTicketFields(
+                    params.ticketId,
+                    {priority: params.priority},
+                    agentType,
+                )
+
+                if (!result.success) {
                     return {
                         success: false,
-                        error: 'Priority must be between 0 and 10',
+                        error: result.error || 'Failed to update ticket priority',
                     }
                 }
-
-                db.prepare(`
-                    UPDATE tickets
-                    SET priority = ?, updated_at = ?
-                    WHERE id = ?
-                `).run(params.priority, Date.now(), params.ticketId)
 
                 return {
                     success: true,
