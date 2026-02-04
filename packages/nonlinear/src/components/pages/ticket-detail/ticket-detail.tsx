@@ -62,6 +62,9 @@ interface Comment {
     content: string
     created_at: number
     id: string
+    responding_to?: string | null
+    status?: 'generating' | 'completed' | 'failed'
+    updated_at?: number
 }
 
 export const TicketDetail = ({ticketId}: TicketDetailProps) => {
@@ -99,8 +102,33 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
             const currentTicketId = ticketId || $s.selectedTicket || route().split('/').pop()
             if (data.ticketId === currentTicketId || (data.ticket && data.ticket.id === currentTicketId)) {
                 if (data.type === 'comment:created' && data.comment) {
-                    // Reload ticket to get updated comments
-                    loadTicket(currentTicketId || '')
+                    // Add new comment (including placeholder comments with generating status)
+                    setComments((prev) => {
+                        // Check if comment already exists
+                        const exists = prev.some((c) => c.id === data.comment!.id)
+                        if (exists) {
+                            return prev
+                        }
+                        return [...prev, data.comment!]
+                    })
+                } else if (data.type === 'comment:updated' && data.comment) {
+                    // Update existing comment content (streaming update)
+                    setComments((prev) =>
+                        prev.map((c) =>
+                            c.id === data.comment!.id
+                                ? {...c, ...data.comment!}
+                                : c
+                        )
+                    )
+                } else if (data.type === 'comment:completed' && data.comment) {
+                    // Finalize comment (mark as completed)
+                    setComments((prev) =>
+                        prev.map((c) =>
+                            c.id === data.comment!.id
+                                ? {...c, ...data.comment!, status: 'completed' as const}
+                                : c
+                        )
+                    )
                 } else if (data.type === 'ticket:updated' && data.ticket) {
                     // Update ticket in state
                     setTicket(data.ticket)
@@ -861,29 +889,50 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
                             <p class='no-comments'>No comments yet</p> :
 
                             <div class='comments-list'>
-                                {comments.map((comment) => (
-                                    <div class='comment' key={comment.id}>
-                                        <div class='comment-header'>
-                                            {comment.author_type === 'agent' ?
-                                                (() => {
-                                                    const agent = $s.agents.find((a) => a.id === comment.author_id || a.name === comment.author_id)
-                                                    return agent ?
-                                                        <AgentBadge agent={agent} size='d' /> :
-                                                        <UserBadge userId={comment.author_id} displayName={comment.author_id} />
-                                                })() :
-                                                <UserBadge userId={comment.author_id} displayName={comment.author_id === $s.profile.username ? $s.profile.displayName : comment.author_id} avatar={comment.author_id === $s.profile.username ? $s.profile.avatar : undefined} />}
-                                            <span class='comment-time'>
-                                                {new Date(comment.created_at).toLocaleString()}
-                                            </span>
+                                {comments.map((comment) => {
+                                    const isGenerating = comment.status === 'generating'
+                                    const hasContent = comment.content && comment.content.trim().length > 0
+
+                                    return (
+                                        <div class={`comment ${isGenerating ? 'comment--generating' : ''}`} key={comment.id}>
+                                            <div class='comment-header'>
+                                                {comment.author_type === 'agent' ?
+                                                    (() => {
+                                                        const agent = $s.agents.find((a) => a.id === comment.author_id || a.name === comment.author_id)
+                                                        return agent ?
+                                                            <AgentBadge agent={agent} size='d' /> :
+                                                            <UserBadge userId={comment.author_id} displayName={comment.author_id} />
+                                                    })() :
+                                                    <UserBadge userId={comment.author_id} displayName={comment.author_id === $s.profile.username ? $s.profile.displayName : comment.author_id} avatar={comment.author_id === $s.profile.username ? $s.profile.avatar : undefined} />}
+                                                <span class='comment-time'>
+                                                    {new Date(comment.created_at).toLocaleString()}
+                                                </span>
+                                                {isGenerating && (
+                                                    <span class='comment-status'>
+                                                        <Icon name='more_horiz' size='d' />
+                                                        <span>Agent is thinking...</span>
+                                                    </span>
+                                                )}
+                                            </div>
+                                            {hasContent ? (
+                                                <div
+                                                    class='comment-content'
+                                                    dangerouslySetInnerHTML={{
+                                                        __html: renderMarkdown(comment.content),
+                                                    }}
+                                                />
+                                            ) : isGenerating ? (
+                                                <div class='comment-content comment-content--placeholder'>
+                                                    <span class='typing-indicator'>
+                                                        <span></span>
+                                                        <span></span>
+                                                        <span></span>
+                                                    </span>
+                                                </div>
+                                            ) : null}
                                         </div>
-                                        <div
-                                            class='comment-content'
-                                            dangerouslySetInnerHTML={{
-                                                __html: renderMarkdown(comment.content),
-                                            }}
-                                        />
-                                    </div>
-                                ))}
+                                    )
+                                })}
                             </div>}
 
                     <div class='add-comment'>

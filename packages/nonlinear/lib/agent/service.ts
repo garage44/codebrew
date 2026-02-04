@@ -1,14 +1,23 @@
 #!/usr/bin/env bun
 /**
  * Agent Service
- * Separate service that runs a single agent in a polling loop
+ * Separate service that runs a single agent with WebSocket push-based task processing
  * Runs independently from the main Nonlinear service
  */
 
 import {initConfig, config} from '../config.ts'
 import {initDatabase, db} from '../database.ts'
 import {loggerTransports} from '@garage44/common/service'
+import {WebSocketClient} from '@garage44/common/lib/ws-client'
 import {runAgent as runAgentScheduler} from './scheduler.ts'
+import {
+    getPendingTasks,
+    markTaskCompleted,
+    markTaskFailed,
+    markTaskProcessing,
+    type TaskData,
+} from './tasks.ts'
+import {setBroadcastWebSocketClient} from './streaming.ts'
 
 export interface AgentStatusState {
     agentId: string
@@ -22,19 +31,23 @@ class AgentService {
 
     private logger: ReturnType<typeof loggerTransports> | null = null
 
-    private pollInterval: number
-
-    private pollTimer?: ReturnType<typeof setInterval>
-
     private lastError?: string
 
     private lastRun?: number
 
+    private processingTask = false
+
+    private taskQueue: Array<{taskId: string; taskData: TaskData}> = []
+
     private running = false
+
+    private wsClient: WebSocketClient | null = null
+
+    private wsUrl: string
 
     constructor(agentId: string) {
         this.agentId = agentId
-        // Load agent config from DB to determine poll interval
+        // Load agent config from DB
         const agentRecord = db.prepare(`
             SELECT type, enabled
             FROM agents
@@ -52,16 +65,8 @@ class AgentService {
             throw new Error(`Agent ${agentId} is disabled`)
         }
 
-        // Determine poll interval based on agent type
-        if (agentRecord.type === 'prioritizer') {
-            const agentConfig = config.agents.prioritizer
-
-            /* 5 minutes default */
-            this.pollInterval = agentConfig?.checkInterval || 300000
-        } else {
-            /* Developer and Reviewer check more frequently - 10 seconds */
-            this.pollInterval = 10000
-        }
+        // Get WebSocket URL from config or environment
+        this.wsUrl = process.env.NONLINEAR_WS_URL || 'ws://localhost:3032/ws'
     }
 
     /**
@@ -86,15 +91,19 @@ class AgentService {
 
         this.running = true
         this.logger.info(`[AgentService] Starting agent service for agent ${this.agentId}...`)
-        this.logger.info(`[AgentService] Poll interval: ${this.pollInterval}ms`)
+        this.logger.info(`[AgentService] WebSocket URL: ${this.wsUrl}`)
 
-        // Process immediately
-        this.runAgent()
+        // Initialize WebSocket client
+        this.initWebSocket()
 
-        // Then poll for work
-        this.pollTimer = setInterval(() => {
-            this.runAgent()
-        }, this.pollInterval)
+        // Catch up on missed tasks from database (with delay to allow WebSocket to connect)
+        // The WebSocket 'open' event will also trigger catch-up, but we do it here too
+        // in case WebSocket connection is delayed
+        setTimeout(() => {
+            this.catchUpOnTasks().catch((error) => {
+                this.logger?.error(`[AgentService] Error during catch-up: ${error}`)
+            })
+        }, 1000) // 1 second delay to allow WebSocket connection to establish
 
         this.logger.info(`[AgentService] Agent service started for agent ${this.agentId}`)
     }
@@ -108,9 +117,11 @@ class AgentService {
         }
 
         this.running = false
-        if (this.pollTimer) {
-            clearInterval(this.pollTimer)
-            this.pollTimer = undefined
+
+        // Close WebSocket connection
+        if (this.wsClient) {
+            this.wsClient.close()
+            this.wsClient = null
         }
 
         if (this.logger) {
@@ -119,21 +130,175 @@ class AgentService {
     }
 
     /**
-     * Run the agent
+     * Initialize WebSocket client and subscribe to task events
      */
-    private async runAgent(): Promise<void> {
-        if (!this.logger) {
+    private initWebSocket(): void {
+        if (!this.logger) return
+
+        this.wsClient = new WebSocketClient(this.wsUrl)
+
+        // Subscribe to agent-specific task topic
+        const taskTopic = `/agents/${this.agentId}/tasks`
+        this.wsClient.onRoute(taskTopic, async(data: {
+            task_id?: string
+            task_type?: string
+            task_data?: TaskData
+        }) => {
+            if (!this.logger) return
+
+            const taskId = data.task_id as string
+            const taskType = data.task_type as string
+            const taskData = (data.task_data || data) as TaskData
+
+            if (!taskId) {
+                this.logger.warn(`[AgentService] Received task event without task_id, ignoring`)
+                return
+            }
+
+            this.logger.info(`[AgentService] Received task ${taskId} (type: ${taskType})`)
+
+            // Add to queue
+            this.taskQueue.push({
+                taskData: {
+                    ...taskData,
+                    task_id: taskId,
+                    task_type: taskType,
+                },
+                taskId,
+            })
+
+            // Process if not busy
+            this.processNextTask()
+        })
+
+        // Handle reconnection
+        this.wsClient.on('open', async() => {
+            this.logger?.info(`[AgentService] WebSocket connected to ${this.wsUrl}`)
+
+            // Set WebSocket client for comment broadcasting
+            setBroadcastWebSocketClient(this.wsClient)
+
+            // Subscribe to agent task topic
+            try {
+                await this.wsClient.post(`/api/agents/${this.agentId}/subscribe`, {})
+                this.logger?.info(`[AgentService] Subscribed to /agents/${this.agentId}/tasks`)
+            } catch(error) {
+                this.logger?.warn(`[AgentService] Failed to subscribe to task topic: ${error}`)
+            }
+
+            // Catch up on missed tasks after reconnection
+            this.catchUpOnTasks().catch((error) => {
+                this.logger?.error(`[AgentService] Error during catch-up after reconnect: ${error}`)
+            })
+        })
+
+        this.wsClient.on('reconnecting', ({attempt}) => {
+            this.logger?.warn(`[AgentService] WebSocket reconnecting (attempt ${attempt})`)
+            if (attempt >= 5) {
+                this.logger?.error(`[AgentService] WebSocket connection failed after ${attempt} attempts. Make sure the Nonlinear service is running on ${this.wsUrl}`)
+            }
+        })
+
+        this.wsClient.on('error', (error) => {
+            const errorMsg = error instanceof Error ? error.message : String(error)
+            this.logger?.error(`[AgentService] WebSocket error: ${errorMsg}`)
+            // Log helpful message if connection fails
+            if (errorMsg.includes('Failed to connect') || errorMsg.includes('ECONNREFUSED')) {
+                this.logger?.warn(`[AgentService] Cannot connect to ${this.wsUrl}. Make sure the Nonlinear service is running.`)
+                this.logger?.warn(`[AgentService] Start the service with: bun service.ts start`)
+            }
+        })
+
+        // Connect
+        this.wsClient.connect()
+    }
+
+    /**
+     * Catch up on missed tasks from database
+     */
+    private async catchUpOnTasks(): Promise<void> {
+        if (!this.logger) return
+
+        const pendingTasks = getPendingTasks(this.agentId)
+
+        if (pendingTasks.length === 0) {
+            // Silently return - no need to log when there are no pending tasks
             return
         }
 
+        this.logger.info(`[AgentService] Found ${pendingTasks.length} pending task(s), processing...`)
+
+        // Add to queue
+        for (const task of pendingTasks) {
+            const taskData = JSON.parse(task.task_data) as TaskData
+            this.taskQueue.push({
+                taskData: {
+                    ...taskData,
+                    task_id: task.id,
+                    task_type: task.task_type,
+                },
+                taskId: task.id,
+            })
+        }
+
+        // Process first task
+        this.processNextTask()
+    }
+
+    /**
+     * Process next task in queue
+     */
+    private async processNextTask(): Promise<void> {
+        if (!this.logger) return
+
+        // Don't process if already processing or queue is empty
+        if (this.processingTask || this.taskQueue.length === 0) {
+            return
+        }
+
+        // Get next task from queue
+        const task = this.taskQueue.shift()
+        if (!task) return
+
+        this.processingTask = true
+
         try {
-            await runAgentScheduler(this.agentId, {})
+            const {taskId, taskData} = task
+
+            this.logger.info(`[AgentService] Processing task ${taskId}`)
+
+            // Mark task as processing
+            markTaskProcessing(taskId)
+
+            // Run agent with task context (include task_id for scheduler)
+            await runAgentScheduler(this.agentId, {
+                ...taskData,
+                task_id: taskId,
+            })
+
+            // Mark task as completed
+            markTaskCompleted(taskId)
+
             this.lastRun = Date.now()
             this.lastError = undefined
+            this.logger.info(`[AgentService] Completed task ${taskId}`)
         } catch(error) {
             const errorMsg = error instanceof Error ? error.message : String(error)
             this.lastError = errorMsg
-            this.logger.error(`[AgentService] Error running agent ${this.agentId}: ${errorMsg}`)
+            this.logger.error(`[AgentService] Error processing task ${task.taskId}: ${errorMsg}`)
+
+            // Mark task as failed
+            markTaskFailed(task.taskId, errorMsg)
+        } finally {
+            this.processingTask = false
+
+            // Process next task if available
+            if (this.taskQueue.length > 0) {
+                // Small delay to prevent tight loop
+                setTimeout(() => {
+                    this.processNextTask()
+                }, 100)
+            }
         }
     }
 

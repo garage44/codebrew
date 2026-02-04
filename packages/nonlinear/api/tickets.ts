@@ -16,7 +16,7 @@ import {
 import {randomId} from '@garage44/common/lib/utils'
 import {logger} from '../service.ts'
 import {parseMentions, validateMentions} from '../lib/comments/mentions.ts'
-import {triggerAgent} from '../lib/agent/scheduler.ts'
+import {createTask} from '../lib/agent/tasks.ts'
 
 /**
  * Enrich ticket with labels and assignees
@@ -44,6 +44,28 @@ function enrichTicket(ticket: {
 }
 
 export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerManager) {
+    // Broadcast comment update (called by agent services)
+    wsManager.api.post('/api/tickets/:ticketId/comments/:commentId/broadcast', async(_ctx, req) => {
+        const ticketId = req.params.ticketId
+        const commentId = req.params.commentId
+        const {type} = req.data as {type: 'created' | 'updated' | 'completed'}
+
+        // Get comment from database
+        const comment = db.prepare('SELECT * FROM comments WHERE id = ?').get(commentId)
+
+        if (comment) {
+            // Broadcast to all clients
+            wsManager.broadcast('/tickets', {
+                comment,
+                ticketId,
+                type: `comment:${type}`,
+            })
+            logger.debug(`[API] Broadcast comment ${type} event for comment ${commentId} on ticket ${ticketId}`)
+        }
+
+        return {success: true}
+    })
+
     // Get all tickets
     wsManager.api.get('/api/tickets', async(_ctx, _req) => {
         const tickets = db.prepare(`
@@ -227,7 +249,7 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
 
         logger.info(`[API] Created ticket ${ticketId}: ${title}`)
 
-        // If ticket is in backlog, trigger PrioritizerAgent immediately to refine it
+        // If ticket is in backlog, create task for PrioritizerAgent to refine it
         if (status === 'backlog') {
             // Find PrioritizerAgent ID
             const prioritizerAgent = db.prepare(`
@@ -237,11 +259,28 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
             `).get() as {id: string} | undefined
 
             if (prioritizerAgent) {
-                logger.info(`[API] Triggering PrioritizerAgent to refine new backlog ticket ${ticketId}`)
-                // Trigger asynchronously so it doesn't block the response
-                triggerAgent(prioritizerAgent.id, {ticket_id: ticketId}).catch((error) => {
-                    logger.error(`[API] Failed to trigger PrioritizerAgent: ${error}`)
+                logger.info(`[API] Creating refinement task for PrioritizerAgent to refine new backlog ticket ${ticketId}`)
+
+                // Create task with medium priority (backlog refinement is important but not urgent)
+                const taskId = createTask(
+                    prioritizerAgent.id,
+                    'refinement',
+                    {
+                        ticket_id: ticketId,
+                    },
+                    50, // Medium priority for backlog refinement
+                )
+
+                // Broadcast task event to agent via WebSocket
+                wsManager.emitEvent(`/agents/${prioritizerAgent.id}/tasks`, {
+                    task_id: taskId,
+                    task_type: 'refinement',
+                    task_data: {
+                        ticket_id: ticketId,
+                    },
                 })
+
+                logger.info(`[API] Created and broadcast refinement task ${taskId} for PrioritizerAgent`)
             } else {
                 logger.warn('[API] No enabled PrioritizerAgent found to refine new ticket')
             }
@@ -503,7 +542,7 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
 
         const comment = db.prepare('SELECT * FROM comments WHERE id = ?').get(commentId)
 
-        // Trigger mentioned agents
+        // Create tasks for mentioned agents
         for (const mention of validMentions) {
             if (mention.type === 'agent') {
                 // Find agent by name (case-insensitive)
@@ -528,20 +567,38 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
                     continue
                 }
 
-                logger.info(`[API] Triggering agent ${agent.name} (${agent.id}) via mention in comment for ticket ${ticketId}`)
-                // Pass ticket_id and comment content so agent can respond to the mention
-                triggerAgent(agent.id, {
-                    author_id: author_id,
-                    author_type: author_type,
-                    comment_content: content,
-                    comment_id: commentId,
-                    ticket_id: ticketId,
-                }).then(() => {
-                    logger.info(`[API] Successfully triggered agent ${agent.name} for ticket ${ticketId}`)
-                }).catch((error: unknown) => {
-                    logger.error(`[API] Failed to trigger agent ${agent.name}: ${error}`)
-                    logger.error(`[API] Error details: ${error instanceof Error ? error.stack : String(error)}`)
+                logger.info(`[API] Creating task for agent ${agent.name} (${agent.id}) via mention in comment for ticket ${ticketId}`)
+
+                // Create task with high priority (mentions are urgent)
+                const taskId = createTask(
+                    agent.id,
+                    'mention',
+                    {
+                        author_id: author_id,
+                        author_type: author_type,
+                        comment_content: content,
+                        comment_id: commentId,
+                        mentions: mentionNames,
+                        ticket_id: ticketId,
+                    },
+                    100, // High priority for mentions
+                )
+
+                // Broadcast task event to agent via WebSocket
+                wsManager.emitEvent(`/agents/${agent.id}/tasks`, {
+                    task_id: taskId,
+                    task_type: 'mention',
+                    task_data: {
+                        author_id: author_id,
+                        author_type: author_type,
+                        comment_content: content,
+                        comment_id: commentId,
+                        mentions: mentionNames,
+                        ticket_id: ticketId,
+                    },
                 })
+
+                logger.info(`[API] Created and broadcast task ${taskId} for agent ${agent.name}`)
             }
         }
 

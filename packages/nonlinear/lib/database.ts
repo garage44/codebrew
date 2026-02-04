@@ -64,7 +64,10 @@ export interface Comment {
     id: string
     mentions: string | null
     // JSON array string
+    responding_to: string | null
+    status: 'generating' | 'completed' | 'failed'
     ticket_id: string
+    updated_at?: number
 }
 
 export interface Agent {
@@ -79,6 +82,20 @@ export interface Agent {
     name: string
     status: 'idle' | 'working' | 'error' | 'offline'
     type: 'prioritizer' | 'developer' | 'reviewer'
+}
+
+export interface AgentTask {
+    agent_id: string
+    completed_at: number | null
+    created_at: number
+    error: string | null
+    id: string
+    priority: number
+    started_at: number | null
+    status: 'pending' | 'processing' | 'completed' | 'failed'
+    task_data: string
+    // JSON string
+    task_type: 'mention' | 'assignment' | 'manual' | 'refinement'
 }
 
 export interface CIRun {
@@ -246,13 +263,41 @@ function createNonlinearTables() {
             author_id TEXT NOT NULL,
             content TEXT NOT NULL,
             mentions TEXT,
+            responding_to TEXT,
+            status TEXT NOT NULL DEFAULT 'completed',
             created_at INTEGER NOT NULL,
+            updated_at INTEGER,
             FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE
         )
     `)
 
+    // Migrate existing comments table if needed (add new columns)
+    try {
+        db.exec(`
+            ALTER TABLE comments ADD COLUMN responding_to TEXT
+        `)
+    } catch {
+        // Column already exists, ignore
+    }
+    try {
+        db.exec(`
+            ALTER TABLE comments ADD COLUMN status TEXT NOT NULL DEFAULT 'completed'
+        `)
+    } catch {
+        // Column already exists, ignore
+    }
+    try {
+        db.exec(`
+            ALTER TABLE comments ADD COLUMN updated_at INTEGER
+        `)
+    } catch {
+        // Column already exists, ignore
+    }
+
     // Create index on ticket_id for faster comment queries
     db.exec('CREATE INDEX IF NOT EXISTS idx_comments_ticket_id ON comments(ticket_id)')
+    db.exec('CREATE INDEX IF NOT EXISTS idx_comments_responding_to ON comments(responding_to)')
+    db.exec('CREATE INDEX IF NOT EXISTS idx_comments_status ON comments(status)')
 
     // Agents table
     db.exec(`
@@ -291,6 +336,28 @@ function createNonlinearTables() {
     } catch {
         // Column already exists, ignore
     }
+
+    // Agent tasks table
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS agent_tasks (
+            id TEXT PRIMARY KEY,
+            agent_id TEXT NOT NULL,
+            task_type TEXT NOT NULL,
+            task_data TEXT NOT NULL,
+            status TEXT NOT NULL,
+            priority INTEGER NOT NULL DEFAULT 0,
+            created_at INTEGER NOT NULL,
+            started_at INTEGER,
+            completed_at INTEGER,
+            error TEXT,
+            FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE
+        )
+    `)
+
+    // Create indexes on agent_tasks for efficient queries
+    db.exec('CREATE INDEX IF NOT EXISTS idx_agent_tasks_agent_status ON agent_tasks(agent_id, status)')
+    db.exec('CREATE INDEX IF NOT EXISTS idx_agent_tasks_created ON agent_tasks(created_at)')
+    db.exec('CREATE INDEX IF NOT EXISTS idx_agent_tasks_priority ON agent_tasks(priority DESC, created_at ASC)')
 
     // CI runs table
     db.exec(`

@@ -9,10 +9,19 @@ import {getAgentById} from '../lib/agent/index.ts'
 import {randomId} from '@garage44/common/lib/utils'
 import {getAgentStatus} from '../lib/agent/status.ts'
 import {DEFAULT_AVATARS} from '../lib/agent/avatars.ts'
+import {createTask} from '../lib/agent/tasks.ts'
 import {getTokenUsage} from '../lib/agent/token-usage.ts'
 import {config} from '../lib/config.ts'
 
 export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManager) {
+    // Subscribe to agent task topic
+    wsManager.api.post('/api/agents/:id/subscribe', async(ctx, req) => {
+        const agentId = req.params.id
+        const topic = `/agents/${agentId}/tasks`
+        ctx.subscribe?.(topic)
+        return {success: true, topic}
+    })
+
     // Get all agents
     wsManager.api.get('/api/agents', async(_ctx, _req) => {
         const agents = db.prepare(`
@@ -112,7 +121,7 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
         }
     })
 
-    // Trigger agent to process work (with streaming support)
+    // Trigger agent to process work (creates task instead of direct execution)
     wsManager.api.post('/api/agents/:id/trigger', async(ctx, req) => {
         const agentId = req.params.id
         const context = req.data as Record<string, unknown> || {}
@@ -134,55 +143,36 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
             throw new Error('Agent is disabled')
         }
 
-        /* Parse agent config for tools/skills (not used here but may be needed in future) */
+        logger.info(`[API] Creating task for agent ${agent.name} (${agent.type})`)
 
-        const agentInstance = getAgentById(agent.id)
+        // Create task with low priority (manual triggers are less urgent than mentions)
+        const taskId = createTask(
+            agentId,
+            'manual',
+            {
+                ...context,
+                stream, // Include streaming flag in task data
+            },
+            0, // Low priority for manual triggers
+        )
 
-        logger.info(`[API] Triggering agent ${agent.name} (${agent.type})`)
-
-        // Set up streaming if requested
-        if (stream) {
-            const {createReasoningStream} = await import('../lib/cli/interactive.ts')
-            const reasoningMessages: string[] = []
-
-            const stream = createReasoningStream((message) => {
-                reasoningMessages.push(message)
-                // Broadcast reasoning in real-time
-                wsManager.broadcast('/agents', {
-                    agentId: agent.id,
-                    message,
-                    type: 'agent:reasoning',
-                })
-            })
-
-            agentInstance.setStream(stream)
-        }
-
-        // Run agent asynchronously
-        agentInstance.process(context).then((result) => {
-            // Broadcast agent completion
-            wsManager.broadcast('/agents', {
-                agentId: agent.id,
-                result,
-                type: 'agent:completed',
-            })
-
-            logger.info(`[API] Agent ${agent.name} completed: ${result.message}`)
-        }).catch((error) => {
-            // Broadcast agent error
-            wsManager.broadcast('/agents', {
-                agentId: agent.id,
-                error: error instanceof Error ? error.message : String(error),
-                type: 'agent:error',
-            })
-
-            logger.error(`[API] Agent ${agent.name} error: ${error}`)
+        // Broadcast task event to agent via WebSocket
+        wsManager.emitEvent(`/agents/${agentId}/tasks`, {
+            task_id: taskId,
+            task_type: 'manual',
+            task_data: {
+                ...context,
+                stream,
+            },
         })
 
+        logger.info(`[API] Created and broadcast task ${taskId} for agent ${agent.name}`)
+
         return {
-            message: `Agent ${agent.name} triggered`,
+            message: `Task created for agent ${agent.name}`,
             streaming: stream,
             success: true,
+            task_id: taskId,
         }
     })
 

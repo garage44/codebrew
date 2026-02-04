@@ -21,6 +21,7 @@ export async function initAgentScheduler() {
 /**
  * Run an agent
  * Used by AgentService and triggerAgent
+ * Now supports task-based context
  */
 export async function runAgent(agentId: string, context: Record<string, unknown> = {}): Promise<void> {
     // Load agent from database
@@ -45,17 +46,37 @@ export async function runAgent(agentId: string, context: Record<string, unknown>
         return
     }
 
+    // Check if this is a task-based trigger (has task_id)
+    const isTaskTrigger = !!context.task_id
+    const taskId = context.task_id as string | undefined
+
+    // If task-based, check if task is already completed or failed (skip those)
+    // Note: We allow "processing" status because AgentService marks tasks as processing
+    // before calling the scheduler, and AgentService ensures single-task processing
+    if (isTaskTrigger && taskId) {
+        const task = db.prepare(`
+            SELECT status FROM agent_tasks WHERE id = ?
+        `).get(taskId) as {status: string} | undefined
+
+        if (task && (task.status === 'completed' || task.status === 'failed')) {
+            logger.debug(`[Agent Scheduler] Task ${taskId} is already ${task.status}, skipping`)
+            return
+        }
+    }
+
     // Check if this is a mention trigger (has comment_id) - allow it even if agent is working
     const isMentionTrigger = !!context.comment_id
 
-    // Check agent status (skip unless it's a mention trigger)
+    // Check agent status (skip unless it's a mention/task trigger)
     const status = getAgentStatus(agentId)
-    if (status && status.status === 'working' && !isMentionTrigger) {
+    if (status && status.status === 'working' && !isMentionTrigger && !isTaskTrigger) {
         logger.debug(`[Agent Scheduler] Agent ${agentRecord.name} is already working, skipping`)
         return
     }
 
-    if (isMentionTrigger) {
+    if (isTaskTrigger) {
+        logger.info(`[Agent Scheduler] Task trigger detected - forcing agent ${agentRecord.name} to run`)
+    } else if (isMentionTrigger) {
         logger.info(`[Agent Scheduler] Mention trigger detected - forcing agent ${agentRecord.name} to run even if working`)
     }
 

@@ -6,6 +6,9 @@ import pc from 'picocolors'
 import {BaseAgent, type AgentContext, type AgentResponse} from '../agent/base.ts'
 import {REPL, type REPLOptions} from './repl.ts'
 import {executeToolCommand, getToolsHelp, getToolsList} from './command-parser.ts'
+import {getPendingTasks, markTaskProcessing, markTaskCompleted, markTaskFailed} from '../agent/tasks.ts'
+import {runAgent as runAgentScheduler} from '../agent/scheduler.ts'
+import {db} from '../database.ts'
 
 /**
  * Create a writable stream for agent reasoning output
@@ -56,7 +59,27 @@ export async function runAgentInteractive(options: InteractiveCLIOptions): Promi
     const agentType = agent.getType()
     const prompt = `${agentName}> `
 
-    const welcomeMessage = `\n${pc.bold(pc.cyan(`${agentName} Interactive Mode`))}\nType ${pc.yellow('help')} for available commands, ${pc.yellow('exit')} to quit.\n`
+    // Check for pending tasks on startup
+    let pendingTasksMessage = ''
+    try {
+        // Get agent ID from database
+        const agentRecord = db.prepare(`
+            SELECT id FROM agents
+            WHERE name = ? OR id = ?
+            LIMIT 1
+        `).get(agentName, agentName) as {id: string} | undefined
+
+        if (agentRecord) {
+            const pendingTasks = getPendingTasks(agentRecord.id)
+            if (pendingTasks.length > 0) {
+                pendingTasksMessage = `\n${pc.yellow(`⚠️  Found ${pendingTasks.length} pending task(s) in queue.`)}\nType ${pc.yellow('process-pending')} or ${pc.yellow('catch-up')} to process them.\n`
+            }
+        }
+    } catch(error) {
+        // Silently fail - database might not be initialized or agent not found
+    }
+
+    const welcomeMessage = `\n${pc.bold(pc.cyan(`${agentName} Interactive Mode`))}\nType ${pc.yellow('help')} for available commands, ${pc.yellow('exit')} to quit.${pendingTasksMessage}\n`
 
     // Agent-specific help messages
     let helpMessage = ''
@@ -64,6 +87,7 @@ export async function runAgentInteractive(options: InteractiveCLIOptions): Promi
         helpMessage = `\n${pc.bold('Available commands:')}
   ${pc.cyan('Natural language')} - e.g., ${pc.gray('"prioritize tickets"')}, ${pc.gray('"show backlog"')}
   ${pc.cyan('tool:tool_name')} - Direct tool invocation, e.g., ${pc.gray('tool:list_tickets --status=todo')}
+  ${pc.yellow('process-pending')}, ${pc.yellow('catch-up')}, ${pc.yellow('pending')} - Process pending tasks from queue
   ${pc.yellow('tools')} - List all available tools (compact)
   ${pc.yellow('tools --help')} - Detailed tool documentation
   ${pc.yellow('help')}, ${pc.yellow('h')} - Show this help message
@@ -73,6 +97,7 @@ export async function runAgentInteractive(options: InteractiveCLIOptions): Promi
         helpMessage = `\n${pc.bold('Available commands:')}
   ${pc.cyan('Natural language')} - e.g., ${pc.gray('"work on ticket abc123"')}, ${pc.gray('"show my tickets"')}
   ${pc.cyan('tool:tool_name')} - Direct tool invocation, e.g., ${pc.gray('tool:list_tickets --status=todo')}
+  ${pc.yellow('process-pending')}, ${pc.yellow('catch-up')}, ${pc.yellow('pending')} - Process pending tasks from queue
   ${pc.yellow('tools')} - List all available tools (compact)
   ${pc.yellow('tools --help')} - Detailed tool documentation
   ${pc.yellow('help')}, ${pc.yellow('h')} - Show this help message
@@ -82,6 +107,7 @@ export async function runAgentInteractive(options: InteractiveCLIOptions): Promi
         helpMessage = `\n${pc.bold('Available commands:')}
   ${pc.cyan('Natural language')} - e.g., ${pc.gray('"review tickets"')}, ${pc.gray('"review ticket abc123"')}
   ${pc.cyan('tool:tool_name')} - Direct tool invocation, e.g., ${pc.gray('tool:list_tickets --status=todo')}
+  ${pc.yellow('process-pending')}, ${pc.yellow('catch-up')}, ${pc.yellow('pending')} - Process pending tasks from queue
   ${pc.yellow('tools')} - List all available tools (compact)
   ${pc.yellow('tools --help')} - Detailed tool documentation
   ${pc.yellow('help')}, ${pc.yellow('h')} - Show this help message
@@ -91,6 +117,7 @@ export async function runAgentInteractive(options: InteractiveCLIOptions): Promi
         helpMessage = `\n${pc.bold('Available commands:')}
   ${pc.cyan('Natural language')} - Give instructions in plain English
   ${pc.cyan('tool:tool_name')} - Direct tool invocation
+  ${pc.yellow('process-pending')}, ${pc.yellow('catch-up')}, ${pc.yellow('pending')} - Process pending tasks from queue
   ${pc.yellow('tools')} - List all available tools (compact)
   ${pc.yellow('tools --help')} - Detailed tool documentation
   ${pc.yellow('help')}, ${pc.yellow('h')} - Show this help message
@@ -115,6 +142,61 @@ export async function runAgentInteractive(options: InteractiveCLIOptions): Promi
                 // Handle "tools --help" command
                 if (trimmed === 'tools --help' || trimmed === 'tools -h') {
                     console.log(getToolsHelp(agent.getTools()))
+                    return
+                }
+
+                // Handle "process-pending" or "catch-up" command
+                if (trimmed === 'process-pending' || trimmed === 'catch-up' || trimmed === 'pending') {
+                    try {
+                        // Get agent ID from database
+                        const agentRecord = db.prepare(`
+                            SELECT id FROM agents
+                            WHERE name = ? OR id = ?
+                            LIMIT 1
+                        `).get(agentName, agentName) as {id: string} | undefined
+
+                        if (!agentRecord) {
+                            console.log(pc.red(`\n❌ Agent not found in database\n`))
+                            return
+                        }
+
+                        const pendingTasks = getPendingTasks(agentRecord.id)
+
+                        if (pendingTasks.length === 0) {
+                            console.log(pc.green(`\n✅ No pending tasks found\n`))
+                            return
+                        }
+
+                        console.log(pc.cyan(`\n📋 Processing ${pendingTasks.length} pending task(s)...\n`))
+
+                        // Process each task
+                        for (const task of pendingTasks) {
+                            try {
+                                console.log(pc.gray(`Processing task ${task.id} (type: ${task.task_type})...`))
+
+                                markTaskProcessing(task.id)
+
+                                const taskData = JSON.parse(task.task_data) as Record<string, unknown>
+                                await runAgentScheduler(agentRecord.id, {
+                                    ...taskData,
+                                    task_id: task.id,
+                                    task_type: task.task_type,
+                                })
+
+                                markTaskCompleted(task.id)
+                                console.log(pc.green(`✅ Completed task ${task.id}\n`))
+                            } catch(error) {
+                                const errorMsg = error instanceof Error ? error.message : String(error)
+                                markTaskFailed(task.id, errorMsg)
+                                console.log(pc.red(`❌ Failed task ${task.id}: ${errorMsg}\n`))
+                            }
+                        }
+
+                        console.log(pc.green(`\n✅ Finished processing pending tasks\n`))
+                    } catch(error) {
+                        const errorMsg = error instanceof Error ? error.message : String(error)
+                        console.log(pc.red(`\n❌ Error processing pending tasks: ${errorMsg}\n`))
+                    }
                     return
                 }
 

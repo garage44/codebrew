@@ -45,7 +45,7 @@ export class PrioritizerAgent extends BaseAgent {
                     if (commentId && commentContent) {
                         // Triggered via mention - respond to the comment
                         this.log(`Detected mention trigger: comment_id=${commentId}, author=${authorId}`)
-                        await this.refineTicketFromMention(ticket, {
+                        await this.handleMention(ticket, {
                             commentId,
                             commentContent,
                             authorId: authorId || 'unknown',
@@ -53,7 +53,7 @@ export class PrioritizerAgent extends BaseAgent {
                         })
                         return {
                             success: true,
-                            message: `Refined ticket ${ticketId} in response to mention`,
+                            message: `Handled mention for ticket ${ticketId}`,
                         }
                     } else {
                         // Regular refinement (automatic or manual trigger)
@@ -350,8 +350,45 @@ Provide a refined description and analysis.`
     }
 
     /**
+     * Handle mention intelligently - analyzes intent and responds appropriately
+     * Uses streaming comments for real-time feedback
+     */
+    private async handleMention(
+        ticket: {
+            id: string
+            repository_id: string
+            title: string
+            description: string | null
+            repository_name: string | null
+            repository_path: string | null
+        },
+        mention: {
+            commentId: string
+            commentContent: string
+            authorId: string
+            authorType: 'agent' | 'human'
+        },
+    ): Promise<void> {
+        // Create placeholder comment immediately
+        const {createAgentCommentPlaceholder, finalizeAgentComment, updateAgentComment} = await import('./comments.ts')
+        const responseCommentId = await createAgentCommentPlaceholder(ticket.id, this.name, mention.commentId)
+        this.log(`Created placeholder comment ${responseCommentId} for mention response`)
+
+        try {
+            // For now, use the existing refineTicketFromMention logic
+            // TODO: Add intelligent intent analysis and streaming LLM responses
+            await this.refineTicketFromMention(ticket, mention, responseCommentId)
+        } catch (error) {
+            const errorMsg = error instanceof Error ? error.message : String(error)
+            await finalizeAgentComment(responseCommentId, `I encountered an error while processing your request: ${errorMsg}`)
+            throw error
+        }
+    }
+
+    /**
      * Refine a ticket when triggered via mention in a comment
      * Responds to the user's request in the comment
+     * @deprecated Use handleMention instead - this is kept for backward compatibility
      */
     private async refineTicketFromMention(
         ticket: {
@@ -368,6 +405,7 @@ Provide a refined description and analysis.`
             authorId: string
             authorType: 'agent' | 'human'
         },
+        responseCommentId?: string,
     ): Promise<void> {
         try {
             this.log(`Refining ticket ${ticket.id} in response to mention from ${mention.authorId}`)
@@ -505,9 +543,17 @@ Please respond to the user's request and refine the ticket as requested.`
 
             // Add comment responding to the mention
             const commentContent = refinement.response_comment || 'I received your mention and will refine the ticket.'
-            this.log(`Adding response comment: ${commentContent.substring(0, 100)}...`)
-            await addAgentComment(ticket.id, this.name, commentContent)
-            this.log(`Successfully added comment to ticket ${ticket.id}`)
+            this.log(`Finalizing response comment: ${commentContent.substring(0, 100)}...`)
+
+            if (responseCommentId) {
+                // Use streaming comment finalization
+                const {finalizeAgentComment} = await import('./comments.ts')
+                await finalizeAgentComment(responseCommentId, commentContent)
+            } else {
+                // Fallback to legacy method
+                await addAgentComment(ticket.id, this.name, commentContent)
+            }
+            this.log(`Successfully finalized comment for ticket ${ticket.id}`)
 
             // Add "refined" label to mark ticket as ready for development
             addTicketLabel(ticket.id, 'refined')
