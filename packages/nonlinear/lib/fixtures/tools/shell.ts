@@ -55,9 +55,15 @@ export const shellTools: Record<string, Tool> = {
                     ? path.join(context.repositoryPath, params.cwd)
                     : context.repositoryPath
 
-                // Build command with args
-                const cmdParts = [params.command, ...(params.args || [])]
-                const result = await $(cmdParts)
+                // Build command for Bun Shell
+                // Bun Shell requires tagged template literal syntax: $`cmd arg1 arg2`
+                // Use $.raw() for dynamic command construction
+                const args = params.args || []
+                const allParts = [params.command, ...args]
+
+                // Use Bun Shell with $.raw() to properly handle dynamic commands
+                // This ensures each part is properly escaped and separated
+                const result = await $.raw(allParts)
                     .cwd(workDir)
                     .env(params.env || {})
                     .quiet()

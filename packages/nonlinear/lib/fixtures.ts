@@ -26,14 +26,21 @@ export async function initializeFixtures(db: Database, workspaceRoot: string): P
 
     logger.info('[Fixtures] Initializing fixtures...')
 
+    /*
+     * Default workspace root if not provided or found
+     * Prefer environment variable, then use provided workspaceRoot, fallback to garage44-agent
+     */
+    const defaultWorkspaceRoot = process.env.NONLINEAR_WORKSPACE_ROOT || '/home/deck/code/garage44-agent'
+    const finalWorkspaceRoot = workspaceRoot || defaultWorkspaceRoot
+
     // Create garage44 workspace
-    const workspaceId = await createGarage44Workspace(db, workspaceRoot)
+    const workspaceId = await createGarage44Workspace(db, finalWorkspaceRoot)
 
     // Create preset tickets first (for early testing)
     await createPresetTickets(db, workspaceId)
 
     // Import fixture docs (takes longer due to embeddings)
-    await importFixtureDocs(db, workspaceRoot, workspaceId)
+    await importFixtureDocs(db, finalWorkspaceRoot, workspaceId)
 
     logger.info('[Fixtures] Initialized garage44 workspace with tickets and docs')
 }

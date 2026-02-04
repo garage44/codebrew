@@ -401,7 +401,7 @@ void cli.usage('Usage: $0 [task]')
         yargs
             .option('agent-id', {
                 alias: 'a',
-                describe: 'Agent ID',
+                describe: 'Agent ID or name (case-insensitive)',
                 type: 'string',
                 demandOption: true,
             })
@@ -410,16 +410,26 @@ void cli.usage('Usage: $0 [task]')
                 describe: 'Ticket ID (optional)',
                 type: 'string',
             })
+            .option('interactive', {
+                alias: 'i',
+                describe: 'Run in interactive mode with real-time reasoning (like Claude Code)',
+                type: 'boolean',
+                default: false,
+            })
     , async (argv) => {
         await initConfig(config)
         await initDatabase()
 
         const {db} = await import('./lib/database.ts')
-        const agent = db.prepare('SELECT * FROM agents WHERE id = ?').get(argv.agentId) as {
+        // Try to find agent by ID first, then by name (case-insensitive)
+        const agent = db.prepare(`
+            SELECT * FROM agents
+            WHERE id = ? OR LOWER(name) = LOWER(?)
+        `).get(argv.agentId, argv.agentId) as {
+            enabled: number
             id: string
             name: string
             type: 'prioritizer' | 'developer' | 'reviewer'
-            enabled: number
         } | undefined
 
         if (!agent) {
@@ -445,14 +455,36 @@ void cli.usage('Usage: $0 [task]')
             context.ticketId = argv.ticketId
         }
 
-        console.log(`\n🚀 Triggering agent: ${agent.name} (${agent.type})\n`)
-        const result = await agentInstance.process(context)
+        if (argv.interactive) {
+            // Interactive mode with real-time reasoning display
+            const {runAgentInteractive, formatReasoningMessage, formatToolExecution, formatToolResult} = await import('./lib/cli/interactive.ts')
 
-        if (result.success) {
-            console.log(`✅ Agent completed: ${result.message}`)
+            console.log(`\n🚀 Starting ${agent.name} (${agent.type}) agent interactively...\n`)
+
+            await runAgentInteractive({
+                agent: agentInstance,
+                context,
+                onReasoning: (message) => {
+                    process.stdout.write(formatReasoningMessage(message))
+                },
+                onToolExecution: (toolName, params) => {
+                    process.stdout.write(formatToolExecution(toolName, params))
+                },
+                onToolResult: (toolName, result) => {
+                    process.stdout.write(formatToolResult(toolName, result.success, result.error))
+                },
+            })
         } else {
-            console.error(`❌ Agent failed: ${result.error || result.message}`)
-            process.exit(1)
+            // Non-interactive mode
+            console.log(`\n🚀 Triggering agent: ${agent.name} (${agent.type})\n`)
+            const result = await agentInstance.process(context)
+
+            if (result.success) {
+                console.log(`✅ Agent completed: ${result.message}`)
+            } else {
+                console.error(`❌ Agent failed: ${result.error || result.message}`)
+                process.exit(1)
+            }
         }
     })
     .demandCommand()

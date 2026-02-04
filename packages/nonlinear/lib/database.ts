@@ -29,30 +29,30 @@ export interface Repository {
 export interface Ticket {
     assignee_id: string | null
     assignee_type: 'agent' | 'human' | null
+    assignees?: Array<{assignee_id: string; assignee_type: 'agent' | 'human'}>
     branch_name: string | null
     created_at: number
     description: string | null
     id: string
+    // Populated via JOINs for API responses
+    labels?: string[]
     merge_request_id: string | null
     priority: number | null
     repository_id: string
     status: 'backlog' | 'todo' | 'in_progress' | 'review' | 'closed'
     title: string
     updated_at: number
-    // Populated via JOINs for API responses
-    labels?: string[]
-    assignees?: Array<{assignee_type: 'agent' | 'human', assignee_id: string}>
 }
 
 export interface TicketLabel {
-    ticket_id: string
     label: string
+    ticket_id: string
 }
 
 export interface TicketAssignee {
-    ticket_id: string
-    assignee_type: 'agent' | 'human'
     assignee_id: string
+    assignee_type: 'agent' | 'human'
+    ticket_id: string
 }
 
 export interface Comment {
@@ -100,12 +100,12 @@ export interface LabelDefinition {
 }
 
 export interface Documentation {
+    author_id: string
+    content: string
+    created_at: number
     id: string
     path: string
     title: string
-    content: string
-    author_id: string
-    created_at: number
     updated_at: number
 }
 
@@ -135,8 +135,10 @@ export function initDatabase(dbPath?: string): Database {
     if ((process.env.NODE_ENV === 'development' || process.env.BUN_ENV === 'development') && db) {
         const workspaceCount = db.prepare('SELECT COUNT(*) as count FROM repositories').get() as {count: number} | undefined
         if (!workspaceCount || workspaceCount.count === 0) {
-            // Database is empty, initialize fixtures
-            // Use dynamic import to avoid blocking initialization
+            /*
+             * Database is empty, initialize fixtures
+             * Use dynamic import to avoid blocking initialization
+             */
             Promise.all([
                 import('./fixtures.ts'),
                 import('./workspace.ts'),
@@ -160,8 +162,10 @@ export function initDatabase(dbPath?: string): Database {
  */
 function loadVecExtension(db: Database): void {
     try {
-        // Use sqlite-vec's load() function which handles platform-specific binaries
-        // It finds vec0.so in the platform-specific package (e.g., sqlite-vec-linux-x64)
+        /*
+         * Use sqlite-vec's load() function which handles platform-specific binaries
+         * It finds vec0.so in the platform-specific package (e.g., sqlite-vec-linux-x64)
+         */
         if (typeof db.loadExtension === 'function') {
             // Try CommonJS require first (works in Bun)
             try {
@@ -169,7 +173,7 @@ function loadVecExtension(db: Database): void {
                 load(db)
                 logger.info('[Database] Loaded sqlite-vec extension')
                 return
-            } catch (requireError) {
+            } catch(requireError) {
                 // Fallback to ES module import
                 import('sqlite-vec').then(({load}) => {
                     load(db)
@@ -181,7 +185,7 @@ function loadVecExtension(db: Database): void {
         } else {
             logger.warn('[Database] Database does not support loadExtension')
         }
-    } catch (error) {
+    } catch(error) {
         logger.warn('[Database] Failed to load sqlite-vec extension:', error)
         // Continue without vector search - can add embeddings later
     }
@@ -403,13 +407,16 @@ function createNonlinearTables() {
 
     db.exec('CREATE INDEX IF NOT EXISTS idx_ticket_embeddings_ticket ON ticket_embeddings(ticket_id)')
 
-    // Vector search table (vec0 virtual table)
-    // Only create if sqlite-vec extension is loaded
+    /*
+     * Vector search table (vec0 virtual table)
+     * Only create if sqlite-vec extension is loaded
+     */
     try {
         // Get embedding dimension from config (defaults based on provider)
         const embeddingDim = config.embeddings.dimension || (
-            config.embeddings.provider === 'local' ? 384 :
-            config.embeddings.provider === 'openai' ? 1536 : 1024
+            config.embeddings.provider === 'local' ?
+                384 :
+                config.embeddings.provider === 'openai' ? 1536 : 1024
         )
 
         // Check if vec0 table exists with different dimension
@@ -419,9 +426,11 @@ function createNonlinearTables() {
         `).get()
 
         if (existingTable) {
-            // Table exists - check if we need to recreate it
-            // Note: vec0 tables can't be altered, so we'd need to drop and recreate
-            // For now, just log a warning if dimension might mismatch
+            /*
+             * Table exists - check if we need to recreate it
+             * Note: vec0 tables can't be altered, so we'd need to drop and recreate
+             * For now, just log a warning if dimension might mismatch
+             */
             logger.info(`[Database] vec0 table already exists, using dimension: ${embeddingDim}`)
         } else {
             // Create new table with correct dimension
@@ -437,16 +446,19 @@ function createNonlinearTables() {
             `)
             logger.info(`[Database] Created vec0 virtual table for vector search (dimension: ${embeddingDim})`)
         }
-    } catch (error) {
+    } catch(error) {
         logger.warn('[Database] Failed to create vec0 table (sqlite-vec may not be loaded):', error)
     }
 
-    // Code embeddings table (vec0 virtual table)
-    // Only create if sqlite-vec extension is loaded
+    /*
+     * Code embeddings table (vec0 virtual table)
+     * Only create if sqlite-vec extension is loaded
+     */
     try {
         const embeddingDim = config.embeddings.dimension || (
-            config.embeddings.provider === 'local' ? 384 :
-            config.embeddings.provider === 'openai' ? 1536 : 1024
+            config.embeddings.provider === 'local' ?
+                384 :
+                config.embeddings.provider === 'openai' ? 1536 : 1024
         )
 
         // Check if code_embeddings table exists
@@ -473,7 +485,7 @@ function createNonlinearTables() {
             `)
             logger.info(`[Database] Created code_embeddings vec0 table (dimension: ${embeddingDim})`)
         }
-    } catch (error) {
+    } catch(error) {
         logger.warn('[Database] Failed to create code_embeddings table (sqlite-vec may not be loaded):', error)
     }
 
@@ -497,8 +509,11 @@ function createNonlinearTables() {
 
     db.exec('CREATE INDEX IF NOT EXISTS idx_indexing_jobs_repo ON indexing_jobs(repository_id)')
     db.exec('CREATE INDEX IF NOT EXISTS idx_indexing_jobs_status ON indexing_jobs(status)')
-    // Note: code_embeddings is a virtual table (vec0) and cannot have indexes created on it
-    // Virtual tables handle their own indexing internally
+
+    /*
+     * Note: code_embeddings is a virtual table (vec0) and cannot have indexes created on it
+     * Virtual tables handle their own indexing internally
+     */
 
     // Initialize preset tags
     initializePresetTags()
@@ -526,9 +541,9 @@ function migrateAssigneeData() {
             FROM tickets
             WHERE assignee_type IS NOT NULL AND assignee_id IS NOT NULL
         `).all() as Array<{
-            id: string
-            assignee_type: string
             assignee_id: string
+            assignee_type: string
+            id: string
         }>
 
         const insertStmt = db.prepare(`
@@ -549,7 +564,7 @@ function migrateAssigneeData() {
         if (migratedCount > 0) {
             logger.info(`[Database] Migrated ${migratedCount} existing assignees to ticket_assignees table`)
         }
-    } catch (error) {
+    } catch(error) {
         logger.warn(`[Database] Error migrating assignee data: ${error}`)
         // Don't throw - migration failure shouldn't block initialization
     }
@@ -600,7 +615,7 @@ function migrateLabelsToDefinitions() {
         if (migratedCount > 0) {
             logger.info(`[Database] Migrated ${migratedCount} existing labels to label_definitions table`)
         }
-    } catch (error) {
+    } catch(error) {
         logger.warn(`[Database] Error migrating labels: ${error}`)
         // Don't throw - migration failure shouldn't block initialization
     }
@@ -614,7 +629,7 @@ export function getTicketLabels(ticketId: string): string[] {
     const labels = db.prepare(`
         SELECT label FROM ticket_labels WHERE ticket_id = ?
     `).all(ticketId) as Array<{label: string}>
-    return labels.map(l => l.label)
+    return labels.map((l) => l.label)
 }
 
 /**
@@ -627,7 +642,7 @@ export function addTicketLabel(ticketId: string, label: string): void {
             INSERT INTO ticket_labels (ticket_id, label)
             VALUES (?, ?)
         `).run(ticketId, label)
-    } catch (error) {
+    } catch(error) {
         // Label already exists, ignore
         if (!String(error).includes('UNIQUE constraint')) {
             throw error
@@ -662,16 +677,16 @@ export function hasTicketLabel(ticketId: string, label: string): boolean {
 /**
  * Get all assignees for a ticket
  */
-export function getTicketAssignees(ticketId: string): Array<{assignee_type: 'agent' | 'human', assignee_id: string}> {
+export function getTicketAssignees(ticketId: string): Array<{assignee_id: string; assignee_type: 'agent' | 'human'}> {
     if (!db) throw new Error('Database not initialized')
     const assignees = db.prepare(`
         SELECT assignee_type, assignee_id
         FROM ticket_assignees
         WHERE ticket_id = ?
-    `).all(ticketId) as Array<{assignee_type: string, assignee_id: string}>
-    return assignees.map(a => ({
-        assignee_type: a.assignee_type as 'agent' | 'human',
+    `).all(ticketId) as Array<{assignee_id: string; assignee_type: string}>
+    return assignees.map((a) => ({
         assignee_id: a.assignee_id,
+        assignee_type: a.assignee_type as 'agent' | 'human',
     }))
 }
 
@@ -685,7 +700,7 @@ export function addTicketAssignee(ticketId: string, assignee_type: 'agent' | 'hu
             INSERT INTO ticket_assignees (ticket_id, assignee_type, assignee_id)
             VALUES (?, ?, ?)
         `).run(ticketId, assignee_type, assignee_id)
-    } catch (error) {
+    } catch(error) {
         // Assignee already exists, ignore
         if (!String(error).includes('UNIQUE constraint')) {
             throw error
@@ -775,21 +790,21 @@ function initializePresetTags() {
 
     const presetTags = [
         // Role tags
-        {name: 'role:product-owner', color: '#3b82f6'},
-        {name: 'role:developer', color: '#10b981'},
-        {name: 'role:designer', color: '#f59e0b'},
-        {name: 'role:ux', color: '#8b5cf6'},
-        {name: 'role:qa', color: '#ef4444'},
-        {name: 'role:prioritizer', color: '#06b6d4'},
+        {color: '#3b82f6', name: 'role:product-owner'},
+        {color: '#10b981', name: 'role:developer'},
+        {color: '#f59e0b', name: 'role:designer'},
+        {color: '#8b5cf6', name: 'role:ux'},
+        {color: '#ef4444', name: 'role:qa'},
+        {color: '#06b6d4', name: 'role:prioritizer'},
 
         // Essential type tags
-        {name: 'type:prioritization', color: '#ec4899'},
-        {name: 'type:adr', color: '#8b5cf6'},
-        {name: 'type:rules', color: '#f59e0b'},
-        {name: 'type:guide', color: '#14b8a6'},
-        {name: 'type:api', color: '#6366f1'},
-        {name: 'type:config', color: '#64748b'},
-        {name: 'type:deployment', color: '#ef4444'},
+        {color: '#ec4899', name: 'type:prioritization'},
+        {color: '#8b5cf6', name: 'type:adr'},
+        {color: '#f59e0b', name: 'type:rules'},
+        {color: '#14b8a6', name: 'type:guide'},
+        {color: '#6366f1', name: 'type:api'},
+        {color: '#64748b', name: 'type:config'},
+        {color: '#ef4444', name: 'type:deployment'},
     ]
 
     const now = Date.now()
@@ -808,7 +823,7 @@ function initializePresetTags() {
         const tagId = `preset-${tag.name.toLowerCase().replace(/:/g, '-')}`
         try {
             insertStmt.run(tagId, tag.name, tag.color, now, now)
-        } catch (error) {
+        } catch(error) {
             // Tag already exists, that's fine
         }
     }
