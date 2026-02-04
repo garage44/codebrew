@@ -372,7 +372,7 @@ Provide a refined description and analysis.`
         // Create placeholder comment immediately
         const {createAgentCommentPlaceholder, finalizeAgentComment, updateAgentComment} = await import('./comments.ts')
         const responseCommentId = await createAgentCommentPlaceholder(ticket.id, this.name, mention.commentId)
-        this.log(`Created placeholder comment ${responseCommentId} for mention response`)
+            this.log(`Created placeholder comment`)
 
         try {
             // For now, use the existing refineTicketFromMention logic
@@ -408,7 +408,7 @@ Provide a refined description and analysis.`
         responseCommentId?: string,
     ): Promise<void> {
         try {
-            this.log(`Refining ticket ${ticket.id} in response to mention from ${mention.authorId}`)
+            this.log(`Processing mention`)
             this.log(`Comment content: ${mention.commentContent.substring(0, 200)}...`)
             this.log(`Ticket title: ${ticket.title}`)
 
@@ -494,9 +494,95 @@ ${recentComments.map(c => `- ${c.author_type} (${c.author_id}): ${c.content}`).j
 
 Please respond to the user's request and refine the ticket as requested.`
 
-            this.log(`Calling LLM to generate refinement response...`)
-            const response = await this.respond(systemPrompt, userMessage)
-            this.log(`Received LLM response (${response.length} chars)`)
+            this.log(`Generating response...`)
+
+            // Stream response to comment in real-time
+            let accumulatedResponse = ''
+            let lastBroadcast = ''
+            let lastBroadcastTime = 0
+            const {updateAgentComment} = await import('./comments.ts')
+
+            const response = await this.respondStreaming(
+                systemPrompt,
+                userMessage,
+                async(chunk: string) => {
+                    accumulatedResponse += chunk
+
+                    // Try to extract response_comment value incrementally
+                    // Find the start of the field value
+                    const startIdx = accumulatedResponse.indexOf('"response_comment"')
+                    if (startIdx >= 0) {
+                        // Find the colon and opening quote after "response_comment"
+                        const afterField = accumulatedResponse.slice(startIdx + '"response_comment"'.length)
+                        const colonQuoteMatch = afterField.match(/^\s*:\s*"/)
+                        if (colonQuoteMatch) {
+                            const valueStart = startIdx + '"response_comment"'.length + colonQuoteMatch[0].length
+                            const valueText = accumulatedResponse.slice(valueStart)
+
+                            // Find the end of the string (unescaped quote followed by comma/brace)
+                            let endIdx = -1
+                            let escaped = false
+                            for (let i = 0; i < valueText.length; i++) {
+                                if (escaped) {
+                                    escaped = false
+                                    continue
+                                }
+                                if (valueText[i] === '\\') {
+                                    escaped = true
+                                    continue
+                                }
+                                if (valueText[i] === '"') {
+                                    // Check if followed by comma or closing brace
+                                    const nextChar = valueText[i + 1]
+                                    if (nextChar === ',' || nextChar === '}' || !nextChar) {
+                                        endIdx = i
+                                        break
+                                    }
+                                }
+                            }
+
+                            if (endIdx >= 0) {
+                                // Complete string - extract and unescape
+                                const rawValue = valueText.slice(0, endIdx)
+                                try {
+                                    const extracted = JSON.parse(`"${rawValue}"`)
+                                    if (extracted !== lastBroadcast) {
+                                        lastBroadcast = extracted
+                                        await updateAgentComment(responseCommentId, extracted, false)
+                                        lastBroadcastTime = Date.now()
+                                    }
+                                } catch {
+                                    // Fallback unescaping
+                                    const unescaped = rawValue.replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\\\/g, '\\')
+                                    if (unescaped !== lastBroadcast) {
+                                        lastBroadcast = unescaped
+                                        await updateAgentComment(responseCommentId, unescaped, false)
+                                        lastBroadcastTime = Date.now()
+                                    }
+                                }
+                            } else {
+                                // Incomplete - show partial with basic unescaping
+                                const partial = valueText.replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\\\/g, '\\')
+                                const now = Date.now()
+                                if (partial !== lastBroadcast && now - lastBroadcastTime > 100) {
+                                    lastBroadcast = partial
+                                    await updateAgentComment(responseCommentId, partial, false)
+                                    lastBroadcastTime = now
+                                }
+                            }
+                        }
+                    } else {
+                        // Field not found yet
+                        const now = Date.now()
+                        if (accumulatedResponse.length > 30 && now - lastBroadcastTime > 500) {
+                            await updateAgentComment(responseCommentId, 'Generating response...', false)
+                            lastBroadcastTime = now
+                        }
+                    }
+                },
+            )
+
+            this.log(`Response received (${Math.round(response.length / 1024)}KB)`)
 
             // Parse the response
             let refinement: {
@@ -510,16 +596,27 @@ Please respond to the user's request and refine the ticket as requested.`
                 const jsonMatch = response.match(/```json\n([\s\S]*?)\n```/) || response.match(/```\n([\s\S]*?)\n```/)
                 const jsonStr = jsonMatch ? jsonMatch[1] : response
                 refinement = JSON.parse(jsonStr)
-                this.log(`Successfully parsed refinement JSON`)
+                this.log(`Parsed response JSON`)
+
+                // Update comment with just the response_comment field (clean up from raw JSON)
+                // Only update if we didn't already stream it, or if it's different
+                if (!lastBroadcast || lastBroadcast !== refinement.response_comment) {
+                    await updateAgentComment(responseCommentId, refinement.response_comment || 'I received your mention.', false)
+                }
             } catch (error) {
-                // If parsing fails, create a response comment and keep original description
-                this.log(`Failed to parse refinement response, creating simple response: ${error}`, 'error')
-                this.log(`Raw response: ${response.substring(0, 500)}`)
+                // If parsing fails, use what we streamed or create a simple response
+                this.log(`Failed to parse response JSON`, 'error')
+
+                // Use streamed comment if we extracted it, otherwise create fallback
+                const fallbackComment = lastBroadcast || 'I received your mention.'
                 refinement = {
                     refined_description: ticket.description || '',
-                    response_comment: `I received your mention. ${response.substring(0, 500)}`,
+                    response_comment: fallbackComment,
                     should_update_description: false,
                 }
+
+                // Update comment with fallback
+                await updateAgentComment(responseCommentId, fallbackComment, false)
             }
 
             // Update ticket description if refined_description is provided
@@ -529,21 +626,15 @@ Please respond to the user's request and refine the ticket as requested.`
                 (!ticket.description || ticket.description.trim() === '') ||
                 (hasRefinedDescription && refinement.refined_description.trim() !== ticket.description?.trim())
 
-            this.log(`Should update description: ${shouldUpdate}, has refined_description: ${!!hasRefinedDescription}`)
-
             if (shouldUpdate && hasRefinedDescription) {
-                this.log(`Updating ticket ${ticket.id} description...`)
+                this.log(`Updating ticket description`)
                 await updateTicketFromAgent(ticket.id, {
                     description: refinement.refined_description.trim(),
                 })
-                this.log(`Updated ticket ${ticket.id} description in response to mention`)
-            } else if (hasRefinedDescription) {
-                this.log(`Refined description provided but not updating (should_update_description=${refinement.should_update_description}, has existing description=${!!ticket.description})`)
             }
 
             // Add comment responding to the mention
             const commentContent = refinement.response_comment || 'I received your mention and will refine the ticket.'
-            this.log(`Finalizing response comment: ${commentContent.substring(0, 100)}...`)
 
             if (responseCommentId) {
                 // Use streaming comment finalization
@@ -553,13 +644,13 @@ Please respond to the user's request and refine the ticket as requested.`
                 // Fallback to legacy method
                 await addAgentComment(ticket.id, this.name, commentContent)
             }
-            this.log(`Successfully finalized comment for ticket ${ticket.id}`)
+            this.log(`Comment finalized`)
 
             // Add "refined" label to mark ticket as ready for development
             addTicketLabel(ticket.id, 'refined')
             this.log(`Added "refined" label to ticket ${ticket.id}`)
 
-            this.log(`Completed mention response for ticket ${ticket.id}`)
+            this.log(`Mention response completed`)
         } catch (error) {
             this.log(`Error responding to mention for ticket ${ticket.id}: ${error}`, 'error')
             // Add error comment so user knows something went wrong

@@ -423,6 +423,114 @@ ${result.doc.content}
     }
 
     /**
+     * Send a message to the LLM with streaming support
+     * Streams response chunks to a callback function
+     */
+    protected async respondStreaming(
+        systemPrompt: string,
+        userMessage: string,
+        onChunk: (chunk: string) => Promise<void>,
+        maxTokens = 4096,
+    ): Promise<string> {
+        try {
+            const apiKey = config.anthropic.apiKey || process.env.ANTHROPIC_API_KEY
+            if (!apiKey) {
+                throw new Error('Anthropic API key not configured')
+            }
+
+            // Use streaming API with Server-Sent Events
+            const response = await fetch('https://api.anthropic.com/v1/messages', {
+                method: 'POST',
+                headers: {
+                    'anthropic-version': '2023-06-01',
+                    'content-type': 'application/json',
+                    'x-api-key': apiKey,
+                },
+                body: JSON.stringify({
+                    model: this.model,
+                    max_tokens: maxTokens,
+                    system: systemPrompt,
+                    messages: [
+                        {
+                            role: 'user',
+                            content: userMessage,
+                        },
+                    ],
+                    stream: true, // Enable streaming
+                }),
+            })
+
+            if (!response.ok) {
+                const error = await response.json().catch(() => ({error: {message: 'Unknown error'}}))
+                throw new Error(error.error?.message || `API error: ${response.status}`)
+            }
+
+            // Process Server-Sent Events stream
+            const reader = response.body?.getReader()
+            if (!reader) {
+                throw new Error('Response body is not readable')
+            }
+
+            const decoder = new TextDecoder()
+            let buffer = ''
+            let fullResponse = ''
+
+            while (true) {
+                const {done, value} = await reader.read()
+                if (done) break
+
+                buffer += decoder.decode(value, {stream: true})
+                const lines = buffer.split('\n')
+                buffer = lines.pop() || '' // Keep incomplete line in buffer
+
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        const data = line.slice(6) // Remove 'data: ' prefix
+                        if (data === '[DONE]') {
+                            continue
+                        }
+
+                        try {
+                            const event = JSON.parse(data)
+                            if (event.type === 'content_block_delta' && event.delta?.type === 'text_delta') {
+                                const chunk = event.delta.text
+                                fullResponse += chunk
+                                await onChunk(chunk)
+                            }
+                        } catch {
+                            // Ignore parse errors for non-JSON lines
+                        }
+                    }
+                }
+            }
+
+            // Extract rate limit headers
+            const limitHeader = response.headers.get('anthropic-ratelimit-tokens-limit')
+            const remainingHeader = response.headers.get('anthropic-ratelimit-tokens-remaining')
+            const resetHeader = response.headers.get('anthropic-ratelimit-tokens-reset')
+
+            if (limitHeader && remainingHeader) {
+                const limit = parseInt(limitHeader, 10)
+                const remaining = parseInt(remainingHeader, 10)
+                const used = limit - remaining
+
+                logger.debug(`[Agent ${this.name}] Token Usage: ${used}/${limit} (${remaining} remaining)`)
+
+                updateUsageFromHeaders({
+                    limit,
+                    remaining,
+                    reset: resetHeader || undefined,
+                })
+            }
+
+            return fullResponse
+        } catch (error) {
+            logger.error(`[Agent ${this.name}] Error calling Anthropic streaming API: ${error}`)
+            throw error
+        }
+    }
+
+    /**
      * Send a message to the LLM and get a response
      * Uses raw fetch to access rate limit headers
      * For backward compatibility - use respondWithTools for tool support
