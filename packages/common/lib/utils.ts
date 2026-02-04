@@ -81,7 +81,7 @@ function keyMod<T extends Record<string, unknown>>(
     reference: T,
     apply: (ref: Record<string, unknown>, key: string | null, path: string[], nestingLevel: number) => void,
     refPath: string[] = [],
-    nestingLevel = 0
+    nestingLevel = 0,
 ): void {
     apply(reference, null, refPath, nestingLevel)
 
@@ -112,7 +112,7 @@ function keyMod<T extends Record<string, unknown>>(
 function keyPath<T extends Record<string, unknown>>(
     obj: T,
     refPath: string[],
-    create = false
+    create = false,
 ): T | Record<string, unknown> {
     if (!Array.isArray(refPath)) {
         throw new TypeError('refPath must be an array')
@@ -221,8 +221,9 @@ function sortNestedObjectKeys<T>(obj: T): T {
 function throttle<T extends (...args: unknown[]) => void>(
     func: T,
     wait: number,
-    options: {trailing?: boolean} = {trailing: true}
+    options?: {trailing?: boolean},
 ): (...args: Parameters<T>) => void {
+    const trailing = options?.trailing ?? true
     let lastCallTime = 0
     let timeoutId = null
 
@@ -237,7 +238,7 @@ function throttle<T extends (...args: unknown[]) => void>(
             }
             lastCallTime = now
             func.apply(this, args)
-        } else if (!timeoutId && options.trailing) {
+        } else if (!timeoutId && trailing) {
             timeoutId = setTimeout(() => {
                 lastCallTime = Date.now()
                 timeoutId = null

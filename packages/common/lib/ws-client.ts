@@ -1,9 +1,9 @@
 import {EventEmitter} from 'node:events'
 import {logger} from './logger'
 
-type MessageData = Record<string, unknown>
+export type MessageData = Record<string, unknown>
 
-interface WebSocketMessage {
+export interface WebSocketMessage {
     data?: MessageData
     id?: string
     method?: string
@@ -385,5 +385,4 @@ export {
     parseMessage,
     WebSocketClient,
     WebSocketEvents,
-    type WebSocketMessage,
 }

@@ -7,6 +7,7 @@
 import {describe, expect, test, afterEach} from 'bun:test'
 import {TestServer} from './helpers/test-server.ts'
 import {TestClient} from './helpers/test-client.ts'
+import type {MessageData, WebSocketMessage} from '../lib/ws-client.ts'
 
 describe('WebSocket Server - Error Handling', () => {
     let server: TestServer
@@ -25,16 +26,16 @@ describe('WebSocket Server - Error Handling', () => {
         await client.connect()
 
         // Send invalid JSON
-        const ws = (client.client as any).ws
+        const ws = (client.client as unknown as {ws?: WebSocket}).ws
         if (ws) {
             ws.send('invalid json{')
         }
 
         const errorMessage = await client.waitForMessage(2000)
         expect(errorMessage).toBeDefined()
-        expect((errorMessage as any).url).toBe('/error')
-        expect((errorMessage as any).data).toBeDefined()
-        expect((errorMessage as any).data.error).toContain('Invalid JSON')
+        expect((errorMessage as WebSocketMessage).url).toBe('/error')
+        expect((errorMessage as WebSocketMessage).data).toBeDefined()
+        expect((errorMessage as WebSocketMessage).data?.error).toContain('Invalid JSON')
 
         client.disconnect()
     })
@@ -49,16 +50,16 @@ describe('WebSocket Server - Error Handling', () => {
         // Send message without url
         await client.client.send('/test', {test: 'data'})
         // Override to send invalid message
-        const ws = (client.client as any).ws
+        const ws = (client.client as unknown as {ws?: WebSocket}).ws
         if (ws) {
             ws.send(JSON.stringify({data: {test: 'data'}, id: '123'}))
         }
 
         const errorMessage = await client.waitForMessage(2000)
         expect(errorMessage).toBeDefined()
-        expect((errorMessage as any).url).toBe('/error')
-        expect((errorMessage as any).data).toBeDefined()
-        expect((errorMessage as any).data.error).toContain('Missing required field: url')
+        expect((errorMessage as WebSocketMessage).url).toBe('/error')
+        expect((errorMessage as WebSocketMessage).data).toBeDefined()
+        expect((errorMessage as WebSocketMessage).data?.error).toContain('Missing required field: url')
 
         client.disconnect()
     })
@@ -74,7 +75,7 @@ describe('WebSocket Server - Error Handling', () => {
         const response = await client.client.post('/api/nonexistent', {test: 'data'})
 
         expect(response).toBeDefined()
-        expect((response as any).error).toContain('No route matched')
+        expect((response as MessageData)?.error).toContain('No route matched')
 
         client.disconnect()
     })
@@ -94,7 +95,7 @@ describe('WebSocket Server - Error Handling', () => {
         const response = await client.client.get('/api/error')
 
         expect(response).toBeDefined()
-        expect((response as any).error).toBe('Handler error')
+        expect((response as MessageData)?.error).toBe('Handler error')
 
         client.disconnect()
     })
@@ -169,7 +170,7 @@ describe('WebSocket Server - Request/Response', () => {
         await server.start()
 
         server.wsManager.api.get('/api/test', async() => {
-            return {success: true, data: 'test'}
+            return {data: 'test', success: true}
         })
 
         const client = new TestClient(server.getUrl())
@@ -178,8 +179,8 @@ describe('WebSocket Server - Request/Response', () => {
         const response = await client.client.get('/api/test')
 
         expect(response).toBeDefined()
-        expect((response as any).success).toBe(true)
-        expect((response as any).data).toBe('test')
+        expect((response as MessageData)?.success).toBe(true)
+        expect((response as MessageData)?.data).toBe('test')
 
         client.disconnect()
     })
@@ -189,7 +190,7 @@ describe('WebSocket Server - Request/Response', () => {
         await server.start()
 
         server.wsManager.api.post('/api/test', async(_ctx, req) => {
-            return {success: true, received: req.data}
+            return {received: req.data, success: true}
         })
 
         const client = new TestClient(server.getUrl())
@@ -198,8 +199,8 @@ describe('WebSocket Server - Request/Response', () => {
         const response = await client.client.post('/api/test', {test: 'data'})
 
         expect(response).toBeDefined()
-        expect((response as any).success).toBe(true)
-        expect((response as any).received).toEqual({test: 'data'})
+        expect((response as MessageData)?.success).toBe(true)
+        expect((response as MessageData)?.received).toEqual({test: 'data'})
 
         client.disconnect()
     })

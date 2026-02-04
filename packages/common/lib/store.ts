@@ -36,7 +36,16 @@ export class Store<StateType extends Record<string, unknown> = Record<string, un
         }
 
         // Merge order: persistantState + localStorage + HMR state + volatileState
-        Object.assign(this.state, mergeDeep(mergeDeep(mergeDeep(persistantState as Record<string, unknown>, restoredState), hmrState), volatileState as Record<string, unknown>))
+        Object.assign(
+            this.state,
+            mergeDeep(
+                mergeDeep(
+                    mergeDeep(persistantState as Record<string, unknown>, restoredState),
+                    hmrState,
+                ),
+                volatileState as Record<string, unknown>,
+            ),
+        )
         if ('beta' in this.state && (this.state as Record<string, unknown>).beta) {
             globalThis.$s = this.state as unknown as DeepSignal<CommonState>
         }
@@ -58,7 +67,15 @@ export class Store<StateType extends Record<string, unknown> = Record<string, un
 
     save() {
         if (this.persistantState) {
-            localStorage.setItem('store', JSON.stringify(this.filterKeys(this.state as Record<string, unknown>, this.persistantState as Record<string, unknown>)))
+            localStorage.setItem(
+                'store',
+                JSON.stringify(
+                    this.filterKeys(
+                        this.state as Record<string, unknown>,
+                        this.persistantState as Record<string, unknown>,
+                    ),
+                ),
+            )
         }
     }
 }

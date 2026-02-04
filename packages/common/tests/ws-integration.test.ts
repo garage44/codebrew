@@ -7,6 +7,7 @@
 import {describe, expect, test, afterEach} from 'bun:test'
 import {TestServer} from './helpers/test-server.ts'
 import {TestClient} from './helpers/test-client.ts'
+import type {MessageData} from '../lib/ws-client.ts'
 
 describe('WebSocket Integration - Full Request/Response Cycle', () => {
     let server: TestServer
@@ -34,8 +35,8 @@ describe('WebSocket Integration - Full Request/Response Cycle', () => {
         const response = await client.client.post('/api/users', {name: 'Test User'})
 
         expect(response).toBeDefined()
-        expect((response as any).id).toBe('123')
-        expect((response as any).name).toBe('Test User')
+        expect((response as MessageData)?.id).toBe('123')
+        expect((response as MessageData)?.name).toBe('Test User')
 
         client.disconnect()
     })
@@ -61,9 +62,9 @@ describe('WebSocket Integration - Full Request/Response Cycle', () => {
         const responses = await Promise.all(promises)
 
         expect(responses).toHaveLength(3)
-        expect((responses[0] as any).id).toBe('1')
-        expect((responses[1] as any).id).toBe('2')
-        expect((responses[2] as any).id).toBe('3')
+        expect((responses[0] as MessageData)?.id).toBe('1')
+        expect((responses[1] as MessageData)?.id).toBe('2')
+        expect((responses[2] as MessageData)?.id).toBe('3')
 
         client.disconnect()
     })
@@ -156,7 +157,7 @@ describe('WebSocket Integration - Error Propagation', () => {
         const response = await client.client.get('/api/error')
 
         expect(response).toBeDefined()
-        expect((response as any).error).toBe('Test error')
+        expect((response as MessageData)?.error).toBe('Test error')
 
         client.disconnect()
     })
@@ -169,7 +170,7 @@ describe('WebSocket Integration - Error Propagation', () => {
         await client.connect()
 
         // Test invalid JSON
-        const ws = (client.client as any).ws
+        const ws = (client.client as unknown as {ws?: WebSocket}).ws
         if (ws) {
             ws.send('invalid json')
         }
@@ -178,7 +179,7 @@ describe('WebSocket Integration - Error Propagation', () => {
 
         // Test missing route
         const noRouteResponse = await client.client.get('/api/nonexistent')
-        expect((noRouteResponse as any).error).toContain('No route matched')
+        expect((noRouteResponse as MessageData)?.error).toContain('No route matched')
 
         client.disconnect()
     })

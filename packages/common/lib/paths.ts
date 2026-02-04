@@ -18,7 +18,7 @@ interface TargetLanguage {
 function collectSource(
     source: Record<string, unknown>,
     path: string[],
-    ignore_cache = false
+    ignore_cache = false,
 ): {cached: Tag[]; targets: Array<[Tag, string[]]>} {
     const cachedValues: Tag[] = []
     const sourceValues: Array<[Tag, string[]]> = []
@@ -85,7 +85,7 @@ function pathCreate(
     ref[id] = value
 
     const tag = tagPath.join('.')
-    const refId = ref[id] as Tag & {_id?: string; _collapsed?: boolean; target?: Record<string, string>; _soft?: boolean}
+    const refId = ref[id] as Tag & {_collapsed?: boolean; _id?: string; _soft?: boolean; target?: Record<string, string>}
     refId._id = id
     refId._collapsed = true
 
@@ -96,7 +96,7 @@ function pathCreate(
 
         // Set properties directly on the object
         if (segmentId && segmentRef[segmentId] && typeof segmentRef[segmentId] === 'object') {
-            const segmentObj = segmentRef[segmentId] as {_id?: string; _collapsed?: boolean}
+            const segmentObj = segmentRef[segmentId] as {_collapsed?: boolean; _id?: string}
             if (!('_id' in segmentObj)) {
                 segmentObj._id = segmentId
             }
@@ -169,7 +169,7 @@ function pathToggle(
     source: Record<string, unknown>,
     path: string[],
     modifier: Record<string, unknown>,
-    mode: 'self' | 'groups' | 'all' = 'groups'
+    mode: 'self' | 'groups' | 'all' = 'groups',
 ): void {
     function applyRecursively(obj) {
         if (!obj || typeof obj !== 'object') {
@@ -257,7 +257,7 @@ function pathToggle(
 function pathUpdate(
     source: Record<string, unknown>,
     path: string[],
-    value: Record<string, unknown>
+    value: Record<string, unknown>,
 ): void {
     const {id, ref} = pathRef(source, path)
 
@@ -288,7 +288,7 @@ function pathUpdate(
 function pathMove(
     source: Record<string, unknown>,
     oldPath: string[],
-    newPath: string[]
+    newPath: string[],
 ): void {
     logger.info(`move path: ${oldPath} - ${newPath}`)
     const oldId = oldPath.at(-1)
@@ -324,7 +324,7 @@ function pathMove(
 function pathRef(
     source: Record<string, unknown>,
     path: string[],
-    create = false
+    create = false,
 ): {id: string | null; path: string[]; ref: Record<string, unknown>} {
     if (!path.length) {
         return {id: null, path: [], ref: source}

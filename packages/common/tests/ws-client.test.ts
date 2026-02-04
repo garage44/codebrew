@@ -7,6 +7,7 @@
 import {describe, expect, test, afterEach} from 'bun:test'
 import {TestServer} from './helpers/test-server.ts'
 import {TestClient} from './helpers/test-client.ts'
+import type {MessageData} from '../lib/ws-client.ts'
 
 describe('WebSocket Client - Message Validation', () => {
     let server: TestServer
@@ -106,7 +107,7 @@ describe('WebSocket Client - Request/Response', () => {
         const response = await client.client.get('/api/test')
 
         expect(response).toBeDefined()
-        expect((response as any).success).toBe(true)
+        expect((response as MessageData)?.success).toBe(true)
 
         client.disconnect()
     })
@@ -161,8 +162,10 @@ describe('WebSocket Client - Reconnection', () => {
         // Wait for reconnection attempt
         await new Promise((resolve) => setTimeout(resolve, 200))
 
-        // Client should attempt to reconnect (we can't easily test full reconnection without server)
-        // But we can verify it doesn't crash
+        /*
+         * Client should attempt to reconnect (we can't easily test full reconnection without server)
+         * But we can verify it doesn't crash
+         */
         expect(client.errors.length).toBeGreaterThanOrEqual(0)
     })
 })

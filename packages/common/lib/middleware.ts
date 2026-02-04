@@ -108,14 +108,19 @@ const authMiddleware = async(request: Request, session: unknown, userManager: Us
         return true
     }
 
-    // Check endpoint allow list (public endpoints)
-    // Support exact matches and path prefixes (e.g., '/api/docs' matches '/api/docs' and '/api/docs/by-path')
+    /*
+     * Check endpoint allow list (public endpoints)
+     * Support exact matches and path prefixes (e.g., '/api/docs' matches '/api/docs' and '/api/docs/by-path')
+     */
     for (const allowedPath of endpointAllowList) {
         if (url.pathname === allowedPath) {
             return true
         }
-        // Check if pathname starts with allowed path followed by '/' or '?'
-        // This allows '/api/docs' to match '/api/docs/by-path' but not '/api/docsomething'
+
+        /*
+         * Check if pathname starts with allowed path followed by '/' or '?'
+         * This allows '/api/docs' to match '/api/docs/by-path' but not '/api/docsomething'
+         */
         if (url.pathname.startsWith(allowedPath + '/') || url.pathname.startsWith(allowedPath + '?')) {
             return true
         }

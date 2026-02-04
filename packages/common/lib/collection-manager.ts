@@ -215,7 +215,9 @@ export function useCollectionManager<TItem, TFormData>(
             } else {
                 await api.delete(config.deleteEndpoint(itemId), {})
             }
-            state.items = state.items.filter((i) => config.getId(i as unknown as TItem) !== itemId) as (TItem & DeepSignal<TItem>)[]
+            state.items = state.items.filter(
+                (i) => config.getId(i as unknown as TItem) !== itemId,
+            ) as (TItem & DeepSignal<TItem>)[]
             if (state.editing === itemId) {
                 state.editing = null
                 Object.assign(state.formData, config.initialFormData)

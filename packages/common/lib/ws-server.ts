@@ -236,7 +236,7 @@ class WebSocketServerManager extends EventEmitter {
             if (ws.readyState === 1) {
                 try {
                     ws.send(messageStr)
-                } catch (error) {
+                } catch(error) {
                     logger.debug(`[WS] Failed to send broadcast to connection: ${error}`)
                     deadConnections.push(ws)
                 }
@@ -263,7 +263,7 @@ class WebSocketServerManager extends EventEmitter {
                 if (ws.readyState === 1) {
                     try {
                         ws.send(messageStr)
-                    } catch (error) {
+                    } catch(error) {
                         logger.debug(`[WS] Failed to send event to subscribed connection: ${error}`)
                         deadConnections.push(ws)
                     }
@@ -335,17 +335,17 @@ class WebSocketServerManager extends EventEmitter {
     // Handle WebSocket message
     async message(ws: WebSocketConnection, message: string, request?: {session?: {userid?: string}}) {
         let parsedMessage: WebSocketMessage
-        let messageId: string | undefined
+        let _messageId: string | undefined
 
         try {
             parsedMessage = JSON.parse(message)
-            messageId = parsedMessage.id
-        } catch (error) {
+            _messageId = parsedMessage.id
+        } catch(error) {
             // Send error response if we can
             try {
                 const errorMsg = constructMessage('/error', {
                     error: 'Invalid JSON message',
-                }, undefined)
+                })
                 ws.send(JSON.stringify(errorMsg))
             } catch {}
             // Log at debug level - this is expected for invalid messages
@@ -388,7 +388,7 @@ class WebSocketServerManager extends EventEmitter {
             pathname = urlObj.pathname
             // URLSearchParams automatically decodes values
             queryParams = Object.fromEntries(urlObj.searchParams.entries())
-        } catch (error) {
+        } catch(_error) {
             // If URL parsing fails, try to extract query string manually
             const queryMatch = url.match(/^([^?]+)(\?.+)?$/)
             if (queryMatch) {
@@ -433,27 +433,31 @@ class WebSocketServerManager extends EventEmitter {
                         try {
                             const response = constructMessage(url, (result as MessageData) || null, id)
                             ws.send(JSON.stringify(response))
-                        } catch (sendError) {
+                        } catch(sendError) {
                             logger.error('[WS] Failed to send response:', sendError)
                         }
                     }
-                    } catch(error) {
-                        try {
-                            const errorResponse = constructMessage(url, {error: error instanceof Error ? error.message : String(error)}, id)
-                            ws.send(JSON.stringify(errorResponse))
-                        } catch (sendError) {
-                            logger.error('[WS] Failed to send error response:', sendError)
-                        }
-                        // Suppress handler error logs during tests (expected errors from error handling tests)
-                        const isTest = typeof process !== 'undefined' && (
-                            process.env.NODE_ENV === 'test' ||
-                            process.env.BUN_ENV === 'test' ||
-                            process.argv.some((arg) => arg.includes('test'))
+                } catch(error) {
+                    try {
+                        const errorResponse = constructMessage(
+                            url,
+                            {error: error instanceof Error ? error.message : String(error)},
+                            id,
                         )
-                        if (!isTest) {
-                            logger.error('handler error:', error)
-                        }
+                        ws.send(JSON.stringify(errorResponse))
+                    } catch(sendError) {
+                        logger.error('[WS] Failed to send error response:', sendError)
                     }
+                    // Suppress handler error logs during tests (expected errors from error handling tests)
+                    const isTest = typeof process !== 'undefined' && (
+                        process.env.NODE_ENV === 'test' ||
+                        process.env.BUN_ENV === 'test' ||
+                        process.argv.some((arg) => arg.includes('test'))
+                    )
+                    if (!isTest) {
+                        logger.error('handler error:', error)
+                    }
+                }
                 break
             }
         }
@@ -465,7 +469,7 @@ class WebSocketServerManager extends EventEmitter {
                     error: `No route matched for: ${method} ${url}`,
                 }, id)
                 ws.send(JSON.stringify(errorResponse))
-            } catch (sendError) {
+            } catch(sendError) {
                 logger.error('[WS] Failed to send no-route error:', sendError)
             }
         } else if (!matched) {
