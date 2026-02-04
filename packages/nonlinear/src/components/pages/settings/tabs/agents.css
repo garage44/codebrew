@@ -4,7 +4,7 @@
     h2 {
         margin: 0 0 var(--spacer-2);
         font-size: var(--font-l);
-        font-weight: var(--font-weight-bold);
+        font-weight: var(--font-weight-bold, 700);
     }
 
     .description {
@@ -26,36 +26,57 @@
     }
 
     .agent {
-        padding: var(--spacer-2);
+        padding: var(--spacer-3);
         border: 1px solid var(--surface-4);
         border-radius: var(--radius-2);
         background: var(--surface-1);
         display: flex;
         justify-content: space-between;
-        align-items: center;
-        gap: var(--spacer-2);
+        align-items: flex-start;
+        gap: var(--spacer-3);
+        transition: border-color 0.2s ease;
+
+        &:hover {
+            border-color: var(--surface-5);
+        }
     }
 
     .agent-header {
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         gap: var(--spacer-2);
         flex: 1;
+        min-width: 0;
     }
+
 
     .agent-info {
         flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacer-1);
 
         h3 {
-            margin: 0 0 var(--spacer-1);
+            margin: 0;
             font-size: var(--font-d);
-            font-weight: var(--font-weight-semibold);
+            font-weight: var(--font-weight-semibold, 600);
+            color: var(--text-1);
+            line-height: 1.4;
         }
+    }
+
+    .status-indicator-group {
+        display: flex;
+        align-items: center;
+        gap: var(--spacer-05);
+        margin-top: var(--spacer-05);
+        margin-bottom: var(--spacer-1);
     }
 
     .agent-meta {
         display: flex;
-        gap: var(--spacer-2);
+        gap: var(--spacer-1);
         align-items: center;
         font-size: var(--font-s);
         color: var(--text-2);
@@ -63,9 +84,13 @@
     }
 
     .agent-type {
-        padding: var(--spacer-1) var(--spacer-2);
+        padding: var(--spacer-05) var(--spacer-2);
         background: var(--surface-3);
         border-radius: var(--radius-1);
+        font-size: var(--font-s);
+        font-weight: 500;
+        color: var(--text-2);
+        white-space: nowrap;
     }
 
     .service-indicator {
@@ -73,6 +98,7 @@
         flex-shrink: 0;
         height: 8px;
         width: 8px;
+        display: block;
 
         &.online {
             background: var(--success-4, var(--success));
@@ -86,10 +112,13 @@
     }
 
     .agent-status {
-        padding: var(--spacer-1) var(--spacer-2);
+        padding: var(--spacer-05) var(--spacer-2);
         border-radius: var(--radius-1);
         display: inline-flex;
         align-items: center;
+        font-size: var(--font-s);
+        font-weight: 500;
+        white-space: nowrap;
 
         &.status-idle {
             background: var(--success);
@@ -114,27 +143,34 @@
 
     .agent-activity {
         font-style: italic;
+        color: var(--text-3);
+        font-size: var(--font-s);
     }
 
     .agent-stats {
         display: flex;
-        gap: var(--spacer-2);
+        gap: var(--spacer-3);
         margin-top: var(--spacer-1);
         font-size: var(--font-s);
         flex-wrap: wrap;
+        padding-top: var(--spacer-1);
+        border-top: 1px solid var(--surface-3);
 
         .stat {
             display: flex;
-            gap: var(--spacer-1);
-            align-items: center;
+            gap: var(--spacer-05);
+            align-items: baseline;
+            white-space: nowrap;
 
             .stat-label {
-                color: var(--text-2);
+                color: var(--text-3);
+                font-size: var(--font-s);
             }
 
             .stat-value {
-                font-weight: var(--font-weight-semibold);
+                font-weight: var(--font-weight-semibold, 600);
                 color: var(--text-1);
+                font-size: var(--font-s);
             }
         }
     }
@@ -142,5 +178,7 @@
     .agent-actions {
         display: flex;
         gap: var(--spacer-1);
+        flex-shrink: 0;
+        align-items: flex-start;
     }
 }

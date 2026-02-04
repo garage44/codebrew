@@ -95,22 +95,32 @@ export function Agents() {
                                 <AgentAvatar agent={agent} showStatus showType size='l' />
                                 <div class='agent-info'>
                                     <h3>{agent.displayName}</h3>
-                                    <div class='agent-meta'>
-                                        <span class='agent-type'>{getTypeLabel(agent.type)}</span>
+                                    <div class='status-indicator-group'>
                                         <span
-                                            class={`service-indicator ${isServiceOnline(agent.status) ? 'online' : 'offline'}`}
-                                            title={isServiceOnline(agent.status) ? 'Service Online' : 'Service Offline'}
+                                            class={`service-indicator ${
+                                                isServiceOnline(agent.status) ?
+                                                    'online' :
+                                                    'offline'
+                                            }`}
+                                            title={
+                                                isServiceOnline(agent.status) ?
+                                                    'Service Online' :
+                                                    'Service Offline'
+                                            }
                                         />
                                         <span
                                             class={`agent-status status-${agent.status}`}
                                         >
                                             {getStatusLabel(agent.status)}
                                         </span>
-                                        {agent.currentTicketId &&
-                                            <span class='agent-activity'>
-                                                Working on ticket: {agent.currentTicketId}
-                                            </span>}
                                     </div>
+                                    <div class='agent-meta'>
+                                        <span class='agent-type'>{getTypeLabel(agent.type)}</span>
+                                    </div>
+                                    {agent.currentTicketId &&
+                                        <div class='agent-activity'>
+                                            Working on ticket: {agent.currentTicketId}
+                                        </div>}
                                     {isServiceOnline(agent.status) && agent.stats &&
                                         <div class='agent-stats'>
                                             <span class='stat'>
@@ -147,7 +157,7 @@ export function Agents() {
                                             onClick={() => handleStartService(agent.id)}
                                             variant='default'
                                         >
-                                            <Icon name='play_arrow' size='d' type='info' />
+                                            <Icon name='play' size='d' type='info' />
                                             Start Service
                                         </Button>}
                             </div>

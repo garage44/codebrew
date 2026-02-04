@@ -561,8 +561,10 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
             }
         }
 
-        // Send stop command via WebSocket
-        wsManager.emitEvent(`/agents/${agentId}/stop`, {
+        // Send stop command via WebSocket broadcast
+        // Use broadcast instead of emitEvent since agent services don't explicitly subscribe to stop topic
+        // The agent service listens via onRoute which receives broadcast messages
+        wsManager.broadcast(`/agents/${agentId}/stop`, {
             timestamp: Date.now(),
         })
 
