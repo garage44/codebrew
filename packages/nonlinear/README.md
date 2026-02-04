@@ -2,27 +2,24 @@
 
 AI-Powered Automated Project Management
 
-Nonlinear is an automated project management tool that uses AI agents to manage the complete software development lifecycle from backlog to closed tickets.
+Nonlinear uses specialized AI agents to autonomously manage the complete software development lifecycle from backlog to closed tickets.
 
 ## Features
 
-- **Automated Ticket Lifecycle**: Backlog → Todo → In Progress → Review → Closed
+- **Automated Lifecycle**: Backlog → Todo → In Progress → Review → Closed
 - **AI Agents**:
-  - **Prioritizer**: Analyzes and prioritizes backlog tickets
-  - **Developer**: Implements tickets, creates branches and merge requests
-  - **Reviewer**: Reviews code and provides feedback
-- **Git Integration**: Supports GitHub, GitLab, and local git repositories
-- **Adaptive CI**: Automatically fixes linting and test issues
-- **Human-in-the-Loop**: Approval workflow with @mention system for routing work
-- **Real-time Kanban Board**: Drag-and-drop interface with live updates
+  - **Prioritizer**: Analyzes and prioritizes backlog tickets, refines descriptions, responds to @mentions
+  - **Developer**: Implements tickets, creates branches/MRs, runs CI with auto-fix
+  - **Reviewer**: Reviews code, provides feedback, approves or requests changes
+- **Context-Aware**: Vector search across documentation and tickets for relevant context
+- **Git Integration**: GitHub, GitLab, and local repositories with automatic branch/MR creation
+- **Adaptive CI**: Auto-fixes linting and test issues
+- **Human-in-the-Loop**: Approval gates, @mention routing, manual overrides
+- **Real-time**: WebSocket updates for live Kanban board and agent status
 
 ## Architecture
 
-Following ADR-021, Nonlinear is built with:
-- **Backend**: Bun runtime with Bun.serve(), SQLite database, WebSocket-first API
-- **Frontend**: Preact with DeepSignal state management
-- **AI**: Anthropic Claude API for agent reasoning
-- **Git**: Platform-agnostic adapters (GitHub, GitLab, local)
+Built with Bun runtime, SQLite database, Preact frontend, and Anthropic Claude API. Agents are built-in system components with direct database access, semantic search, and WebSocket-based real-time updates.
 
 ## Installation
 
@@ -53,15 +50,15 @@ Create a `.nonlinearrc` file in your home directory or set environment variables
   "agents": {
     "prioritizer": {
       "enabled": true,
-      "checkInterval": 300000
+      "checkInterval": 300000  // Run every 5 minutes
     },
     "developer": {
       "enabled": true,
-      "maxConcurrent": 3
+      "maxConcurrent": 3  // Up to 3 tickets simultaneously
     },
     "reviewer": {
       "enabled": true,
-      "maxConcurrent": 2
+      "maxConcurrent": 2  // Up to 2 reviews simultaneously
     }
   },
   "ci": {
@@ -109,12 +106,12 @@ Navigate to `http://localhost:3030` (or configured port)
 
 ### Workflow
 
-1. **Create Tickets**: Add tickets to the backlog via the UI
-2. **Prioritization**: The prioritizer agent automatically moves high-priority tickets to "todo"
-3. **Development**: The developer agent picks up "todo" tickets, implements them, and creates MRs
-4. **Review**: The reviewer agent reviews MRs and provides feedback
-5. **Approval**: Humans approve closed tickets or reopen with comments
-6. **Comments**: Use @mentions to route work to specific agents or humans
+1. Create tickets in the backlog
+2. Prioritizer agent refines and prioritizes tickets (moves high-priority ≥70 to todo)
+3. Developer agent picks up refined tickets, implements them, creates MRs
+4. Reviewer agent reviews MRs and provides feedback
+5. Humans approve closed tickets or reopen with comments
+6. Use @mentions in comments to trigger agent actions
 
 ## Development
 
@@ -129,6 +126,7 @@ bun run build
 bun run lint:ts
 bun run lint:css
 ```
+
 
 ## License
 
