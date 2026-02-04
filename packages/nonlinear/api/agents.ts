@@ -19,6 +19,181 @@ import path from 'path'
 // Track PIDs of API-started agent services
 const agentServicePids = new Map<string, number>()
 
+/**
+ * Start an agent service programmatically
+ */
+export async function startAgentService(agentId: string, wsManager: WebSocketServerManager): Promise<{
+    message: string
+    online: boolean
+    pid?: number
+    success: boolean
+}> {
+    const agent = db.prepare('SELECT * FROM agents WHERE id = ?').get(agentId) as {
+        config: string
+        enabled: number
+        id: string
+        name: string
+        type: 'planner' | 'developer' | 'reviewer'
+    } | undefined
+
+    if (!agent) {
+        return {
+            message: 'Agent not found',
+            online: false,
+            success: false,
+        }
+    }
+
+    if (agent.enabled === 0) {
+        return {
+            message: 'Agent is disabled',
+            online: false,
+            success: false,
+        }
+    }
+
+    // Check if service is already running
+    const taskTopic = `/agents/${agentId}/tasks`
+    const subscribers = wsManager.subscriptions[taskTopic]
+    if (subscribers && subscribers.size > 0) {
+        return {
+            message: 'Agent service is already running',
+            online: true,
+            success: true,
+        }
+    }
+
+    // Check if we already started this service (avoid duplicates)
+    if (agentServicePids.has(agentId)) {
+        const pid = agentServicePids.get(agentId)!
+        try {
+            // Check if process is still running
+            process.kill(pid, 0) // Signal 0 checks if process exists
+            return {
+                message: 'Agent service is already starting',
+                online: false,
+                success: true,
+            }
+        } catch {
+            // Process doesn't exist, remove from map
+            agentServicePids.delete(agentId)
+        }
+    }
+
+    // Get WebSocket URL from agent config or use default
+    let wsUrl = process.env.NONLINEAR_WS_URL || 'ws://localhost:3032/ws'
+    try {
+        const agentConfig = JSON.parse(agent.config || '{}') as Record<string, unknown>
+        if (agentConfig.wsUrl && typeof agentConfig.wsUrl === 'string') {
+            wsUrl = agentConfig.wsUrl
+        } else if (agentConfig.websocket_url && typeof agentConfig.websocket_url === 'string') {
+            wsUrl = agentConfig.websocket_url
+        }
+    } catch {
+        // Invalid config, use default
+    }
+
+    // Spawn agent service process
+    const serviceTsPath = path.join(process.cwd(), 'service.ts')
+    const process_ = Bun.spawn(['bun', serviceTsPath, 'agent:service', '--agent-id', agentId], {
+        cwd: process.cwd(),
+        detached: true,
+        stderr: 'pipe',
+        stdout: 'pipe',
+        env: {
+            ...process.env,
+            NONLINEAR_WS_URL: wsUrl,
+        },
+    })
+
+    // Track PID
+    agentServicePids.set(agentId, process_.pid)
+
+    // Clean up PID when process exits
+    process_.exited.then(() => {
+        agentServicePids.delete(agentId)
+        logger.debug(`[API] Agent service ${agentId} process exited (PID: ${process_.pid})`)
+    }).catch(() => {
+        agentServicePids.delete(agentId)
+    })
+
+    logger.info(`[API] Started agent service for ${agent.name} (${agent.type}) - PID: ${process_.pid}`)
+
+    return {
+        message: `Agent service started for ${agent.name}`,
+        online: false, // Will be online once it connects
+        pid: process_.pid,
+        success: true,
+    }
+}
+
+/**
+ * Autostart agents based on config or command-line override
+ */
+export async function autostartAgents(
+    wsManager: WebSocketServerManager,
+    override?: boolean | string[],
+): Promise<void> {
+    // Command-line override takes precedence over config
+    const autostartConfig = override !== undefined ? override : config.agents?.autostart
+
+    // Skip if not configured (undefined or false)
+    if (!autostartConfig || autostartConfig === false) {
+        return
+    }
+
+    // Get all enabled agents
+    const agents = db.prepare(`
+        SELECT * FROM agents
+        WHERE enabled = 1
+        ORDER BY type, name
+    `).all() as Array<{
+        id: string
+        name: string
+        type: 'planner' | 'developer' | 'reviewer'
+    }>
+
+    if (agents.length === 0) {
+        logger.info('[Autostart] No enabled agents found')
+        return
+    }
+
+    // Determine which agents to start
+    let agentsToStart: Array<{id: string; name: string}>
+    if (autostartConfig === true) {
+        // Start all enabled agents
+        agentsToStart = agents.map((a) => ({id: a.id, name: a.name}))
+        logger.info(`[Autostart] Starting all ${agentsToStart.length} enabled agents`)
+    } else if (Array.isArray(autostartConfig)) {
+        // Start only specified agent IDs
+        agentsToStart = agents
+            .filter((a) => autostartConfig.includes(a.id))
+            .map((a) => ({id: a.id, name: a.name}))
+        logger.info(`[Autostart] Starting ${agentsToStart.length} specified agents: ${agentsToStart.map((a) => a.name).join(', ')}`)
+    } else {
+        // Invalid config, skip
+        logger.warn('[Autostart] Invalid autostart config, skipping')
+        return
+    }
+
+    // Start agents with a small delay between each to avoid overwhelming the system
+    for (const agent of agentsToStart) {
+        try {
+            const result = await startAgentService(agent.id, wsManager)
+            if (result.success) {
+                logger.info(`[Autostart] Started agent: ${agent.name} (${agent.id})`)
+            } else {
+                logger.warn(`[Autostart] Failed to start agent ${agent.name}: ${result.message}`)
+            }
+        } catch (error) {
+            logger.error(`[Autostart] Error starting agent ${agent.name}: ${error}`)
+        }
+
+        // Small delay between starts
+        await new Promise((resolve) => setTimeout(resolve, 500))
+    }
+}
+
 export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManager) {
     // Subscribe to agent task topic
     wsManager.api.post('/api/agents/:id/subscribe', async(ctx, req) => {
@@ -345,96 +520,7 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
     // Start agent service
     wsManager.api.post('/api/agents/:id/service/start', async(_ctx, req) => {
         const agentId = req.params.id
-
-        const agent = db.prepare('SELECT * FROM agents WHERE id = ?').get(agentId) as {
-            config: string
-            enabled: number
-            id: string
-            name: string
-            type: 'planner' | 'developer' | 'reviewer'
-        } | undefined
-
-        if (!agent) {
-            throw new Error('Agent not found')
-        }
-
-        if (agent.enabled === 0) {
-            throw new Error('Agent is disabled')
-        }
-
-        // Check if service is already running
-        const taskTopic = `/agents/${agentId}/tasks`
-        const subscribers = wsManager.subscriptions[taskTopic]
-        if (subscribers && subscribers.size > 0) {
-            return {
-                message: 'Agent service is already running',
-                online: true,
-                success: true,
-            }
-        }
-
-        // Check if we already started this service (avoid duplicates)
-        if (agentServicePids.has(agentId)) {
-            const pid = agentServicePids.get(agentId)!
-            try {
-                // Check if process is still running
-                process.kill(pid, 0) // Signal 0 checks if process exists
-                return {
-                    message: 'Agent service is already starting',
-                    online: false,
-                    success: true,
-                }
-            } catch {
-                // Process doesn't exist, remove from map
-                agentServicePids.delete(agentId)
-            }
-        }
-
-        // Get WebSocket URL from agent config or use default
-        let wsUrl = process.env.NONLINEAR_WS_URL || 'ws://localhost:3032/ws'
-        try {
-            const agentConfig = JSON.parse(agent.config || '{}') as Record<string, unknown>
-            if (agentConfig.wsUrl && typeof agentConfig.wsUrl === 'string') {
-                wsUrl = agentConfig.wsUrl
-            } else if (agentConfig.websocket_url && typeof agentConfig.websocket_url === 'string') {
-                wsUrl = agentConfig.websocket_url
-            }
-        } catch {
-            // Invalid config, use default
-        }
-
-        // Spawn agent service process
-        const serviceTsPath = path.join(process.cwd(), 'service.ts')
-        const process_ = Bun.spawn(['bun', serviceTsPath, 'agent:service', '--agent-id', agentId], {
-            cwd: process.cwd(),
-            detached: true,
-            stderr: 'pipe',
-            stdout: 'pipe',
-            env: {
-                ...process.env,
-                NONLINEAR_WS_URL: wsUrl,
-            },
-        })
-
-        // Track PID
-        agentServicePids.set(agentId, process_.pid)
-
-        // Clean up PID when process exits
-        process_.exited.then(() => {
-            agentServicePids.delete(agentId)
-            logger.debug(`[API] Agent service ${agentId} process exited (PID: ${process_.pid})`)
-        }).catch(() => {
-            agentServicePids.delete(agentId)
-        })
-
-        logger.info(`[API] Started agent service for ${agent.name} (${agent.type}) - PID: ${process_.pid}`)
-
-        return {
-            message: `Agent service started for ${agent.name}`,
-            online: false, // Will be online once it connects
-            pid: process_.pid,
-            success: true,
-        }
+        return await startAgentService(agentId, wsManager)
     })
 
     // Stop agent service

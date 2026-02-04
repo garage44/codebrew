@@ -63,6 +63,11 @@ void cli.usage('Usage: $0 [task]')
                 describe: 'port to run the Nonlinear service on',
                 type: 'number',
             })
+            .option('autostart', {
+                alias: 'a',
+                describe: 'autostart agents (true to start all enabled, or comma-separated agent IDs)',
+                type: 'string',
+            })
     }, async(argv) => {
         await initConfig(config)
 
@@ -138,6 +143,22 @@ void cli.usage('Usage: $0 [task]')
         }
 
         logger.info(`Nonlinear service started on http://${argv.host}:${argv.port}`)
+
+        // Autostart agents if configured (command-line option takes precedence)
+        const {autostartAgents} = await import('./api/agents.ts')
+        let autostartValue: boolean | string[] | undefined
+        if (argv.autostart !== undefined) {
+            // Parse command-line option
+            if (argv.autostart === 'true' || argv.autostart === '1') {
+                autostartValue = true
+            } else if (argv.autostart === 'false' || argv.autostart === '0') {
+                autostartValue = false
+            } else {
+                // Comma-separated list of agent IDs
+                autostartValue = argv.autostart.split(',').map((id) => id.trim()).filter((id) => id.length > 0)
+            }
+        }
+        await autostartAgents(wsManager, autostartValue)
     })
     .command('deploy-pr', 'Deploy a PR branch manually (for Cursor agent)', (yargs) =>
         yargs

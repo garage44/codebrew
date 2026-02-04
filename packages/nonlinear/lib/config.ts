@@ -8,6 +8,7 @@ import rc from 'rc'
 // Default config structure
 const defaultConfig = {
     agents: {
+        autostart: false, // Set to true to autostart all enabled agents, or array of agent IDs
         developer: {
             enabled: true,
             maxConcurrent: 3,
