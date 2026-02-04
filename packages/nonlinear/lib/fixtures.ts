@@ -16,7 +16,7 @@ import type {Database} from 'bun:sqlite'
  * Initialize fixtures in development mode when database is empty
  * Creates garage44 workspace, imports fixture docs, creates preset tickets
  */
-export async function initializeFixtures(db: Database, workspaceRoot: string): Promise<void> {
+export async function initializeFixtures(db: Database, _workspaceRoot: string): Promise<void> {
     // Check if already initialized
     const existingWorkspace = db.prepare('SELECT id FROM repositories WHERE name = ?').get('garage44')
     if (existingWorkspace) {
@@ -26,12 +26,9 @@ export async function initializeFixtures(db: Database, workspaceRoot: string): P
 
     logger.info('[Fixtures] Initializing fixtures...')
 
-    /*
-     * Default workspace root if not provided or found
-     * Prefer environment variable, then use provided workspaceRoot, fallback to garage44-agent
-     */
-    const defaultWorkspaceRoot = process.env.NONLINEAR_WORKSPACE_ROOT || '/home/deck/code/garage44-agent'
-    const finalWorkspaceRoot = workspaceRoot || defaultWorkspaceRoot
+    // Always use garage44-agent repo (or NONLINEAR_WORKSPACE_ROOT env var override)
+    const finalWorkspaceRoot = process.env.NONLINEAR_WORKSPACE_ROOT || '/home/deck/code/garage44-agent'
+    logger.info(`[Fixtures] Using workspace root: ${finalWorkspaceRoot}`)
 
     // Create garage44 workspace
     const workspaceId = await createGarage44Workspace(db, finalWorkspaceRoot)
