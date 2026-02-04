@@ -91,6 +91,7 @@ export function AvatarUpload({
                         notifier.notify({
                             level: 'error',
                             message: 'Failed to load user information. Please refresh the page.',
+                            type: 'error',
                         })
                     }
                 } catch (error) {
@@ -98,6 +99,7 @@ export function AvatarUpload({
                     notifier.notify({
                         level: 'error',
                         message: 'Failed to load user information. Please refresh the page.',
+                        type: 'error',
                     })
                 }
             }
@@ -115,6 +117,7 @@ export function AvatarUpload({
             notifier.notify({
                 level: 'error',
                 message: 'Invalid file type. Please select a JPEG, PNG, or WebP image.',
+                type: 'error',
             })
             return
         }
@@ -125,6 +128,7 @@ export function AvatarUpload({
             notifier.notify({
                 level: 'error',
                 message: 'File too large. Maximum size is 2MB.',
+                type: 'error',
             })
             return
         }
@@ -143,6 +147,7 @@ export function AvatarUpload({
             notifier.notify({
                 level: 'error',
                 message: 'Please select an image file.',
+                type: 'error',
             })
             return
         }
@@ -152,6 +157,7 @@ export function AvatarUpload({
             notifier.notify({
                 level: 'error',
                 message: 'Could not determine current user. Please try again.',
+                type: 'error',
             })
             return
         }
@@ -213,12 +219,14 @@ export function AvatarUpload({
             notifier.notify({
                 level: 'success',
                 message: 'Avatar uploaded successfully!',
+                type: 'success',
             })
         } catch (error) {
             logger.error('[AvatarUpload] Upload error:', error)
             notifier.notify({
                 level: 'error',
                 message: error instanceof Error ? error.message : 'Failed to upload avatar',
+                type: 'error',
             })
         } finally {
             setUploading(false)

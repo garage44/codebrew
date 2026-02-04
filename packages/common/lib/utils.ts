@@ -6,21 +6,24 @@
 
 // const classes = classnames
 
-const copyObject = (obj) => JSON.parse(JSON.stringify(obj))
+function copyObject<T>(obj: T): T {
+    return JSON.parse(JSON.stringify(obj))
+}
 
-function flattenEnv(obj, parent, res = {}) {
+function flattenEnv(obj: Record<string, unknown>, parent?: string, res: Record<string, unknown> = {}): Record<string, unknown> {
     for (const key of Object.keys(obj)) {
         const propName = (parent ? parent + '_' + key : key).toUpperCase()
-        if (typeof obj[key] === 'object') {
-            flattenEnv(obj[key], propName, res)
+        const value = obj[key]
+        if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+            flattenEnv(value as Record<string, unknown>, propName, res)
         } else {
-            res[`PYR_${propName}`] = obj[key]
+            res[`PYR_${propName}`] = value
         }
     }
     return res
 }
 
-function formatBytes(size) {
+function formatBytes(size: number): string {
     if (size > (1024 ** 3)) {
         const gb = Math.round((size / (1024 ** 3)) * 10) / 10
         return `${gb}GiB`
@@ -74,7 +77,12 @@ function hash(str: string): string {
  * @param {Array} [refPath=[]] - An array representing the current path within the object.
  *   Automatically populated during recursion.
  */
-function keyMod(reference, apply, refPath = [], nestingLevel = 0) {
+function keyMod<T extends Record<string, unknown>>(
+    reference: T,
+    apply: (ref: Record<string, unknown>, key: string | null, path: string[], nestingLevel: number) => void,
+    refPath: string[] = [],
+    nestingLevel = 0
+): void {
     apply(reference, null, refPath, nestingLevel)
 
     const keys = Object.keys(reference)
@@ -83,7 +91,7 @@ function keyMod(reference, apply, refPath = [], nestingLevel = 0) {
             refPath.push(key)
 
             if (typeof reference[key] === 'object' && reference[key] !== null) {
-                keyMod(reference[key], apply, refPath, nestingLevel + 1)
+                keyMod(reference[key] as Record<string, unknown>, apply, refPath, nestingLevel + 1)
             } else if (typeof reference[key] === 'string') {
                 apply(reference, key, refPath, nestingLevel + 1)
             }
@@ -101,7 +109,11 @@ function keyMod(reference, apply, refPath = [], nestingLevel = 0) {
  * @returns {any} - The value at the end of the path, or the modified object if segments were created.
  * @throws {Error} If `refPath` is not an array.
  */
-function keyPath(obj, refPath, create = false) {
+function keyPath<T extends Record<string, unknown>>(
+    obj: T,
+    refPath: string[],
+    create = false
+): T | Record<string, unknown> {
     if (!Array.isArray(refPath)) {
         throw new TypeError('refPath must be an array')
     }
@@ -110,25 +122,28 @@ function keyPath(obj, refPath, create = false) {
     }
 
     const _refPath = [...refPath]
-    let _obj = obj
+    let _obj: unknown = obj
     while (_refPath.length) {
         const key = _refPath.shift()
-        if (typeof _obj === 'object' && key in _obj) {
-            _obj = _obj[key]
-        } else if (create) {
-            _obj[key] = {}
-            _obj = _obj[key]
+        if (!key) break
+        if (typeof _obj === 'object' && _obj !== null && key in (_obj as Record<string, unknown>)) {
+            _obj = (_obj as Record<string, unknown>)[key]
+        } else if (create && typeof _obj === 'object' && _obj !== null) {
+            (_obj as Record<string, unknown>)[key] = {}
+            _obj = (_obj as Record<string, unknown>)[key]
+        } else {
+            break
         }
     }
 
-    return _obj
+    return _obj as T | Record<string, unknown>
 }
 
-function isObject(argument) {
+function isObject(argument: unknown): argument is Record<string, unknown> {
     return argument && typeof argument === 'object' && !Array.isArray(argument)
 }
 
-function mergeDeep(target, ...sources) {
+function mergeDeep<T extends Record<string, unknown>>(target: T, ...sources: Partial<T>[]): T {
     if (!sources.length) {
         return target
     }
@@ -136,13 +151,14 @@ function mergeDeep(target, ...sources) {
 
     if (isObject(target) && isObject(source)) {
         for (const key in source) {
-            if (isObject(source[key])) {
-                if (!target[key]) {
+            const sourceValue = source[key]
+            if (isObject(sourceValue)) {
+                if (!target[key] || !isObject(target[key])) {
                     Object.assign(target, {[key]: {}})
                 }
-                mergeDeep(target[key], source[key])
+                mergeDeep(target[key] as Record<string, unknown>, sourceValue)
             } else {
-                Object.assign(target, {[key]: source[key]})
+                Object.assign(target, {[key]: sourceValue})
             }
         }
     }
@@ -163,7 +179,7 @@ function padLeft(value: string | number, length: number, char = '0'): string {
     return str.length >= length ? str : (char.repeat(length) + str).slice(-length)
 }
 
-function randomId(size = 8) {
+function randomId(size = 8): string {
     const characters = 'abcdefghijklmnopqrstuvwxyz0123456789'
     let result = ''
     for (let index = 0; index < size; index++) {
@@ -179,20 +195,20 @@ function randomId(size = 8) {
  *   If the input is not an object or is null, it is returned as is.
  * @returns {Object|null} The new object with sorted keys, or the original input if it was not an object.
  */
-function sortNestedObjectKeys(obj) {
+function sortNestedObjectKeys<T>(obj: T): T {
     if (typeof obj !== 'object' || Array.isArray(obj) || obj === null) {
         return obj
     }
 
-    const sortedKeys = Object.keys(obj).toSorted()
+    const sortedKeys = Object.keys(obj as Record<string, unknown>).toSorted()
 
-    const sortedObj = {}
+    const sortedObj: Record<string, unknown> = {}
     sortedKeys.forEach((key) => {
-        const value = obj[key]
+        const value = (obj as Record<string, unknown>)[key]
         sortedObj[key] = sortNestedObjectKeys(value)
     })
 
-    return sortedObj
+    return sortedObj as T
 }
 
 /**
@@ -202,7 +218,11 @@ function sortNestedObjectKeys(obj) {
  * @param {number} wait - The number of milliseconds to throttle invocations to.
  * @returns {Function} The throttled function.
  */
-function throttle(func, wait, options = {trailing: true} as {trailing: boolean}) {
+function throttle<T extends (...args: unknown[]) => void>(
+    func: T,
+    wait: number,
+    options: {trailing?: boolean} = {trailing: true}
+): (...args: Parameters<T>) => void {
     let lastCallTime = 0
     let timeoutId = null
 

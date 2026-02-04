@@ -1,6 +1,13 @@
 import classnames from 'classnames'
 
-export function Progress({boundaries, iso6391, loading, percentage}) {
+interface ProgressProps {
+    boundaries: number[]
+    iso6391?: string
+    loading?: boolean
+    percentage: number
+}
+
+export function Progress({boundaries, iso6391, loading, percentage}: ProgressProps) {
     if (!iso6391) {
         iso6391 = 'en-gb'
     }

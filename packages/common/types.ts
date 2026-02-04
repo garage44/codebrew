@@ -11,9 +11,11 @@ interface LoggerConfig {
     file?: string
     level?: LogLevel
     timestamp?: boolean
+    [key: string]: unknown
 }
 
 interface CommonState {
+    beta?: boolean
     env: {
         ctrlKey: boolean
         isFirefox: boolean
@@ -23,7 +25,7 @@ interface CommonState {
     }
     hmr_updating: boolean
     language_ui: LanguageUI
-    notifications: []
+    notifications: unknown[]
     panels: {
         context: {
             collapsed: boolean

@@ -1,4 +1,6 @@
 import {deepSignal as originalDeepSignal, type DeepSignal} from 'deepsignal'
+import type {CommonState} from '../types'
+import type {Notification} from './notifier'
 
 const persistentState = {
     beta: true,
@@ -15,13 +17,12 @@ const persistentState = {
     theme: 'system',
 } as const
 
-const volatileState = {
+const volatileState: Partial<CommonState> = {
     env: {
-        isBrowser: true,
+        ctrlKey: false,
         isFirefox: false,
-        isSafari: false,
         layout: 'desktop',
-        ua: '',
+        shiftKey: false,
         url: '',
     },
     hmr_updating: false,
@@ -38,7 +39,7 @@ const volatileState = {
         ],
         selection: 'eng-gbr',
     },
-    notifications: [] as unknown[],
+    notifications: [] as Notification[],
     profile: {
         admin: false,
         authenticated: false,

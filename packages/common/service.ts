@@ -15,22 +15,21 @@ function loggerTransports(logger_config: LoggerConfig, type: 'cli' | 'service') 
     if (type === 'cli') {
         // CLI mode: console only, no timestamps, colors enabled
         return new Logger({
-            ...logger_config,
-            colors: true,
             file: undefined,
             level: logger_config.level || 'info',
-            timestamp: false,
-        })
-    }if (type === 'service') {
-        // Service mode: console + file, timestamps enabled, colors enabled for console
-        return new Logger({
-            ...logger_config,
-            colors: true,
-            level: logger_config.level || 'info',
-            timestamp: true,
         })
     }
-    return new Logger(logger_config)
+    if (type === 'service') {
+        // Service mode: console + file, timestamps enabled, colors enabled for console
+        return new Logger({
+            file: logger_config.file,
+            level: logger_config.level || 'info',
+        })
+    }
+    return new Logger({
+        file: logger_config.file,
+        level: logger_config.level,
+    })
 }
 
 interface StaticFileServerOptions {
@@ -175,7 +174,10 @@ export function setupBunchyConfig(options: BunchyConfigOptions) {
     }
 }
 
-export function createWebSocketManagers(authOptions: unknown, sessionMiddleware: unknown) {
+export function createWebSocketManagers(
+    authOptions: unknown,
+    sessionMiddleware: (request: Request) => {session: {userid?: string}; sessionId: string}
+) {
     const wsManager = new WebSocketServerManager({
         authOptions,
         endpoint: '/ws',

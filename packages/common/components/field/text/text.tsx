@@ -1,6 +1,27 @@
 import {Button} from '@/components'
 import classnames from 'classnames'
 import {setTouched} from '@/lib/validation'
+import type {Signal} from '@preact/signals'
+import {signal} from '@preact/signals'
+
+interface FieldTextProps {
+    autofocus?: boolean
+    className?: string
+    copyable?: boolean
+    disabled?: boolean
+    help?: string
+    label?: string
+    model?: Signal<string>
+    onBlur?: ((event: Event) => void) | null
+    onClick?: ((event: Event) => void) | null
+    onKeyDown?: ((event: KeyboardEvent) => void) | null
+    onChange?: (value: string) => void
+    placeholder?: string
+    transform?: ((value: string) => string) | null
+    type?: string
+    validation?: {isValid?: boolean; isTouched?: boolean; errors?: string[]} | null
+    value?: string
+}
 
 export function FieldText({
     autofocus = false,
@@ -13,11 +34,16 @@ export function FieldText({
     onBlur = null,
     onClick = null,
     onKeyDown = null,
+    onChange,
     placeholder = '...',
     transform = null,
     type = 'text',
     validation = null,
-}) {
+    value,
+}: FieldTextProps) {
+    // Support both model (Signal) and value/onChange patterns
+    const internalModel = model || (value !== undefined ? signal(value) : signal(''))
+    const currentValue = model ? model.value : (value ?? '')
     return <div class={classnames('c-field-text', 'field', className, {
         'is-invalid': validation?.isValid === false,
         'is-touched': validation?.isTouched,
@@ -50,21 +76,27 @@ export function FieldText({
                     }
                 }}
                 onInput={(event) => {
-                    let value = (event.target as HTMLInputElement).value
+                    let newValue = (event.target as HTMLInputElement).value
                     if (transform) {
-                        value = transform(value)
+                        newValue = transform(newValue)
                     }
-                    model.value = value
+                    if (model) {
+                        model.value = newValue
+                    } else if (onChange) {
+                        onChange(newValue)
+                    } else {
+                        internalModel.value = newValue
+                    }
                 }}
                 autocomplete={type === 'password' ? 'new-password' : 'on'}
                 placeholder={placeholder}
                 type={type}
-                value={model}
+                value={currentValue}
             />
             {type === 'password' && copyable && <Button
                 icon="content_copy"
                 onClick={() => {
-                    navigator.clipboard.writeText(model.value)
+                    navigator.clipboard.writeText(model ? model.value : (value ?? ''))
                 }}
                 type="info"
             />}

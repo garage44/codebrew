@@ -1,4 +1,5 @@
-import {ComponentChildren, useEffect, useRef, useState} from 'preact/hooks'
+import {useEffect, useRef, useState} from 'preact/hooks'
+import type {ComponentChildren} from 'preact'
 import classnames from 'classnames'
 
 interface ContextMenuProps {

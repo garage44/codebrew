@@ -44,7 +44,7 @@ export function FieldUpload({
                     onChange={(event) => {
                         const target = event.target as HTMLInputElement
                         if (target.files && target.files.length > 0) {
-                            let value = target.files[0].path
+                            let value = target.files[0].name
                             if (transform) {
                                 value = transform(value)
                             }

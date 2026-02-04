@@ -25,7 +25,7 @@ const formData = deepSignal({
     country: '',
 
     email: '',
-    experienceLevel: {locked: false, value: 0},
+    experienceLevel: {locked: false, value: 0} as {locked: boolean; value: number},
     // Personal Information
     firstName: '',
 
@@ -241,8 +241,10 @@ export const Forms = () => {
                                     <div class='label'>Experience Level</div>
                                     <FieldSlider
                                         IconComponent={Icon}
-                                        onChange={(v) => formData.experienceLevel = v}
-                                        value={formData.experienceLevel}
+                                        onChange={(v) => {
+                                            formData.experienceLevel = {...v, locked: v.locked ?? false}
+                                        }}
+                                        value={{...formData.experienceLevel, locked: formData.experienceLevel.locked ?? false}}
                                     />
                                 </div>
                                 <FieldUpload

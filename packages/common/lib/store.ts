@@ -1,9 +1,10 @@
 // oxlint-disable-next-line consistent-type-specifier-style
 import {type DeepSignal, deepSignal} from 'deepsignal'
 import {copyObject, mergeDeep} from './utils'
+import type {CommonState} from '../types'
 
 
-export class Store<StateType extends object = object> {
+export class Store<StateType extends Record<string, unknown> = Record<string, unknown>> {
     state: DeepSignal<StateType>
 
     persistantState?: StateType
@@ -35,18 +36,18 @@ export class Store<StateType extends object = object> {
         }
 
         // Merge order: persistantState + localStorage + HMR state + volatileState
-        Object.assign(this.state, mergeDeep(mergeDeep(mergeDeep(persistantState, restoredState), hmrState), volatileState))
-        if (this.state.beta) {
+        Object.assign(this.state, mergeDeep(mergeDeep(mergeDeep(persistantState as Record<string, unknown>, restoredState), hmrState), volatileState as Record<string, unknown>))
+        if ('beta' in this.state && (this.state as Record<string, unknown>).beta) {
             globalThis.$s = this.state as unknown as DeepSignal<CommonState>
         }
     }
 
-    filterKeys(obj: Record<string, unknown>, blueprint: Record<string, unknown>) {
-        const result = {}
+    filterKeys(obj: Record<string, unknown>, blueprint: Record<string, unknown>): Record<string, unknown> {
+        const result: Record<string, unknown> = {}
         for (const key in blueprint) {
             if (Object.hasOwn(obj, key)) {
                 if (typeof blueprint[key] === 'object' && blueprint[key] !== null) {
-                    result[key] = this.filterKeys(obj[key], blueprint[key])
+                    result[key] = this.filterKeys(obj[key] as Record<string, unknown>, blueprint[key] as Record<string, unknown>)
                 } else {
                     result[key] = obj[key]
                 }
@@ -56,6 +57,8 @@ export class Store<StateType extends object = object> {
     }
 
     save() {
-        localStorage.setItem('store', JSON.stringify(this.filterKeys(this.state, this.persistantState)))
+        if (this.persistantState) {
+            localStorage.setItem('store', JSON.stringify(this.filterKeys(this.state as Record<string, unknown>, this.persistantState as Record<string, unknown>)))
+        }
     }
 }

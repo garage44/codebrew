@@ -6,7 +6,7 @@
 
 import path from 'node:path'
 import {homedir} from 'node:os'
-import type {Logger} from './logger'
+import type {Logger} from './logger.node'
 
 interface AvatarRoutesOptions {
     appName: string

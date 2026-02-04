@@ -1,5 +1,7 @@
 import classnames from 'classnames'
-import {ComponentChildren, useRef, useEffect} from 'preact/hooks'
+import {useRef, useEffect} from 'preact/hooks'
+import type {ComponentChildren} from 'preact'
+import type {JSX} from 'preact'
 import {Button} from '../button/button'
 import tippy, {type Instance as TippyInstance} from 'tippy.js'
 

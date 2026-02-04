@@ -44,7 +44,7 @@ export const ContextSelect = ({ value, onChange, icon, title, options, submit, F
                 e.stopPropagation()
                 buttonAction()
             }}>
-                <Icon class="icon icon-s" name={icon} />
+                <Icon className="icon icon-s" name={icon} />
                 <span>{title}</span>
             </button>
 

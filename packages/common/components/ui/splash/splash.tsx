@@ -1,4 +1,5 @@
 import {useEffect, useMemo} from 'preact/hooks'
+import type {JSX} from 'preact'
 
 interface SplashProps {
     header?: string

@@ -112,7 +112,7 @@ export function CollectionView({
     }
 
     // Add actions column if row_actions is provided
-    const allColumns = row_actions
+    const allColumns: CollectionColumn[] = row_actions
         ? [
             ...columns,
             {
@@ -121,7 +121,7 @@ export function CollectionView({
                 render: () => null, // Actions column doesn't render in cells
                 width: '140px',
                 minWidth: '140px',
-            },
+            } satisfies CollectionColumn,
         ]
         : columns
 

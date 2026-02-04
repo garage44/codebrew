@@ -1,6 +1,7 @@
 export interface Notification {
     icon?: string
     id?: number
+    level?: 'info' | 'success' | 'warning' | 'error'
     link?: {
         text: string
         url: string
@@ -11,7 +12,7 @@ export interface Notification {
         boundaries: number[]
         percentage: number
     }
-    type: string
+    type?: string
 }
 
 export class Notifier {

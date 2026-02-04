@@ -1,5 +1,5 @@
 import {useRef} from 'preact/hooks'
-import {deepSignal} from 'deepsignal'
+import {deepSignal, type DeepSignal} from 'deepsignal'
 import {api, notifier} from '@/app'
 
 export interface CollectionManagerConfig<TItem, TFormData> {
@@ -138,13 +138,13 @@ export function useCollectionManager<TItem, TFormData>(
         try {
             state.loading = true
             state.error = null
-            const payload = config.transformCreateData(state.formData)
+            const payload = config.transformCreateData(state.formData as TFormData)
             const endpoint = typeof config.createEndpoint === 'function' ?
-                    config.createEndpoint(state.formData) :
+                    config.createEndpoint(state.formData as TFormData) :
                 config.createEndpoint
             const newItem = await api.post(endpoint, payload) as TItem
-            state.items = [...state.items, newItem]
-            state.formData = config.initialFormData
+            state.items = [...state.items, newItem] as (TItem & DeepSignal<TItem>)[]
+            Object.assign(state.formData, config.initialFormData)
             notifier.notify({
                 level: 'success',
                 message: config.messages?.createSuccess || 'Item created successfully',
@@ -167,16 +167,17 @@ export function useCollectionManager<TItem, TFormData>(
         try {
             state.loading = true
             state.error = null
-            const payload = config.transformUpdateData(state.formData)
+            const payload = config.transformUpdateData(state.formData as TFormData)
             const method = config.updateMethod || 'PUT'
             const updatedItem = method === 'POST' ?
                 await api.post(config.updateEndpoint(itemId), payload) as TItem :
                 await api.put(config.updateEndpoint(itemId), payload) as TItem
             state.items = state.items.map((item) => {
-                return config.getId(item) === itemId ? updatedItem : item
-            })
+                const itemValue = item as unknown as TItem
+                return config.getId(itemValue) === itemId ? updatedItem : itemValue
+            }) as (TItem & DeepSignal<TItem>)[]
             state.editing = null
-            state.formData = config.initialFormData
+            Object.assign(state.formData, config.initialFormData)
             notifier.notify({
                 level: 'success',
                 message: config.messages?.updateSuccess || 'Item updated successfully',
@@ -212,12 +213,12 @@ export function useCollectionManager<TItem, TFormData>(
             if (method === 'GET') {
                 await api.get(config.deleteEndpoint(itemId))
             } else {
-                await api.delete(config.deleteEndpoint(itemId))
+                await api.delete(config.deleteEndpoint(itemId), {})
             }
-            state.items = state.items.filter((i) => config.getId(i) !== itemId)
+            state.items = state.items.filter((i) => config.getId(i as unknown as TItem) !== itemId) as (TItem & DeepSignal<TItem>)[]
             if (state.editing === itemId) {
                 state.editing = null
-                state.formData = config.initialFormData
+                Object.assign(state.formData, config.initialFormData)
             }
             notifier.notify({
                 level: 'success',
@@ -238,12 +239,12 @@ export function useCollectionManager<TItem, TFormData>(
 
     const startEdit = (item: TItem) => {
         state.editing = config.getId(item)
-        state.formData = config.populateFormData(item)
+        Object.assign(state.formData, config.populateFormData(item))
     }
 
     const cancelEdit = () => {
         state.editing = null
-        state.formData = config.initialFormData
+        Object.assign(state.formData, config.initialFormData)
     }
 
     return {

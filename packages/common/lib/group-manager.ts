@@ -151,9 +151,10 @@ export class GroupManager {
             if (roles.length > 0) {
                 // Already in Galene format
                 const users = groupData.users as Record<string, {password: string; permissions: string}>
+                const passwordValue = typeof user.password === 'string' ? user.password : user.password.key
                 users[user.username] = {
                     // Primary role
-                    password: user.password,
+                    password: passwordValue,
                     permissions: roles[0],
                 }
             }

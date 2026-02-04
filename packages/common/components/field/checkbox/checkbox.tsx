@@ -1,37 +1,55 @@
 import {randomId} from '../../../lib/utils'
 import classnames from 'classnames'
+import type {Signal} from '@preact/signals'
+import {signal} from '@preact/signals'
+
+interface FieldCheckboxProps {
+    className?: string
+    help?: string
+    label: string
+    model?: Signal<boolean>
+    onChange?: (value: boolean) => void
+    onInput?: (value: boolean) => void
+    value?: boolean
+}
 
 export const FieldCheckbox = ({
     className = '',
     help = '',
     label,
     model,
+    onChange,
     onInput,
-}: {
-    className?: string
-    help?: string
-    label: string
-    model: Signal<boolean>
-    onInput?: (value: boolean) => void
-}) => {
+    value,
+}: FieldCheckboxProps) => {
+    // Support both model (Signal) and value/onChange patterns
+    const internalModel = model || (value !== undefined ? signal(value) : signal(false))
+    const currentValue = model ? model.value : (value ?? false)
     const id = randomId()
 
     return <div class={classnames('c-field-checkbox', 'field', className)}>
-        <div class="wrapper">
+        <div class='wrapper'>
             <input
-                checked={model}
+                checked={currentValue}
                 id={id}
-                type="checkbox"
                 onInput={() => {
-                    model.value = !model.value
+                    const newValue = !currentValue
+                    if (model) {
+                        model.value = newValue
+                    } else if (onChange) {
+                        onChange(newValue)
+                    } else {
+                        internalModel.value = newValue
+                    }
                     if (onInput) {
-                        onInput(model.value)
+                        onInput(newValue)
                     }
                 }}
-                value={model}
+                type='checkbox'
+                value={String(currentValue)}
             />
-            <label for={id} class="label">{label}</label>
+            <label class='label' for={id}>{label}</label>
         </div>
-        {help && <div class="help">{help}</div>}
+        {help && <div class='help'>{help}</div>}
     </div>
 }

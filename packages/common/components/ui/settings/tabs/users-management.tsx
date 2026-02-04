@@ -40,6 +40,7 @@ export function UsersManagement({
         users: [] as User[],
         loading: false,
         editing: null as string | null,
+        error: null as string | null,
         formData: {
             username: '',
             password: '',
@@ -58,6 +59,7 @@ export function UsersManagement({
             notifier.notify({
                 level: 'error',
                 message: $t('user.management.error.load_failed') || 'Failed to load users',
+                type: 'error',
             })
         } finally {
             state.loading = false
@@ -73,6 +75,7 @@ export function UsersManagement({
             notifier.notify({
                 level: 'error',
                 message: $t('user.management.error.username_required') || 'Username is required',
+                type: 'error',
             })
             return
         }
@@ -99,12 +102,14 @@ export function UsersManagement({
             notifier.notify({
                 level: 'success',
                 message: $t('user.management.success.created') || 'User created',
+                type: 'success',
             })
         } catch (error) {
             const message = error instanceof Error ? error.message : ($t('user.management.error.create_failed') || 'Failed to create user')
             notifier.notify({
                 level: 'error',
                 message,
+                type: 'error',
             })
         } finally {
             state.loading = false
@@ -116,6 +121,7 @@ export function UsersManagement({
             notifier.notify({
                 level: 'error',
                 message: $t('user.management.error.username_required') || 'Username is required',
+                type: 'error',
             })
             return
         }
@@ -144,12 +150,14 @@ export function UsersManagement({
             notifier.notify({
                 level: 'success',
                 message: $t('user.management.success.updated') || 'User updated',
+                type: 'success',
             })
         } catch (error) {
             const message = error instanceof Error ? error.message : ($t('user.management.error.save_failed') || 'Failed to update user')
             notifier.notify({
                 level: 'error',
                 message,
+                type: 'error',
             })
         } finally {
             state.loading = false
@@ -172,12 +180,14 @@ export function UsersManagement({
             notifier.notify({
                 level: 'success',
                 message: $t('user.management.success.deleted') || 'User deleted',
+                type: 'success',
             })
         } catch (error) {
             const message = error instanceof Error ? error.message : ($t('user.management.error.delete_failed') || 'Failed to delete user')
             notifier.notify({
                 level: 'error',
                 message,
+                type: 'error',
             })
         } finally {
             state.loading = false

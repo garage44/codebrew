@@ -8,7 +8,7 @@ interface HintProps {
 export const Hint = ({ text = '', class: className }: HintProps) => {
     return (
         <div class={`c-hint ${className || ''}`}>
-            <Icon class="item-icon icon-d" name="info" />
+            <Icon className="item-icon icon-d" name="info" />
             <div class="description">
                 {text}
             </div>

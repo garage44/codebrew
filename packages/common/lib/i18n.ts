@@ -82,16 +82,21 @@ async function init(translations = null, api = null, store = null) {
  * @param context - Optional interpolation context
  */
 function create$t(store) {
-    return (key: Record<string, unknown>, context = null): string => {
+    return (key: Record<string, unknown> | string, context = null): string => {
         /*
          * Extract path from object using Symbol
          * Path format: i18n.path.to.translation
          */
-        let path = (key as {[I18N_PATH_SYMBOL]?: string})[I18N_PATH_SYMBOL]
-
-        if (!path || typeof path !== 'string') {
-            logger.error(`Translation object missing path. Object must have ${I18N_PATH_SYMBOL.toString()} property.`)
-            return ''
+        let path: string
+        if (typeof key === 'string') {
+            // Support string keys for backward compatibility
+            path = key
+        } else {
+            path = (key as {[I18N_PATH_SYMBOL]?: string})[I18N_PATH_SYMBOL] || ''
+            if (!path) {
+                logger.error(`Translation object missing path. Object must have ${I18N_PATH_SYMBOL.toString()} property.`)
+                return ''
+            }
         }
 
         // Strip 'i18n.' prefix for i18next (it expects paths like 'path.to.translation')

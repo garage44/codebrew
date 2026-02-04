@@ -64,14 +64,14 @@ export const ContextInput = ({ value, submit, required = true, revert = false, F
                     {required && text === '' ? (
                         <button class="btn" onClick={() => setInput(!input)}>
                             <Icon
-                                class="icon icon-s"
+                                className="icon icon-s"
                                 name="close"
                             />
                         </button>
                     ) : (
                         <button class="btn" onClick={submitMethod}>
                             <Icon
-                                class="icon icon-s"
+                                className="icon icon-s"
                                 name="send"
                             />
                         </button>
@@ -80,7 +80,7 @@ export const ContextInput = ({ value, submit, required = true, revert = false, F
             ) : _title ? (
                 <button class="action" onClick={buttonAction}>
                     <Icon
-                        class="icon icon-s"
+                        className="icon icon-s"
                         name={_icon}
                     />
                     {_title && <span>{_title}</span>}

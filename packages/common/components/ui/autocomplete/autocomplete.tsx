@@ -1,4 +1,5 @@
-import {ComponentChildren, useCallback, useEffect, useRef, useState} from 'preact/hooks'
+import {useCallback, useEffect, useRef, useState} from 'preact/hooks'
+import type {ComponentChildren} from 'preact'
 import classnames from 'classnames'
 
 export interface AutocompleteItem<T = unknown> {

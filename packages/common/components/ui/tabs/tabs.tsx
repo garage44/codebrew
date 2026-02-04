@@ -79,9 +79,9 @@ export function Tabs({
                                     'is-active': isActive,
                                     'is-disabled': isDisabled,
                                 })}
-                                href={tab.route}
+                                {...({href: tab.route} as Record<string, unknown>)}
                             >
-                                {tab.icon && <Icon class="c-tabs__icon" name={tab.icon} type="info" />}
+                                {tab.icon && <Icon className="c-tabs__icon" name={tab.icon} type="info" />}
                                 {tab.label && <span class="c-tabs__label">{tab.label}</span>}
                             </Link>
                         </li>
@@ -101,7 +101,7 @@ export function Tabs({
                                 onClick={() => tab.onClick?.(tab.id)}
                                 type="button"
                             >
-                                {tab.icon && <Icon class="c-tabs__icon" name={tab.icon} type="info" />}
+                                {tab.icon && <Icon className="c-tabs__icon" name={tab.icon} type="info" />}
                                 {tab.label && <span class="c-tabs__label">{tab.label}</span>}
                             </button>
                         </li>

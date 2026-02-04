@@ -15,38 +15,46 @@ interface TargetLanguage {
     name: string
 }
 
-function collectSource(source, path, ignore_cache = false) {
-    const cachedValues = []
-    const sourceValues = []
+function collectSource(
+    source: Record<string, unknown>,
+    path: string[],
+    ignore_cache = false
+): {cached: Tag[]; targets: Array<[Tag, string[]]>} {
+    const cachedValues: Tag[] = []
+    const sourceValues: Array<[Tag, string[]]> = []
 
-    function traverse(current, path) {
+    function traverse(current: unknown, path: string[]): void {
         if (typeof current !== 'object' || current === null) {
             return
         }
+        const currentObj = current as Record<string, unknown>
 
-        if ('source' in current && typeof current.source === 'string') {
+        if ('source' in currentObj && typeof currentObj.source === 'string') {
+            const tagObj = currentObj as unknown as Tag
             // Check if we should ignore cache
             if (ignore_cache) {
-                sourceValues.push([current, path])
-            } else if (current.cache === hash(current.source)) {
+                sourceValues.push([tagObj, path])
+            } else if (currentObj.cache === hash(currentObj.source)) {
                 // Use cached value
-                cachedValues.push(current)
+                cachedValues.push(tagObj)
             } else {
                 // Need to translate
-                sourceValues.push([current, path])
+                sourceValues.push([tagObj, path])
             }
         }
 
         // Traverse nested objects
-        for (const key in current) {
-            if (Object.hasOwn(current, key)) {
-                traverse(current[key], [...path, key])
+        for (const key in currentObj) {
+            if (Object.hasOwn(currentObj, key)) {
+                traverse(currentObj[key], [...path, key])
             }
         }
     }
 
     const {id, ref} = pathRef(source, path)
-    traverse(ref[id], path)
+    if (id && ref[id]) {
+        traverse(ref[id], path)
+    }
     // Return collected values
     return {
         cached: cachedValues,
@@ -71,11 +79,15 @@ function pathCreate(
 ) {
     const pathRefResult = pathRef(sourceObject, tagPath, true)
     const {id, ref} = pathRefResult
+    if (!id) {
+        throw new Error('Invalid path: id is null')
+    }
     ref[id] = value
 
     const tag = tagPath.join('.')
-    ref[id]._id = id
-    ref[id]._collapsed = true
+    const refId = ref[id] as Tag & {_id?: string; _collapsed?: boolean; target?: Record<string, string>; _soft?: boolean}
+    refId._id = id
+    refId._collapsed = true
 
     // Set _id and _collapsed for each intermediate path object
     for (let index = 0; index < tagPath.length - 1; index++) {
@@ -83,22 +95,23 @@ function pathCreate(
         const {id: segmentId, ref: segmentRef} = pathRef(sourceObject, partialPath)
 
         // Set properties directly on the object
-        if (segmentRef[segmentId] && typeof segmentRef[segmentId] === 'object') {
-            if (!('_id' in segmentRef[segmentId])) {
-                segmentRef[segmentId]._id = segmentId
+        if (segmentId && segmentRef[segmentId] && typeof segmentRef[segmentId] === 'object') {
+            const segmentObj = segmentRef[segmentId] as {_id?: string; _collapsed?: boolean}
+            if (!('_id' in segmentObj)) {
+                segmentObj._id = segmentId
             }
-            if (!('_collapsed' in segmentRef[segmentId])) {
-                segmentRef[segmentId]._collapsed = false
+            if (!('_collapsed' in segmentObj)) {
+                segmentObj._collapsed = false
             }
         }
     }
 
     if ('source' in value) {
         // This is a tag; add placeholders for each target language
-        ref[id].target = {}
+        refId.target = {}
 
         if ('_soft' in value) {
-            ref[id]._soft = value._soft
+            refId._soft = value._soft as boolean
         }
 
         /*
@@ -108,11 +121,12 @@ function pathCreate(
         ref[id][I18N_PATH_SYMBOL] = `i18n.${tag}`
 
         logger.info(`create path tag: ${tag} ${'_soft' in value ? '(soft create)' : ''}`)
+        const refIdTag = refId as Tag & {target: Record<string, string>}
         targetLanguages.forEach((language) => {
             if (translations && translations[language.id]) {
-                ref[id].target[language.id] = translations[language.id]
+                refIdTag.target[language.id] = translations[language.id]
             } else {
-                ref[id].target[language.id] = id
+                refIdTag.target[language.id] = id || ''
             }
         })
     } else {
@@ -122,17 +136,19 @@ function pathCreate(
     return {id, ref}
 }
 
-function pathDelete(source, path) {
+function pathDelete(source: Record<string, unknown>, path: string[]): void {
     const {id, ref} = pathRef(source, path)
-    delete ref[id]
-    logger.info(`delete path: ${path}`)
+    if (id) {
+        delete ref[id]
+    }
+    logger.info(`delete path: ${path.join('.')}`)
 }
 
-function pathHas(source, path, key) {
+function pathHas(source: Record<string, unknown>, path: string[], key: string): boolean {
     const {id, ref} = pathRef(source, path)
     let has_key = false
-    if (ref[id]) {
-        keyMod(ref[id], (sourceRef) => {
+    if (id && ref[id] && typeof ref[id] === 'object') {
+        keyMod(ref[id] as Record<string, unknown>, (sourceRef) => {
             if (key in sourceRef) {
                 has_key = true
             }
@@ -149,7 +165,12 @@ function pathHas(source, path, key) {
  * @param {Object} modifier - Modifications to apply (typically {_collapsed: boolean})
  * @param {string} mode - How to apply: 'self' (target only), 'groups' (target+nested groups), 'all' (target+all nested)
  */
-function pathToggle(source, path, modifier, mode: 'self' | 'groups' | 'all' = 'groups') {
+function pathToggle(
+    source: Record<string, unknown>,
+    path: string[],
+    modifier: Record<string, unknown>,
+    mode: 'self' | 'groups' | 'all' = 'groups'
+): void {
     function applyRecursively(obj) {
         if (!obj || typeof obj !== 'object') {
             return
@@ -223,25 +244,36 @@ function pathToggle(source, path, modifier, mode: 'self' | 'groups' | 'all' = 'g
     }
 
     // Apply to target node
-    mergeDeep(ref[id], modifier)
+    if (id && ref[id] && typeof ref[id] === 'object') {
+        mergeDeep(ref[id] as Record<string, unknown>, modifier)
 
-    // Apply to nested nodes based on mode
-    if (mode !== 'self') {
-        applyToChildren(ref[id])
+        // Apply to nested nodes based on mode
+        if (mode !== 'self') {
+            applyToChildren(ref[id] as Record<string, unknown>)
+        }
     }
 }
 
-function pathUpdate(source, path, value) {
+function pathUpdate(
+    source: Record<string, unknown>,
+    path: string[],
+    value: Record<string, unknown>
+): void {
     const {id, ref} = pathRef(source, path)
 
-    for (const key in ref[id]) {
+    if (!id) {
+        return
+    }
+
+    const refId = ref[id] as Record<string, unknown>
+    for (const key in refId) {
         if (!(key in value)) {
-            delete ref[id][key]
+            delete refId[key]
         }
     }
 
     // Update ref[id] with new values
-    Object.assign(ref[id], value)
+    Object.assign(refId, value)
 
     const pathStr = Array.isArray(path) ? path.join('.') : String(path)
     logger.info(`update path: ${pathStr}`)
@@ -253,7 +285,11 @@ function pathUpdate(source, path, value) {
  * @param {*} oldPath
  * @param {*} newPath
  */
-function pathMove(source, oldPath, newPath) {
+function pathMove(
+    source: Record<string, unknown>,
+    oldPath: string[],
+    newPath: string[]
+): void {
     logger.info(`move path: ${oldPath} - ${newPath}`)
     const oldId = oldPath.at(-1)
     const oldRefPath = oldPath.slice(0, -1)
@@ -261,11 +297,16 @@ function pathMove(source, oldPath, newPath) {
     const newId = newPath.at(-1)
     const newRefPath = newPath.slice(0, -1)
 
-    const oldSourceRef = keyPath(source, oldRefPath)
-    const newSourceRef = keyPath(source, newRefPath, true)
+    const oldSourceRef = keyPath(source, oldRefPath) as Record<string, unknown>
+    const newSourceRef = keyPath(source, newRefPath, true) as Record<string, unknown>
+
+    if (!oldId || !newId) {
+        return
+    }
 
     newSourceRef[newId] = oldSourceRef[oldId]
-    newSourceRef[newId]._id = newId
+    const movedObj = newSourceRef[newId] as {_id?: string; [I18N_PATH_SYMBOL]?: string}
+    movedObj._id = newId
 
     /*
      * Update path symbol for moved object
@@ -274,22 +315,26 @@ function pathMove(source, oldPath, newPath) {
     const newPathParts = newPath.join('.')
     const newPathString = `i18n.${newPathParts}`
     if (typeof newSourceRef[newId] === 'object' && 'source' in newSourceRef[newId]) {
-        newSourceRef[newId][I18N_PATH_SYMBOL] = newPathString
+        movedObj[I18N_PATH_SYMBOL] = newPathString
     }
 
     delete oldSourceRef[oldId]
 }
 
-function pathRef(source, path, create = false) {
+function pathRef(
+    source: Record<string, unknown>,
+    path: string[],
+    create = false
+): {id: string | null; path: string[]; ref: Record<string, unknown>} {
     if (!path.length) {
-        return {id: null, ref: source}
+        return {id: null, path: [], ref: source}
     }
-    const id = path.at(-1)
+    const id = path.at(-1) || null
     const refPath = path.slice(0, -1)
     return {
         id,
         path: refPath,
-        ref: keyPath(source, refPath, create),
+        ref: keyPath(source, refPath, create) as Record<string, unknown>,
     }
 }
 

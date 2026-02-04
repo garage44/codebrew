@@ -386,7 +386,7 @@ export const createFinalHandler = (config: {
                 if (targetUser) {
                     // Include password for SFU auth (will encrypt later)
                     context = {
-                        ...baseContext,
+                        ...(baseContext as Record<string, unknown>),
                         id: targetUser.id,
                         password: targetUser.password.key,
                         profile: {
@@ -394,7 +394,7 @@ export const createFinalHandler = (config: {
                             displayName: targetUser.profile.displayName || targetUser.username,
                         },
                         username: targetUser.username,
-                    }
+                    } as typeof context
                 } else {
                     context = baseContext
                 }
@@ -418,7 +418,7 @@ export const createFinalHandler = (config: {
                      * Include password for SFU auth (will encrypt later)
                      */
                     context = {
-                        ...baseContext,
+                        ...(baseContext as Record<string, unknown>),
                         id: user.id,
                         password: user.password.key,
                         profile: {
@@ -426,7 +426,7 @@ export const createFinalHandler = (config: {
                             displayName: user.profile.displayName || user.username,
                         },
                         username: user.username,
-                    }
+                    } as typeof context
                 } else {
                     context = config.contextFunctions.deniedContext()
                 }
@@ -506,7 +506,7 @@ export const createFinalHandler = (config: {
                  * Include password for SFU auth (will encrypt later)
                  */
                 context = {
-                    ...baseContext,
+                    ...(baseContext as Record<string, unknown>),
                     id: user.id,
                     password: user.password.key,
                     profile: {
@@ -514,7 +514,7 @@ export const createFinalHandler = (config: {
                         displayName: user.profile.displayName || user.username,
                     },
                     username: user.username,
-                }
+                } as typeof context
             } else {
                 console.log(`[AUTH] Authentication failed for user: ${username}`)
             }

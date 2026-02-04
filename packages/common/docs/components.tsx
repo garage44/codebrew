@@ -23,9 +23,9 @@ import {
     Splash,
 } from '@/components'
 // Import utilities from common components
-import {ComponentDemo} from '../../components/lib/component-demo'
+import {ComponentDemo} from '@/components/lib/component-demo'
 import {Notifier} from '@/lib/notifier'
-import {StateView} from '../../components/lib/state-view'
+import {StateView} from '@/components/lib/state-view'
 import {deepSignal} from 'deepsignal'
 import {svg} from '@/components/ui/icon/icon'
 
@@ -41,14 +41,15 @@ const data = deepSignal({
         numberValue: 0,
         radioValue: 'option1',
         selectValue: '',
-        sliderValue: {locked: false, value: 50},
+        sliderValue: {locked: false, value: 50} as {locked: boolean; value: number},
         textareaValue: '',
         textInput: '',
         uploadValue: '',
     },
 })
 
-const notifier = new Notifier(data.model.notifications)
+const notifier = new Notifier()
+notifier.init(data.model.notifications)
 
 export const Components = () => <div class='c-components styleguide-page'>
         <h1>Components</h1>
@@ -141,17 +142,17 @@ export const Components = () => <div class='c-components styleguide-page'>
                 <FieldCheckbox
                     help='Enter help text...'
                     label='Basic Checkbox'
-                    model={data.model.checkboxValue}
+                    model={data.model.$checkboxValue}
                 />
                 <FieldCheckbox
                     help='Enter help text...'
                     label='Checked'
-                    model={data.model.checkboxValue}
+                    model={data.model.$checkboxValue}
                 />
                 <FieldCheckbox
                     help='Enter help text...'
                     label='Disabled'
-                    model={data.model.checkboxValue}
+                    model={data.model.$checkboxValue}
                 />
             </div>
             <StateView state={{checkboxValue: data.model.checkboxValue}} title='Field Checkbox State' />
@@ -167,11 +168,11 @@ export const Components = () => <div class='c-components styleguide-page'>
 
         <ComponentDemo component='Progress' title='Progress'>
             <div class='demo-grid'>
-                <Progress boundaries={0} iso6391='en' loading={false} percentage={0} />
-                <Progress boundaries={0} iso6391='en' loading={false} percentage={0.25} />
-                <Progress boundaries={0} iso6391='en' loading={false} percentage={0.5} />
-                <Progress boundaries={0} iso6391='en' loading={false} percentage={0.75} />
-                <Progress boundaries={0} iso6391='en' loading={false} percentage={1} />
+                <Progress boundaries={[0, 100]} iso6391='en' loading={false} percentage={0} />
+                <Progress boundaries={[0, 100]} iso6391='en' loading={false} percentage={0.25} />
+                <Progress boundaries={[0, 100]} iso6391='en' loading={false} percentage={0.5} />
+                <Progress boundaries={[0, 100]} iso6391='en' loading={false} percentage={0.75} />
+                <Progress boundaries={[0, 100]} iso6391='en' loading={false} percentage={1} />
             </div>
         </ComponentDemo>
 
@@ -195,7 +196,7 @@ export const Components = () => <div class='c-components styleguide-page'>
         <ComponentDemo component='FieldCheckboxGroup' title='Field Checkbox Group'>
             <div class='demo-grid'>
                 <FieldCheckboxGroup
-                    class=''
+                    className=''
                     model={[
                         {label: 'Item 1', value: data.model.checkboxGroupValue.includes('item1')},
                         {label: 'Item 2', value: data.model.checkboxGroupValue.includes('item2')},
@@ -346,8 +347,10 @@ export const Components = () => <div class='c-components styleguide-page'>
                 <div style={{alignItems: 'center', display: 'flex', height: '150px', justifyContent: 'center'}}>
                     <FieldSlider
                         IconComponent={Icon}
-                        onChange={(v) => data.model.sliderValue = v}
-                        value={data.model.sliderValue}
+                        onChange={(v) => {
+                            data.model.sliderValue = {...v, locked: v.locked ?? false}
+                        }}
+                        value={{...data.model.sliderValue, locked: data.model.sliderValue.locked ?? false}}
                     />
                 </div>
             </div>

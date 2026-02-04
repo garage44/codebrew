@@ -141,7 +141,7 @@ export function UsersPermissions({
                         role="button"
                         tabIndex={0}
                     >
-                        <Icon class="icon-d" name="operator" tip={$t('group.settings.permission.operator')} />
+                        <Icon className="icon-d" name="operator" tip={$t('group.settings.permission.operator')} />
                     </div>
                     <div
                         class="category"
@@ -150,7 +150,7 @@ export function UsersPermissions({
                         role="button"
                         tabIndex={0}
                     >
-                        <Icon class="icon-d" name="present" tip={$t('group.settings.permission.presenter')} />
+                        <Icon className="icon-d" name="present" tip={$t('group.settings.permission.presenter')} />
                     </div>
                     <div
                         class="category"
@@ -159,7 +159,7 @@ export function UsersPermissions({
                         role="button"
                         tabIndex={0}
                     >
-                        <Icon class="icon-d" name="otherpermissions" tip={$t('group.settings.permission.misc')} />
+                        <Icon className="icon-d" name="otherpermissions" tip={$t('group.settings.permission.misc')} />
                     </div>
                 </div>
             </div>

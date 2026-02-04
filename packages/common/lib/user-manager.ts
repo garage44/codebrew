@@ -130,6 +130,7 @@ export class UserManager {
                     admin: false,
                 },
                 profile: {
+                    avatar: 'placeholder-1.png',
                     displayName: userData.displayName,
                 },
                 username: userData.username,

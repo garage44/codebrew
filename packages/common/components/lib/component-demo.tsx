@@ -1,5 +1,7 @@
+import type {ComponentChildren} from 'preact'
+
 interface ComponentDemoProps {
-    children: unknown
+    children: ComponentChildren
     component: string
     title: string
 }

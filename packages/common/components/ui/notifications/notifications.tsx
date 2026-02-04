@@ -13,7 +13,7 @@ export function Notifications({notifications}) {
                 >
                     <div>
                         <Icon
-                            class="icon icon-d"
+                            className="icon icon-d"
                             name={notification.icon ? notification.icon : 'info_outline'}
                             type={notification.type}
                         />
@@ -21,6 +21,7 @@ export function Notifications({notifications}) {
                             {notification.progress && <Progress
                                 boundaries={notification.progress.boundaries}
                                 percentage={notification.progress.percentage}
+                                loading={false}
                             />}
 
                             <div class="message-text">
@@ -39,7 +40,7 @@ export function Notifications({notifications}) {
                         </div>
 
                         <Icon
-                            class="icon btn-close"
+                            className="icon btn-close"
                             name="close"
                             onClick={() => {
                                 notifications.splice(notifications.findIndex(i => i.id === notification.id), 1)

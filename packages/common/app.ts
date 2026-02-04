@@ -3,6 +3,7 @@ import {Api} from './lib/api'
 import type {CommonState} from './types'
 import {EventEmitter} from 'node:events'
 import {Notifier} from './lib/notifier'
+import type {Notification} from './lib/notifier'
 import {Store} from './lib/store'
 import env from './lib/env'
 import {logger} from './lib/logger'
@@ -11,8 +12,8 @@ import {persistentState, volatileState} from './lib/state'
 logger.setLevel('debug')
 
 const notifier = new Notifier()
-const store = new Store<CommonState>()
-store.load(persistentState as unknown as CommonState, volatileState as Partial<CommonState>)
+const store = new Store<CommonState & Record<string, unknown>>()
+store.load(persistentState as CommonState & Record<string, unknown>, volatileState)
 const $t = create$t(store)
 
 // Create i18n object with init function
@@ -57,7 +58,7 @@ class App {
             // This ensures any changes in non-component files are picked up
             env(store.state.env, store)
             await i18n.init(translations, api, store)
-            notifier.init(store.state.notifications)
+            notifier.init(store.state.notifications as Notification[])
 
             // Update Main component reference
             g.__HMR_MAIN_COMPONENT__ = Main
@@ -146,7 +147,7 @@ class App {
         // Normal initialization (not HMR)
         env(store.state.env, store)
         await i18n.init(translations, api, store)
-        notifier.init(store.state.notifications)
+        notifier.init(store.state.notifications as Notification[])
 
         // Store Main component reference for HMR re-rendering
         g.__HMR_MAIN_COMPONENT__ = Main

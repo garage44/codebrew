@@ -55,6 +55,7 @@ export function ProfileSettings({
         notifier.notify({
             level: 'success',
             message: 'Settings saved',
+            type: 'success',
         })
     },
     userEndpoint = '/api/users/me',
@@ -79,7 +80,7 @@ export function ProfileSettings({
                 <div class="notice" />
                 <div class="title">
                     <span>Settings</span>
-                    <Icon class="item-icon icon-regular" name="settings" />
+                    <Icon className="item-icon icon-regular" name="settings" />
                 </div>
             </header>
 

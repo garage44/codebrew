@@ -404,7 +404,7 @@ class WebSocketServerManager extends EventEmitter {
         const ctx: WebSocketContext = {
             broadcast: this.broadcast.bind(this),
             method: method as HttpMethod,
-            session: request?.session,
+            session: request?.session as {[key: string]: unknown; userid: string} | undefined,
             subscribe: (topic: string) => this.subscribe(ws, topic),
             unsubscribe: (topic: string) => this.unsubscribe(ws, topic),
             url,
@@ -511,7 +511,7 @@ function createBunWebSocketHandler(managers: Map<string, WebSocketServerManager>
             const endpoint = ws.data?.endpoint
             const manager = managers.get(endpoint)
             if (manager) {
-                manager.message(ws, message, ws.data)
+                manager.message(ws, message, ws.data as {session?: {userid?: string}})
             }
         },
         open: (ws: WebSocketConnection & {data?: {endpoint?: string; proxy?: boolean; upstream?: WebSocket}}) => {
@@ -558,7 +558,7 @@ function createBunWebSocketHandler(managers: Map<string, WebSocketServerManager>
             const endpoint = ws.data?.endpoint
             const manager = managers.get(endpoint)
             if (manager) {
-                manager.open(ws, ws.data)
+                manager.open(ws, ws.data as {session?: {userid?: string}})
             } else {
                 logger.error(`[WS] no manager found for endpoint: ${endpoint}`)
                 ws.close(1011, 'Server Error')
