@@ -52,6 +52,7 @@ AI Decision Records (ADRs) are structured documents that capture important archi
 | [022](./022-nonlinear-labels-assignees.md) | Nonlinear - Label System and Multiple Assignees Workflow | Architecture | Proposed | 2025-01-27 |
 | [023](./023-wiki-vector-search.md) | Wiki System with Vector Search for Agent-Human Collaboration | Architecture | Accepted | 2026-02-01 |
 | [024](./024-agent-api-tool-system.md) | Nonlinear Agent API with Anthropic Tool Use System | Architecture | Proposed | 2025-01-27 |
+| [025](./025-agent-service-architecture.md) | Agent Service Architecture | Architecture | Proposed | 2025-01-27 |
 
 ### ADRs by Decision Type
 
@@ -75,6 +76,7 @@ AI Decision Records (ADRs) are structured documents that capture important archi
 - [ADR-022](./022-nonlinear-labels-assignees.md): Nonlinear - Label System and Multiple Assignees Workflow
 - [ADR-023](./023-wiki-vector-search.md): Wiki System with Vector Search for Agent-Human Collaboration
 - [ADR-024](./024-agent-api-tool-system.md): Nonlinear Agent API with Anthropic Tool Use System
+- [ADR-025](./025-agent-service-architecture.md): Agent Service Architecture
 - Pattern: [Architecture Pattern](./guide/PATTERNS.md#architecture-pattern)
 
 **Tool Adoption/Replacement** (Developer Tooling):
@@ -101,7 +103,7 @@ AI Decision Records (ADRs) are structured documents that capture important archi
 - ADR-001, ADR-003, ADR-004, ADR-011, ADR-012, ADR-016, ADR-017, ADR-019
 
 **Nonlinear** (Project management):
-- ADR-001, ADR-003, ADR-004, ADR-006, ADR-007, ADR-009, ADR-021, ADR-022, ADR-023, ADR-024
+- ADR-001, ADR-003, ADR-004, ADR-006, ADR-007, ADR-009, ADR-021, ADR-022, ADR-023, ADR-024, ADR-025
 
 **Infrastructure** (Build, deployment):
 - ADR-001, ADR-003, ADR-005, ADR-007, ADR-010, ADR-011, ADR-017
@@ -112,7 +114,7 @@ AI Decision Records (ADRs) are structured documents that capture important archi
 **Backend**: ADR-003, ADR-006, ADR-007, ADR-008, ADR-017
 **Infrastructure**: ADR-001, ADR-003, ADR-005, ADR-007, ADR-010, ADR-011, ADR-017
 **Tooling**: ADR-003, ADR-007, ADR-010, ADR-011, ADR-019, ADR-024
-**AI**: ADR-009, ADR-021, ADR-022, ADR-023, ADR-024
+**AI**: ADR-009, ADR-021, ADR-022, ADR-023, ADR-024, ADR-025
 **Performance**: ADR-003, ADR-010, ADR-011
 **UX**: ADR-011, ADR-012, ADR-013, ADR-014, ADR-016
 **Developer-Experience**: ADR-003, ADR-010, ADR-019

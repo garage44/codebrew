@@ -19,32 +19,35 @@ export class DeveloperAgent extends BaseAgent {
     }
 
     async process(context: AgentContext): Promise<AgentResponse> {
+        let ticket: {
+            id: string
+            repository_id: string
+            title: string
+            description: string | null
+            path: string
+            platform: 'github' | 'gitlab' | 'local'
+            remote_url: string | null
+            config: string
+        } | undefined
+
         try {
-            // Get a "todo" ticket that:
+            // Get a ticket that:
             // 1. Has "refined" label
             // 2. Is assigned to this DeveloperAgent
-            const ticket = db.prepare(`
+            // 3. Is in "todo" or "in_progress" status (allows resuming after crash)
+            ticket = db.prepare(`
                 SELECT DISTINCT t.*, r.path, r.platform, r.remote_url, r.config
                 FROM tickets t
                 JOIN repositories r ON t.repository_id = r.id
                 JOIN ticket_labels tl ON t.id = tl.ticket_id
                 JOIN ticket_assignees ta ON t.id = ta.ticket_id
-                WHERE t.status = 'todo'
+                WHERE t.status IN ('todo', 'in_progress')
                   AND tl.label = 'refined'
                   AND ta.assignee_type = 'agent'
                   AND ta.assignee_id = ?
                 ORDER BY t.priority DESC, t.created_at ASC
                 LIMIT 1
-            `).get(this.name) as {
-                id: string
-                repository_id: string
-                title: string
-                description: string | null
-                path: string
-                platform: 'github' | 'gitlab' | 'local'
-                remote_url: string | null
-                config: string
-            } | undefined
+            `).get(this.name) as typeof ticket
 
             if (!ticket) {
                 this.log('No refined tickets assigned to DeveloperAgent found')
@@ -291,16 +294,15 @@ Use the available tools to implement this ticket. Start by reading relevant file
             }
         } catch (error) {
             this.log(`Error during development: ${error}`, 'error')
-            // Mark ticket as needing attention
-            if (context.ticketId) {
+            // Revert ticket status back to todo on error
+            if (ticket) {
                 db.prepare(`
                     UPDATE tickets
                     SET status = 'todo',
-                        assignee_type = NULL,
-                        assignee_id = NULL,
                         updated_at = ?
                     WHERE id = ?
-                `).run(Date.now(), context.ticketId)
+                `).run(Date.now(), ticket.id)
+                this.log(`Reverted ticket ${ticket.id} status to todo due to error`)
             }
             return {
                 success: false,

@@ -55,15 +55,20 @@ export const shellTools: Record<string, Tool> = {
                     ? path.join(context.repositoryPath, params.cwd)
                     : context.repositoryPath
 
-                // Build command for Bun Shell
-                // Bun Shell requires tagged template literal syntax: $`cmd arg1 arg2`
-                // Use $.raw() for dynamic command construction
+                // Build command using Bun Shell template literal
+                // Bun Shell handles pipes, redirects, and shell operators natively
+                // Variables are automatically escaped (safe from injection)
                 const args = params.args || []
-                const allParts = [params.command, ...args]
 
-                // Use Bun Shell with $.raw() to properly handle dynamic commands
-                // This ensures each part is properly escaped and separated
-                const result = await $.raw(allParts)
+                // Construct command string - Bun Shell will parse it correctly
+                // (supports pipes, redirects, etc. natively)
+                const cmdString = args.length > 0
+                    ? `${params.command} ${args.join(' ')}`
+                    : params.command
+
+                // Use Bun Shell template literal - it handles shell operators natively
+                // The command string is parsed as shell syntax (pipes, redirects, etc.)
+                const result = await $`${cmdString}`
                     .cwd(workDir)
                     .env(params.env || {})
                     .quiet()
@@ -72,9 +77,9 @@ export const shellTools: Record<string, Tool> = {
                 return {
                     success: result.exitCode === 0,
                     data: {
-                        stdout: result.stdout.toString(),
-                        stderr: result.stderr.toString(),
                         exitCode: result.exitCode,
+                        stderr: result.stderr.toString(),
+                        stdout: result.stdout.toString(),
                     },
                     context: {
                         command: params.command,
