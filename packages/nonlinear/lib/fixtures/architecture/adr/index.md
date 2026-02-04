@@ -56,6 +56,7 @@ AI Decision Records (ADRs) are structured documents that capture important archi
 | [028](./028-agent-mention-websocket-push.md) | Agent Mention Processing with WebSocket Push | Architecture | Proposed | 2025-02-04 |
 | [029](./029-websocket-robustness-and-protocol-docs.md) | WebSocket Robustness Improvements and Protocol Documentation | Architecture | Proposed | 2025-02-04 |
 | [030](./030-agent-service-management.md) | Agent Service Management via WebSocket | Architecture | Proposed | 2025-02-05 |
+| [031](./031-watched-state-pattern.md) | Watched State Pattern for Real-time Synchronization | Architecture | Proposed | 2025-02-05 |
 
 ### ADRs by Decision Type
 
@@ -83,6 +84,7 @@ AI Decision Records (ADRs) are structured documents that capture important archi
 - [ADR-028](./028-agent-mention-websocket-push.md): Agent Mention Processing with WebSocket Push
 - [ADR-029](./029-websocket-robustness-and-protocol-docs.md): WebSocket Robustness Improvements and Protocol Documentation
 - [ADR-030](./030-agent-service-management.md): Agent Service Management via WebSocket
+- [ADR-031](./031-watched-state-pattern.md): Watched State Pattern for Real-time Synchronization
 - Pattern: [Architecture Pattern](./guide/PATTERNS.md#architecture-pattern)
 
 **Tool Adoption/Replacement** (Developer Tooling):

@@ -56,6 +56,13 @@ const volatileState = mergeDeep({
         isAgent: true
         currentTicketId: string | null
         lastActivity: number
+        serviceOnline?: boolean
+        stats?: {
+            completed: number
+            failed: number
+            pending: number
+            processing: number
+        }
     }>,
     labelDefinitions: [] as Array<{
         color: string

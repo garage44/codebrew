@@ -171,6 +171,32 @@ class AgentService {
             this.processNextTask()
         })
 
+        // Subscribe to stop topic
+        const stopTopic = `/agents/${this.agentId}/stop`
+        this.wsClient.onRoute(stopTopic, async() => {
+            if (!this.logger) return
+
+            this.logger.info(`[AgentService] Received stop command for agent ${this.agentId}`)
+
+            // Wait for current task to finish if processing
+            if (this.processingTask) {
+                this.logger.info(`[AgentService] Waiting for current task to finish before stopping...`)
+                // Poll until task is done (max 30 seconds)
+                const maxWait = 30000
+                const startTime = Date.now()
+                while (this.processingTask && (Date.now() - startTime) < maxWait) {
+                    await new Promise((resolve) => setTimeout(resolve, 500))
+                }
+            }
+
+            // Stop the service
+            this.stop()
+
+            // Exit process
+            this.logger.info(`[AgentService] Shutting down agent ${this.agentId}`)
+            process.exit(0)
+        })
+
         // Handle reconnection
         this.wsClient.on('open', async() => {
             this.logger?.info(`[AgentService] WebSocket connected to ${this.wsUrl}`)

@@ -12,6 +12,11 @@ import {DEFAULT_AVATARS} from '../lib/agent/avatars.ts'
 import {createTask} from '../lib/agent/tasks.ts'
 import {getTokenUsage} from '../lib/agent/token-usage.ts'
 import {config} from '../lib/config.ts'
+import {getTaskStats} from '../lib/agent/tasks.ts'
+import path from 'path'
+
+// Track PIDs of API-started agent services
+const agentServicePids = new Map<string, number>()
 
 export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManager) {
     // Subscribe to agent task topic
@@ -19,6 +24,19 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
         const agentId = req.params.id
         const topic = `/agents/${agentId}/tasks`
         ctx.subscribe?.(topic)
+        logger.info(`[API] Agent ${agentId} subscribed to topic ${topic}, connection readyState=${ctx.ws.readyState}`)
+
+        // Verify subscription was added
+        const subscribers = wsManager.subscriptions[topic]
+        logger.info(`[API] Subscription verified: topic=${topic}, subscribers=${subscribers?.size || 0}`)
+
+        // Broadcast that agent service came online for instant UI update
+        wsManager.broadcast('/agents', {
+            agentId,
+            type: 'agent:service-online',
+            online: true,
+        })
+
         return {success: true, topic}
     })
 
@@ -39,16 +57,68 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
             type: 'planner' | 'developer' | 'reviewer'
         }>
 
-        // Enrich with status information
+        // Enrich with status information, stats, and service status
         const enrichedAgents = agents.map((agent) => {
             const status = getAgentStatus(agent.id)
+            const stats = getTaskStats(agent.id)
+
+            // Check if agent service is online by checking WebSocket subscriptions
+            const taskTopic = `/agents/${agent.id}/tasks`
+            const subscribers = wsManager.subscriptions[taskTopic]
+
+            // Check if any subscribed connections are still open
+            let serviceOnline = false
+            if (subscribers && subscribers.size > 0) {
+                for (const ws of subscribers) {
+                    // Check if connection is open (readyState 1 = OPEN)
+                    // Note: WebSocket.OPEN = 1, WebSocket.CONNECTING = 0, WebSocket.CLOSING = 2, WebSocket.CLOSED = 3
+                    if (ws.readyState === 1) {
+                        serviceOnline = true
+                        break
+                    }
+                }
+            }
+
+            // Fallback: check all connections for subscriptions to this topic
+            // This handles cases where subscription was added but not yet in subscriptions map
+            if (!serviceOnline) {
+                for (const ws of wsManager.connections) {
+                    // Only check open connections
+                    if (ws.readyState === 1) {
+                        const clientSubs = wsManager.clientSubscriptions.get(ws)
+                        if (clientSubs && clientSubs.has(taskTopic)) {
+                            serviceOnline = true
+                            break
+                        }
+                    }
+                }
+            }
+
+            // Debug logging for subscription detection (only log when offline to reduce noise)
+            if (!serviceOnline) {
+                const allTopics = Object.keys(wsManager.subscriptions)
+                const agentTopics = allTopics.filter(t => t.includes(agent.id))
+                logger.debug(`[API] Agent ${agent.id} (${agent.name}): serviceOnline=false, topic=${taskTopic}, subscribers=${subscribers?.size || 0}, totalConnections=${wsManager.connections.size}, agentTopics=[${agentTopics.join(', ')}]`)
+            }
+
+            // Determine agent status - if service is offline, status should be 'offline'
+            // Otherwise use the actual agent status (idle, working, error)
+            let agentStatus: 'idle' | 'working' | 'error' | 'offline' = (status?.status || (agent.status as 'idle' | 'working' | 'error' | 'offline') || 'idle') as 'idle' | 'working' | 'error' | 'offline'
+
+            // Override to 'offline' if service is not online (unless agent is actually working)
+            if (!serviceOnline && agentStatus !== 'working') {
+                agentStatus = 'offline'
+            }
+
             return {
                 ...agent,
                 avatar: agent.avatar || DEFAULT_AVATARS[agent.type],
                 currentTicketId: status?.currentTicketId || null,
                 display_name: agent.display_name || `${agent.name} Agent`,
                 lastActivity: status?.lastActivity || agent.created_at,
-                status: status?.status || (agent.status as 'idle' | 'working' | 'error' | 'offline') || 'idle',
+                serviceOnline,
+                stats,
+                status: agentStatus,
             }
         })
 
@@ -245,10 +315,247 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
         }
     })
 
+    // Get agent task statistics
+    wsManager.api.get('/api/agents/:id/stats', async(_ctx, req) => {
+        const agentId = req.params.id
+
+        const agent = db.prepare('SELECT id FROM agents WHERE id = ?').get(agentId)
+        if (!agent) {
+            throw new Error('Agent not found')
+        }
+
+        const stats = getTaskStats(agentId)
+
+        return {
+            agentId,
+            stats,
+        }
+    })
+
+    // Get agent service status (online/offline)
+    wsManager.api.get('/api/agents/:id/service-status', async(_ctx, req) => {
+        const agentId = req.params.id
+
+        const agent = db.prepare('SELECT id FROM agents WHERE id = ?').get(agentId)
+        if (!agent) {
+            throw new Error('Agent not found')
+        }
+
+        // Check if agent service is connected by checking WebSocket subscriptions
+        const taskTopic = `/agents/${agentId}/tasks`
+        const subscribers = wsManager.subscriptions[taskTopic]
+
+        // Check if any subscribed connections are still open
+        let isOnline = false
+        if (subscribers && subscribers.size > 0) {
+            for (const ws of subscribers) {
+                if (ws.readyState === 1) {
+                    isOnline = true
+                    break
+                }
+            }
+        }
+
+        // Fallback: check all connections for subscriptions to this topic
+        if (!isOnline) {
+            for (const ws of wsManager.connections) {
+                if (ws.readyState === 1) {
+                    const clientSubs = wsManager.clientSubscriptions.get(ws)
+                    if (clientSubs && clientSubs.has(taskTopic)) {
+                        isOnline = true
+                        break
+                    }
+                }
+            }
+        }
+
+        return {
+            agentId,
+            online: isOnline,
+        }
+    })
+
+    // Start agent service
+    wsManager.api.post('/api/agents/:id/service/start', async(_ctx, req) => {
+        const agentId = req.params.id
+
+        const agent = db.prepare('SELECT * FROM agents WHERE id = ?').get(agentId) as {
+            config: string
+            enabled: number
+            id: string
+            name: string
+            type: 'planner' | 'developer' | 'reviewer'
+        } | undefined
+
+        if (!agent) {
+            throw new Error('Agent not found')
+        }
+
+        if (agent.enabled === 0) {
+            throw new Error('Agent is disabled')
+        }
+
+        // Check if service is already running
+        const taskTopic = `/agents/${agentId}/tasks`
+        const subscribers = wsManager.subscriptions[taskTopic]
+        if (subscribers && subscribers.size > 0) {
+            return {
+                message: 'Agent service is already running',
+                online: true,
+                success: true,
+            }
+        }
+
+        // Check if we already started this service (avoid duplicates)
+        if (agentServicePids.has(agentId)) {
+            const pid = agentServicePids.get(agentId)!
+            try {
+                // Check if process is still running
+                process.kill(pid, 0) // Signal 0 checks if process exists
+                return {
+                    message: 'Agent service is already starting',
+                    online: false,
+                    success: true,
+                }
+            } catch {
+                // Process doesn't exist, remove from map
+                agentServicePids.delete(agentId)
+            }
+        }
+
+        // Get WebSocket URL from agent config or use default
+        let wsUrl = process.env.NONLINEAR_WS_URL || 'ws://localhost:3032/ws'
+        try {
+            const agentConfig = JSON.parse(agent.config || '{}') as Record<string, unknown>
+            if (agentConfig.wsUrl && typeof agentConfig.wsUrl === 'string') {
+                wsUrl = agentConfig.wsUrl
+            } else if (agentConfig.websocket_url && typeof agentConfig.websocket_url === 'string') {
+                wsUrl = agentConfig.websocket_url
+            }
+        } catch {
+            // Invalid config, use default
+        }
+
+        // Spawn agent service process
+        const serviceTsPath = path.join(process.cwd(), 'service.ts')
+        const process_ = Bun.spawn(['bun', serviceTsPath, 'agent:service', '--agent-id', agentId], {
+            cwd: process.cwd(),
+            detached: true,
+            stderr: 'pipe',
+            stdout: 'pipe',
+            env: {
+                ...process.env,
+                NONLINEAR_WS_URL: wsUrl,
+            },
+        })
+
+        // Track PID
+        agentServicePids.set(agentId, process_.pid)
+
+        // Clean up PID when process exits
+        process_.exited.then(() => {
+            agentServicePids.delete(agentId)
+            logger.debug(`[API] Agent service ${agentId} process exited (PID: ${process_.pid})`)
+        }).catch(() => {
+            agentServicePids.delete(agentId)
+        })
+
+        logger.info(`[API] Started agent service for ${agent.name} (${agent.type}) - PID: ${process_.pid}`)
+
+        return {
+            message: `Agent service started for ${agent.name}`,
+            online: false, // Will be online once it connects
+            pid: process_.pid,
+            success: true,
+        }
+    })
+
+    // Stop agent service
+    wsManager.api.post('/api/agents/:id/service/stop', async(_ctx, req) => {
+        const agentId = req.params.id
+
+        const agent = db.prepare('SELECT id, name FROM agents WHERE id = ?').get(agentId) as {
+            id: string
+            name: string
+        } | undefined
+
+        if (!agent) {
+            throw new Error('Agent not found')
+        }
+
+        // Check if service is online
+        const taskTopic = `/agents/${agentId}/tasks`
+        const subscribers = wsManager.subscriptions[taskTopic]
+        const isOnline = subscribers && subscribers.size > 0
+
+        if (!isOnline) {
+            // Service is not online, but clean up PID if we have it
+            if (agentServicePids.has(agentId)) {
+                const pid = agentServicePids.get(agentId)!
+                try {
+                    // Try to kill the process if it exists
+                    process.kill(pid, 'SIGTERM')
+                } catch {
+                    // Process doesn't exist or already dead
+                }
+                agentServicePids.delete(agentId)
+            }
+
+            return {
+                message: 'Agent service is not running',
+                online: false,
+                success: true,
+            }
+        }
+
+        // Send stop command via WebSocket
+        wsManager.emitEvent(`/agents/${agentId}/stop`, {
+            timestamp: Date.now(),
+        })
+
+        logger.info(`[API] Sent stop command to agent service ${agent.name} (${agentId})`)
+
+        // Clean up PID if we have it
+        if (agentServicePids.has(agentId)) {
+            agentServicePids.delete(agentId)
+        }
+
+        return {
+            message: `Stop command sent to agent service ${agent.name}`,
+            online: true, // Will be offline once it disconnects
+            success: true,
+        }
+    })
+
     // Subscribe to agent updates
     wsManager.on('/agents', (_ws) => {
         logger.debug('[API] Client subscribed to agent updates')
     })
+
+    // Hook into connection close to detect when agent services go offline
+    const originalClose = wsManager.close.bind(wsManager)
+    wsManager.close = (ws: Parameters<typeof wsManager.close>[0]) => {
+        // Check if this connection had any agent subscriptions
+        const clientSubs = wsManager.clientSubscriptions.get(ws)
+        if (clientSubs) {
+            for (const topic of clientSubs) {
+                // Check if this is an agent task topic
+                const match = topic.match(/^\/agents\/([^/]+)\/tasks$/)
+                if (match) {
+                    const agentId = match[1]
+                    // Broadcast that agent service went offline
+                    wsManager.broadcast('/agents', {
+                        agentId,
+                        type: 'agent:service-offline',
+                        online: false,
+                    })
+                    logger.info(`[API] Agent ${agentId} service went offline`)
+                }
+            }
+        }
+        // Call original close handler
+        originalClose(ws)
+    }
 
     // Get Anthropic token usage
     wsManager.api.get('/api/anthropic/usage', async(_ctx, _req) => {

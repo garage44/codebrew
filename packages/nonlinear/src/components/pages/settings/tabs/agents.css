@@ -59,6 +59,7 @@
         align-items: center;
         font-size: var(--font-s);
         color: var(--text-2);
+        flex-wrap: wrap;
     }
 
     .agent-type {
@@ -67,9 +68,28 @@
         border-radius: var(--radius-1);
     }
 
+    .service-indicator {
+        border-radius: 50%;
+        flex-shrink: 0;
+        height: 8px;
+        width: 8px;
+
+        &.online {
+            background: var(--success-4, var(--success));
+            box-shadow: 0 0 0 2px var(--surface-1, var(--background));
+        }
+
+        &.offline {
+            background: var(--surface-4, var(--text-3));
+            box-shadow: 0 0 0 2px var(--surface-1, var(--background));
+        }
+    }
+
     .agent-status {
         padding: var(--spacer-1) var(--spacer-2);
         border-radius: var(--radius-1);
+        display: inline-flex;
+        align-items: center;
 
         &.status-idle {
             background: var(--success);
@@ -94,6 +114,29 @@
 
     .agent-activity {
         font-style: italic;
+    }
+
+    .agent-stats {
+        display: flex;
+        gap: var(--spacer-2);
+        margin-top: var(--spacer-1);
+        font-size: var(--font-s);
+        flex-wrap: wrap;
+
+        .stat {
+            display: flex;
+            gap: var(--spacer-1);
+            align-items: center;
+
+            .stat-label {
+                color: var(--text-2);
+            }
+
+            .stat-value {
+                font-weight: var(--font-weight-semibold);
+                color: var(--text-1);
+            }
+        }
     }
 
     .agent-actions {
