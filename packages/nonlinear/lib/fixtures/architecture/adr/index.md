@@ -55,6 +55,7 @@ AI Decision Records (ADRs) are structured documents that capture important archi
 | [027](./027-developer-agent-tools-and-planning.md) | Developer Agent Tools and Planning Workflow | Architecture | Proposed | 2025-02-05 |
 | [028](./028-agent-mention-websocket-push.md) | Agent Mention Processing with WebSocket Push | Architecture | Proposed | 2025-02-04 |
 | [029](./029-websocket-robustness-and-protocol-docs.md) | WebSocket Robustness Improvements and Protocol Documentation | Architecture | Proposed | 2025-02-04 |
+| [030](./030-agent-service-management.md) | Agent Service Management via WebSocket | Architecture | Proposed | 2025-02-05 |
 
 ### ADRs by Decision Type
 
@@ -81,6 +82,7 @@ AI Decision Records (ADRs) are structured documents that capture important archi
 - [ADR-027](./027-developer-agent-tools-and-planning.md): Developer Agent Tools and Planning Workflow
 - [ADR-028](./028-agent-mention-websocket-push.md): Agent Mention Processing with WebSocket Push
 - [ADR-029](./029-websocket-robustness-and-protocol-docs.md): WebSocket Robustness Improvements and Protocol Documentation
+- [ADR-030](./030-agent-service-management.md): Agent Service Management via WebSocket
 - Pattern: [Architecture Pattern](./guide/PATTERNS.md#architecture-pattern)
 
 **Tool Adoption/Replacement** (Developer Tooling):
@@ -112,8 +114,8 @@ AI Decision Records (ADRs) are structured documents that capture important archi
 ### ADRs by Tag
 
 **Frontend**: ADR-004, ADR-011, ADR-012, ADR-013, ADR-014, ADR-016, ADR-019
-**Real-time**: ADR-004, ADR-006, ADR-028, ADR-029
-**Backend**: ADR-003, ADR-006, ADR-007, ADR-008, ADR-017, ADR-028, ADR-029
+**Real-time**: ADR-004, ADR-006, ADR-028, ADR-029, ADR-030
+**Backend**: ADR-003, ADR-006, ADR-007, ADR-008, ADR-017, ADR-028, ADR-029, ADR-030
 **Infrastructure**: ADR-001, ADR-003, ADR-005, ADR-007, ADR-010, ADR-011, ADR-017, ADR-024
 **Tooling**: ADR-003, ADR-007, ADR-010, ADR-011, ADR-019
 **Performance**: ADR-003, ADR-010, ADR-011
@@ -182,7 +184,7 @@ grep -i "technology adoption\|migration pattern" adr/guide/PATTERNS.md
 ```
 
 **By Topic**:
-- **Real-time/WebSocket**: ADR-004, ADR-006, ADR-028, ADR-029
+- **Real-time/WebSocket**: ADR-004, ADR-006, ADR-028, ADR-029, ADR-030
 - **Build/Runtime**: ADR-003, ADR-007, ADR-010
 - **Design System**: ADR-011, ADR-012, ADR-013, ADR-014
 - **Architecture**: ADR-001, ADR-004, ADR-008, ADR-021, ADR-027, ADR-028, ADR-029
