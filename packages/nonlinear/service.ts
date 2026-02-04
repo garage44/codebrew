@@ -120,7 +120,6 @@ void cli.usage('Usage: $0 [task]')
         initTokenUsageTracking(wsManager)
         initAgentCommentBroadcasting(wsManager)
         initAgentTicketUpdateBroadcasting(wsManager)
-        await initAgentScheduler()
 
         // Start Bun server
         const server = Bun.serve({
@@ -378,6 +377,103 @@ void cli.usage('Usage: $0 [task]')
             }
         }
     })
+    .command('agent:service', 'Run an agent as background service', (yargs) =>
+        yargs.option('agent-id', {
+            alias: 'a',
+            demandOption: true,
+            describe: 'Agent ID from database',
+            type: 'string',
+        })
+    , async (argv) => {
+        await initConfig(config)
+        initDatabase()
+
+        const {AgentService} = await import('./lib/agent/service.ts')
+        const {loggerTransports} = await import('@garage44/common/service')
+        const service = new AgentService(argv.agentId)
+
+        // Initialize logger after config is loaded
+        const loggerInstance = loggerTransports(config.logger, 'agent-service')
+        service.setLogger(loggerInstance)
+
+        // Handle graceful shutdown
+        process.on('SIGINT', () => {
+            loggerInstance.info(`[AgentService] Received SIGINT, shutting down agent ${argv.agentId}...`)
+            service.stop()
+            process.exit(0)
+        })
+
+        process.on('SIGTERM', () => {
+            loggerInstance.info(`[AgentService] Received SIGTERM, shutting down agent ${argv.agentId}...`)
+            service.stop()
+            process.exit(0)
+        })
+
+        service.start()
+
+        // Keep process alive and log status periodically
+        setInterval(() => {
+            const status = service.getStatus()
+            loggerInstance.info(`[AgentService] Status: ${JSON.stringify(status)}`)
+        }, 60000) // Log status every minute
+    })
+    .command('agent:run', 'Run an agent interactively in foreground', (yargs) =>
+        yargs
+            .option('agent-id', {
+                alias: 'a',
+                demandOption: true,
+                describe: 'Agent ID from database',
+                type: 'string',
+            })
+            .option('interactive', {
+                alias: 'i',
+                describe: 'Run in interactive mode with real-time reasoning',
+                type: 'boolean',
+                default: true,
+            })
+            .option('ticket-id', {
+                alias: 't',
+                describe: 'Ticket ID to work on',
+                type: 'string',
+            })
+    , async (argv) => {
+        await initConfig(config)
+        initDatabase()
+
+        const {getAgentById} = await import('./lib/agent/index.ts')
+        const {runAgentInteractive, formatReasoningMessage, formatToolExecution, formatToolResult} = await import('./lib/cli/interactive.ts')
+        const {runAgent} = await import('./lib/agent/scheduler.ts')
+
+        const agent = getAgentById(argv.agentId)
+
+        if (!agent) {
+            console.error(`❌ Agent not found: ${argv.agentId}`)
+            process.exit(1)
+        }
+
+        const context: Record<string, unknown> = {}
+        if (argv.ticketId) {
+            context.ticketId = argv.ticketId
+        }
+
+        if (argv.interactive) {
+            await runAgentInteractive({
+                agent,
+                context,
+                onReasoning: (message) => {
+                    process.stdout.write(formatReasoningMessage(message))
+                },
+                onToolExecution: (toolName, params) => {
+                    process.stdout.write(formatToolExecution(toolName, params))
+                },
+                onToolResult: (toolName, result) => {
+                    process.stdout.write(formatToolResult(toolName, result.success, result.error))
+                },
+            })
+        } else {
+            await runAgent(argv.agentId, context)
+        }
+    })
     .command('agent:list', 'List all available agents', async () => {
         await initConfig(config)
         await initDatabase()
@@ -393,9 +489,10 @@ void cli.usage('Usage: $0 [task]')
         console.log('\n📋 Available Agents:\n')
         for (const agent of agents) {
             const status = agent.enabled ? '✅ Enabled' : '❌ Disabled'
-            console.log(`  ${agent.name} (${agent.type}) - ${status}`)
+            console.log(`  ${agent.name} (${agent.type})`)
+            console.log(`    ID: ${agent.id}`)
+            console.log(`    Status: ${status}\n`)
         }
-        console.log()
     })
     .command('agent:trigger', 'Trigger an agent to process work', (yargs) =>
         yargs

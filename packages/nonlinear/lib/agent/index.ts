@@ -6,64 +6,88 @@ import {PrioritizerAgent} from './prioritizer.ts'
 import {DeveloperAgent} from './developer.ts'
 import {ReviewerAgent} from './reviewer.ts'
 import type {BaseAgent} from './base.ts'
-import {config} from '../config.ts'
 import {db} from '../database.ts'
 
-// Agent instances (singletons)
-let prioritizerAgent: PrioritizerAgent | null = null
-let developerAgent: DeveloperAgent | null = null
-let reviewerAgent: ReviewerAgent | null = null
+// Agent instances cache (by ID)
+const agentInstances = new Map<string, BaseAgent>()
 
 /**
- * Get agent instance by type
- * Creates singleton instances and loads agent config from database
+ * Get agent instance by database ID
+ * Creates instances and loads agent config from database
  */
-export function getAgent(type: 'prioritizer' | 'developer' | 'reviewer'): BaseAgent | null {
-    switch (type) {
-        case 'prioritizer':
-            if (!prioritizerAgent) {
-                // Try to get agent config from database
-                const agentConfig = getAgentConfig('prioritizer')
-                prioritizerAgent = new PrioritizerAgent(agentConfig)
-            }
-            return prioritizerAgent
-        case 'developer':
-            if (!developerAgent) {
-                const agentConfig = getAgentConfig('developer')
-                developerAgent = new DeveloperAgent(agentConfig)
-            }
-            return developerAgent
-        case 'reviewer':
-            if (!reviewerAgent) {
-                const agentConfig = getAgentConfig('reviewer')
-                reviewerAgent = new ReviewerAgent(agentConfig)
-            }
-            return reviewerAgent
+export function getAgentById(agentId: string): BaseAgent | null {
+    // Check cache first
+    if (agentInstances.has(agentId)) {
+        return agentInstances.get(agentId) || null
     }
+
+    // Load agent from database
+    const agentRecord = db.prepare(`
+        SELECT id, name, type, config, enabled
+        FROM agents
+        WHERE id = ?
+    `).get(agentId) as {
+        config: string
+        enabled: number
+        id: string
+        name: string
+        type: 'prioritizer' | 'developer' | 'reviewer'
+    } | undefined
+
+    if (!agentRecord) {
+        return null
+    }
+
+    // Parse agent config
+    let agentConfig: {skills?: string[]; tools?: string[]} | undefined
+    try {
+        if (agentRecord.config) {
+            agentConfig = JSON.parse(agentRecord.config)
+        }
+    } catch {
+        // Invalid JSON, use undefined
+    }
+
+    // Create agent instance based on type
+    let agent: BaseAgent
+    switch (agentRecord.type) {
+        case 'prioritizer':
+            agent = new PrioritizerAgent(agentConfig)
+            break
+        case 'developer':
+            agent = new DeveloperAgent(agentConfig)
+            break
+        case 'reviewer':
+            agent = new ReviewerAgent(agentConfig)
+            break
+        default:
+            return null
+    }
+
+    // Cache instance
+    agentInstances.set(agentId, agent)
+
+    return agent
 }
 
 /**
- * Get agent configuration from database
+ * Get agent instance by type (backward compatibility)
+ * @deprecated Use getAgentById() instead
  */
-function getAgentConfig(type: 'prioritizer' | 'developer' | 'reviewer'): {skills?: string[]; tools?: string[]} | undefined {
-    try {
-        const agent = db.prepare('SELECT config FROM agents WHERE type = ? LIMIT 1').get(type) as {
-            config: string
-        } | undefined
+export function getAgent(type: 'prioritizer' | 'developer' | 'reviewer'): BaseAgent | null {
+    // Find first agent of this type
+    const agentRecord = db.prepare(`
+        SELECT id
+        FROM agents
+        WHERE type = ? AND enabled = 1
+        LIMIT 1
+    `).get(type) as {id: string} | undefined
 
-        if (agent?.config) {
-            try {
-                return JSON.parse(agent.config)
-            } catch {
-                return undefined
-            }
-        }
-    } catch {
-        // Database might not be initialized or table doesn't exist
-        return undefined
+    if (!agentRecord) {
+        return null
     }
 
-    return undefined
+    return getAgentById(agentRecord.id)
 }
 
 // Export agent classes

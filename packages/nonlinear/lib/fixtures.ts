@@ -11,6 +11,7 @@ import {join, relative, dirname} from 'path'
 import {fileURLToPath} from 'url'
 import {queueIndexingJob} from './indexing/queue.ts'
 import type {Database} from 'bun:sqlite'
+import {DEFAULT_AVATARS} from './agent/avatars.ts'
 
 /**
  * Initialize fixtures in development mode when database is empty
@@ -33,13 +34,76 @@ export async function initializeFixtures(db: Database, _workspaceRoot: string): 
     // Create garage44 workspace
     const workspaceId = await createGarage44Workspace(db, finalWorkspaceRoot)
 
+    // Create default agents first
+    await createDefaultAgents(db)
+
     // Create preset tickets first (for early testing)
     await createPresetTickets(db, workspaceId)
 
     // Import fixture docs (takes longer due to embeddings)
     await importFixtureDocs(db, finalWorkspaceRoot, workspaceId)
 
-    logger.info('[Fixtures] Initialized garage44 workspace with tickets and docs')
+    logger.info('[Fixtures] Initialized garage44 workspace with agents, tickets and docs')
+}
+
+/**
+ * Create default agents
+ */
+async function createDefaultAgents(db: Database): Promise<void> {
+    // Check if agents already exist
+    const existingAgents = db.prepare('SELECT id FROM agents LIMIT 1').get()
+    if (existingAgents) {
+        logger.info('[Fixtures] Agents already exist, skipping default agent creation')
+        return
+    }
+
+    const now = Date.now()
+
+    const defaultAgents = [
+        {
+            avatar: DEFAULT_AVATARS.prioritizer,
+            display_name: 'Prioritizer Agent',
+            id: randomId(),
+            name: 'Prioritizer',
+            status: 'idle',
+            type: 'prioritizer' as const,
+        },
+        {
+            avatar: DEFAULT_AVATARS.developer,
+            display_name: 'Developer Agent',
+            id: randomId(),
+            name: 'Developer',
+            status: 'idle',
+            type: 'developer' as const,
+        },
+        {
+            avatar: DEFAULT_AVATARS.reviewer,
+            display_name: 'Reviewer Agent',
+            id: randomId(),
+            name: 'Reviewer',
+            status: 'idle',
+            type: 'reviewer' as const,
+        },
+    ]
+
+    for (const agent of defaultAgents) {
+        db.prepare(`
+            INSERT INTO agents (id, name, type, config, enabled, avatar, display_name, status, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+            agent.id,
+            agent.name,
+            agent.type,
+            JSON.stringify({}),
+            1,
+            agent.avatar,
+            agent.display_name,
+            agent.status,
+            now,
+        )
+    }
+
+    logger.info('[Fixtures] Created default agents')
 }
 
 async function createGarage44Workspace(

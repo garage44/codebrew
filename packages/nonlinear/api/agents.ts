@@ -5,17 +5,12 @@
 import type {WebSocketServerManager} from '@garage44/common/lib/ws-server'
 import {db} from '../lib/database.ts'
 import {logger} from '../service.ts'
-import {getAgent as getAgentInstance} from '../lib/agent/index.ts'
+import {getAgentById} from '../lib/agent/index.ts'
 import {randomId} from '@garage44/common/lib/utils'
 import {getAgentStatus} from '../lib/agent/status.ts'
 import {DEFAULT_AVATARS} from '../lib/agent/avatars.ts'
 import {getTokenUsage} from '../lib/agent/token-usage.ts'
 import {config} from '../lib/config.ts'
-
-// Use shared getAgent function
-function getAgent(type: 'prioritizer' | 'developer' | 'reviewer') {
-    return getAgentInstance(type)
-}
 
 export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManager) {
     // Get all agents
@@ -139,15 +134,9 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
             throw new Error('Agent is disabled')
         }
 
-        // Parse agent config for tools/skills
-        let agentConfig: {skills?: string[]; tools?: string[]} | undefined
-        try {
-            agentConfig = JSON.parse(agent.config || '{}')
-        } catch {
-            agentConfig = undefined
-        }
+        /* Parse agent config for tools/skills (not used here but may be needed in future) */
 
-        const agentInstance = getAgent(agent.type)
+        const agentInstance = getAgentById(agent.id)
 
         logger.info(`[API] Triggering agent ${agent.name} (${agent.type})`)
 
@@ -232,7 +221,7 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
             UPDATE agents
             SET ${fields.join(', ')}
             WHERE id = ?
-        `).run(...values)
+        `).run(...(values as Array<string | number>))
 
         const agent = db.prepare('SELECT * FROM agents WHERE id = ?').get(agentId)
 
@@ -332,7 +321,7 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
                 throw new Error(error.error?.message || `API error: ${response.status}`)
             }
 
-            const data = await response.json()
+            const _data = await response.json()
 
             if (limitHeader && remainingHeader) {
                 const {updateUsageFromHeaders} = await import('../lib/agent/token-usage.ts')
