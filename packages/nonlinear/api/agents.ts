@@ -5,38 +5,16 @@
 import type {WebSocketServerManager} from '@garage44/common/lib/ws-server'
 import {db} from '../lib/database.ts'
 import {logger} from '../service.ts'
-import {PrioritizerAgent} from '../lib/agent/prioritizer.ts'
-import {DeveloperAgent} from '../lib/agent/developer.ts'
-import {ReviewerAgent} from '../lib/agent/reviewer.ts'
+import {getAgent as getAgentInstance} from '../lib/agent/index.ts'
 import {randomId} from '@garage44/common/lib/utils'
 import {getAgentStatus} from '../lib/agent/status.ts'
 import {DEFAULT_AVATARS} from '../lib/agent/avatars.ts'
 import {getTokenUsage} from '../lib/agent/token-usage.ts'
 import {config} from '../lib/config.ts'
 
-// Agent instances (singletons)
-let prioritizerAgent: PrioritizerAgent | null = null
-let developerAgent: DeveloperAgent | null = null
-let reviewerAgent: ReviewerAgent | null = null
-
+// Use shared getAgent function
 function getAgent(type: 'prioritizer' | 'developer' | 'reviewer') {
-    switch (type) {
-        case 'prioritizer':
-            if (!prioritizerAgent) {
-                prioritizerAgent = new PrioritizerAgent()
-            }
-            return prioritizerAgent
-        case 'developer':
-            if (!developerAgent) {
-                developerAgent = new DeveloperAgent()
-            }
-            return developerAgent
-        case 'reviewer':
-            if (!reviewerAgent) {
-                reviewerAgent = new ReviewerAgent()
-            }
-            return reviewerAgent
-    }
+    return getAgentInstance(type)
 }
 
 export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManager) {
@@ -63,10 +41,10 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
             return {
                 ...agent,
                 avatar: agent.avatar || DEFAULT_AVATARS[agent.type],
-                display_name: agent.display_name || `${agent.name} Agent`,
-                status: status?.status || (agent.status as 'idle' | 'working' | 'error' | 'offline') || 'idle',
                 currentTicketId: status?.currentTicketId || null,
+                display_name: agent.display_name || `${agent.name} Agent`,
                 lastActivity: status?.lastActivity || agent.created_at,
+                status: status?.status || (agent.status as 'idle' | 'working' | 'error' | 'offline') || 'idle',
             }
         })
 
@@ -139,12 +117,14 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
         }
     })
 
-    // Trigger agent to process work
+    // Trigger agent to process work (with streaming support)
     wsManager.api.post('/api/agents/:id/trigger', async(ctx, req) => {
         const agentId = req.params.id
         const context = req.data as Record<string, unknown> || {}
+        const stream = req.query?.stream === 'true'
 
         const agent = db.prepare('SELECT * FROM agents WHERE id = ?').get(agentId) as {
+            config: string
             enabled: number
             id: string
             name: string
@@ -159,9 +139,35 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
             throw new Error('Agent is disabled')
         }
 
+        // Parse agent config for tools/skills
+        let agentConfig: {skills?: string[]; tools?: string[]} | undefined
+        try {
+            agentConfig = JSON.parse(agent.config || '{}')
+        } catch {
+            agentConfig = undefined
+        }
+
         const agentInstance = getAgent(agent.type)
 
         logger.info(`[API] Triggering agent ${agent.name} (${agent.type})`)
+
+        // Set up streaming if requested
+        if (stream) {
+            const {createReasoningStream} = await import('../lib/cli/interactive.ts')
+            const reasoningMessages: string[] = []
+
+            const stream = createReasoningStream((message) => {
+                reasoningMessages.push(message)
+                // Broadcast reasoning in real-time
+                wsManager.broadcast('/agents', {
+                    agentId: agent.id,
+                    message,
+                    type: 'agent:reasoning',
+                })
+            })
+
+            agentInstance.setStream(stream)
+        }
 
         // Run agent asynchronously
         agentInstance.process(context).then((result) => {
@@ -177,7 +183,7 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
             // Broadcast agent error
             wsManager.broadcast('/agents', {
                 agentId: agent.id,
-                error: error.message,
+                error: error instanceof Error ? error.message : String(error),
                 type: 'agent:error',
             })
 
@@ -186,6 +192,7 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
 
         return {
             message: `Agent ${agent.name} triggered`,
+            streaming: stream,
             success: true,
         }
     })
@@ -284,22 +291,22 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
 
         try {
             const response = await fetch('https://api.anthropic.com/v1/messages', {
-                method: 'POST',
+                body: JSON.stringify({
+                    max_tokens: 10,
+                    messages: [
+                        {
+                            content: 'Say "test"',
+                            role: 'user',
+                        },
+                    ],
+                    model: config.anthropic.model || 'claude-3-5-sonnet-20241022',
+                }),
                 headers: {
                     'anthropic-version': '2023-06-01',
                     'content-type': 'application/json',
                     'x-api-key': apiKey,
                 },
-                body: JSON.stringify({
-                    model: config.anthropic.model || 'claude-3-5-sonnet-20241022',
-                    max_tokens: 10,
-                    messages: [
-                        {
-                            role: 'user',
-                            content: 'Say "test"',
-                        },
-                    ],
-                }),
+                method: 'POST',
             })
 
             logger.info(`[API] Test API call response status: ${response.status}`)
@@ -315,7 +322,7 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
             const remainingHeader = response.headers.get('anthropic-ratelimit-tokens-remaining')
             const resetHeader = response.headers.get('anthropic-ratelimit-tokens-reset')
 
-            logger.info(`[API] Rate limit headers:`)
+            logger.info('[API] Rate limit headers:')
             logger.info(`  limit: ${limitHeader}`)
             logger.info(`  remaining: ${remainingHeader}`)
             logger.info(`  reset: ${resetHeader}`)
@@ -337,16 +344,16 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
             }
 
             return {
-                success: true,
-                message: 'Test API call completed',
                 headers: {
                     limit: limitHeader,
                     remaining: remainingHeader,
                     reset: resetHeader,
                 },
+                message: 'Test API call completed',
+                success: true,
                 usage: getTokenUsage(),
             }
-        } catch (error) {
+        } catch(error) {
             logger.error(`[API] Test API call failed: ${error}`)
             throw error
         }

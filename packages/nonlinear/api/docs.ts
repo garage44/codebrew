@@ -6,7 +6,7 @@ import type {WebSocketServerManager} from '@garage44/common/lib/ws-server'
 import {db, getLabelDefinition} from '../lib/database.ts'
 import {randomId} from '@garage44/common/lib/utils'
 import {logger} from '../service.ts'
-import {generateDocEmbeddings} from '../lib/docs/embeddings.ts'
+import {queueIndexingJob} from '../lib/indexing/queue.ts'
 import {unifiedVectorSearch, searchDocs, searchTickets} from '../lib/docs/search.ts'
 import type {DocFilters} from '../lib/docs/search.ts'
 
@@ -334,7 +334,11 @@ export function registerDocsWebSocketApiRoutes(wsManager: WebSocketServerManager
 
             // Generate embeddings
             try {
-                await generateDocEmbeddings(docId, body.content)
+                // Queue indexing job (processed by indexing service)
+                await queueIndexingJob({
+                    type: 'doc',
+                    docId,
+                })
             } catch (error) {
                 logger.warn(`[Docs API] Failed to generate embeddings for ${docId}:`, error)
                 // Continue anyway - embeddings can be regenerated later
@@ -421,7 +425,11 @@ export function registerDocsWebSocketApiRoutes(wsManager: WebSocketServerManager
 
             // Regenerate embeddings
             try {
-                await generateDocEmbeddings(docId, body.content)
+                // Queue indexing job (processed by indexing service)
+                await queueIndexingJob({
+                    type: 'doc',
+                    docId,
+                })
             } catch (error) {
                 logger.warn(`[Docs API] Failed to regenerate embeddings for ${docId}:`, error)
             }

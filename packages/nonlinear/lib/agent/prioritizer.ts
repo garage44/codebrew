@@ -10,8 +10,8 @@ import {addAgentComment} from './comments.ts'
 import {updateTicketFromAgent} from './ticket-updates.ts'
 
 export class PrioritizerAgent extends BaseAgent {
-    constructor() {
-        super('Prioritizer', 'prioritizer')
+    constructor(agentConfig?: {tools?: string[]; skills?: string[]}) {
+        super('Prioritizer', 'prioritizer', agentConfig)
     }
 
     async process(context: AgentContext): Promise<AgentResponse> {

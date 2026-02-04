@@ -279,6 +279,182 @@ void cli.usage('Usage: $0 [task]')
         const {rules} = await import('./lib/deploy/rules')
         await rules()
     })
+    .command('indexing', 'Start the indexing service (processes indexing jobs)', async () => {
+        await initConfig(config)
+        initDatabase()
+
+        const {IndexingService} = await import('./lib/indexing/service.ts')
+        const {loggerTransports} = await import('@garage44/common/service')
+        const service = new IndexingService()
+
+        // Initialize logger after config is loaded
+        const loggerInstance = loggerTransports(config.logger, 'service')
+        service.setLogger(loggerInstance)
+
+        // Handle graceful shutdown
+        process.on('SIGINT', () => {
+            loggerInstance.info('[IndexingService] Received SIGINT, shutting down...')
+            service.stop()
+            process.exit(0)
+        })
+
+        process.on('SIGTERM', () => {
+            loggerInstance.info('[IndexingService] Received SIGTERM, shutting down...')
+            service.stop()
+            process.exit(0)
+        })
+
+        service.start()
+
+        // Keep process alive and log status periodically
+        setInterval(() => {
+            const status = service.getStatus()
+            loggerInstance.info(`[IndexingService] Status: ${status.pendingJobs} pending, ${status.processingJobs} processing, ${status.failedJobs} failed`)
+        }, 60000) // Log status every minute
+    })
+    .command('agent', 'Run an agent interactively', (yargs) =>
+        yargs
+            .option('ticket-id', {
+                alias: 't',
+                describe: 'Ticket ID to work on',
+                type: 'string',
+            })
+            .option('agent-type', {
+                alias: 'a',
+                describe: 'Agent type (developer, prioritizer, reviewer)',
+                type: 'string',
+                default: 'developer',
+            })
+            .option('interactive', {
+                alias: 'i',
+                describe: 'Run in interactive mode with real-time reasoning',
+                type: 'boolean',
+                default: true,
+            })
+    , async (argv) => {
+        await initConfig(config)
+        await initDatabase()
+
+        const {getAgent} = await import('./lib/agent/index.ts')
+        const {runAgentInteractive, formatReasoningMessage, formatToolExecution, formatToolResult} = await import('./lib/cli/interactive.ts')
+
+        const agentType = argv.agentType as 'developer' | 'prioritizer' | 'reviewer'
+        const agent = getAgent(agentType)
+
+        if (!agent) {
+            console.error(`❌ Agent type not found: ${agentType}`)
+            process.exit(1)
+        }
+
+        const context: Record<string, unknown> = {}
+        if (argv.ticketId) {
+            context.ticketId = argv.ticketId
+        }
+
+        if (argv.interactive) {
+            console.log(`\n🚀 Starting ${agentType} agent interactively...\n`)
+
+            await runAgentInteractive({
+                agent,
+                context,
+                onReasoning: (message) => {
+                    process.stdout.write(formatReasoningMessage(message))
+                },
+                onToolExecution: (toolName, params) => {
+                    process.stdout.write(formatToolExecution(toolName, params))
+                },
+                onToolResult: (toolName, result) => {
+                    process.stdout.write(formatToolResult(toolName, result.success, result.error))
+                },
+            })
+        } else {
+            // Non-interactive mode
+            const result = await agent.process(context)
+            if (result.success) {
+                console.log(`✅ Agent completed: ${result.message}`)
+            } else {
+                console.error(`❌ Agent failed: ${result.error || result.message}`)
+                process.exit(1)
+            }
+        }
+    })
+    .command('agent:list', 'List all available agents', async () => {
+        await initConfig(config)
+        await initDatabase()
+
+        const {db} = await import('./lib/database.ts')
+        const agents = db.prepare('SELECT * FROM agents ORDER BY type, name').all() as Array<{
+            id: string
+            name: string
+            type: string
+            enabled: number
+        }>
+
+        console.log('\n📋 Available Agents:\n')
+        for (const agent of agents) {
+            const status = agent.enabled ? '✅ Enabled' : '❌ Disabled'
+            console.log(`  ${agent.name} (${agent.type}) - ${status}`)
+        }
+        console.log()
+    })
+    .command('agent:trigger', 'Trigger an agent to process work', (yargs) =>
+        yargs
+            .option('agent-id', {
+                alias: 'a',
+                describe: 'Agent ID',
+                type: 'string',
+                demandOption: true,
+            })
+            .option('ticket-id', {
+                alias: 't',
+                describe: 'Ticket ID (optional)',
+                type: 'string',
+            })
+    , async (argv) => {
+        await initConfig(config)
+        await initDatabase()
+
+        const {db} = await import('./lib/database.ts')
+        const agent = db.prepare('SELECT * FROM agents WHERE id = ?').get(argv.agentId) as {
+            id: string
+            name: string
+            type: 'prioritizer' | 'developer' | 'reviewer'
+            enabled: number
+        } | undefined
+
+        if (!agent) {
+            console.error(`❌ Agent not found: ${argv.agentId}`)
+            process.exit(1)
+        }
+
+        if (!agent.enabled) {
+            console.error(`❌ Agent is disabled: ${agent.name}`)
+            process.exit(1)
+        }
+
+        const {getAgent} = await import('./lib/agent/index.ts')
+        const agentInstance = getAgent(agent.type)
+
+        if (!agentInstance) {
+            console.error(`❌ Agent instance not found: ${agent.type}`)
+            process.exit(1)
+        }
+
+        const context: Record<string, unknown> = {}
+        if (argv.ticketId) {
+            context.ticketId = argv.ticketId
+        }
+
+        console.log(`\n🚀 Triggering agent: ${agent.name} (${agent.type})\n`)
+        const result = await agentInstance.process(context)
+
+        if (result.success) {
+            console.log(`✅ Agent completed: ${result.message}`)
+        } else {
+            console.error(`❌ Agent failed: ${result.error || result.message}`)
+            process.exit(1)
+        }
+    })
     .demandCommand()
     .help('help')
     .showHelpOnFail(true)

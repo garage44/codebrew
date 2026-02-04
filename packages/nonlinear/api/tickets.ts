@@ -185,8 +185,12 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
 
         // Generate ticket embedding
         try {
-            const {generateTicketEmbedding} = await import('../lib/docs/embeddings.ts')
-            await generateTicketEmbedding(ticketId, title, description || null)
+            // Queue indexing job (processed by indexing service)
+            const {queueIndexingJob} = await import('../lib/indexing/queue.ts')
+            await queueIndexingJob({
+                type: 'ticket',
+                ticketId,
+            })
         } catch (error) {
             logger.warn(`[Tickets API] Failed to generate embedding for ticket ${ticketId}:`, error)
             // Continue anyway - embedding can be regenerated later
@@ -374,8 +378,12 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
                     description: string | null
                 } | undefined
                 if (ticket) {
-                    const {generateTicketEmbedding} = await import('../lib/docs/embeddings.ts')
-                    await generateTicketEmbedding(ticketId, ticket.title, ticket.description)
+                    // Queue indexing job (processed by indexing service)
+                    const {queueIndexingJob} = await import('../lib/indexing/queue.ts')
+                    await queueIndexingJob({
+                        type: 'ticket',
+                        ticketId,
+                    })
                 }
             } catch (error) {
                 logger.warn(`[Tickets API] Failed to regenerate embedding for ticket ${ticketId}:`, error)

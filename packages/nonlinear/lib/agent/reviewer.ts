@@ -10,8 +10,8 @@ import {createGitPlatform} from '../git/index.ts'
 import {addAgentComment} from './comments.ts'
 
 export class ReviewerAgent extends BaseAgent {
-    constructor() {
-        super('Reviewer', 'reviewer')
+    constructor(agentConfig?: {tools?: string[]; skills?: string[]}) {
+        super('Reviewer', 'reviewer', agentConfig)
     }
 
     async process(context: AgentContext): Promise<AgentResponse> {

@@ -14,8 +14,8 @@ import {$} from 'bun'
 import path from 'node:path'
 
 export class DeveloperAgent extends BaseAgent {
-    constructor() {
-        super('Developer', 'developer')
+    constructor(agentConfig?: {tools?: string[]}) {
+        super('Developer', 'developer', agentConfig)
     }
 
     async process(context: AgentContext): Promise<AgentResponse> {
@@ -96,28 +96,38 @@ export class DeveloperAgent extends BaseAgent {
             // Get repository context for implementation
             const repoContext = await this.getRepositoryContext(ticket.path)
 
-            // Generate implementation plan using LLM
+            // Build agent context for tools
+            const agentContext: AgentContext = {
+                ticketId: ticket.id,
+                repositoryId: ticket.repository_id,
+                repositoryPath: ticket.path,
+                branchName,
+            }
+
+            // Generate implementation plan using LLM with tools
             const systemPrompt = `You are a software development AI agent working on a Bun/TypeScript project.
 
 Your task is to:
 1. Understand the ticket requirements
-2. Analyze the codebase structure
-3. Implement the necessary changes
+2. Analyze the codebase structure using available tools
+3. Implement the necessary changes using file tools
 4. Write tests if needed
 5. Ensure code follows project conventions
 
-You can:
-- Read and analyze existing code
-- Create new files
-- Modify existing files
-- Run tests and linting
-- Fix any issues that arise
+You have access to tools for:
+- Reading and writing files (read_file, write_file)
+- Searching code semantically (search_code, find_similar_code)
+- Running commands and tests (run_command, run_tests, lint_code)
+- Git operations (git_status, git_branch, git_commit, git_create_mr)
 
-Respond with a JSON object containing:
-- plan: Step-by-step implementation plan
-- files_to_create: Array of files to create with their content
-- files_to_modify: Array of files to modify with changes
-- commands_to_run: Array of commands to run (e.g., tests, linting)`
+Use the tools to:
+1. Read relevant files to understand the codebase
+2. Search for similar code patterns if needed
+3. Create or modify files as required
+4. Run tests and linting to verify changes
+5. Commit changes and create merge request
+
+Work step by step, using tools to gather information and make changes.`
 
             const userMessage = `Implement this ticket:
 
@@ -127,9 +137,10 @@ Description: ${ticket.description || 'No description'}
 Repository Context:
 ${repoContext}
 
-Provide a detailed implementation plan and the code changes needed.`
+Use the available tools to implement this ticket. Start by reading relevant files to understand the codebase structure, then make the necessary changes.`
 
-            const response = await this.respond(systemPrompt, userMessage, 8192)
+            // Use tool-enabled response (will use tools automatically)
+            const response = await this.respondWithTools(systemPrompt, userMessage, 8192, agentContext)
 
             // Parse implementation plan
             let implementation: {

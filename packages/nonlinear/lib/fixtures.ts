@@ -9,7 +9,7 @@ import {extractWorkspacePackages} from './workspace.ts'
 import {readFileSync, existsSync, readdirSync} from 'fs'
 import {join, relative, dirname} from 'path'
 import {fileURLToPath} from 'url'
-import {generateDocEmbeddings} from './docs/embeddings.ts'
+import {queueIndexingJob} from './indexing/queue.ts'
 import type {Database} from 'bun:sqlite'
 
 /**
@@ -235,7 +235,11 @@ async function importDocsFromDirectory(
 
                 // Generate embeddings
                 try {
-                    await generateDocEmbeddings(docId, content)
+                    // Queue indexing job (processed by indexing service)
+                    await queueIndexingJob({
+                        docId,
+                        type: 'doc',
+                    })
                 } catch(error) {
                     logger.warn(`[Fixtures] Failed to generate embeddings for ${wikiPath}:`, error)
                 }

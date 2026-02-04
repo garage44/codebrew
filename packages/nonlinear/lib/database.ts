@@ -441,6 +441,65 @@ function createNonlinearTables() {
         logger.warn('[Database] Failed to create vec0 table (sqlite-vec may not be loaded):', error)
     }
 
+    // Code embeddings table (vec0 virtual table)
+    // Only create if sqlite-vec extension is loaded
+    try {
+        const embeddingDim = config.embeddings.dimension || (
+            config.embeddings.provider === 'local' ? 384 :
+            config.embeddings.provider === 'openai' ? 1536 : 1024
+        )
+
+        // Check if code_embeddings table exists
+        const existingCodeTable = db.prepare(`
+            SELECT name FROM sqlite_master
+            WHERE type='table' AND name='code_embeddings'
+        `).get()
+
+        if (!existingCodeTable) {
+            db.exec(`
+                CREATE VIRTUAL TABLE code_embeddings USING vec0(
+                    embedding float[${embeddingDim}],
+                    repository_id TEXT NOT NULL,
+                    file_path TEXT NOT NULL,
+                    file_hash TEXT NOT NULL,
+                    chunk_index INTEGER NOT NULL,
+                    chunk_type TEXT,
+                    chunk_name TEXT,
+                    chunk_text TEXT NOT NULL,
+                    start_line INTEGER,
+                    end_line INTEGER,
+                    metadata TEXT
+                )
+            `)
+            logger.info(`[Database] Created code_embeddings vec0 table (dimension: ${embeddingDim})`)
+        }
+    } catch (error) {
+        logger.warn('[Database] Failed to create code_embeddings table (sqlite-vec may not be loaded):', error)
+    }
+
+    // Indexing jobs table
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS indexing_jobs (
+            id TEXT PRIMARY KEY,
+            type TEXT NOT NULL,
+            repository_id TEXT,
+            file_path TEXT,
+            doc_id TEXT,
+            ticket_id TEXT,
+            status TEXT NOT NULL,
+            created_at INTEGER NOT NULL,
+            started_at INTEGER,
+            completed_at INTEGER,
+            error TEXT,
+            FOREIGN KEY (repository_id) REFERENCES repositories(id)
+        )
+    `)
+
+    db.exec('CREATE INDEX IF NOT EXISTS idx_indexing_jobs_repo ON indexing_jobs(repository_id)')
+    db.exec('CREATE INDEX IF NOT EXISTS idx_indexing_jobs_status ON indexing_jobs(status)')
+    // Note: code_embeddings is a virtual table (vec0) and cannot have indexes created on it
+    // Virtual tables handle their own indexing internally
+
     // Initialize preset tags
     initializePresetTags()
 

@@ -13,6 +13,10 @@ import {
     searchTickets as searchTicketsVector,
     type DocFilters,
 } from '../docs/search.ts'
+import {loadTools, toolToAnthropic} from '../fixtures/tools/index.ts'
+import type {Tool, ToolContext, ToolResult} from '../fixtures/tools/types.ts'
+import {loadSkills, buildSkillSystemPrompt} from '../fixtures/skills/index.ts'
+import type {Skill} from '../fixtures/skills/types.ts'
 
 export interface AgentContext {
     ticketId?: string
@@ -34,8 +38,12 @@ export abstract class BaseAgent {
     protected model: string
     protected name: string
     protected type: 'prioritizer' | 'developer' | 'reviewer'
+    protected tools: Record<string, Tool> = {}
+    protected skills: Skill[] = []
+    protected stream?: WritableStream<string>
+    protected apiKey: string
 
-    constructor(name: string, type: 'prioritizer' | 'developer' | 'reviewer') {
+    constructor(name: string, type: 'prioritizer' | 'developer' | 'reviewer', agentConfig?: {tools?: string[]; skills?: string[]}) {
         this.name = name
         this.type = type
         this.model = config.anthropic.model || 'claude-3-5-sonnet-20241022'
@@ -45,9 +53,16 @@ export abstract class BaseAgent {
             throw new Error(`Anthropic API key not configured for agent ${name}. Set ANTHROPIC_API_KEY environment variable or configure in .nonlinearrc`)
         }
 
+        this.apiKey = apiKey
         this.client = new Anthropic({
             apiKey,
         })
+
+        // Load tools from fixtures based on config
+        this.tools = loadTools(agentConfig)
+
+        // Load skills from fixtures based on config
+        this.skills = loadSkills(agentConfig)
     }
 
     /**
@@ -139,8 +154,200 @@ ${result.doc.content}
     }
 
     /**
+     * Set streaming output for interactive CLI
+     */
+    setStream(stream: WritableStream<string>): void {
+        this.stream = stream
+    }
+
+    /**
+     * Stream reasoning message
+     */
+    protected async streamReasoning(message: string): Promise<void> {
+        if (this.stream) {
+            const writer = this.stream.getWriter()
+            await writer.write(`REASONING: ${message}\n`)
+            writer.releaseLock()
+        }
+    }
+
+    /**
+     * Build tool context for tool execution
+     * Subclasses should override to provide repository-specific context
+     */
+    protected buildToolContext(context?: AgentContext): ToolContext {
+        const toolContext: ToolContext = {
+            agent: this,
+        }
+
+        // Add context from AgentContext if provided
+        if (context) {
+            if (context.ticketId) {
+                toolContext.ticketId = context.ticketId
+            }
+            if (context.repositoryId) {
+                toolContext.repositoryId = context.repositoryId
+            }
+            if (context.branchName) {
+                toolContext.branchName = context.branchName
+            }
+            if (context.repositoryPath) {
+                toolContext.repositoryPath = context.repositoryPath as string
+            }
+        }
+
+        return toolContext
+    }
+
+    /**
+     * Execute a tool
+     */
+    protected async executeTool(
+        toolName: string,
+        params: Record<string, unknown>
+    ): Promise<ToolResult> {
+        const tool = this.tools[toolName]
+        if (!tool) {
+            throw new Error(`Tool not found: ${toolName}`)
+        }
+
+        await this.streamReasoning(`Executing tool: ${toolName}`)
+
+        const context = this.buildToolContext()
+        const result = await tool.execute(params, context)
+
+        await this.streamReasoning(`Tool ${toolName} completed: ${result.success ? 'success' : 'error'}`)
+
+        return result
+    }
+
+    /**
+     * Send a message to the LLM with tool use support
+     * Uses Anthropic's native tool use API
+     */
+    protected async respondWithTools(
+        systemPrompt: string,
+        userMessage: string,
+        maxTokens = 4096,
+        agentContext?: AgentContext
+    ): Promise<string> {
+        // Build enhanced system prompt with skills
+        const skillPrompt = buildSkillSystemPrompt(this.skills)
+        const enhancedSystemPrompt = skillPrompt
+            ? `${systemPrompt}\n\n${skillPrompt}`
+            : systemPrompt
+
+        const anthropicTools = Object.values(this.tools).map(toolToAnthropic)
+        const messages: Array<{role: 'user' | 'assistant', content: unknown}> = [
+            {role: 'user', content: userMessage}
+        ]
+
+        while (true) {
+            await this.streamReasoning('Calling Anthropic API with tools...')
+
+            const response = await fetch('https://api.anthropic.com/v1/messages', {
+                method: 'POST',
+                headers: {
+                    'anthropic-version': '2023-06-01',
+                    'content-type': 'application/json',
+                    'x-api-key': this.apiKey,
+                },
+                body: JSON.stringify({
+                    model: this.model,
+                    max_tokens: maxTokens,
+                    system: enhancedSystemPrompt,
+                    messages,
+                    tools: anthropicTools.length > 0 ? anthropicTools : undefined,
+                }),
+            })
+
+            if (!response.ok) {
+                const error = await response.json().catch(() => ({error: {message: 'Unknown error'}}))
+                throw new Error(error.error?.message || `API error: ${response.status}`)
+            }
+
+            const data = await response.json()
+
+            // Extract rate limit headers
+            const limitHeader = response.headers.get('anthropic-ratelimit-tokens-limit')
+            const remainingHeader = response.headers.get('anthropic-ratelimit-tokens-remaining')
+            const resetHeader = response.headers.get('anthropic-ratelimit-tokens-reset')
+
+            if (limitHeader && remainingHeader) {
+                const limit = parseInt(limitHeader, 10)
+                const remaining = parseInt(remainingHeader, 10)
+                const used = limit - remaining
+
+                logger.info(`[Agent ${this.name}] Token Usage: ${used}/${limit} (${remaining} remaining)`)
+
+                updateUsageFromHeaders({
+                    limit,
+                    remaining,
+                    reset: resetHeader || undefined,
+                })
+            }
+
+            // Handle tool_use content blocks
+            const toolUses = data.content.filter((c: {type: string}) => c.type === 'tool_use')
+            if (toolUses.length === 0) {
+                // Final text response
+                const textContent = data.content.find((c: {type: string}) => c.type === 'text')
+                if (textContent) {
+                    await this.streamReasoning('Received final response')
+                    return textContent.text
+                }
+                throw new Error('Unexpected response type from Anthropic API')
+            }
+
+            // Execute tools
+            await this.streamReasoning(`Executing ${toolUses.length} tool(s)...`)
+
+            const toolResults = await Promise.all(
+                toolUses.map(async (toolUse: {id: string; name: string; input: Record<string, unknown>}) => {
+                    const tool = this.tools[toolUse.name]
+                    if (!tool) {
+                        await this.streamReasoning(`ERROR: Tool not found: ${toolUse.name}`)
+                        return {
+                            tool_use_id: toolUse.id,
+                            content: 'Tool not found',
+                            is_error: true,
+                        }
+                    }
+
+                    await this.streamReasoning(`Executing tool: ${toolUse.name}`)
+                    const toolContext = this.buildToolContext(agentContext)
+                    const result = await tool.execute(toolUse.input, toolContext)
+                    await this.streamReasoning(`Tool ${toolUse.name} completed: ${result.success ? 'success' : 'error'}`)
+
+                    return {
+                        tool_use_id: toolUse.id,
+                        content: JSON.stringify({
+                            success: result.success,
+                            data: result.data,
+                            context: result.context,
+                        }),
+                    }
+                })
+            )
+
+            // Add assistant message with tool uses
+            messages.push({
+                role: 'assistant',
+                content: data.content,
+            })
+
+            // Add user message with tool results
+            messages.push({
+                role: 'user',
+                content: toolResults,
+            })
+        }
+    }
+
+    /**
      * Send a message to the LLM and get a response
      * Uses raw fetch to access rate limit headers
+     * For backward compatibility - use respondWithTools for tool support
      */
     protected async respond(systemPrompt: string, userMessage: string, maxTokens = 4096): Promise<string> {
         try {
