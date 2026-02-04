@@ -52,6 +52,9 @@ AI Decision Records (ADRs) are structured documents that capture important archi
 | [022](./022-nonlinear-labels-assignees.md) | Nonlinear - Label System and Multiple Assignees Workflow | Architecture | Proposed | 2025-01-27 |
 | [023](./023-wiki-vector-search.md) | Wiki System with Vector Search for Agent-Human Collaboration | Architecture | Accepted | 2026-02-01 |
 | [024](./024-malkovich-migration.md) | Malkovich Migration to Nonlinear | Architecture | Proposed | 2025-01-27 |
+| [027](./027-developer-agent-tools-and-planning.md) | Developer Agent Tools and Planning Workflow | Architecture | Proposed | 2025-02-05 |
+| [028](./028-agent-mention-websocket-push.md) | Agent Mention Processing with WebSocket Push | Architecture | Proposed | 2025-02-04 |
+| [029](./029-websocket-robustness-and-protocol-docs.md) | WebSocket Robustness Improvements and Protocol Documentation | Architecture | Proposed | 2025-02-04 |
 
 ### ADRs by Decision Type
 
@@ -75,6 +78,9 @@ AI Decision Records (ADRs) are structured documents that capture important archi
 - [ADR-022](./022-nonlinear-labels-assignees.md): Nonlinear - Label System and Multiple Assignees Workflow
 - [ADR-023](./023-wiki-vector-search.md): Wiki System with Vector Search for Agent-Human Collaboration
 - [ADR-024](./024-malkovich-migration.md): Malkovich Migration to Nonlinear
+- [ADR-027](./027-developer-agent-tools-and-planning.md): Developer Agent Tools and Planning Workflow
+- [ADR-028](./028-agent-mention-websocket-push.md): Agent Mention Processing with WebSocket Push
+- [ADR-029](./029-websocket-robustness-and-protocol-docs.md): WebSocket Robustness Improvements and Protocol Documentation
 - Pattern: [Architecture Pattern](./guide/PATTERNS.md#architecture-pattern)
 
 **Tool Adoption/Replacement** (Developer Tooling):
@@ -106,7 +112,8 @@ AI Decision Records (ADRs) are structured documents that capture important archi
 ### ADRs by Tag
 
 **Frontend**: ADR-004, ADR-011, ADR-012, ADR-013, ADR-014, ADR-016, ADR-019
-**Backend**: ADR-003, ADR-006, ADR-007, ADR-008, ADR-017
+**Real-time**: ADR-004, ADR-006, ADR-028, ADR-029
+**Backend**: ADR-003, ADR-006, ADR-007, ADR-008, ADR-017, ADR-028, ADR-029
 **Infrastructure**: ADR-001, ADR-003, ADR-005, ADR-007, ADR-010, ADR-011, ADR-017, ADR-024
 **Tooling**: ADR-003, ADR-007, ADR-010, ADR-011, ADR-019
 **Performance**: ADR-003, ADR-010, ADR-011
@@ -175,10 +182,10 @@ grep -i "technology adoption\|migration pattern" adr/guide/PATTERNS.md
 ```
 
 **By Topic**:
-- **Real-time/WebSocket**: ADR-004, ADR-006
+- **Real-time/WebSocket**: ADR-004, ADR-006, ADR-028, ADR-029
 - **Build/Runtime**: ADR-003, ADR-007, ADR-010
 - **Design System**: ADR-011, ADR-012, ADR-013, ADR-014
-- **Architecture**: ADR-001, ADR-004, ADR-008
+- **Architecture**: ADR-001, ADR-004, ADR-008, ADR-021, ADR-027, ADR-028, ADR-029
 - **Migration**: ADR-006, ADR-007, ADR-011
 
 ### For Humans
@@ -191,7 +198,7 @@ grep -i "technology adoption\|migration pattern" adr/guide/PATTERNS.md
 ## Common Decision Scenarios
 
 **Scenario: "Should I use REST or WebSocket for this API?"**
-- 📖 Read: ADR-004 (WebSocket Architecture), ADR-006 (WebSocket Migration)
+- 📖 Read: ADR-004 (WebSocket Architecture), ADR-006 (WebSocket Migration), ADR-028 (Agent WebSocket Push)
 - 🎯 Pattern: Architecture Pattern
 - ✅ Default: WebSocket for user-facing real-time features
 - 💡 Exception: REST acceptable for one-time operations
