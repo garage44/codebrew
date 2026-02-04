@@ -6,6 +6,8 @@ import {Translation} from '@/components/elements'
 import {pathHas} from '@garage44/common/lib/paths'
 import {tag_updated} from '@/lib/ui'
 import classnames from 'classnames'
+import {signal} from '@preact/signals'
+import {useRef} from 'preact/hooks'
 
 interface TranslationGroupType {
     [key: string]: unknown
@@ -42,6 +44,29 @@ function groupMatchesFilter(group: TranslationGroupType, id: string, filter: str
         }
     }
     return false
+}
+
+function GroupIdField({group, path}: {group: TranslationGroupType; path: string[]}) {
+    const idSignalRef = useRef(signal(group._id))
+    idSignalRef.current.value = group._id
+    return (
+        <FieldText
+            className='group-field'
+            model={idSignalRef.current}
+            onBlur={async() => {
+                const oldPath = path
+                const newPath = [...path.slice(0, -1), idSignalRef.current.value]
+                if (oldPath.join('.') !== newPath.join('.')) {
+                    await ws.put(`/api/workspaces/${$s.workspace.config.workspace_id}/paths`, {
+                        new_path: newPath,
+                        old_path: oldPath,
+                    })
+                }
+                tag_updated(newPath.join('.'))
+            }}
+            transform={(value) => value.toLocaleLowerCase().replaceAll(' ', '_')}
+        />
+    )
 }
 
 export function TranslationGroup({filter = '', group, level = 0, path, sort = 'asc'}: {
@@ -89,23 +114,7 @@ export function TranslationGroup({filter = '', group, level = 0, path, sort = 'a
         {level > 0 &&
             <div class='group-id'>
             <GroupActions className='vertical' group={group} path={path} />
-            {path.length > 0 &&
-                <FieldText
-                    className='group-field'
-                    model={group.$_id}
-                    onBlur={async() => {
-                        const oldPath = path
-                        const newPath = [...path.slice(0, -1), group._id]
-                        if (oldPath.join('.') !== newPath.join('.')) {
-                            await ws.put(`/api/workspaces/${$s.workspace.config.workspace_id}/paths`, {
-                                new_path: newPath,
-                                old_path: oldPath,
-                            })
-                        }
-                        tag_updated(newPath.join('.'))
-                    }}
-                    transform={(value) => value.toLocaleLowerCase().replaceAll(' ', '_')}
-                />}
+            {path.length > 0 && <GroupIdField group={group} path={path} />}
             </div>}
         <div class='group-value'>
             {entries.map(([id, subGroup]) => {

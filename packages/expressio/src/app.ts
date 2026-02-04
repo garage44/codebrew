@@ -1,4 +1,5 @@
-import {App, store} from '@garage44/common/app'
+import {App, api, logger, notifier, store} from '@garage44/common/app'
+import type {CommonState} from '@garage44/common/types'
 import {$t, createTypedI18n, i18nFormat} from '@garage44/expressio'
 import {h, render} from 'preact'
 import {persistantState, volatileState} from './lib/state'
@@ -9,7 +10,10 @@ import {type DeepSignal} from 'deepsignal'
 
 const $s = store.state as unknown as DeepSignal<ExpressioState>
 
-store.load(persistantState, volatileState)
+store.load(
+    persistantState as unknown as CommonState & Record<string, unknown>,
+    volatileState as unknown as CommonState & Record<string, unknown>,
+)
 
 const app = new App()
 
@@ -28,4 +32,4 @@ app.init(
  */
 const i18n = createTypedI18n(workspace)
 
-export {$s, app, i18n, $t}
+export {$s, app, api, i18n, logger, notifier, store, $t}

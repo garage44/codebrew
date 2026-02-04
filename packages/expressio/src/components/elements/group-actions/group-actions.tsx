@@ -3,7 +3,6 @@ import {notifier, ws} from '@garage44/common/app'
 import {randomId} from '@garage44/common/lib/utils'
 import classnames from 'classnames'
 import {$t} from '@garage44/expressio'
-import type {EnolaTag} from '../../../../lib/enola/types.ts'
 import {Icon} from '@garage44/common/components'
 import {pathCreate} from '@garage44/common/lib/paths'
 import {tag_updated} from '@/lib/ui'
@@ -79,10 +78,19 @@ export function GroupActions({className, group, path}: {className?: string; grou
                     group._collapsed = false
 
                     // Create a new tag
+                    const targetLanguagesArray = Array.isArray($s.workspace.config.languages.target) ?
+                            Array.from($s.workspace.config.languages.target) :
+                            []
+                    const targetLanguages = targetLanguagesArray as unknown as Array<{
+                        engine: 'anthropic' | 'deepl'
+                        formality: 'default' | 'more' | 'less'
+                        id: string
+                        name: string
+                    }>
                     const {ref} = pathCreate($s.workspace.i18n, targetPath, {
                         source: id,
                         target: {},
-                    } as EnolaTag, $s.workspace.config.languages.target)
+                    } as unknown as {cache?: string; source: string; target: Record<string, string>}, targetLanguages)
 
                     tag_updated(targetPath.join('.'))
 
@@ -107,8 +115,9 @@ export function GroupActions({className, group, path}: {className?: string; grou
                         })
 
                         if (result?.success) {
-                            const translatedCount = result.targets?.length || 0
-                            const cachedCount = result.cached?.length || 0
+                            const resultData = result as {cached?: unknown[]; success: boolean; targets?: unknown[]}
+                            const translatedCount = Array.isArray(resultData.targets) ? resultData.targets.length : 0
+                            const cachedCount = Array.isArray(resultData.cached) ? resultData.cached.length : 0
                             notifier.notify({
                                 message: `Translated ${translatedCount} tags (${cachedCount} cached)`,
                                 type: 'success',

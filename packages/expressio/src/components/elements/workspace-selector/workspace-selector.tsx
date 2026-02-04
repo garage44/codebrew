@@ -4,9 +4,25 @@ import {i18n} from '@/app'
 import {DirectoryBrowser} from '../directory-browser/directory-browser'
 import type {WorkspaceDescription} from '@/types'
 import classnames from 'classnames'
+import {signal} from '@preact/signals'
+import {useRef} from 'preact/hooks'
 
 interface WorkspaceSelectorProps {
     workspaces: WorkspaceDescription[]
+}
+
+function WorkspaceField({workspace}: {workspace: WorkspaceDescription}) {
+    const workspaceIdSignalRef = useRef(signal(workspace.workspace_id || ''))
+    workspaceIdSignalRef.current.value = workspace.workspace_id || ''
+    return (
+        <FieldText
+            autofocus={true}
+            model={workspaceIdSignalRef.current}
+            onChange={(value) => {
+                workspace.workspace_id = value
+            }}
+        />
+    )
 }
 
 export function WorkspaceSelector({workspaces}: WorkspaceSelectorProps) {
@@ -39,12 +55,7 @@ export function WorkspaceSelector({workspaces}: WorkspaceSelectorProps) {
                                 type='info'
                             />
                             {workspace.status === 'new' ?
-
-                                    <FieldText
-                                        autofocus={true}
-                                        model={workspace.$workspace_id}
-                                    /> :
-
+                                    <WorkspaceField workspace={workspace} /> :
                                     <div className='label'>
                                         {workspace.workspace_id}
                                     </div>}

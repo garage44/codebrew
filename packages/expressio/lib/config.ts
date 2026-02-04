@@ -73,8 +73,9 @@ async function saveConfig() {
     data.workspaces = workspaces.workspaces.map((i) => i.config.source_file)
 
     for (const engine of Object.values(data.enola.engines)) {
-        delete engine.usage
-        delete engine.active
+        const engineData = engine as {active?: unknown; usage?: unknown}
+        delete engineData.usage
+        delete engineData.active
     }
 
     await fs.writeFile(configPath, JSON.stringify(data, null, 4))

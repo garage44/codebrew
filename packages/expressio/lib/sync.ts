@@ -20,26 +20,31 @@ export async function syncLanguage(workspace, language, action) {
 
     keyMod(workspace.i18n, (_srcRef, _id, refPath) => {
         const {id, ref} = pathRef(workspace.i18n, refPath)
-        if (typeof ref[id] === 'object' && 'target' in ref[id]) {
+        const refId = ref[id] as {source?: string; target?: Record<string, string>}
+        if (typeof refId === 'object' && refId !== null && 'target' in refId && refId.target) {
             if (action === 'remove') {
-                if (language.id in ref[id].target) {
-                    delete ref[id].target[language.id]
+                if (language.id in refId.target) {
+                    delete refId.target[language.id]
                 }
             } else if (action === 'update') {
                 // These are still placeholders; no need to translate these.
-                if (ref[id].source.startsWith('tag')) {
-                    ref[id].target[language.id] = ref[id].source
-                } else {
-                    syncTags.push([ref[id], ref[id].source])
+                if (refId.source && refId.source.startsWith('tag')) {
+                    if (refId.target) {
+                        refId.target[language.id] = refId.source
+                    }
+                } else if (refId.source) {
+                    syncTags.push([refId as {source: string; target: Record<string, string>}, refId.source])
                 }
             }
         }
     })
 
     if (syncTags.length) {
-        const translations = await enola.translateBatch(language.engine, syncTags, language)
-        for (const [tag, translation] of translations) {
-            tag.target[language.id] = translation
+        const tags = syncTags.map(([tag]) => tag as {source: string; target: Record<string, string>})
+        const translations = await enola.translateBatch(language.engine, tags, language)
+        for (let i = 0; i < translations.length; i++) {
+            const tag = syncTags[i][0] as {target: Record<string, string>}
+            tag.target[language.id] = translations[i]
         }
     }
 

@@ -8,15 +8,16 @@ const LANGUAGE_PROCESSING_DELAY = 100
 
 async function translate_tag(workspace, tagPath: string[], sourceText: string, persist = true) {
     const {id, ref} = pathRef(workspace.i18n, tagPath)
+    const refId = ref[id] as {_soft?: boolean; cache?: string; source?: string; target?: Record<string, string>}
 
-    ref[id].source = sourceText
-    ref[id].cache = hash(sourceText)
+    refId.source = sourceText
+    refId.cache = hash(sourceText)
 
-    if (persist && ref[id]._soft) {
-        delete ref[id]._soft
+    if (persist && refId._soft) {
+        delete refId._soft
     }
-    if (!ref[id].target) {
-        ref[id].target = {}
+    if (!refId.target) {
+        refId.target = {}
     }
 
     const translations = []
@@ -26,7 +27,12 @@ async function translate_tag(workspace, tagPath: string[], sourceText: string, p
                 // This should be safeguarded by the UI, but just in case...
                 throw new Error(`No engine found for language ${language.id}`)
             }
-            const translation = await enola.translate(language.engine, ref[id], language)
+            const tag: EnolaTag = {
+                cache: refId.cache,
+                source: refId.source || '',
+                target: refId.target || {},
+            }
+            const translation = await enola.translate(language.engine, tag, language)
             translations.push(translation)
             // Add delay between languages
             if (workspace.config.languages.target.indexOf(language) < workspace.config.languages.target.length - 1) {
@@ -36,7 +42,12 @@ async function translate_tag(workspace, tagPath: string[], sourceText: string, p
             if (error.response?.status === 429) {
                 const retryAfter = error.response.headers['retry-after'] || 60
                 await new Promise((resolve) => setTimeout(resolve, retryAfter * 1000))
-                const retryTranslation = await enola.translate(language.engine, ref[id], language)
+                const retryTag: EnolaTag = {
+                    cache: refId.cache,
+                    source: refId.source || '',
+                    target: refId.target || {},
+                }
+                const retryTranslation = await enola.translate(language.engine, retryTag, language)
                 translations.push(retryTranslation)
             } else {
                 throw error
@@ -45,7 +56,9 @@ async function translate_tag(workspace, tagPath: string[], sourceText: string, p
     }
 
     for (const [index, language] of workspace.config.languages.target.entries()) {
-        ref[id].target[language.id] = translations[index]
+        if (refId.target) {
+            refId.target[language.id] = translations[index]
+        }
     }
 
     // After translation is complete, broadcast the updated state
@@ -62,20 +75,24 @@ async function translate_path(workspace, tagPath: string[], ignore_cache) {
         return {cached, targets, translations}
     }
 
+    // Extract tags from [Tag, string[]][] to EnolaTag[]
+    const tags = targets.map(([tag]) => tag as EnolaTag)
+
     // Add rate limiting and error handling for batch translation
     for (const language of workspace.config.languages.target) {
         try {
-            const translation = await enola.translateBatch(language.engine, targets, language)
+            const translation = await enola.translateBatch(language.engine, tags, language)
             translations.push(translation)
             // Add delay between languages
             if (workspace.config.languages.target.indexOf(language) < workspace.config.languages.target.length - 1) {
                 await new Promise((resolve) => setTimeout(resolve, LANGUAGE_PROCESSING_DELAY))
             }
         } catch(error) {
-            if (error.response?.status === 429) {
-                const retryAfter = error.response.headers['retry-after'] || 60
-                await new Promise((resolve) => setTimeout(resolve, retryAfter * 1000))
-                const retryTranslation = await enola.translateBatch(language.engine, targets, language)
+            const errorData = error as {response?: {headers?: Record<string, string>; status?: number}}
+            if (errorData.response?.status === 429) {
+                const retryAfter = errorData.response.headers?.['retry-after'] || '60'
+                await new Promise((resolve) => setTimeout(resolve, parseInt(retryAfter, 10) * 1000))
+                const retryTranslation = await enola.translateBatch(language.engine, tags, language)
                 translations.push(retryTranslation)
             } else {
                 throw error

@@ -119,7 +119,22 @@ events.on('app:init', () => {
     ws.on('/i18n/sync', ({create_tags, delete_tags, modify_tags}) => {
         for (const tag of create_tags) {
             const {path, value}: TagData = tag
-            pathCreate($s.workspace.i18n, path, value, $s.workspace.config.languages.target, value.target)
+            const targetLanguagesArray = Array.isArray($s.workspace.config.languages.target) ?
+                    Array.from($s.workspace.config.languages.target) :
+                    []
+            const targetLanguages = targetLanguagesArray as unknown as Array<{
+                engine: 'anthropic' | 'deepl'
+                formality: 'default' | 'more' | 'less'
+                id: string
+                name: string
+            }>
+            pathCreate(
+                $s.workspace.i18n,
+                path,
+                value as unknown as {cache?: string; source: string; target: Record<string, string>},
+                targetLanguages,
+                value.target,
+            )
         }
         for (const tag of delete_tags) {
             const {path}: {path: string[]} = tag
@@ -128,7 +143,7 @@ events.on('app:init', () => {
 
         for (const tag of modify_tags) {
             const {path, value}: TagData = tag
-            pathUpdate($s.workspace.i18n, path, value)
+            pathUpdate($s.workspace.i18n, path, value as unknown as Record<string, unknown>)
         }
     })
 
@@ -142,13 +157,12 @@ events.on('app:init', () => {
         /*
          * Check if this update is newer than our current state
          * This prevents race conditions if messages arrive out of order
-         * @ts-ignore: lastStateUpdateTime is attached dynamically
          */
-        if (!$s.workspace.lastStateUpdateTime || timestamp > ($s.workspace.lastStateUpdateTime ?? 0)) {
+        const workspaceWithTime = $s.workspace as typeof $s.workspace & {lastStateUpdateTime?: number}
+        if (!workspaceWithTime.lastStateUpdateTime || timestamp > (workspaceWithTime.lastStateUpdateTime ?? 0)) {
             // Apply the update
             $s.workspace.i18n = i18n
-            // @ts-ignore: lastStateUpdateTime is attached dynamically
-            $s.workspace.lastStateUpdateTime = timestamp
+            workspaceWithTime.lastStateUpdateTime = timestamp
         }
     })
 

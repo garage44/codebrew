@@ -99,13 +99,19 @@ export const Main = () => {
                 mergeDeep($s, {
                     enola: config.enola,
                     workspaces: config.workspaces,
-                }, {usage: {loading: false}})
+                })
 
                 // Auto-select first workspace if available and no workspace is selected
                 if (config.workspaces && config.workspaces.length > 0 && !state.workspace_id) {
                     const firstWorkspace = config.workspaces[0]
                     state.workspace_id = firstWorkspace.workspace_id
-                    $s.workspace = await ws.get(`/api/workspaces/${firstWorkspace.workspace_id}`)
+                    const workspaceResult = await ws.get(
+                        `/api/workspaces/${firstWorkspace.workspace_id}`,
+                    ) as {config: unknown; i18n: unknown; id: string}
+                    $s.workspace = {
+                        config: workspaceResult.config,
+                        i18n: workspaceResult.i18n,
+                    } as typeof $s.workspace
                     // RootRedirect component will handle redirect from '/' if needed
                 }
             } else {
@@ -134,7 +140,13 @@ export const Main = () => {
             if (!$s.workspace && $s.workspaces && $s.workspaces.length > 0) {
                 const firstWorkspace = $s.workspaces[0]
                 state.workspace_id = firstWorkspace.workspace_id
-                $s.workspace = await ws.get(`/api/workspaces/${firstWorkspace.workspace_id}`)
+                const workspaceResult = await ws.get(
+                    `/api/workspaces/${firstWorkspace.workspace_id}`,
+                ) as {config: unknown; i18n: unknown; id: string}
+                $s.workspace = {
+                    config: workspaceResult.config,
+                    i18n: workspaceResult.i18n,
+                } as typeof $s.workspace
             }
             return
         }
@@ -148,7 +160,13 @@ export const Main = () => {
             if (!$s.workspace && $s.workspaces && $s.workspaces.length > 0) {
                 const firstWorkspace = $s.workspaces[0]
                 state.workspace_id = firstWorkspace.workspace_id
-                $s.workspace = await ws.get(`/api/workspaces/${firstWorkspace.workspace_id}`)
+                const workspaceResult = await ws.get(
+                    `/api/workspaces/${firstWorkspace.workspace_id}`,
+                ) as {config: unknown; i18n: unknown; id: string}
+                $s.workspace = {
+                    config: workspaceResult.config,
+                    i18n: workspaceResult.i18n,
+                } as typeof $s.workspace
             }
             return
         }
@@ -156,7 +174,12 @@ export const Main = () => {
         // Handle full workspace routes (multi-workspace mode)
         const match = url.match(/\/workspaces\/([^/]+)/)
         if (match && (!$s.workspace || match[1] !== $s.workspace.config.workspace_id)) {
-            const result = await ws.get(`/api/workspaces/${match[1]}`)
+            const result = await ws.get(`/api/workspaces/${match[1]}`) as {
+                config: unknown
+                error?: string
+                i18n: unknown
+                id: string
+            }
 
             if (result.error) {
                 notifier.notify({message: $t(i18n.workspace.error.not_found), type: 'error'})
@@ -169,7 +192,10 @@ export const Main = () => {
                 }
             } else {
                 state.workspace_id = match[1]
-                $s.workspace = result
+                $s.workspace = {
+                    config: result.config,
+                    i18n: result.i18n,
+                } as typeof $s.workspace
             }
         }
     }
@@ -201,15 +227,26 @@ export const Main = () => {
                     footer={
                         !!Object.values($s.enola.engines).length &&
                         <div class='engines'>
-                            {Object.values($s.enola.engines).filter((i) => i.active).map((engine) => {
+                            {Object.values($s.enola.engines).filter((engine) => {
+                                const engineConfig = engine as {
+                                    active?: boolean
+                                    name?: string
+                                    usage?: {count: number; limit: number; loading?: boolean}
+                                }
+                                return engineConfig.active === true
+                            }).map((engine) => {
+                                const engineConfig = engine as {
+                                    name: string
+                                    usage: {count: number; limit: number; loading?: boolean}
+                                }
                                 return (
-                                    <div class='usage' key={engine.name}>
-                                        <span>{$t(i18n.menu.usage, {engine: engine.name})}</span>
+                                    <div class='usage' key={engineConfig.name}>
+                                        <span>{$t(i18n.menu.usage, {engine: engineConfig.name})}</span>
                                         <Progress
-                                            boundaries={[engine.usage.count, engine.usage.limit]}
+                                            boundaries={[engineConfig.usage.count, engineConfig.usage.limit]}
                                             iso6391={toIso6391($s.language_ui.selection)}
-                                            loading={engine.usage.loading}
-                                            percentage={engine.usage.count / engine.usage.limit}
+                                            loading={engineConfig.usage.loading || false}
+                                            percentage={engineConfig.usage.count / engineConfig.usage.limit}
                                         />
                                     </div>
                                 )
@@ -232,7 +269,13 @@ export const Main = () => {
                                     label={$t(i18n.menu.workspaces.label)}
                                     model={state.$workspace_id}
                                     onChange={async(workspace_id) => {
-                                        $s.workspace = (await ws.get(`/api/workspaces/${workspace_id}`))
+                                        const workspaceResult = await ws.get(
+                                            `/api/workspaces/${workspace_id}`,
+                                        ) as {config: unknown; i18n: unknown; id: string}
+                                        $s.workspace = {
+                                            config: workspaceResult.config,
+                                            i18n: workspaceResult.i18n,
+                                        } as typeof $s.workspace
                                         // Check if current route is valid for the new workspace
                                         const currentPath = getCurrentUrl()
                                         const isOnSettings = currentPath.endsWith('/settings') || currentPath === '/config'
@@ -282,18 +325,18 @@ export const Main = () => {
             <div class='view'>
                 <Router onChange={handleRoute}>
                     {/* Root redirect - must be first to catch / */}
-                    <RootRedirect path='/' />
+                    <RootRedirect />
 
                     {/* User settings - always at /settings */}
-                    <Settings path='/settings' />
+                    <Settings />
 
                     {/* Simplified routes for single workspace mode */}
-                    <WorkspaceTranslations path='/translations' />
-                    <WorkspaceSettings path='/config' />
+                    <WorkspaceTranslations />
+                    <WorkspaceSettings />
 
                     {/* Full workspace routes for multi-workspace mode */}
-                    <WorkspaceSettings path='/workspaces/:workspace/settings' />
-                    <WorkspaceTranslations path='/workspaces/:workspace/translations' />
+                    <WorkspaceSettings />
+                    <WorkspaceTranslations />
                 </Router>
             </div>
         </AppLayout>

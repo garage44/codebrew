@@ -59,10 +59,10 @@ export async function lintWorkspace(workspace, lintMode: 'sync' | 'lint') {
                 }
 
                 let {id, ref} = pathCreate(workspace.i18n, tagPath, {
-                    _id: lastKey,
                     _soft: true,
                     source: sourceText,
-                }, workspace.config.languages.target);
+                    target: {},
+                } as {cache?: string; source: string; target: Record<string, string>}, workspace.config.languages.target);
 
                 ({id, ref} = await translate_tag(workspace, tagPath, sourceText, false))
                 createTags.push({path: tagPath, value: ref[id]})
@@ -81,20 +81,22 @@ export async function lintWorkspace(workspace, lintMode: 'sync' | 'lint') {
     }
 
     for (const redundantTag of redundantTags) {
-        const tagPath = redundantTag.split('.')
+        const tagPath = (redundantTag as string).split('.')
         const ref = keyPath(workspace.i18n, tagPath)
-        if (typeof ref === 'object' && 'source' in ref) {
-            if (ref._soft) {
+        if (typeof ref === 'object' && ref !== null && 'source' in ref) {
+            const refData = ref as {_redundant?: boolean; _soft?: boolean; source: string}
+            if (refData._soft) {
                 if (lintMode === 'sync') {
                     // A soft tag can directly be removed.
                     pathDelete(workspace.i18n, tagPath)
                     deleteTags.push({path: tagPath, value: ref})
                 } else {
-                    deleteTags.push({file: filePath, match, path: tagPath})
+                    // In lint mode, we can't determine file/match for redundant tags
+                    deleteTags.push({path: tagPath})
                 }
             } else if (lintMode === 'sync') {
                 // A persistant tag is marked as redundant instead.
-                ref._redundant = true
+                refData._redundant = true
                 modifyTags.push({path: tagPath, value: ref})
             } else if (lintMode === 'lint') {
                 deleteTags.push({path: tagPath})

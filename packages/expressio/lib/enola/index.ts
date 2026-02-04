@@ -14,7 +14,11 @@ export class Enola {
         engines:{},
         languages: {
             source,
-            target,
+            target: target.map((lang) => ({
+                formality: Array.isArray(lang.formality) && lang.formality.length > 0,
+                id: lang.id,
+                name: lang.name,
+            })),
         },
     }
 
@@ -33,7 +37,7 @@ export class Enola {
 
         for (const [engine, options] of Object.entries(enolaConfig.engines)) {
             this.engines[engine] = new available_services[engine]()
-            await this.engines[engine].init(options, this.logger)
+            await this.engines[engine].init(options as {api_key: string; base_url: string}, this.logger)
             this.config.engines[engine] = this.engines[engine].config
         }
     }
@@ -72,7 +76,11 @@ export class Enola {
                 })
             }
         })
-        return await this.engines[engine].suggestion(tagPath, sourceText, similarTranslations)
+        const engineInstance = this.engines[engine]
+        if (engineInstance.suggestion) {
+            return await engineInstance.suggestion(tagPath, sourceText, similarTranslations)
+        }
+        throw new Error(`Engine ${engine} does not support suggestions`)
     }
 
     async translate(engine, tag:EnolaTag, targetLanguage:TargetLanguage) {

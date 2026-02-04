@@ -64,7 +64,7 @@ export default class Deepl implements EnolaEngine {
         this.config.active = false
     }
 
-    async suggestion() {
+    async suggestion(_tagPath: string[], _sourceText: string, _similarTranslations: Array<{path: string[]; source: string}>): Promise<string> {
         throw new Error('Deepl does not support LLM queries for context')
     }
 

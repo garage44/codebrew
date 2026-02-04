@@ -65,7 +65,7 @@ export class Workspace {
     private readonly BROADCAST_THROTTLE_TIME = 2000
 
     // Change i18n to be a private property with a proxied getter/setter
-    private _i18n: I18n = {}
+    private _i18n: I18n = {} as I18n
 
     private _addHistoryTimeout: ReturnType<typeof setTimeout> | null = null
 
@@ -76,23 +76,24 @@ export class Workspace {
         return new Proxy(obj, {
             deleteProperty: (target, prop) => {
                 if (prop in target && !this.isHistoryOperation) {
-                    delete target[prop]
+                    delete (target as Record<string | symbol, unknown>)[prop]
                     this.pendingChanges = true
                     this.trackOperation(onChange)
                 }
                 return true
             },
             get: (target, prop) => {
-                const value = target[prop]
+                const value = (target as Record<string | symbol, unknown>)[prop]
                 // Only proxy objects, not primitive values
                 if (value && typeof value === 'object' && !this.isHistoryOperation) {
-                    return this.createDeepProxy(value, onChange)
+                    return this.createDeepProxy(value as Record<string, unknown>, onChange)
                 }
                 return value
             },
             set: (target, prop, value) => {
-                const oldValue = target[prop]
-                target[prop] = value
+                const targetRecord = target as Record<string | symbol, unknown>
+                const oldValue = targetRecord[prop]
+                targetRecord[prop] = value
 
                 // If this is a real change and not part of a history operation
                 if (oldValue !== value && !this.isHistoryOperation) {
@@ -168,9 +169,9 @@ export class Workspace {
          */
         keyMod(newI18n, (_srcRef, _id, refPath) => {
             const sourceRef = keyPath(newI18n, refPath)
-            if (typeof sourceRef === 'object' && 'source' in sourceRef && refPath.length > 0) {
-                const pathString = `i18n.${refPath.join('.')}`
-                sourceRef[I18N_PATH_SYMBOL] = pathString
+            if (typeof sourceRef === 'object' && sourceRef !== null && 'source' in sourceRef && refPath.length > 0) {
+                const pathString = `i18n.${refPath.join('.')}`;
+                (sourceRef as Record<string | symbol, unknown>)[I18N_PATH_SYMBOL] = pathString
             }
         })
 
@@ -209,7 +210,7 @@ export class Workspace {
         const workspaceData = await this.load()
         this.config.workspace_id = workspaceData.config.workspace_id
 
-        mergeDeep(this.config, workspaceData.config)
+        mergeDeep(this.config as unknown as Record<string, unknown>, workspaceData.config as unknown as Record<string, unknown>)
         // This will now trigger our custom setter
         this.i18n = workspaceData.i18n
 
@@ -230,10 +231,11 @@ export class Workspace {
             const key = refPath.at(-1)
             const sourceRef = keyPath(i18n, refPath)
 
-            if (typeof sourceRef === 'object') {
+            if (typeof sourceRef === 'object' && sourceRef !== null) {
+                const sourceRefData = sourceRef as Record<string, unknown>
                 // The _id field is a copy of the key, used to buffer a key rename.
-                sourceRef._id = key || 'root'
-                sourceRef._collapsed = !!key
+                sourceRefData._id = key || 'root'
+                sourceRefData._collapsed = !!key
 
                 /*
                  * Attach path symbol for type-safe translation references
@@ -241,8 +243,8 @@ export class Workspace {
                  * Path format: i18n.path.to.translation
                  */
                 if ('source' in sourceRef && refPath.length > 0) {
-                    const pathString = `i18n.${refPath.join('.')}`
-                    sourceRef[I18N_PATH_SYMBOL] = pathString
+                    const pathString = `i18n.${refPath.join('.')}`;
+                    (sourceRef as Record<string | symbol, unknown>)[I18N_PATH_SYMBOL] = pathString
                 }
             }
         })
@@ -265,16 +267,25 @@ export class Workspace {
                 // Soft translation tags shall not pass
                 if ('source' in sourceRef && '_soft' in sourceRef) {
                     const parentRef = keyPath(i18n, refPath.slice(0, -1))
-                    delete parentRef[sourceRef._id]
+                    const sourceRefData = sourceRef as {_id?: string}
+                    if (parentRef && typeof parentRef === 'object' && sourceRefData._id) {
+                        delete (parentRef as Record<string, unknown>)[sourceRefData._id]
+                    }
                 }
 
                 // Strip all temporary state keys, before saving.
-                delete sourceRef._id
-                delete sourceRef._collapsed
-                if ('target' in sourceRef) {
-                    delete sourceRef.target._collapsed
+                const sourceRefData = sourceRef as Record<string, unknown> & {
+                    _collapsed?: unknown
+                    _id?: unknown
+                    _redundant?: unknown
+                    target?: {_collapsed?: unknown}
                 }
-                delete sourceRef._redundant
+                delete sourceRefData._id
+                delete sourceRefData._collapsed
+                if ('target' in sourceRefData && sourceRefData.target && typeof sourceRefData.target === 'object') {
+                    delete (sourceRefData.target as Record<string, unknown>)._collapsed
+                }
+                delete sourceRefData._redundant
             }
         })
 

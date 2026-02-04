@@ -98,7 +98,7 @@ export function registerWorkspacesWebSocketApiRoutes(wsManager: WebSocketServerM
         // Validate and get the path to browse
         let absPath: string
         try {
-            absPath = validateBrowsePath(request.data?.path)
+            absPath = validateBrowsePath((request.data as {path?: string})?.path)
         } catch(error: unknown) {
             const errorMessage = error instanceof Error ? error.message : String(error)
             logger.error(`[api] Invalid browse path: ${errorMessage}`)

@@ -1,6 +1,7 @@
 import {createFinalHandler} from '@garage44/common/lib/middleware'
 import {adminContext, deniedContext, userContext} from '@garage44/common/lib/profile.ts'
 import {createAvatarRoutes} from '@garage44/common/lib/avatar-routes'
+import type {Logger} from '@garage44/common/lib/logger.node'
 import {devContext} from '@garage44/common/lib/dev-context'
 import {userManager} from '@garage44/common/service'
 import {logger, runtime} from '../service.ts'
@@ -89,17 +90,30 @@ async function initMiddleware(_bunchyConfig) {
     // Register common avatar routes (placeholder images and uploaded avatars)
     const avatarRoutes = createAvatarRoutes({
         appName: 'expressio',
-        logger,
+        logger: logger as Logger | undefined,
         runtime,
     })
-    avatarRoutes.registerPlaceholderRoute(router)
-    avatarRoutes.registerAvatarRoute(router)
+    const routerAdapter = {
+        get: (path: string, handler: unknown) => {
+            router.get(path, handler as (req: Request, params: Record<string, string>, session?: Session) => Promise<Response>)
+        },
+    } as unknown as Parameters<typeof avatarRoutes.registerPlaceholderRoute>[0]
+    avatarRoutes.registerPlaceholderRoute(routerAdapter)
+    avatarRoutes.registerAvatarRoute(routerAdapter)
 
     // Register HTTP API endpoints using familiar Express-like pattern
-    await apiI18n(router)
-    await apiConfig(router)
-    await apiUsers(router)
-    await apiWorkspaces(router)
+    const httpRouterAdapter = {
+        get: (path: string, handler: (req: Request, params: Record<string, string>) => Response) => {
+            router.get(path, async(req: Request, params: Record<string, string>) => {
+                const response = handler(req, params)
+                return response instanceof Promise ? await response : response
+            })
+        },
+    } as Parameters<typeof apiI18n>[0]
+    await apiI18n(httpRouterAdapter)
+    await apiConfig(router as Parameters<typeof apiConfig>[0])
+    await apiUsers(router as Parameters<typeof apiUsers>[0])
+    await apiWorkspaces(router as Parameters<typeof apiWorkspaces>[0])
 
     const publicPath = path.join(runtime.service_dir, 'public')
 

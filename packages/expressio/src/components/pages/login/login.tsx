@@ -39,7 +39,7 @@ export const Login = () => {
                 mergeDeep($s, {
                     enola: config.enola,
                     workspaces: config.workspaces,
-                }, {usage: {loading: false}})
+                })
 
                 // Connect WebSocket first so we can load workspace
                 ws.connect()
@@ -50,7 +50,13 @@ export const Login = () => {
                  */
                 if (config.workspaces && config.workspaces.length > 0) {
                     const firstWorkspace = config.workspaces[0]
-                    $s.workspace = await ws.get(`/api/workspaces/${firstWorkspace.workspace_id}`)
+                    const workspaceResult = await ws.get(
+                        `/api/workspaces/${firstWorkspace.workspace_id}`,
+                    ) as {config: unknown; i18n: unknown; id: string}
+                    $s.workspace = {
+                        config: workspaceResult.config,
+                        i18n: workspaceResult.i18n,
+                    } as typeof $s.workspace
                 }
 
                 // Now that workspace is loaded, we can safely access workspace.i18n

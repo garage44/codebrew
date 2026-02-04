@@ -6,6 +6,7 @@ import {createValidator, required} from '@garage44/common/lib/validation'
 import {WorkspaceSelector} from '@/components/elements'
 import {loadConfig} from '@/lib/config'
 import {useEffect} from 'preact/hooks'
+import type {Signal} from '@preact/signals'
 
 export function Config() {
     const {errors, isValid, validation} = createValidator({
@@ -14,18 +15,27 @@ export function Config() {
             required('UI language is required'),
         ],
         ...Object.fromEntries(Object.values($s.enola.engines).flatMap((engine) => {
+            const engineConfig = engine as {
+                $api_key?: unknown
+                $base_url?: unknown
+                api_key: string
+                base_url?: string
+                name: string
+            }
+            const apiKeySignal = engineConfig.$api_key || engineConfig.api_key
             const validations = [
-                [`${engine.name}_key`, [
-                    engine.$api_key,
-                    required(`${engine.name} API key is required`),
+                [`${engineConfig.name}_key`, [
+                    apiKeySignal,
+                    required(`${engineConfig.name} API key is required`),
                 ]],
             ]
 
-            if ('base_url' in engine) {
+            if ('base_url' in engineConfig && engineConfig.base_url !== undefined) {
+                const baseUrlSignal = engineConfig.$base_url || engineConfig.base_url
                 validations.push([
-                    `${engine.name}_base_url`, [
-                        engine.$base_url,
-                        required(`${engine.name} base URL is required`),
+                    `${engineConfig.name}_base_url`, [
+                        baseUrlSignal,
+                        required(`${engineConfig.name} base URL is required`),
                     ],
                 ])
             }
@@ -55,6 +65,14 @@ export function Config() {
 
             <div className='translators'>
                 {Object.values($s.enola.engines).map((engine) => {
+                    const engineConfig = engine as {
+                        $api_key?: unknown
+                        $base_url?: unknown
+                        api_key: string
+                        base_url?: string
+                        name: string
+                    }
+                    const apiKeySignal = (engineConfig.$api_key || engineConfig.api_key) as Signal<string>
                     return (
 <div class='section'>
                         {/* $t('config.help.anthropic_base_url') */}
@@ -67,19 +85,19 @@ export function Config() {
                         {/* $t('config.label.deepl_base_url') */}
                         <FieldText
                             copyable={true}
-                            help={$t(i18n.config.help[`${engine.name}_key` as keyof typeof i18n.config.help])}
-                            label={$t(i18n.config.label[`${engine.name}_key` as keyof typeof i18n.config.label])}
-                            model={engine.$api_key}
+                            help={$t(i18n.config.help[`${engineConfig.name}_key` as keyof typeof i18n.config.help])}
+                            label={$t(i18n.config.label[`${engineConfig.name}_key` as keyof typeof i18n.config.label])}
+                            model={apiKeySignal}
                             type='password'
-                            validation={validation?.value[`${engine.name}_key`]}
+                            validation={validation?.value[`${engineConfig.name}_key`]}
                         />
 
-                        {'base_url' in engine &&
+                        {'base_url' in engineConfig && engineConfig.base_url !== undefined &&
                             <FieldText
-                                help={$t(i18n.config.help[`${engine.name}_base_url` as keyof typeof i18n.config.help])}
-                                label={$t(i18n.config.label[`${engine.name}_base_url` as keyof typeof i18n.config.label])}
-                                model={engine.$base_url}
-                                validation={validation?.value[`${engine.name}_base_url`]}
+                                help={$t(i18n.config.help[`${engineConfig.name}_base_url` as keyof typeof i18n.config.help])}
+                                label={$t(i18n.config.label[`${engineConfig.name}_base_url` as keyof typeof i18n.config.label])}
+                                model={((engineConfig.$base_url || engineConfig.base_url) as Signal<string>)}
+                                validation={validation?.value[`${engineConfig.name}_base_url`]}
                             />}
 </div>
                     )

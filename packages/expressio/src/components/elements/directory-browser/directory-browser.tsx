@@ -20,12 +20,16 @@ async function loadDirectory(path = null) {
     try {
         const response = await ws.get('/api/workspaces/browse', {
             path,
-        })
+        }) as {
+            current: {path: string; workspace: unknown}
+            directories: Array<{is_workspace?: boolean; name: string; path: string}>
+            parent: string
+        }
 
         mergeDeep(state, {
-            current: response.current,
-            directories: response.directories,
-            parentPath: response.parent,
+            current: response.current as {path: string; workspace: unknown},
+            directories: response.directories as Array<{is_workspace?: boolean; name: string; path: string}>,
+            parentPath: response.parent as string,
         })
     } catch(error) {
         // oxlint-disable-next-line no-console
@@ -45,12 +49,12 @@ export function DirectoryBrowser({onSelect}) {
             <Icon
                 name='arrow_left_circle_outline'
                 onClick={() => onSelect(state.current)}
-                tip={() => {
+                tip={(() => {
                     if (state.current.workspace) {
                         return 'Add directory to workspaces'
                     }
                     return 'Create new workspace'
-                }}
+                })()}
                 type='info'
             />
         </div>

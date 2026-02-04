@@ -22,15 +22,22 @@ export function WorkspaceSettings() {
         }
         state.target_languages.splice(0, state.target_languages.length, ...$s.enola.languages.target.map((language) => {
             const selected = $s.workspace.config.languages.target.find((i) => i.id === language.id)
+            const languageWithExtras = language as {
+                engines?: string[]
+                formality: boolean
+                id: string
+                name: string
+                transcription?: unknown
+            }
             return {
                 engine: selected ? selected.engine : '',
-                engines: language.engines,
+                engines: languageWithExtras.engines || [],
                 formality: selected ? selected.formality : 'less',
                 formality_supported: language.formality,
                 id: language.id,
                 name: language.name,
                 selected: !!selected,
-                transcription: language.transcription,
+                transcription: languageWithExtras.transcription || null,
             }
         }))
     }, [])

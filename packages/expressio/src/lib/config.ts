@@ -10,5 +10,5 @@ export async function loadConfig() {
         language_ui: {selection: config.language_ui},
         logger: config.logger,
         workspaces: config.workspaces,
-    }, {usage: {loading: false}})
+    } as unknown as Partial<typeof $s>)
 }
