@@ -104,13 +104,30 @@ class IndexingService {
         }
 
         try {
-            // Get pending jobs (limit to maxConcurrent)
-            const pendingJobs = db.prepare(`
-                SELECT * FROM indexing_jobs
+            /*
+             * Get pending jobs (limit to maxConcurrent)
+             * Map snake_case column names to camelCase for TypeScript interface
+             */
+            const rows = db.prepare(`
+                SELECT
+                    id,
+                    type,
+                    repository_id as repositoryId,
+                    file_path as filePath,
+                    doc_id as docId,
+                    ticket_id as ticketId,
+                    status,
+                    created_at,
+                    started_at,
+                    completed_at,
+                    error
+                FROM indexing_jobs
                 WHERE status = 'pending'
                 ORDER BY created_at ASC
                 LIMIT ?
             `).all(this.maxConcurrent) as IndexingJob[]
+
+            const pendingJobs = rows
 
             // No jobs to process
             if (pendingJobs.length === 0) {
