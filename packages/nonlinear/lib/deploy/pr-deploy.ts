@@ -962,7 +962,7 @@ async function generateNginxConfig(deployment: PRDeployment, packagesToDeploy: s
     // Port mapping for packages
     const portMap: Record<string, number> = {
         expressio: deployment.ports.expressio,
-        malkovich: deployment.ports.malkovich,
+        nonlinear: deployment.ports.nonlinear,
         pyrite: deployment.ports.pyrite,
     }
 

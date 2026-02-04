@@ -224,7 +224,7 @@ server {
         proxy_read_timeout 60s;
     }
 
-    # All other routes to malkovich
+    # All other routes to nonlinear
     location / {
         proxy_pass http://localhost:3032;
         proxy_http_version 1.1;

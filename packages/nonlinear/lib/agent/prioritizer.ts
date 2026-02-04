@@ -321,25 +321,22 @@ Provide a refined description and analysis.`
                 }
             }
 
-            // Update ticket description with refined version only if agent indicates it should be updated
-            // or if the original description is empty/null
-            const shouldUpdate = refinement.should_update_description !== false && (
-                refinement.should_update_description === true ||
-                !ticket.description ||
-                ticket.description.trim() === ''
-            )
-
-            if (shouldUpdate && refinement.refined_description && refinement.refined_description.trim()) {
+            // Always update ticket description with refined version if available
+            // The refined_description is the improved version that should replace the original
+            if (refinement.refined_description && refinement.refined_description.trim()) {
                 await updateTicketFromAgent(ticket.id, {
                     description: refinement.refined_description.trim(),
                 })
                 this.log(`Updated ticket ${ticket.id} description with refined version`)
             } else {
-                this.log(`Skipping description update for ticket ${ticket.id} - agent indicated no update needed or no refined description provided`)
+                this.log(`No refined description provided for ticket ${ticket.id}, keeping original`)
             }
 
-            // Add comment with analysis and broadcast via WebSocket
-            await addAgentComment(ticket.id, this.name, `## Ticket Refinement Analysis\n\n${refinement.analysis}`)
+            // Add comment with analysis (optional - provides additional context)
+            // The analysis explains what was improved and why
+            if (refinement.analysis && refinement.analysis.trim()) {
+                await addAgentComment(ticket.id, this.name, `## Refinement Notes\n\n${refinement.analysis}`)
+            }
 
             // Add "refined" label to mark ticket as ready for development
             addTicketLabel(ticket.id, 'refined')

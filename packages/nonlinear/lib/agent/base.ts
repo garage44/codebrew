@@ -249,12 +249,25 @@ ${result.doc.content}
             throw new Error(`Tool not found: ${toolName}`)
         }
 
-        await this.streamReasoning(`Executing tool: ${toolName}`)
+        const paramsStr = Object.entries(params)
+            .map(([key, value]) => {
+                const valStr = typeof value === 'string' && value.length > 50
+                    ? `${value.substring(0, 50)}...`
+                    : String(value)
+                return `${key}=${valStr}`
+            })
+            .join(', ')
+
+        await this.streamReasoning(`🔧 Using ${toolName}(${paramsStr || 'no params'})`)
 
         const context = this.buildToolContext()
         const result = await tool.execute(params, context)
 
-        await this.streamReasoning(`Tool ${toolName} completed: ${result.success ? 'success' : 'error'}`)
+        if (result.success) {
+            await this.streamReasoning(`✅ ${toolName} completed successfully`)
+        } else {
+            await this.streamReasoning(`❌ ${toolName} failed: ${result.error || 'Unknown error'}`)
+        }
 
         return result
     }
@@ -281,7 +294,7 @@ ${result.doc.content}
         ]
 
         while (true) {
-            await this.streamReasoning('Calling Anthropic API with tools...')
+            await this.streamReasoning('🤔 Thinking...')
 
             const response = await fetch('https://api.anthropic.com/v1/messages', {
                 method: 'POST',
@@ -316,7 +329,8 @@ ${result.doc.content}
                 const remaining = parseInt(remainingHeader, 10)
                 const used = limit - remaining
 
-                logger.info(`[Agent ${this.name}] Token Usage: ${used}/${limit} (${remaining} remaining)`)
+                // Log token usage at debug level to reduce noise
+                logger.debug(`[Agent ${this.name}] Token Usage: ${used}/${limit} (${remaining} remaining)`)
 
                 updateUsageFromHeaders({
                     limit,
@@ -331,20 +345,22 @@ ${result.doc.content}
                 // Final text response
                 const textContent = data.content.find((c: {type: string}) => c.type === 'text')
                 if (textContent) {
-                    await this.streamReasoning('Received final response')
+                    await this.streamReasoning('✅ Completed')
                     return textContent.text
                 }
                 throw new Error('Unexpected response type from Anthropic API')
             }
 
             // Execute tools
-            await this.streamReasoning(`Executing ${toolUses.length} tool(s)...`)
+            if (toolUses.length > 0) {
+                await this.streamReasoning(`Agent wants to use ${toolUses.length} tool(s) to gather information or perform actions...`)
+            }
 
             const toolResults = await Promise.all(
                 toolUses.map(async (toolUse: {id: string; name: string; input: Record<string, unknown>}) => {
                     const tool = this.tools[toolUse.name]
                     if (!tool) {
-                        await this.streamReasoning(`ERROR: Tool not found: ${toolUse.name}`)
+                        await this.streamReasoning(`❌ ERROR: Tool "${toolUse.name}" not found`)
                         return {
                             type: 'tool_result',
                             tool_use_id: toolUse.id,
@@ -352,10 +368,25 @@ ${result.doc.content}
                         }
                     }
 
-                    await this.streamReasoning(`Executing tool: ${toolUse.name}`)
+                    // Format tool parameters for display
+                    const paramsStr = Object.entries(toolUse.input)
+                        .map(([key, value]) => {
+                            const valStr = typeof value === 'string' && value.length > 50
+                                ? `${value.substring(0, 50)}...`
+                                : String(value)
+                            return `${key}=${valStr}`
+                        })
+                        .join(', ')
+
+                    await this.streamReasoning(`🔧 Using ${toolUse.name}(${paramsStr || 'no params'})`)
                     const toolContext = this.buildToolContext(agentContext)
                     const result = await tool.execute(toolUse.input, toolContext)
-                    await this.streamReasoning(`Tool ${toolUse.name} completed: ${result.success ? 'success' : 'error'}`)
+
+                    if (result.success) {
+                        await this.streamReasoning(`✅ ${toolUse.name} completed successfully`)
+                    } else {
+                        await this.streamReasoning(`❌ ${toolUse.name} failed: ${result.error || 'Unknown error'}`)
+                    }
 
                     // Format result as JSON string for tool result content
                     const resultContent = result.success
@@ -447,7 +478,8 @@ ${result.doc.content}
                 const remaining = parseInt(remainingHeader, 10)
                 const used = limit - remaining
 
-                logger.info(`[Agent ${this.name}] Token Usage: ${used}/${limit} (${remaining} remaining)`)
+                // Log token usage at debug level to reduce noise
+                logger.debug(`[Agent ${this.name}] Token Usage: ${used}/${limit} (${remaining} remaining)`)
 
                 updateUsageFromHeaders({
                     limit,
@@ -455,7 +487,7 @@ ${result.doc.content}
                     reset: resetHeader || undefined,
                 })
             } else {
-                logger.warn(`[Agent ${this.name}] Rate limit headers not found in response`)
+                logger.debug(`[Agent ${this.name}] Rate limit headers not found in response`)
             }
 
             const content = data.content[0]

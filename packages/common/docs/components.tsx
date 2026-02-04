@@ -22,10 +22,10 @@ import {
     Progress,
     Splash,
 } from '@/components'
-// Import utilities from malkovich using relative paths
-import {ComponentDemo} from '../../malkovich/src/components/lib/component-demo'
+// Import utilities from common components
+import {ComponentDemo} from '../../components/lib/component-demo'
 import {Notifier} from '@/lib/notifier'
-import {StateView} from '../../malkovich/src/components/lib/state-view'
+import {StateView} from '../../components/lib/state-view'
 import {deepSignal} from 'deepsignal'
 import {svg} from '@/components/ui/icon/icon'
 

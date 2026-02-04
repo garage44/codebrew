@@ -96,7 +96,7 @@ export async function checkHttpEndpoint(url: string, timeoutMs = 10000): Promise
         try {
             const response = await fetch(url, {
                 headers: {
-                    'User-Agent': 'Malkovich-HealthCheck/1.0',
+                    'User-Agent': 'Nonlinear-HealthCheck/1.0',
                 },
                 method: 'GET',
                 signal: controller.signal,
