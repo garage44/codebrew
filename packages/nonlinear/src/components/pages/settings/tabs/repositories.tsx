@@ -18,7 +18,7 @@ export function Repositories() {
     const formState = formStateRef.current
     const [discovering, setDiscovering] = useState(false)
     const [discoveredRepos, setDiscoveredRepos] = useState<Array<{name: string; path: string}>>([])
-    const [searchPath, setSearchPath] = useState('')
+    const [searchPath, _setSearchPath] = useState('')
 
     const handleAddRepository = async() => {
         if (!formState.name || !formState.path) {
@@ -74,7 +74,7 @@ export function Repositories() {
         }
 
         try {
-            await api.delete(`/api/repositories/${repoId}`)
+            await api.delete(`/api/repositories/${repoId}`, {})
             // Reload repositories list to ensure UI updates
             const reposResult = await api.get('/api/repositories')
             if (reposResult.repositories) {
@@ -105,10 +105,10 @@ export function Repositories() {
             })
 
             if (result.discovered) {
-                setDiscoveredRepos(result.discovered)
+                setDiscoveredRepos(result.discovered as Array<{name: string; path: string}>)
                 notifier.notify({
                     icon: 'check_circle',
-                    message: `Found ${result.discovered.length} repositories`,
+                    message: `Found ${(result.discovered as Array<unknown>).length} repositories`,
                     type: 'success',
                 })
             }
@@ -149,11 +149,8 @@ export function Repositories() {
                     <FieldText
                         help='Path to search for git repositories (leave empty to search current directory)'
                         label='Search Path'
-                        onInput={(e) => {
-                            setSearchPath((e.target as HTMLInputElement).value)
-                        }}
+                        model={deepSignal({value: searchPath}).$value}
                         placeholder='/path/to/search'
-                        value={searchPath}
                     />
                     <div class='actions'>
                         <Button

@@ -39,7 +39,7 @@ export const AgentAvatar = ({agent, showStatus = true, showType = false, size = 
                     <span class={classnames('status-indicator', statusClass)} />}
             </div>
             {showType &&
-                <Icon class='type-icon' name={typeIcon} size='s' type='info' />}
+                <Icon className='type-icon' name={typeIcon} size='s' type='info' />}
         </div>
     )
 }

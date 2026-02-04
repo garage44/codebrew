@@ -94,7 +94,8 @@ function formatFrontmatterValue(value: unknown): string {
 
 export const Markdown = ({content}: MarkdownProps) => {
     const {body, frontmatter} = parseFrontmatter(content)
-    const html = marked(body)
+    const htmlResult = marked.parse(body)
+    const html = typeof htmlResult === 'string' ? htmlResult : String(htmlResult)
 
     return (
         <div class='markdown-content'>

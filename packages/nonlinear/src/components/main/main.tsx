@@ -13,7 +13,7 @@ import {
     UserMenu,
 } from '@garage44/common/components'
 import {TicketForm} from '@/components/elements/ticket-form/ticket-form'
-import {Link, Router, route} from 'preact-router'
+import {Link, Route, Router, route} from 'preact-router'
 import {Login} from '@/components/pages/login/login'
 import {useEffect} from 'preact/hooks'
 
@@ -42,18 +42,18 @@ export const Main = () => {
                 ws.connect()
 
                 // Load initial data
-                const ticketsResult = await ws.get('/api/tickets')
+                const ticketsResult = await ws.get('/api/tickets') as {tickets?: unknown}
                 if (ticketsResult.tickets) {
-                    $s.tickets = ticketsResult.tickets
+                    $s.tickets = ticketsResult.tickets as typeof $s.tickets
                 }
 
-                const reposResult = await ws.get('/api/repositories')
+                const reposResult = await ws.get('/api/repositories') as {repositories?: unknown}
                 if (reposResult.repositories) {
-                    $s.repositories = reposResult.repositories
+                    $s.repositories = reposResult.repositories as typeof $s.repositories
                 }
 
                 // Load Anthropic token usage
-                const usageResult = await ws.get('/api/anthropic/usage')
+                const usageResult = await ws.get('/api/anthropic/usage') as {usage?: {count?: number; limit?: number}}
                 if (usageResult.usage) {
                     $s.anthropic.usage = {
                         count: usageResult.usage.count || 0,
@@ -91,7 +91,7 @@ export const Main = () => {
                     }
                 }
 
-                const agentsResult = await ws.get('/api/agents')
+                const agentsResult = await ws.get('/api/agents') as {agents?: unknown[]}
                 if (agentsResult.agents) {
                     $s.agents = agentsResult.agents.map((agent: {
                         avatar: string | null
@@ -171,9 +171,9 @@ export const Main = () => {
                 }
 
                 // Load label definitions
-                const labelsResult = await ws.get('/api/labels')
+                const labelsResult = await ws.get('/api/labels') as {labels?: unknown}
                 if (labelsResult.labels) {
-                    $s.labelDefinitions = labelsResult.labels
+                    $s.labelDefinitions = labelsResult.labels as typeof $s.labelDefinitions
                 }
 
                 // Subscribe to real-time updates
@@ -353,9 +353,9 @@ export const Main = () => {
 
     const handleTicketCreated = async() => {
         // Reload tickets to get the new one
-        const result = await ws.get('/api/tickets')
+        const result = await ws.get('/api/tickets') as {tickets?: unknown}
         if (result.tickets) {
-            $s.tickets = result.tickets
+            $s.tickets = result.tickets as typeof $s.tickets
         }
     }
 
@@ -404,10 +404,10 @@ export const Main = () => {
                                     },
                                 }}
                             /> :
-                            <div style='padding: var(--spacer-2);'>
-                                <Link href='/login' style='color: var(--text-1); text-decoration: none;'>
+                            <div style={{padding: 'var(--spacer-2)'}}>
+                                <a href='/login' style={{color: 'var(--text-1)', textDecoration: 'none'}}>
                                     Login
-                                </Link>
+                                </a>
                             </div>
 
                       )}
@@ -444,7 +444,7 @@ export const Main = () => {
                                 text='Documentation'
                             />
                             <MenuItem
-                                active={$s.env.url === '/board' || ($s.env.url === '/' && $s.env.url !== '/docs')}
+                                active={$s.env.url === '/board' || $s.env.url === '/'}
                                 collapsed={$s.panels.menu.collapsed}
                                 href='/board'
                                 icon='view_kanban'
@@ -461,11 +461,15 @@ export const Main = () => {
         >
             <div class='view'>
                 <Router onChange={handleRoute}>
-                    <Docs path='/docs' />
-                    <Board default path='/board' />
-                    <Board path='/' />
-                    <TicketDetail path='/tickets/:ticketId' />
-                    <Settings path='/settings' />
+                    <Route component={Docs} path='/docs' />
+                    <Route component={Board} default path='/board' />
+                    <Route component={Board} path='/' />
+                    <Route
+                        component={(props: {ticketId?: string}) => <TicketDetail ticketId={props.ticketId || ''} />}
+                        path='/tickets/:ticketId'
+                    />
+                    <Route component={(props: {tabId?: string}) => <Settings tabId={props.tabId} />} path='/settings' />
+                    <Route component={(props: {tabId?: string}) => <Settings tabId={props.tabId} />} path='/settings/:tabId' />
                 </Router>
             </div>
         </AppLayout>

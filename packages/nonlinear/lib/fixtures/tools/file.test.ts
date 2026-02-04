@@ -5,7 +5,7 @@
 import {describe, test, expect, beforeEach} from 'bun:test'
 import {fileTools} from './file.ts'
 import type {BaseAgent} from '../../agent/base.ts'
-import {Bun} from 'bun'
+// Bun is a global in Bun runtime
 import path from 'node:path'
 import {tmpdir} from 'node:os'
 

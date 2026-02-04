@@ -143,7 +143,7 @@ export const ticketTools: Record<string, Tool> = {
 
             // Resolve "me" keyword to agent name if explicitly provided
             if (assigneeId === 'me' && context.agent) {
-                assigneeId = context.agent.name
+                assigneeId = context.agent.getName()
                 assigneeType = assigneeType || 'agent'
             }
 
@@ -152,7 +152,7 @@ export const ticketTools: Record<string, Tool> = {
             let excludeAssigneeType = params.excludeAssigneeType
 
             if (excludeAssigneeId === 'me' && context.agent) {
-                excludeAssigneeId = context.agent.name
+                excludeAssigneeId = context.agent.getName()
                 excludeAssigneeType = excludeAssigneeType || 'agent'
             }
 
@@ -221,7 +221,7 @@ export const ticketTools: Record<string, Tool> = {
                 query += ` ORDER BY t.priority DESC, t.created_at DESC LIMIT ?`
                 values.push(limit)
 
-                const tickets = db.prepare(query).all(...values) as Array<{
+                const tickets = db.prepare(query).all(...(values as any)) as Array<{
                     id: string
                     repository_id: string
                     title: string
@@ -533,7 +533,7 @@ export const ticketTools: Record<string, Tool> = {
                 }
 
                 const authorType = params.authorType || (context.agent ? 'agent' : 'user')
-                const authorId = params.authorId || (context.agent ? context.agent.name : 'system')
+                const authorId = params.authorId || (context.agent ? context.agent.getName() : 'system')
                 const commentId = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
 
                 db.prepare(`
@@ -597,7 +597,7 @@ export const ticketTools: Record<string, Tool> = {
                     FROM tickets
                     ${whereClause}
                     GROUP BY status
-                `).all(...values) as Array<{status: string; count: number}>
+                `).all(...(values as any)) as Array<{status: string; count: number}>
 
                 // Get counts by priority range
                 const priorityCounts = db.prepare(`
@@ -612,14 +612,14 @@ export const ticketTools: Record<string, Tool> = {
                     FROM tickets
                     ${whereClause}
                     GROUP BY priority_level
-                `).all(...values) as Array<{priority_level: string; count: number}>
+                `).all(...(values as any)) as Array<{priority_level: string; count: number}>
 
                 // Get total count
                 const totalResult = db.prepare(`
                     SELECT COUNT(*) as total
                     FROM tickets
                     ${whereClause}
-                `).get(...values) as {total: number}
+                `).get(...(values as any)) as {total: number}
 
                 // Get tickets by assignee type
                 const assigneeCounts = db.prepare(`
@@ -628,7 +628,7 @@ export const ticketTools: Record<string, Tool> = {
                     LEFT JOIN ticket_assignees ta ON t.id = ta.ticket_id
                     ${whereClause}
                     GROUP BY ta.assignee_type
-                `).all(...values) as Array<{assignee_type: string | null; count: number}>
+                `).all(...(values as any)) as Array<{assignee_type: string | null; count: number}>
 
                 return {
                     success: true,

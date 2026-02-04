@@ -1,4 +1,4 @@
-import {App, store} from '@garage44/common/app'
+import {App, store, $t, api, notifier, logger, events, ws, i18n} from '@garage44/common/app'
 import {h, render} from 'preact'
 import {persistantState, volatileState} from './lib/state'
 import type {NonlinearState} from './types'
@@ -7,7 +7,8 @@ import {type DeepSignal} from 'deepsignal'
 
 const $s = store.state as unknown as DeepSignal<NonlinearState>
 
-store.load(persistantState, volatileState)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+store.load(persistantState as any, volatileState)
 
 // Expose global variables in development for debugging
 if (process.env.NODE_ENV !== 'production' || process.env.BUN_ENV === 'development') {
@@ -32,4 +33,5 @@ app.init(
     {enableBunchy: process.env.NODE_ENV !== 'production'},
 )
 
-export {$s, app}
+// Re-export common app exports so @/app resolves correctly for common components
+export {$s, app, $t, api, notifier, logger, store, events, ws, i18n}

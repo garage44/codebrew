@@ -3,6 +3,7 @@ import {createAvatarRoutes} from '@garage44/common/lib/avatar-routes'
 import {devContext} from '@garage44/common/lib/dev-context'
 import {userManager} from '@garage44/common/service'
 import {logger, runtime} from '../service.ts'
+import type {Logger} from '@garage44/common/lib/logger.node'
 import path from 'node:path'
 
 const _BUN_ENV = process.env.BUN_ENV || 'production'
@@ -78,7 +79,7 @@ async function initMiddleware(_bunchyConfig) {
     // Register common avatar routes (placeholder images and uploaded avatars)
     const avatarRoutes = createAvatarRoutes({
         appName: 'nonlinear',
-        logger,
+        logger: logger as Logger,
         runtime,
     })
     avatarRoutes.registerPlaceholderRoute(router)

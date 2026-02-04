@@ -65,7 +65,7 @@ export function Labels() {
         try {
             const result = await ws.get('/api/labels')
             if (result.labels) {
-                setLabels(result.labels)
+                setLabels(result.labels as LabelDefinition[])
             }
         } catch(error) {
             notifier.notify({
@@ -93,16 +93,6 @@ export function Labels() {
             formState.name = ''
             formState.color = '#3b82f6'
             await loadLabels()
-
-            // Update global state
-            if (result.label) {
-                const index = $s.labelDefinitions.findIndex((l) => l.id === result.label.id)
-                if (index >= 0) {
-                    $s.labelDefinitions[index] = result.label
-                } else {
-                    $s.labelDefinitions = [...$s.labelDefinitions, result.label]
-                }
-            }
 
             notifier.notify({
                 message: 'Label created',
@@ -135,16 +125,6 @@ export function Labels() {
             editFormState.name = ''
             editFormState.color = '#3b82f6'
             await loadLabels()
-
-            // Update global state
-            if (result.label) {
-                const index = $s.labelDefinitions.findIndex((l) => l.id === result.label.id)
-                if (index >= 0) {
-                    $s.labelDefinitions[index] = result.label
-                } else {
-                    $s.labelDefinitions = [...$s.labelDefinitions, result.label]
-                }
-            }
 
             notifier.notify({
                 message: 'Label updated',
@@ -225,7 +205,7 @@ export function Labels() {
                             />
                         </div>
                     </div>
-                    <Button onClick={handleCreateLabel} variant='primary'>
+                    <Button onClick={handleCreateLabel} type='success'>
                         Create Label
                     </Button>
                 </div>
@@ -260,10 +240,10 @@ export function Labels() {
                                             </div>
                                         </div>
                                         <div class='actions'>
-                                            <Button onClick={() => handleUpdateLabel(label.id)} variant='primary'>
+                                            <Button onClick={() => handleUpdateLabel(label.id)} type='success'>
                                                 Save
                                             </Button>
-                                            <Button onClick={cancelEdit} variant='secondary'>
+                                            <Button onClick={cancelEdit} type='default'>
                                                 Cancel
                                             </Button>
                                         </div>
@@ -287,14 +267,14 @@ export function Labels() {
                                             onClick={() => startEdit(label)}
                                             size='s'
                                             tip='Edit'
-                                            variant='ghost'
+                                            type='default'
                                         />
                                         <Button
                                             icon='trash'
                                             onClick={() => handleDeleteLabel(label.id)}
                                             size='s'
                                             tip='Delete'
-                                            variant='ghost'
+                                            type='default'
                                         />
                                     </div>
                                 </div>}

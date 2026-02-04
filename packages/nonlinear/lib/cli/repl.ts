@@ -57,7 +57,7 @@ export class REPL {
                     .slice(-1000) // Keep last 1000 entries
 
                 // Load history into readline
-                this.rl.history = this.history.slice()
+                ;(this.rl as unknown as {history: string[]}).history = this.history.slice()
             }
         } catch(error) {
             // Ignore errors loading history (file might not exist yet)
@@ -70,7 +70,7 @@ export class REPL {
     private async saveHistory(): Promise<void> {
         try {
             // Get current history from readline (includes what user typed)
-            const currentHistory = this.rl.history || []
+            const currentHistory = (this.rl as {history?: string[]}).history || []
             const historyToSave = [...currentHistory]
 
             // Limit to last 1000 entries
@@ -106,7 +106,7 @@ export class REPL {
         }
 
         // Update readline history
-        this.rl.history = this.history.slice()
+        ;(this.rl as unknown as {history: string[]}).history = this.history.slice()
     }
 
     /**
@@ -179,7 +179,7 @@ export class REPL {
         process.on('exit', () => {
             // Sync save (process is exiting)
             try {
-                const currentHistory = this.rl.history || []
+                const currentHistory = (this.rl as {history?: string[]}).history || []
                 const limitedHistory = currentHistory.slice(-1000)
                 fs.writeFileSync(this.historyFilePath, limitedHistory.join('\n') + '\n', 'utf-8')
             } catch {

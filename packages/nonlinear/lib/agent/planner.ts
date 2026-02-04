@@ -733,10 +733,10 @@ When closing tickets:
 When given an instruction, interpret it and use the appropriate tools to complete the task.
 Be helpful and provide clear feedback about what you're doing.`
 
-        const agentContext = context || this.buildContext({})
+        const agentContext = context || this.buildToolContext({})
 
         try {
-            const response = await this.respondWithTools(systemPrompt, instruction, 4096, agentContext)
+            const response = await this.respondWithTools(systemPrompt, instruction, 4096, agentContext as AgentContext)
             return {
                 success: true,
                 message: response,

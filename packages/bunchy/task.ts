@@ -22,8 +22,8 @@ export class Task {
         }
     }
 
-    log(...args) {
-        logger.info(...args)
+    log(...args: any[]) {
+        logger.info(...(args as [any, ...any[]]))
     }
 
     async start(...args) {

@@ -6,10 +6,11 @@
 
 import {db} from '../database.ts'
 import {loggerTransports} from '@garage44/common/service'
+import type {LoggerConfig} from '@garage44/common/types'
 import {config} from '../config.ts'
 
 // Initialize logger
-const logger = loggerTransports(config.logger, 'indexing-queue')
+const logger = loggerTransports(config.logger as LoggerConfig, 'service')
 
 export interface IndexingJobInput {
     type: 'code' | 'doc' | 'ticket'

@@ -150,7 +150,7 @@ export async function autostartAgents(
     const autostartConfig = override === undefined ? config.agents?.autostart : override
 
     // Skip if not configured (undefined or false)
-    if (!autostartConfig || autostartConfig === false) {
+    if (autostartConfig === false || (typeof autostartConfig !== 'object' && !autostartConfig)) {
         return
     }
 

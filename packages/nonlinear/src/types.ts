@@ -9,6 +9,13 @@ import type {
 
 export interface NonlinearState extends CommonState {
     agents: Array<EnrichedAgent>
+    anthropic: {
+        usage: {
+            count: number
+            limit: number
+            loading: boolean
+        }
+    }
     docs: Array<EnrichedDoc>
     labelDefinitions: Array<LabelDefinition>
     repositories: Array<Repository>

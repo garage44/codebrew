@@ -281,12 +281,12 @@ export function registerDocsWebSocketApiRoutes(wsManager: WebSocketServerManager
 
     // Create doc
     wsManager.api.post('/api/docs', async(ctx, req) => {
-        const userId = ctx.user?.id
+        const userId = ctx.session?.userid
         if (!userId) {
             return {error: 'Unauthorized'}
         }
 
-        const body = await req.json() as {
+        const body = req.data as {
             content: string
             path: string
             tags?: string[]
@@ -357,7 +357,13 @@ export function registerDocsWebSocketApiRoutes(wsManager: WebSocketServerManager
                 // Continue anyway - embeddings can be regenerated later
             }
 
-            const doc = db.prepare('SELECT * FROM documentation WHERE id = ?').get(docId)!
+            const doc = db.prepare('SELECT * FROM documentation WHERE id = ?').get(docId) as {
+                [key: string]: unknown
+                id: string
+            } | undefined
+            if (!doc) {
+                return {error: 'Documentation not found'}
+            }
             return {
                 doc: enrichDoc(doc),
             }
@@ -372,13 +378,13 @@ export function registerDocsWebSocketApiRoutes(wsManager: WebSocketServerManager
 
     // Update doc
     wsManager.api.put('/api/docs/:id', async(ctx, req) => {
-        const userId = ctx.user?.id
+        const userId = ctx.session?.userid
         if (!userId) {
             return {error: 'Unauthorized'}
         }
 
         const docId = req.params.id
-        const body = await req.json() as {
+        const body = req.data as {
             content: string
             tags?: string[]
             title?: string
@@ -447,7 +453,13 @@ export function registerDocsWebSocketApiRoutes(wsManager: WebSocketServerManager
                 logger.warn(`[Docs API] Failed to regenerate embeddings for ${docId}:`, error)
             }
 
-            const doc = db.prepare('SELECT * FROM documentation WHERE id = ?').get(docId)!
+            const doc = db.prepare('SELECT * FROM documentation WHERE id = ?').get(docId) as {
+                [key: string]: unknown
+                id: string
+            } | undefined
+            if (!doc) {
+                return {error: 'Documentation not found'}
+            }
             return {
                 doc: enrichDoc(doc),
             }
@@ -458,13 +470,13 @@ export function registerDocsWebSocketApiRoutes(wsManager: WebSocketServerManager
     })
 
     // Delete doc
-    wsManager.api.delete('/api/docs/:id', async(ctx, _req) => {
-        const userId = ctx.user?.id
+    wsManager.api.delete('/api/docs/:id', async(ctx, req) => {
+        const userId = ctx.session?.userid
         if (!userId) {
             return {error: 'Unauthorized'}
         }
 
-        const docId = ctx.params.id
+        const docId = req.params.id
 
         try {
             db.prepare('DELETE FROM documentation WHERE id = ?').run(docId)
@@ -505,7 +517,7 @@ export function registerDocsWebSocketApiRoutes(wsManager: WebSocketServerManager
             return {
                 docs: result.docs.map((r) => ({
                     chunk: r.chunk,
-                    doc: enrichDoc(r.doc),
+                    doc: enrichDoc(r.doc as unknown as {[key: string]: unknown; id: string}),
                 })),
                 tickets: result.tickets,
             }
@@ -539,7 +551,7 @@ export function registerDocsWebSocketApiRoutes(wsManager: WebSocketServerManager
             return {
                 results: results.map((r) => ({
                     chunk: r.chunk,
-                    doc: enrichDoc(r.doc),
+                    doc: enrichDoc(r.doc as unknown as {[key: string]: unknown; id: string}),
                 })),
             }
         } catch(error) {

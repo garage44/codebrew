@@ -4,7 +4,7 @@ import {Icon} from '@garage44/common/components'
 import {route} from 'preact-router'
 import {useState} from 'preact/hooks'
 
-interface TicketCardProps {
+export interface TicketCardProps {
     ticket: {
         assignee_id: string | null
         assignee_type: string | null
@@ -81,7 +81,21 @@ export const TicketCard = ({ticket}: TicketCardProps) => {
                             if (agent) {
                                 return (
                                     <div class='assignee' key={`${assignee.assignee_type}-${assignee.assignee_id}`}>
-                                        <AgentBadge agent={agent} size='s' />
+                                        <AgentBadge
+                                            agent={{
+                                                avatar: agent.avatar || 'placeholder-1.png',
+                                                displayName: agent.display_name || agent.name,
+                                                id: agent.id,
+                                                name: agent.name,
+                                                status: (agent.status || 'idle') as 'idle' | 'working' | 'error' | 'offline',
+                                                type: (
+                                                    (agent.type as string) === 'prioritizer' ?
+                                                        'planner' :
+                                                        agent.type
+                                                ) as 'developer' | 'planner' | 'reviewer',
+                                            }}
+                                            size='s'
+                                        />
                                     </div>
                                 )
                             }
@@ -101,7 +115,21 @@ export const TicketCard = ({ticket}: TicketCardProps) => {
                                 if (agent) {
                                     return (
                                         <div class='assignee'>
-                                            <AgentBadge agent={agent} size='s' />
+                                            <AgentBadge
+                                                agent={{
+                                                    avatar: agent.avatar || 'placeholder-1.png',
+                                                    displayName: agent.display_name || agent.name,
+                                                    id: agent.id,
+                                                    name: agent.name,
+                                                    status: (agent.status || 'idle') as 'idle' | 'working' | 'error' | 'offline',
+                                                    type: (
+                                                        (agent.type as string) === 'prioritizer' ?
+                                                            'planner' :
+                                                            agent.type
+                                                    ) as 'developer' | 'planner' | 'reviewer',
+                                                }}
+                                                size='s'
+                                            />
                                         </div>
                                     )
                                 }

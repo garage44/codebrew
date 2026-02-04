@@ -15,12 +15,19 @@
         "resolveJsonModule": true,
         "paths": {
             "*": ["./*"],
-            "@/*": ["./src/*"],
+            "@/*": ["./src/*", "../common/*"],
             "@garage44/common/*": ["../common/*"]
         },
         "skipLibCheck": true,
         "sourceMap": true,
         "target": "ES2023",
         "types": ["bun", "node"]
-    }
+    },
+    "include": [
+        "**/*"
+    ],
+    "exclude": [
+        "../common/**/*",
+        "../bunchy/**/*"
+    ]
 }

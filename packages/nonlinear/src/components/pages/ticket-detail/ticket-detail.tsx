@@ -15,7 +15,7 @@ const loadLabelDefinitions = async() => {
     try {
         const result = await ws.get('/api/labels')
         if (result.labels) {
-            $s.labelDefinitions = result.labels
+            $s.labelDefinitions = result.labels as typeof $s.labelDefinitions
         }
     } catch {
         // Silently fail - labels will load on next attempt
@@ -87,7 +87,7 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
         }
 
         if (!ticketId) {
-            const id = $s.selectedTicket || route().split('/').pop()
+            const id = $s.selectedTicket || (typeof window !== 'undefined' ? window.location.pathname.split('/').pop() : '')
             if (!id) {
                 route('/board')
                 return
@@ -99,7 +99,12 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
 
         // Listen for comment updates and ticket updates
         const handleUpdate = (data: {comment?: Comment; ticket?: Ticket; ticketId?: string; type: string}) => {
-            const currentTicketId = ticketId || $s.selectedTicket || route().split('/').pop()
+            const currentTicketId =
+                ticketId ||
+                $s.selectedTicket ||
+                (typeof window !== 'undefined' ?
+                        window.location.pathname.split('/').pop() :
+                    '')
             if (data.ticketId === currentTicketId || (data.ticket && data.ticket.id === currentTicketId)) {
                 if (data.type === 'comment:created' && data.comment) {
                     // Add new comment (including placeholder comments with generating status)
@@ -166,18 +171,18 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
         try {
             const result = await ws.get(`/api/tickets/${id}`)
             if (result.ticket) {
-                setTicket(result.ticket)
+                setTicket(result.ticket as Ticket)
                 // Update edit state when ticket loads
-                editState.title = result.ticket.title
-                editState.description = result.ticket.description || ''
+                editState.title = (result.ticket as Ticket).title
+                editState.description = (result.ticket as Ticket).description || ''
                 // Update assignee state
-                assigneeState.assignee_type = result.ticket.assignee_type || ''
-                assigneeState.assignee_id = result.ticket.assignee_id || ''
+                assigneeState.assignee_type = (result.ticket as Ticket).assignee_type || ''
+                assigneeState.assignee_id = (result.ticket as Ticket).assignee_id || ''
                 // Update labels state
-                labelsState.labels = result.ticket.labels || []
+                labelsState.labels = (result.ticket as Ticket).labels || []
             }
             if (result.comments) {
-                setComments(result.comments)
+                setComments(result.comments as Comment[])
             }
         } catch(error) {
             notifier.notify({
@@ -318,7 +323,7 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
                 .map((agent) => ({
                     // Use agent.name as id since that's what agents use when assigning themselves
                     id: agent.name,
-                    name: `${agent.displayName || agent.name || 'Unknown'} (${agent.type})`,
+                    name: `${agent.display_name || agent.name || 'Unknown'} (${agent.type})`,
                 }))
         }
         if (assigneeState.assignee_type === 'human') {
@@ -450,8 +455,8 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
 
             // Update local state immediately from response
             if (result && result.ticket) {
-                setTicket(result.ticket)
-                labelsState.labels = result.ticket.labels || []
+                setTicket(result.ticket as Ticket)
+                labelsState.labels = (result.ticket as Ticket).labels || []
             } else {
                 // If response doesn't have ticket, reload from server
                 await loadTicket(ticket.id)
@@ -541,17 +546,17 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
         <div class='c-ticket-detail'>
             <div class='header'>
                 <div class='header-top'>
-                    <Button onClick={() => route('/board')} variant='ghost'>
+                    <Button onClick={() => route('/board')} type='default'>
                         <Icon name='chevron_left' size='c' type='info' />
                         Back to Board
                     </Button>
                     {!isEditing &&
                         <div class='header-actions'>
-                            <Button onClick={handleRequestRefinement} variant='secondary'>
+                            <Button onClick={handleRequestRefinement} type='default'>
                                 <Icon name='refresh' size='c' type='info' />
                                 Request Refinement
                             </Button>
-                            <Button onClick={() => setIsEditing(true)} variant='ghost'>
+                            <Button onClick={() => setIsEditing(true)} type='default'>
                                 <Icon name='edit' size='c' type='info' />
                                 Edit
                             </Button>
@@ -655,7 +660,7 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
                                         </button>)}
                                     </div>}
                             </div>
-                            <Button onClick={() => handleAddLabel()} variant='secondary'>
+                            <Button onClick={() => handleAddLabel()} type='default'>
                                 Add
                             </Button>
                         </div>
@@ -672,7 +677,21 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
                                 )
                                 return agent ?
                                     <div class='assignee-item' key={`${assignee.assignee_type}-${assignee.assignee_id}`}>
-                                        <AgentBadge agent={agent} size='d' />
+                                        <AgentBadge
+                                            agent={{
+                                                avatar: agent.avatar || 'placeholder-1.png',
+                                                displayName: agent.display_name || agent.name,
+                                                id: agent.id,
+                                                name: agent.name,
+                                                status: (agent.status || 'idle') as 'idle' | 'working' | 'error' | 'offline',
+                                                type: (
+                                                    (agent.type as string | undefined) === 'prioritizer' ?
+                                                        'planner' :
+                                                        agent.type || 'developer'
+                                                ) as 'developer' | 'planner' | 'reviewer',
+                                            }}
+                                            size='d'
+                                        />
                                         <Icon
                                             name='close'
                                             onClick={() => handleRemoveAssignee(assignee.assignee_type, assignee.assignee_id)}
@@ -740,7 +759,7 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
                                                     assigneeState.assignee_type = ''
                                                 }
                                             }}
-                                            variant='secondary'
+                                            type='default'
                                         >
                                             Add Assignee
                                         </Button>}
@@ -761,10 +780,10 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
                                 value={editState.description}
                             />
                             <div class='edit-actions'>
-                                <Button onClick={handleSaveEdit} variant='primary'>
+                                <Button onClick={handleSaveEdit} type='success'>
                                     Save
                                 </Button>
-                                <Button onClick={handleCancelEdit} variant='ghost'>
+                                <Button onClick={handleCancelEdit} type='default'>
                                     Cancel
                                 </Button>
                             </div>
@@ -781,10 +800,10 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
 
                 {ticket.status === 'closed' &&
                     <div class='actions'>
-                        <Button onClick={handleApprove} variant='primary'>
+                        <Button onClick={handleApprove} type='success'>
                             Approve & Close
                         </Button>
-                        <Button onClick={handleReopen} variant='secondary'>
+                        <Button onClick={handleReopen} type='default'>
                             Reopen
                         </Button>
                     </div>}
@@ -809,7 +828,23 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
                                                                 (a) => a.id === comment.author_id || a.name === comment.author_id,
                                                             )
                                                             return agent ?
-                                                            <AgentBadge agent={agent} size='d' /> :
+                                                            <AgentBadge
+                                                                agent={{
+                                                                    avatar: agent.avatar || 'placeholder-1.png',
+                                                                    displayName: agent.display_name || agent.name,
+                                                                    id: agent.id,
+                                                                    name: agent.name,
+                                                                    status: (
+                                                                        agent.status || 'idle'
+                                                                    ) as 'idle' | 'working' | 'error' | 'offline',
+                                                                    type: (
+                                                                        (agent.type as string | undefined) === 'prioritizer' ?
+                                                                            'planner' :
+                                                                            agent.type || 'developer'
+                                                                    ) as 'developer' | 'planner' | 'reviewer',
+                                                                }}
+                                                                size='d'
+                                                            /> :
                                                             <UserBadge
                                                                 displayName={comment.author_id}
                                                                 userId={comment.author_id}

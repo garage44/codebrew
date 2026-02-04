@@ -241,7 +241,7 @@ Generate a command to fix this issue.`
 
             // Execute fix command
             logger.info(`[CI] Running fix command: ${fixPlan.command}`)
-            const fixResult = await $(fixPlan.command.split(' ')).quiet().nothrow()
+            const fixResult = await $`${fixPlan.command}`.quiet().nothrow()
 
             const fixOutput = fixResult.stdout?.toString() || fixResult.stderr?.toString() || ''
 

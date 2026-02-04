@@ -217,7 +217,7 @@ export function registerRepositoriesWebSocketApiRoutes(wsManager: WebSocketServe
             UPDATE repositories
             SET ${fields.join(', ')}
             WHERE id = ?
-        `).run(...values)
+        `).run(...(values as unknown as Parameters<ReturnType<typeof db.prepare>['run']>))
 
         const repository = db.prepare('SELECT * FROM repositories WHERE id = ?').get(params.id) as {
             config: string
@@ -460,7 +460,7 @@ export default function apiRepositories(router: unknown) {
                 UPDATE repositories
                 SET ${fields.join(', ')}
                 WHERE id = ?
-            `).run(...values)
+            `).run(...(values as unknown as Parameters<ReturnType<typeof db.prepare>['run']>))
 
             const repository = db.prepare('SELECT * FROM repositories WHERE id = ?').get(validatedParams.id) as {
                 config: string

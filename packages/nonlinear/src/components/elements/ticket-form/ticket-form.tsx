@@ -125,15 +125,15 @@ export const TicketForm = ({initialStatus, onClose, onSuccess}: TicketFormProps)
             <div class='actions'>
                 <Button
                     onClick={onClose}
-                    type='info'
-                    variant='secondary'
+                    type='default'
+                    variant='default'
                 >
                     Cancel
                 </Button>
                 <Button
                     disabled={!isValid.value}
                     onClick={handleSubmit}
-                    type='primary'
+                    type='success'
                 >
                     Create Ticket
                 </Button>

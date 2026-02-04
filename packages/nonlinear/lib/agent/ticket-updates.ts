@@ -118,7 +118,7 @@ export async function updateTicketFields(
         priority?: number | null
         solution_plan?: string | null
     },
-    agentType?: 'planner' | 'developer' | 'reviewer',
+    agentType?: 'planner' | 'developer' | 'reviewer' | 'prioritizer',
 ): Promise<{success: boolean; error?: string}> {
     // Validate ticket exists
     const existingTicket = db.prepare('SELECT id FROM tickets WHERE id = ?').get(ticketId)

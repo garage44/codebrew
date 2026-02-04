@@ -5,7 +5,7 @@
 import {logger} from '../../../service.ts'
 import type {Tool, ToolContext, ToolResult} from './types.ts'
 import path from 'node:path'
-import {Bun} from 'bun'
+// Bun is a global in Bun runtime
 
 /**
  * Get file context (imports, exports, related files)

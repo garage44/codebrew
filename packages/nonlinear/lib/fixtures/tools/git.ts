@@ -114,6 +114,12 @@ export const gitTools: Record<string, Tool> = {
                 const repo = db.prepare('SELECT * FROM repositories WHERE id = ?').get(params.repositoryId) as {
                     path: string
                     platform: 'github' | 'gitlab' | 'local'
+                    config: string
+                    created_at: number
+                    id: string
+                    name: string
+                    remote_url: string | null
+                    updated_at: number
                 } | undefined
 
                 if (!repo) {
@@ -270,6 +276,12 @@ export const gitTools: Record<string, Tool> = {
                 const repo = db.prepare('SELECT * FROM repositories WHERE id = ?').get(params.repositoryId) as {
                     path: string
                     platform: 'github' | 'gitlab' | 'local'
+                    config: string
+                    created_at: number
+                    id: string
+                    name: string
+                    remote_url: string | null
+                    updated_at: number
                 } | undefined
 
                 if (!repo) {

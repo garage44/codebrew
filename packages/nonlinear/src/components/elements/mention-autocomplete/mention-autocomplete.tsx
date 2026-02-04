@@ -35,19 +35,23 @@ export function MentionAutocomplete({content, onContentChange, textareaRef}: Men
                     planner: 'placeholder-2.png',
                     reviewer: 'placeholder-4.png',
                 }
-                const avatar = agent.avatar || defaultAvatars[agent.type] || 'placeholder-1.png'
+                const _avatar = agent.avatar || defaultAvatars[agent.type] || 'placeholder-1.png'
 
                 mentions.push({
                     data: {
                         agent: {
-                            avatar,
-                            displayName: agent.displayName || agent.name,
+                            displayName: agent.display_name || agent.name,
                             id: agent.id,
                             name: agent.name,
-                            status: agent.status || 'idle',
-                            type: agent.type,
+                            type: (
+                                (agent.type as string | undefined) === 'prioritizer' ?
+                                    'prioritizer' :
+                                    agent.type === 'planner' ?
+                                        'planner' :
+                                        agent.type || 'developer'
+                            ) as 'developer' | 'prioritizer' | 'reviewer',
                         },
-                        displayName: agent.displayName || agent.name,
+                        displayName: agent.display_name || agent.name,
                         name: agent.name,
                         type: 'agent',
                     },
@@ -91,7 +95,45 @@ export function MentionAutocomplete({content, onContentChange, textareaRef}: Men
                 if (item.data?.type === 'agent' && item.data?.agent) {
                     return (
                         <div class='mention-agent' style={{pointerEvents: 'none'}}>
-                            <AgentAvatar agent={item.data.agent} size='d' />
+                            <AgentAvatar
+                                agent={{
+                                    avatar: (
+                                        item.data.agent as {
+                                            avatar?: string
+                                            display_name?: string
+                                            displayName?: string
+                                            id: string
+                                            name: string
+                                            status?: string
+                                            type?: string
+                                        }
+                                    ).avatar || 'placeholder-1.png',
+                                    displayName: (
+                                        item.data.agent as {
+                                            display_name?: string
+                                            displayName?: string
+                                            name: string
+                                        }
+                                    ).displayName ||
+                                    (
+                                        item.data.agent as {
+                                            display_name?: string
+                                            name: string
+                                        }
+                                    ).display_name ||
+                                    item.data.agent.name,
+                                    id: item.data.agent.id,
+                                    status: (
+                                        (item.data.agent as {status?: string}).status || 'idle'
+                                    ) as 'idle' | 'working' | 'error' | 'offline',
+                                    type: (
+                                        ((item.data.agent as {type?: string}).type as string) === 'prioritizer' ?
+                                            'planner' :
+                                                (item.data.agent as {type?: string}).type
+                                    ) as 'developer' | 'planner' | 'reviewer',
+                                }}
+                                size='d'
+                            />
                             <span class='agent-name'>{item.data.agent.displayName || item.data.agent.name}</span>
                         </div>
                     )

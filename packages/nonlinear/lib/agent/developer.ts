@@ -4,7 +4,7 @@
  */
 
 import {BaseAgent, type AgentContext, type AgentResponse} from './base.ts'
-import {db, addTicketAssignee} from '../database.ts'
+import {db, addTicketAssignee, type Repository} from '../database.ts'
 import {logger} from '../../service.ts'
 import {createGitPlatform} from '../git/index.ts'
 import {addAgentComment} from './comments.ts'
@@ -68,7 +68,7 @@ export class DeveloperAgent extends BaseAgent {
             `).run(Date.now(), ticket.id)
 
             // Ensure this agent is in assignees (may already be there)
-            addTicketAssignee(ticket.id, 'agent', this.name)
+            addTicketAssignee(ticket.id, 'agent', this.getName())
 
             // Create branch name
             const branchName = `ticket-${ticket.id}-${Date.now()}`
@@ -80,7 +80,10 @@ export class DeveloperAgent extends BaseAgent {
                 platform: ticket.platform,
                 remote_url: ticket.remote_url,
                 config: ticket.config,
-            } as const
+                created_at: 0,
+                name: '',
+                updated_at: 0,
+            } as Repository
 
             const gitPlatform = createGitPlatform(repo)
 
@@ -346,10 +349,10 @@ When given an instruction, interpret it and use the appropriate tools to complet
 Follow the project's coding standards and best practices. Write tests for your changes.
 Be thorough and ensure the implementation matches the ticket requirements.`
 
-        const agentContext = context || this.buildContext({})
+        const agentContext = context || this.buildToolContext({})
 
         try {
-            const response = await this.respondWithTools(systemPrompt, instruction, 4096, agentContext)
+            const response = await this.respondWithTools(systemPrompt, instruction, 4096, agentContext as AgentContext)
             return {
                 success: true,
                 message: response,

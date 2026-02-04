@@ -52,10 +52,10 @@ export async function runAgentInteractive(options: InteractiveCLIOptions): Promi
     agent.setStream(stream)
 
     // Build default context if not provided
-    const agentContext = context || agent.buildContext({})
+    const agentContext = context || agent.buildToolContext({})
 
     // Create REPL interface
-    const agentName = agent.name || 'Agent'
+    const agentName = agent.getName() || 'Agent'
     const agentType = agent.getType()
     const prompt = `${agentName}> `
 
@@ -201,7 +201,7 @@ export async function runAgentInteractive(options: InteractiveCLIOptions): Promi
                 }
 
                 // Try direct tool invocation first
-                const toolContext = agent.buildToolContext(agentContext)
+                const toolContext = agent.buildToolContext(agentContext as AgentContext | undefined)
                 const toolResult = await executeToolCommand(trimmed, agent.getTools(), toolContext)
 
                 if (toolResult !== null) {
@@ -223,7 +223,7 @@ export async function runAgentInteractive(options: InteractiveCLIOptions): Promi
                 }
 
                 // Process instruction through agent (natural language)
-                const response: AgentResponse = await agent.executeInstruction(trimmed, agentContext)
+                const response: AgentResponse = await agent.executeInstruction(trimmed, agentContext as AgentContext)
 
                 // Display result
                 console.log('\n') // New line after reasoning stream
@@ -262,7 +262,7 @@ export async function runAgentOneShot(
     instruction: string,
     context?: AgentContext,
 ): Promise<AgentResponse> {
-    const agentContext = context || agent.buildContext({})
+    const agentContext = context || agent.buildToolContext({})
 
     const stream = createReasoningStream((message) => {
         process.stdout.write(message)
@@ -270,7 +270,7 @@ export async function runAgentOneShot(
     agent.setStream(stream)
 
     try {
-        const response = await agent.executeInstruction(instruction, agentContext)
+        const response = await agent.executeInstruction(instruction, agentContext as AgentContext)
         console.log('\n') // New line after reasoning stream
 
         if (response.success) {

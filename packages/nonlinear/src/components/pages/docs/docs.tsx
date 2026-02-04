@@ -89,7 +89,7 @@ export const Docs = () => {
                 tags,
             })
             if (result.doc) {
-                state.selectedDoc = result.doc
+                state.selectedDoc = result.doc as Doc
                 state.editing = false
                 // Reload docs list
                 await loadDocs()
@@ -115,12 +115,12 @@ export const Docs = () => {
                 const part = parts[i]
                 if (i === parts.length - 1) {
                     // Last part is the doc
-                    current[part] = doc
+                    current[part] = doc as Doc | Record<string, unknown>
                 } else {
                     if (!current[part]) {
                         current[part] = {}
                     }
-                    current = current[part]
+                    current = current[part] as Record<string, Doc | Record<string, unknown>>
                 }
             }
         }
@@ -142,7 +142,7 @@ export const Docs = () => {
                 // It's a doc
                 items.push({
                     depth,
-                    doc: value,
+                    doc: value as Doc,
                     path: currentPath,
                     type: 'doc',
                 })
@@ -154,7 +154,7 @@ export const Docs = () => {
                     path: currentPath,
                     type: 'dir',
                 })
-                items.push(...renderTree(value, currentPath, depth + 1))
+                items.push(...renderTree(value as Record<string, Doc | Record<string, unknown>>, currentPath, depth + 1))
             }
         }
 

@@ -141,7 +141,7 @@ async function saveConfig() {
     // Check for environment variable first (for PR deployments and isolated instances)
     const envConfigPath = process.env.CONFIG_PATH
     const configPath = envConfigPath || path.join(homedir(), '.nonlinearrc')
-    const data = copyObject(config)
+    const data = copyObject(config) as Record<string, unknown>
     delete data.configs
     delete data.config
     delete data._

@@ -12,7 +12,7 @@ const persistantState = mergeDeep({
             width: 600,
         },
     },
-}, commonPersistantState)
+}, commonPersistantState) as any
 
 const volatileState = mergeDeep({
     tickets: [] as Array<{

@@ -17,13 +17,12 @@ import {validateRequest} from '../lib/api/validate.ts'
 export function registerDeployWebSocketApiRoutes(wsManager: WebSocketServerManager) {
     // Deploy a PR (agent-controlled)
     wsManager.api.post('/api/deploy/pr', async(ctx, req) => {
-        const userId = ctx.user?.id
+        const userId = ctx.session?.userid
         if (!userId) {
             return {error: 'Unauthorized'}
         }
 
-        const body = await req.json()
-        const data = validateRequest(DeployPRRequestSchema, body)
+        const data = validateRequest(DeployPRRequestSchema, req.data)
 
         try {
             const pr: PRMetadata = {
@@ -69,7 +68,7 @@ export function registerDeployWebSocketApiRoutes(wsManager: WebSocketServerManag
 
     // Get deployment status
     wsManager.api.get('/api/deploy/status/:prNumber', async(ctx, req) => {
-        const userId = ctx.user?.id
+        const userId = ctx.session?.userid
         if (!userId) {
             return {error: 'Unauthorized'}
         }
@@ -111,7 +110,7 @@ export function registerDeployWebSocketApiRoutes(wsManager: WebSocketServerManag
 
     // Cleanup deployment
     wsManager.api.post('/api/deploy/cleanup/:prNumber', async(ctx, req) => {
-        const userId = ctx.user?.id
+        const userId = ctx.session?.userid
         if (!userId) {
             return {error: 'Unauthorized'}
         }

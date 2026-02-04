@@ -31,6 +31,7 @@ export interface ToolResult {
         changesSummary?: string
         relatedFiles?: string[]
         adrRelevant?: string[]
+        [key: string]: unknown
     }
 }
 

@@ -4,7 +4,7 @@
  */
 
 import {BaseAgent, type AgentContext, type AgentResponse} from './base.ts'
-import {db} from '../database.ts'
+import {db, type Repository} from '../database.ts'
 import {logger} from '../../service.ts'
 import {createGitPlatform} from '../git/index.ts'
 import {addAgentComment} from './comments.ts'
@@ -55,7 +55,10 @@ export class ReviewerAgent extends BaseAgent {
                 platform: ticket.platform,
                 remote_url: ticket.remote_url,
                 config: ticket.config,
-            } as const
+                created_at: 0,
+                name: '',
+                updated_at: 0,
+            } as Repository
 
             const gitPlatform = createGitPlatform(repo)
 
@@ -243,10 +246,10 @@ You have access to tools for:
 When given an instruction, interpret it and use the appropriate tools to complete the task.
 Provide constructive feedback and check for code quality, tests, and adherence to requirements.`
 
-        const agentContext = context || this.buildContext({})
+        const agentContext = context || this.buildToolContext({})
 
         try {
-            const response = await this.respondWithTools(systemPrompt, instruction, 4096, agentContext)
+            const response = await this.respondWithTools(systemPrompt, instruction, 4096, agentContext as AgentContext)
             return {
                 success: true,
                 message: response,

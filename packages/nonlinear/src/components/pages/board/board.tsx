@@ -2,6 +2,7 @@ import {$s} from '@/app'
 import {ws} from '@garage44/common/app'
 import {Button} from '@garage44/common/components'
 import {TicketCard} from '@/components/elements/ticket/ticket'
+import type {TicketCardProps} from '@/components/elements/ticket/ticket'
 import {useEffect} from 'preact/hooks'
 import {deepSignal} from 'deepsignal'
 
@@ -126,9 +127,9 @@ export const Board = () => {
     useEffect(() => {
         // Load tickets on mount
         (async() => {
-            const result = await ws.get('/api/tickets')
+            const result = await ws.get('/api/tickets') as {tickets?: unknown}
             if (result.tickets) {
-                $s.tickets = result.tickets
+                $s.tickets = result.tickets as typeof $s.tickets
             }
         })()
     }, [])
@@ -241,11 +242,11 @@ export const Board = () => {
             // Optimistic update
             const ticketIndex = $s.tickets.findIndex((t) => t.id === ticketId)
             if (ticketIndex >= 0) {
-                const updatedTickets = [...$s.tickets]
+                const updatedTickets = [...$s.tickets] as typeof $s.tickets
                 updatedTickets[ticketIndex] = {
                     ...updatedTickets[ticketIndex],
                     ...updates,
-                }
+                } as typeof $s.tickets[number]
                 $s.tickets = updatedTickets
             }
 
@@ -260,9 +261,9 @@ export const Board = () => {
             })
         } catch(error) {
             // Revert optimistic update on error
-            const result = await ws.get('/api/tickets')
+            const result = await ws.get('/api/tickets') as {tickets?: unknown}
             if (result.tickets) {
-                $s.tickets = result.tickets
+                $s.tickets = result.tickets as typeof $s.tickets
             }
             console.error('Failed to update ticket:', error)
             dragState.dropTargetTicketId = null
@@ -302,11 +303,11 @@ export const Board = () => {
             const ticketIndex = $s.tickets.findIndex((t) => t.id === ticketId)
             if (ticketIndex >= 0) {
                 // Create new array for DeepSignal reactivity
-                const updatedTickets = [...$s.tickets]
+                const updatedTickets = [...$s.tickets] as typeof $s.tickets
                 updatedTickets[ticketIndex] = {
                     ...updatedTickets[ticketIndex],
-                    status: targetStatus as typeof updatedTickets[number]['status'],
-                }
+                    status: targetStatus,
+                } as typeof $s.tickets[number]
                 $s.tickets = updatedTickets
             }
 
@@ -317,9 +318,9 @@ export const Board = () => {
             // WebSocket broadcast will update state with server response
         } catch(error) {
             // Revert optimistic update on error
-            const result = await ws.get('/api/tickets')
+            const result = await ws.get('/api/tickets') as {tickets?: unknown}
             if (result.tickets) {
-                $s.tickets = result.tickets
+                $s.tickets = result.tickets as typeof $s.tickets
             }
             console.error('Failed to update ticket status:', error)
         }
@@ -373,7 +374,7 @@ export const Board = () => {
                                             onDragStart={(e) => handleDragStart(e, ticket.id)}
                                             onDrop={(e) => handleTicketDrop(e, ticket.id, lane.id)}
                                         >
-                                                <TicketCard ticket={ticket} />
+                                                <TicketCard ticket={ticket as TicketCardProps['ticket']} />
                                         </div>)}
                             </div>
                         </div>

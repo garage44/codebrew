@@ -10,6 +10,7 @@ import {
     service,
     loggerTransports,
 } from '@garage44/common/service'
+import type {LoggerConfig} from '@garage44/common/types'
 import {hideBin} from 'yargs/helpers'
 import path from 'node:path'
 import yargs from 'yargs'
@@ -28,7 +29,7 @@ function welcomeBanner() {
 // In case we start in development mode.
 let bunchyConfig = null
 
-const logger = loggerTransports(config.logger, 'service')
+const logger = loggerTransports(config.logger as LoggerConfig, 'service')
 
 const BUN_ENV = process.env.BUN_ENV || 'production'
 
@@ -310,7 +311,7 @@ void cli.usage('Usage: $0 [task]')
         const service = new IndexingService()
 
         // Initialize logger after config is loaded
-        const loggerInstance = loggerTransports(config.logger, 'service')
+        const loggerInstance = loggerTransports(config.logger as LoggerConfig, 'service')
         service.setLogger(loggerInstance)
 
         // Handle graceful shutdown
@@ -416,7 +417,7 @@ void cli.usage('Usage: $0 [task]')
         const service = new AgentService(argv.agentId)
 
         // Initialize logger after config is loaded
-        const loggerInstance = loggerTransports(config.logger, 'agent-service')
+        const loggerInstance = loggerTransports(config.logger as LoggerConfig, 'service')
         service.setLogger(loggerInstance)
 
         // Handle graceful shutdown
@@ -616,4 +617,5 @@ void cli.usage('Usage: $0 [task]')
 export {
     logger,
     runtime,
+    service,
 }

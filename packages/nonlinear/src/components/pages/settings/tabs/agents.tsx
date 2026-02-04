@@ -92,9 +92,24 @@ export function Agents() {
                     <p class='empty'>No agents configured</p> :
                         $s.agents.map((agent) => <div class='agent' key={agent.id}>
                             <div class='agent-header'>
-                                <AgentAvatar agent={agent} showStatus showType size='l' />
+                                <AgentAvatar
+                                    agent={{
+                                        avatar: agent.avatar || 'placeholder-1.png',
+                                        displayName: agent.display_name || agent.name,
+                                        id: agent.id,
+                                        status: (agent.status || 'idle') as 'idle' | 'working' | 'error' | 'offline',
+                                        type: (
+                                            (agent.type as string) === 'prioritizer' ?
+                                                'planner' :
+                                                agent.type
+                                        ) as 'developer' | 'planner' | 'reviewer',
+                                    }}
+                                    showStatus
+                                    showType
+                                    size='l'
+                                />
                                 <div class='agent-info'>
-                                    <h3>{agent.displayName}</h3>
+                                    <h3>{agent.display_name || agent.name}</h3>
                                     <div class='status-indicator-group'>
                                         <span
                                             class={`service-indicator ${

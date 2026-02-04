@@ -37,13 +37,13 @@ export abstract class BaseAgent {
     protected client: Anthropic
     protected model: string
     protected name: string
-    protected type: 'planner' | 'developer' | 'reviewer'
+    protected type: 'planner' | 'developer' | 'reviewer' | 'prioritizer'
     protected tools: Record<string, Tool> = {}
     protected skills: Skill[] = []
     protected stream?: WritableStream<string>
     protected apiKey: string
 
-    constructor(name: string, type: 'planner' | 'developer' | 'reviewer', agentConfig?: {tools?: string[]; skills?: string[]}) {
+    constructor(name: string, type: 'planner' | 'developer' | 'reviewer' | 'prioritizer', agentConfig?: {tools?: string[]; skills?: string[]}) {
         this.name = name
         this.type = type
         this.model = config.anthropic.model || 'claude-3-5-sonnet-20241022'
@@ -162,7 +162,11 @@ ${result.doc.content}
     /**
      * Get agent type
      */
-    getType(): 'planner' | 'developer' | 'reviewer' {
+    getName(): string {
+        return this.name
+    }
+
+    getType(): 'planner' | 'developer' | 'reviewer' | 'prioritizer' {
         return this.type
     }
 
@@ -213,7 +217,7 @@ ${result.doc.content}
      * Build tool context for tool execution
      * Subclasses should override to provide repository-specific context
      */
-    protected buildToolContext(context?: AgentContext): ToolContext {
+    public buildToolContext(context?: AgentContext): ToolContext {
         const toolContext: ToolContext = {
             agent: this,
         }

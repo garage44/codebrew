@@ -35,7 +35,9 @@ function prepareMermaidDiagrams(html: string): string {
  */
 export function renderMarkdown(markdown: string): string {
     try {
-        const html = marked.parse(markdown)
+        const html = typeof marked.parse(markdown) === 'string' 
+            ? marked.parse(markdown) as string
+            : String(marked.parse(markdown))
         return prepareMermaidDiagrams(html)
     } catch (error) {
         console.error('Error rendering markdown:', error)
