@@ -326,7 +326,7 @@ export const Board = () => {
     return (
         <div class='c-board'>
             <div class='header'>
-                <h1>Planning</h1>
+                <h1>Development</h1>
             </div>
             <div class='lanes'>
                 {LANES.map((lane) => {

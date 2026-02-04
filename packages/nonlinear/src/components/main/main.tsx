@@ -348,7 +348,7 @@ export const Main = () => {
                                 href='/board'
                                 icon='view_kanban'
                                 iconType='info'
-                                text='Planning'
+                                text='Development'
                             />
                         </MenuGroup>
                       )}
