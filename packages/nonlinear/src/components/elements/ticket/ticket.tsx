@@ -8,7 +8,7 @@ interface TicketCardProps {
     ticket: {
         assignee_id: string | null
         assignee_type: string | null
-        assignees: Array<{assignee_id: string, assignee_type: 'agent' | 'human'}>
+        assignees: Array<{assignee_id: string; assignee_type: 'agent' | 'human'}>
         branch_name: string | null
         description: string | null
         id: string
@@ -59,8 +59,8 @@ export const TicketCard = ({ticket}: TicketCardProps) => {
                         const labelColor = labelDef?.color || 'var(--info-6)'
                         return (
                             <span
-                                key={label}
                                 class='label-badge'
+                                key={label}
                                 style={{
                                     backgroundColor: labelColor,
                                     borderColor: labelColor,
@@ -80,14 +80,14 @@ export const TicketCard = ({ticket}: TicketCardProps) => {
                             const agent = $s.agents.find((a) => a.id === assignee.assignee_id || a.name === assignee.assignee_id)
                             if (agent) {
                                 return (
-                                    <div key={`${assignee.assignee_type}-${assignee.assignee_id}`} class='assignee'>
+                                    <div class='assignee' key={`${assignee.assignee_type}-${assignee.assignee_id}`}>
                                         <AgentBadge agent={agent} size='s' />
                                     </div>
                                 )
                             }
                         }
                         return (
-                            <div key={`${assignee.assignee_type}-${assignee.assignee_id}`} class='assignee'>
+                            <div class='assignee' key={`${assignee.assignee_type}-${assignee.assignee_id}`}>
                                 <Icon name='person' size='d' type='info' />
                                 <span>{assignee.assignee_id}</span>
                             </div>

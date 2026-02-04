@@ -9,9 +9,9 @@ import type {
 
 export interface NonlinearState extends CommonState {
     agents: Array<EnrichedAgent>
+    docs: Array<EnrichedDoc>
     labelDefinitions: Array<LabelDefinition>
     repositories: Array<Repository>
-    docs: Array<EnrichedDoc>
     selectedDoc: string | null
     selectedLane: 'backlog' | 'todo' | 'in_progress' | 'review' | 'closed' | null
     selectedRepository: string | null

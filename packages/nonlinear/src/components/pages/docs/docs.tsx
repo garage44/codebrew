@@ -8,25 +8,27 @@ import {DocEditor} from './editor'
 import './docs.css'
 
 // Use api for public access, ws for authenticated
-const getApi = () => ($s.profile.authenticated ? ws : api)
+const getApi = () => {
+    return $s.profile.authenticated ? ws : api
+}
 
 interface Doc {
-    id: string
-    path: string
-    title: string
     content: string
-    tags?: string[]
+    id: string
     labelDefinitions?: Array<{color: string; name: string}>
+    path: string
+    tags?: string[]
+    title: string
 }
 
 // State defined outside component
 const state = deepSignal({
     docs: [] as Doc[],
-    selectedDoc: null as Doc | null,
-    loading: true,
     editing: false,
-    searchQuery: '',
     filterTags: [] as string[],
+    loading: true,
+    searchQuery: '',
+    selectedDoc: null as Doc | null,
 })
 
 export const Docs = () => {
@@ -42,7 +44,7 @@ export const Docs = () => {
             if (result.docs) {
                 state.docs = result.docs
             }
-        } catch (error) {
+        } catch(error) {
             console.error('Failed to load docs:', error)
         } finally {
             state.loading = false
@@ -53,7 +55,12 @@ export const Docs = () => {
         try {
             const apiClient = getApi()
             const url = `/api/docs/by-path?path=${encodeURIComponent(path)}`
-            console.log('[Docs] Loading doc:', {path, url, apiClient: apiClient === ws ? 'ws' : 'api', authenticated: $s.profile.authenticated})
+            console.log('[Docs] Loading doc:', {
+                apiClient: apiClient === ws ? 'ws' : 'api',
+                authenticated: $s.profile.authenticated,
+                path,
+                url,
+            })
             const result = await apiClient.get(url)
             console.log('[Docs] Result:', result)
             if (result?.doc) {
@@ -64,7 +71,7 @@ export const Docs = () => {
             } else {
                 console.warn('[Docs] Unexpected result format:', result)
             }
-        } catch (error) {
+        } catch(error) {
             console.error('[Docs] Failed to load doc:', error)
         }
     }
@@ -87,7 +94,7 @@ export const Docs = () => {
                 // Reload docs list
                 await loadDocs()
             }
-        } catch (error) {
+        } catch(error) {
             console.error('Failed to save doc:', error)
         }
     }
@@ -98,7 +105,7 @@ export const Docs = () => {
 
     // Build tree structure from paths
     const buildTree = () => {
-        const tree: Record<string, any> = {}
+        const tree: Record<string, Doc | Record<string, unknown>> = {}
 
         for (const doc of state.docs) {
             const parts = doc.path.split('/').filter(Boolean)
@@ -121,8 +128,12 @@ export const Docs = () => {
         return tree
     }
 
-    const renderTree = (node: any, path: string = '', depth: number = 0): any[] => {
-        const items: any[] = []
+    const renderTree = (
+        node: Record<string, Doc | Record<string, unknown>>,
+        path: string = '',
+        depth: number = 0,
+    ): Array<{depth: number; doc?: Doc; name?: string; path: string; type: 'doc' | 'dir'}> => {
+        const items: Array<{depth: number; doc?: Doc; name?: string; path: string; type: 'doc' | 'dir'}> = []
 
         for (const [key, value] of Object.entries(node)) {
             const currentPath = path ? `${path}/${key}` : key
@@ -130,18 +141,18 @@ export const Docs = () => {
             if (value && typeof value === 'object' && 'id' in value) {
                 // It's a doc
                 items.push({
-                    type: 'doc',
+                    depth,
                     doc: value,
                     path: currentPath,
-                    depth,
+                    type: 'doc',
                 })
             } else if (value && typeof value === 'object') {
                 // It's a directory
                 items.push({
-                    type: 'dir',
+                    depth,
                     name: key,
                     path: currentPath,
-                    depth,
+                    type: 'dir',
                 })
                 items.push(...renderTree(value, currentPath, depth + 1))
             }
@@ -179,29 +190,28 @@ export const Docs = () => {
     }
 
     return (
-        <div class="c-docs">
-            <div class="sidebar">
-                <div class="search">
+        <div class='c-docs'>
+            <div class='sidebar'>
+                <div class='search'>
                     <input
-                        type="text"
-                        placeholder="Search documentation..."
-                        value={state.searchQuery}
                         onInput={(e) => {
                             state.searchQuery = (e.target as HTMLInputElement).value
                         }}
+                        placeholder='Search documentation...'
+                        type='text'
+                        value={state.searchQuery}
                     />
                 </div>
 
-                <div class="tree">
-                    {state.loading ? (
-                        <div class="loading">Loading...</div>
-                    ) : (
+                <div class='tree'>
+                    {state.loading ?
+                        <div class='loading'>Loading...</div> :
                         <ul>
                             {filteredItems.map((item) => {
                                 if (item.type === 'dir') {
                                     return (
-                                        <li key={item.path} class="dir" style={`padding-left: ${item.depth * 16}px`}>
-                                            <Icon name="folder" type="info" />
+                                        <li class='dir' key={item.path} style={`padding-left: ${item.depth * 16}px`}>
+                                            <Icon name='folder' type='info' />
                                             <span>{item.name}</span>
                                         </li>
                                     )
@@ -210,60 +220,52 @@ export const Docs = () => {
                                 const isSelected = state.selectedDoc?.path === item.doc.path
                                 return (
                                     <li
-                                        key={item.doc.id}
                                         class={isSelected ? 'selected' : ''}
-                                        style={`padding-left: ${item.depth * 16}px`}
+                                        key={item.doc.id}
                                         onClick={() => handleDocSelect(item.doc.path)}
+                                        style={`padding-left: ${item.depth * 16}px`}
                                     >
-                                        <Icon name="description" type="info" />
+                                        <Icon name='description' type='info' />
                                         <span>{item.doc.title}</span>
                                     </li>
                                 )
                             })}
-                        </ul>
-                    )}
+                        </ul>}
                 </div>
             </div>
 
-            <div class="content">
-                {state.selectedDoc ? (
-                    state.editing ? (
+            <div class='content'>
+                {state.selectedDoc ?
+                    state.editing ?
                         <DocEditor
                             doc={state.selectedDoc}
-                            onSave={handleSave}
                             onCancel={handleCancel}
-                        />
-                    ) : (
-                        <div class="doc-viewer">
-                            <div class="doc-header">
+                            onSave={handleSave}
+                        /> :
+                        <div class='doc-viewer'>
+                            <div class='doc-header'>
                                 <h1>{state.selectedDoc.title}</h1>
-                                {$s.profile.authenticated && (
+                                {$s.profile.authenticated &&
                                     <button onClick={handleEdit}>
-                                        <Icon name="edit" type="info" />
+                                        <Icon name='edit' type='info' />
                                         Edit
-                                    </button>
-                                )}
+                                    </button>}
                             </div>
-                            <div class="doc-tags">
-                                {state.selectedDoc.labelDefinitions?.map((def) => (
-                                    <span
-                                        key={def.name}
-                                        class="tag"
-                                        style={`background-color: ${def.color}`}
-                                    >
+                            <div class='doc-tags'>
+                                {state.selectedDoc.labelDefinitions?.map((def) => <span
+                                    class='tag'
+                                    key={def.name}
+                                    style={`background-color: ${def.color}`}
+                                >
                                         {def.name}
-                                    </span>
-                                ))}
+                                </span>)}
                             </div>
                             <Markdown content={state.selectedDoc.content} />
-                        </div>
-                    )
-                ) : (
-                    <div class="empty">
-                        <Icon name="description" type="info" size="xl" />
+                        </div> :
+                    <div class='empty'>
+                        <Icon name='description' size='xl' type='info' />
                         <p>Select a document to view</p>
-                    </div>
-                )}
+                    </div>}
             </div>
         </div>
     )

@@ -10,7 +10,6 @@ import {
     upsertLabelDefinition,
 } from '../lib/database.ts'
 import {logger} from '../service.ts'
-import {randomId} from '@garage44/common/lib/utils'
 import {
     CreateLabelRequestSchema,
     LabelNameParamsSchema,
@@ -47,7 +46,7 @@ export function registerLabelsWebSocketApiRoutes(wsManager: WebSocketServerManag
     wsManager.api.post('/api/labels', async(_ctx, req) => {
         const data = validateRequest(CreateLabelRequestSchema, req.data)
 
-        const labelId = data.id || `label-${data.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${Date.now()}`
+        const labelId = data.id || `label-${data.name.toLowerCase().replaceAll(/[^a-z0-9]/g, '-')}-${Date.now()}`
         upsertLabelDefinition(labelId, data.name, data.color)
 
         const label = getLabelDefinition(data.name)

@@ -5,7 +5,6 @@
 import type {WebSocketServerManager} from '@garage44/common/lib/ws-server'
 import {db} from '../lib/database.ts'
 import {logger} from '../service.ts'
-import {getAgentById} from '../lib/agent/index.ts'
 import {randomId} from '@garage44/common/lib/utils'
 import {getAgentStatus} from '../lib/agent/status.ts'
 import {DEFAULT_AVATARS} from '../lib/agent/avatars.ts'
@@ -18,18 +17,12 @@ import path from 'path'
 import {
     AgentDbSchema,
     AgentParamsSchema,
-    AgentStatsResponseSchema,
-    AgentServiceStatusResponseSchema,
     CreateAgentRequestSchema,
     EnrichedAgentSchema,
-    StartAgentServiceResponseSchema,
-    StopAgentServiceResponseSchema,
     TriggerAgentRequestSchema,
-    TriggerAgentResponseSchema,
     UpdateAgentRequestSchema,
 } from '../lib/schemas/agents.ts'
 import {validateRequest} from '../lib/api/validate.ts'
-import {z} from 'zod'
 
 // Track PIDs of API-started agent services
 const agentServicePids = new Map<string, number>()
@@ -82,8 +75,11 @@ export async function startAgentService(agentId: string, wsManager: WebSocketSer
     if (agentServicePids.has(agentId)) {
         const pid = agentServicePids.get(agentId)!
         try {
-            // Check if process is still running
-            process.kill(pid, 0) // Signal 0 checks if process exists
+            /*
+             * Check if process is still running
+             * Signal 0 checks if process exists
+             */
+            process.kill(pid, 0)
             return {
                 message: 'Agent service is already starting',
                 online: false,
@@ -113,12 +109,12 @@ export async function startAgentService(agentId: string, wsManager: WebSocketSer
     const process_ = Bun.spawn(['bun', serviceTsPath, 'agent:service', '--agent-id', agentId], {
         cwd: process.cwd(),
         detached: true,
-        stderr: 'pipe',
-        stdout: 'pipe',
         env: {
             ...process.env,
             NONLINEAR_WS_URL: wsUrl,
         },
+        stderr: 'pipe',
+        stdout: 'pipe',
     })
 
     // Track PID
@@ -136,7 +132,8 @@ export async function startAgentService(agentId: string, wsManager: WebSocketSer
 
     return {
         message: `Agent service started for ${agent.name}`,
-        online: false, // Will be online once it connects
+        // Will be online once it connects
+        online: false,
         pid: process_.pid,
         success: true,
     }
@@ -150,7 +147,7 @@ export async function autostartAgents(
     override?: boolean | string[],
 ): Promise<void> {
     // Command-line override takes precedence over config
-    const autostartConfig = override !== undefined ? override : config.agents?.autostart
+    const autostartConfig = override === undefined ? config.agents?.autostart : override
 
     // Skip if not configured (undefined or false)
     if (!autostartConfig || autostartConfig === false) {
@@ -184,7 +181,9 @@ export async function autostartAgents(
         agentsToStart = agents
             .filter((a) => autostartConfig.includes(a.id))
             .map((a) => ({id: a.id, name: a.name}))
-        logger.info(`[Autostart] Starting ${agentsToStart.length} specified agents: ${agentsToStart.map((a) => a.name).join(', ')}`)
+        logger.info(
+            `[Autostart] Starting ${agentsToStart.length} specified agents: ${agentsToStart.map((a) => a.name).join(', ')}`,
+        )
     } else {
         // Invalid config, skip
         logger.warn('[Autostart] Invalid autostart config, skipping')
@@ -200,7 +199,7 @@ export async function autostartAgents(
             } else {
                 logger.warn(`[Autostart] Failed to start agent ${agent.name}: ${result.message}`)
             }
-        } catch (error) {
+        } catch(error) {
             logger.error(`[Autostart] Error starting agent ${agent.name}: ${error}`)
         }
 
@@ -257,9 +256,11 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
             // Get service online status from watched state
             const serviceOnline = agentState?.serviceOnline ?? false
 
-            // Determine agent status - if service is offline, status should be 'offline'
-            // Otherwise use the actual agent status (idle, working, error)
-            let agentStatus: 'idle' | 'working' | 'error' | 'offline' = (status?.status || validatedAgent.status || 'idle')
+            /*
+             * Determine agent status - if service is offline, status should be 'offline'
+             * Otherwise use the actual agent status (idle, working, error)
+             */
+            let agentStatus: 'idle' | 'working' | 'error' | 'offline' = status?.status || validatedAgent.status || 'idle'
 
             // Override to 'offline' if service is not online (unless agent is actually working)
             if (!serviceOnline && agentStatus !== 'working') {
@@ -404,19 +405,21 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
             'manual',
             {
                 ...context,
-                stream, // Include streaming flag in task data
+                // Include streaming flag in task data
+                stream,
             },
-            0, // Low priority for manual triggers
+            // Low priority for manual triggers
+            0,
         )
 
         // Broadcast task event to agent via WebSocket
         wsManager.emitEvent(`/agents/${params.id}/tasks`, {
-            task_id: taskId,
-            task_type: 'manual',
             task_data: {
                 ...context,
                 stream,
             },
+            task_id: taskId,
+            task_type: 'manual',
         })
 
         logger.info(`[API] Created and broadcast task ${taskId} for agent ${agent.name}`)
@@ -614,9 +617,11 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
             }
         }
 
-        // Send stop command via WebSocket broadcast
-        // Use broadcast instead of emitEvent since agent services don't explicitly subscribe to stop topic
-        // The agent service listens via onRoute which receives broadcast messages
+        /*
+         * Send stop command via WebSocket broadcast
+         * Use broadcast instead of emitEvent since agent services don't explicitly subscribe to stop topic
+         * The agent service listens via onRoute which receives broadcast messages
+         */
         wsManager.broadcast(`/agents/${params.id}/stop`, {
             timestamp: Date.now(),
         })
@@ -630,7 +635,8 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
 
         return {
             message: `Stop command sent to agent service ${agent.name}`,
-            online: true, // Will be offline once it disconnects
+            // Will be offline once it disconnects
+            online: true,
             success: true,
         }
     })

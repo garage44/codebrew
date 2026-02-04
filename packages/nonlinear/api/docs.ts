@@ -7,7 +7,7 @@ import {db, getLabelDefinition} from '../lib/database.ts'
 import {randomId} from '@garage44/common/lib/utils'
 import {logger} from '../service.ts'
 import {queueIndexingJob} from '../lib/indexing/queue.ts'
-import {unifiedVectorSearch, searchDocs, searchTickets} from '../lib/docs/search.ts'
+import {unifiedVectorSearch, searchDocs} from '../lib/docs/search.ts'
 import type {DocFilters} from '../lib/docs/search.ts'
 import {
     DocDbSchema,
@@ -28,7 +28,7 @@ function enrichDoc(doc: {
         SELECT label FROM documentation_labels WHERE doc_id = ?
     `).all(doc.id) as Array<{label: string}>
 
-    const tags = labels.map(l => l.label)
+    const tags = labels.map((l) => l.label)
     const labelDefinitions = tags.map((tag) => {
         const def = getLabelDefinition(tag)
         return def ? {color: def.color, name: def.name} : null
@@ -46,10 +46,19 @@ function enrichDoc(doc: {
  * These routes are accessible without authentication
  */
 export default function apiDocs(router: {
-    get: (path: string, handler: (req: Request, params: Record<string, string>, session?: unknown) => Promise<Response>) => void
-    post: (path: string, handler: (req: Request, params: Record<string, string>, session?: unknown) => Promise<Response>) => void
+    delete: (
+        path: string,
+        handler: (req: Request, params: Record<string, string>, session?: unknown) => Promise<Response>,
+    ) => void
+    get: (
+        path: string,
+        handler: (req: Request, params: Record<string, string>, session?: unknown) => Promise<Response>,
+    ) => void
+    post: (
+        path: string,
+        handler: (req: Request, params: Record<string, string>, session?: unknown) => Promise<Response>,
+    ) => void
     put: (path: string, handler: (req: Request, params: Record<string, string>, session?: unknown) => Promise<Response>) => void
-    delete: (path: string, handler: (req: Request, params: Record<string, string>, session?: unknown) => Promise<Response>) => void
 }) {
     // List docs (public)
     router.get('/api/docs', async(_req: Request, _params: Record<string, string>, _session: unknown) => {
@@ -58,7 +67,7 @@ export default function apiDocs(router: {
         const workspace = url.searchParams.get('workspace') || undefined
 
         let query = 'SELECT * FROM documentation WHERE 1=1'
-        const params: any[] = []
+        const params: string[] = []
 
         if (workspace) {
             const workspaceTag = `workspace:${workspace}`
@@ -78,12 +87,12 @@ export default function apiDocs(router: {
         query += ' ORDER BY updated_at DESC'
 
         const docs = db.prepare(query).all(...params) as Array<{
+            author_id: string
+            content: string
+            created_at: number
             id: string
             path: string
             title: string
-            content: string
-            author_id: string
-            created_at: number
             updated_at: number
         }>
 
@@ -105,12 +114,12 @@ export default function apiDocs(router: {
         }
 
         const doc = db.prepare('SELECT * FROM documentation WHERE path = ?').get(path) as {
+            author_id: string
+            content: string
+            created_at: number
             id: string
             path: string
             title: string
-            content: string
-            author_id: string
-            created_at: number
             updated_at: number
         } | undefined
 
@@ -152,7 +161,7 @@ export default function apiDocs(router: {
             return new Response(JSON.stringify({results}), {
                 headers: {'Content-Type': 'application/json'},
             })
-        } catch (error) {
+        } catch(error) {
             return new Response(JSON.stringify({error: error instanceof Error ? error.message : String(error)}), {
                 headers: {'Content-Type': 'application/json'},
                 status: 500,
@@ -183,15 +192,15 @@ export default function apiDocs(router: {
             if (workspace) filters.workspace = workspace
 
             const results = await unifiedVectorSearch(query, {
-                limit,
                 contentType,
                 filters,
+                limit,
             })
 
             return new Response(JSON.stringify(results), {
                 headers: {'Content-Type': 'application/json'},
             })
-        } catch (error) {
+        } catch(error) {
             return new Response(JSON.stringify({error: error instanceof Error ? error.message : String(error)}), {
                 headers: {'Content-Type': 'application/json'},
                 status: 500,
@@ -207,7 +216,7 @@ export function registerDocsWebSocketApiRoutes(wsManager: WebSocketServerManager
         const workspace = req.query.workspace as string | undefined
 
         let query = 'SELECT * FROM documentation WHERE 1=1'
-        const params: any[] = []
+        const params: string[] = []
 
         if (workspace) {
             // Filter by workspace tag
@@ -229,12 +238,12 @@ export function registerDocsWebSocketApiRoutes(wsManager: WebSocketServerManager
         query += ' ORDER BY updated_at DESC'
 
         const docs = db.prepare(query).all(...params) as Array<{
+            author_id: string
+            content: string
+            created_at: number
             id: string
             path: string
             title: string
-            content: string
-            author_id: string
-            created_at: number
             updated_at: number
         }>
 
@@ -252,12 +261,12 @@ export function registerDocsWebSocketApiRoutes(wsManager: WebSocketServerManager
         }
 
         const doc = db.prepare('SELECT * FROM documentation WHERE path = ?').get(path) as {
+            author_id: string
+            content: string
+            created_at: number
             id: string
             path: string
             title: string
-            content: string
-            author_id: string
-            created_at: number
             updated_at: number
         } | undefined
 
@@ -278,10 +287,10 @@ export function registerDocsWebSocketApiRoutes(wsManager: WebSocketServerManager
         }
 
         const body = await req.json() as {
-            path: string
-            title: string
             content: string
+            path: string
             tags?: string[]
+            title: string
         }
 
         // Validate tag format (hyphens only)
@@ -308,7 +317,7 @@ export function registerDocsWebSocketApiRoutes(wsManager: WebSocketServerManager
                 body.content,
                 userId,
                 now,
-                now
+                now,
             )
 
             // Add tags
@@ -317,7 +326,7 @@ export function registerDocsWebSocketApiRoutes(wsManager: WebSocketServerManager
                     // Ensure tag exists
                     const existing = db.prepare('SELECT id FROM label_definitions WHERE name = ?').get(tag)
                     if (!existing) {
-                        const labelId = `label-${tag.toLowerCase().replace(/:/g, '-')}`
+                        const labelId = `label-${tag.toLowerCase().replaceAll(':', '-')}`
                         db.prepare(`
                             INSERT INTO label_definitions (id, name, color, created_at, updated_at)
                             VALUES (?, ?, ?, ?, ?)
@@ -340,10 +349,10 @@ export function registerDocsWebSocketApiRoutes(wsManager: WebSocketServerManager
             try {
                 // Queue indexing job (processed by indexing service)
                 await queueIndexingJob({
-                    type: 'doc',
                     docId,
+                    type: 'doc',
                 })
-            } catch (error) {
+            } catch(error) {
                 logger.warn(`[Docs API] Failed to generate embeddings for ${docId}:`, error)
                 // Continue anyway - embeddings can be regenerated later
             }
@@ -352,7 +361,7 @@ export function registerDocsWebSocketApiRoutes(wsManager: WebSocketServerManager
             return {
                 doc: enrichDoc(doc),
             }
-        } catch (error) {
+        } catch(error) {
             if (String(error).includes('UNIQUE constraint')) {
                 return {error: 'Documentation with this path already exists'}
             }
@@ -370,9 +379,9 @@ export function registerDocsWebSocketApiRoutes(wsManager: WebSocketServerManager
 
         const docId = req.params.id
         const body = await req.json() as {
-            title?: string
             content: string
             tags?: string[]
+            title?: string
         }
 
         // Validate tag format
@@ -412,7 +421,7 @@ export function registerDocsWebSocketApiRoutes(wsManager: WebSocketServerManager
                     // Ensure tag exists
                     const existing = db.prepare('SELECT id FROM label_definitions WHERE name = ?').get(tag)
                     if (!existing) {
-                        const labelId = `label-${tag.toLowerCase().replace(/:/g, '-')}`
+                        const labelId = `label-${tag.toLowerCase().replaceAll(':', '-')}`
                         db.prepare(`
                             INSERT INTO label_definitions (id, name, color, created_at, updated_at)
                             VALUES (?, ?, ?, ?, ?)
@@ -431,10 +440,10 @@ export function registerDocsWebSocketApiRoutes(wsManager: WebSocketServerManager
             try {
                 // Queue indexing job (processed by indexing service)
                 await queueIndexingJob({
-                    type: 'doc',
                     docId,
+                    type: 'doc',
                 })
-            } catch (error) {
+            } catch(error) {
                 logger.warn(`[Docs API] Failed to regenerate embeddings for ${docId}:`, error)
             }
 
@@ -442,7 +451,7 @@ export function registerDocsWebSocketApiRoutes(wsManager: WebSocketServerManager
             return {
                 doc: enrichDoc(doc),
             }
-        } catch (error) {
+        } catch(error) {
             logger.error('[Docs API] Failed to update doc:', error)
             return {error: 'Failed to update documentation'}
         }
@@ -460,7 +469,7 @@ export function registerDocsWebSocketApiRoutes(wsManager: WebSocketServerManager
         try {
             db.prepare('DELETE FROM documentation WHERE id = ?').run(docId)
             return {success: true}
-        } catch (error) {
+        } catch(error) {
             logger.error('[Docs API] Failed to delete doc:', error)
             return {error: 'Failed to delete documentation'}
         }
@@ -488,21 +497,21 @@ export function registerDocsWebSocketApiRoutes(wsManager: WebSocketServerManager
 
         try {
             const result = await unifiedVectorSearch(query, {
-                limit,
                 contentType: contentType || 'both',
                 filters,
+                limit,
             })
 
             return {
-                docs: result.docs.map(r => ({
-                    doc: enrichDoc(r.doc),
+                docs: result.docs.map((r) => ({
                     chunk: r.chunk,
+                    doc: enrichDoc(r.doc),
                 })),
                 tickets: result.tickets,
             }
-        } catch (error) {
+        } catch(error) {
             logger.error('[Docs API] Search failed:', error)
-            return {error: 'Search failed', docs: [], tickets: []}
+            return {docs: [], error: 'Search failed', tickets: []}
         }
     })
 
@@ -528,12 +537,12 @@ export function registerDocsWebSocketApiRoutes(wsManager: WebSocketServerManager
         try {
             const results = await searchDocs(query, filters, limit)
             return {
-                results: results.map(r => ({
-                    doc: enrichDoc(r.doc),
+                results: results.map((r) => ({
                     chunk: r.chunk,
+                    doc: enrichDoc(r.doc),
                 })),
             }
-        } catch (error) {
+        } catch(error) {
             logger.error('[Docs API] Doc search failed:', error)
             return {error: 'Search failed', results: []}
         }

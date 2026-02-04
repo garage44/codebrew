@@ -31,7 +31,8 @@ export const Login = () => {
 
                 ws.connect()
                 route('/board')
-                return null // Success
+                // Success
+                return null
             } else {
                 return result.error || 'Invalid credentials'
             }

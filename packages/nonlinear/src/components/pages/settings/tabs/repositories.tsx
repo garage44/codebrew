@@ -57,7 +57,7 @@ export function Repositories() {
                 formState.platform = 'local'
                 formState.remote_url = ''
             }
-        } catch (error) {
+        } catch(error) {
             notifier.notify({
                 icon: 'error',
                 message: error instanceof Error ? error.message : 'Failed to add repository',
@@ -86,7 +86,7 @@ export function Repositories() {
                 message: 'Repository deleted successfully',
                 type: 'success',
             })
-        } catch (error) {
+        } catch(error) {
             notifier.notify({
                 icon: 'error',
                 message: error instanceof Error ? error.message : 'Failed to delete repository',
@@ -112,7 +112,7 @@ export function Repositories() {
                     type: 'success',
                 })
             }
-        } catch (error) {
+        } catch(error) {
             notifier.notify({
                 icon: 'error',
                 message: error instanceof Error ? error.message : 'Failed to discover repositories',
@@ -168,8 +168,7 @@ export function Repositories() {
                         <div class='discovered-repos'>
                             <h3>Discovered Repositories</h3>
                             <div class='discovered-repos-list'>
-                                {discoveredRepos.map((repo) => (
-                                    <div class='discovered-repo-item' key={repo.path}>
+                                {discoveredRepos.map((repo) => <div class='discovered-repo-item' key={repo.path}>
                                         <div class='discovered-repo-info'>
                                             <strong>{repo.name}</strong>
                                             <span class='discovered-repo-path'>{repo.path}</span>
@@ -180,8 +179,7 @@ export function Repositories() {
                                             tip='Add repository'
                                             variant='toggle'
                                         />
-                                    </div>
-                                ))}
+                                </div>)}
                             </div>
                         </div>}
                 </div>
@@ -228,23 +226,20 @@ export function Repositories() {
             <div class='section'>
                 <h2 class='section-title'>Repositories</h2>
                 {$s.repositories.length === 0 ?
-                        (
+
                             <div class='empty-state'>
                                 <p>No repositories added yet.</p>
-                            </div>
-                        ) :
-                    (
+                            </div> :
+
                         <div class='repositories-list'>
-                            {$s.repositories.map((repo) => (
-                                <div class='repository-item' key={repo.id}>
+                            {$s.repositories.map((repo) => <div class='repository-item' key={repo.id}>
                                     <div class='repository-info'>
                                         <h3 class='repository-name'>{repo.name}</h3>
                                         <p class='repository-path'>{repo.path}</p>
                                         <div class='repository-meta'>
                                             <span class='platform-badge'>{repo.platform}</span>
-                                            {repo.remote_url && (
-                                                <span class='remote-url'>{repo.remote_url}</span>
-                                            )}
+                                            {repo.remote_url &&
+                                                <span class='remote-url'>{repo.remote_url}</span>}
                                         </div>
                                     </div>
                                     <div class='repository-actions'>
@@ -256,10 +251,8 @@ export function Repositories() {
                                             variant='toggle'
                                         />
                                     </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
+                            </div>)}
+                        </div>}
             </div>
         </section>
     )

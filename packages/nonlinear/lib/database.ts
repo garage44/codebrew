@@ -3,7 +3,6 @@ import {initDatabase as initCommonDatabase} from '@garage44/common/lib/database'
 import {logger} from '../service.ts'
 import path from 'node:path'
 import {homedir} from 'node:os'
-import {randomId} from '@garage44/common/lib/utils'
 import {config} from './config.ts'
 
 /**
@@ -191,7 +190,7 @@ function loadVecExtension(db: Database): void {
                 load(db)
                 logger.info('[Database] Loaded sqlite-vec extension')
                 return
-            } catch(requireError) {
+            } catch(_requireError) {
                 // Fallback to ES module import
                 import('sqlite-vec').then(({load}) => {
                     load(db)
@@ -671,7 +670,7 @@ function migrateLabelsToDefinitions() {
         for (let i = 0; i < existingLabels.length; i++) {
             const label = existingLabels[i].label
             const color = defaultColors[i % defaultColors.length]
-            const labelId = `label-${label.toLowerCase().replace(/[^a-z0-9]/g, '-')}`
+            const labelId = `label-${label.toLowerCase().replaceAll(/[^a-z0-9]/g, '-')}`
 
             try {
                 insertStmt.run(labelId, label, color, now, now)
@@ -889,10 +888,10 @@ function initializePresetTags() {
             continue
         }
 
-        const tagId = `preset-${tag.name.toLowerCase().replace(/:/g, '-')}`
+        const tagId = `preset-${tag.name.toLowerCase().replaceAll(':', '-')}`
         try {
             insertStmt.run(tagId, tag.name, tag.color, now, now)
-        } catch(error) {
+        } catch(_error) {
             // Tag already exists, that's fine
         }
     }

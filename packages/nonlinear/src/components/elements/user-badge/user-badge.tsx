@@ -1,15 +1,14 @@
 import {getAvatarUrl} from '@garage44/common/lib/avatar'
-import {Icon} from '@garage44/common/components'
 import classnames from 'classnames'
 
 interface UserBadgeProps {
-    userId: string
-    displayName?: string
     avatar?: string
+    displayName?: string
     size?: 's' | 'd' | 'l'
+    userId: string
 }
 
-export const UserBadge = ({userId, displayName, avatar, size = 'd'}: UserBadgeProps) => {
+export const UserBadge = ({avatar, displayName, size = 'd', userId}: UserBadgeProps) => {
     const avatarFilename = avatar || 'placeholder-1.png'
     const avatarUrl = getAvatarUrl(avatarFilename, userId)
 

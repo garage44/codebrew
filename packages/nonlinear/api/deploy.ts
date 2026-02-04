@@ -4,7 +4,7 @@
  */
 
 import type {WebSocketServerManager} from '@garage44/common/lib/ws-server'
-import {deployPR, regeneratePRNginx, type PRMetadata} from '../lib/deploy/pr-deploy'
+import {deployPR, type PRMetadata} from '../lib/deploy/pr-deploy'
 import {cleanupPRDeployment} from '../lib/deploy/pr-cleanup'
 import {getPRDeployment} from '../lib/deploy/pr-registry'
 import {logger} from '../service.ts'
@@ -58,7 +58,7 @@ export function registerDeployWebSocketApiRoutes(wsManager: WebSocketServerManag
                 error: result.message,
                 success: false,
             }
-        } catch (error) {
+        } catch(error) {
             logger.error('[Deploy API] Deployment error:', error)
             return {
                 error: error instanceof Error ? error.message : String(error),
@@ -100,7 +100,7 @@ export function registerDeployWebSocketApiRoutes(wsManager: WebSocketServerManag
                 },
                 success: true,
             }
-        } catch (error) {
+        } catch(error) {
             logger.error('[Deploy API] Status check error:', error)
             return {
                 error: error instanceof Error ? error.message : String(error),
@@ -126,7 +126,7 @@ export function registerDeployWebSocketApiRoutes(wsManager: WebSocketServerManag
                 message: result.message,
                 success: result.success,
             }
-        } catch (error) {
+        } catch(error) {
             logger.error('[Deploy API] Cleanup error:', error)
             return {
                 error: error instanceof Error ? error.message : String(error),

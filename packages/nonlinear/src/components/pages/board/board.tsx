@@ -16,8 +16,8 @@ const LANES = [
 // Local state for drag and drop
 const dragState = deepSignal({
     draggingTicketId: null as string | null,
-    dropTargetTicketId: null as string | null,
     dropPosition: null as 'above' | 'below' | null,
+    dropTargetTicketId: null as string | null,
 })
 
 const handleDragStart = (e: DragEvent, ticketId: string) => {
@@ -65,7 +65,7 @@ const handleDragLeave = (e: DragEvent) => {
     }
 }
 
-const handleTicketDragOver = (e: DragEvent, ticketId: string, ticketIndex: number, tickets: typeof $s.tickets) => {
+const handleTicketDragOver = (e: DragEvent, ticketId: string, _ticketIndex: number, _tickets: typeof $s.tickets) => {
     e.preventDefault()
     e.stopPropagation()
     if (e.dataTransfer) {
@@ -80,7 +80,7 @@ const handleTicketDragOver = (e: DragEvent, ticketId: string, ticketIndex: numbe
 
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
     const mouseY = e.clientY
-    const ticketCenter = rect.top + rect.height / 2
+    const ticketCenter = rect.top + (rect.height / 2)
     const dropPosition = mouseY < ticketCenter ? 'above' : 'below'
 
     dragState.dropTargetTicketId = ticketId
@@ -168,8 +168,10 @@ export const Board = () => {
         const targetTicket = laneTickets[targetIndex]
         const targetPriority = targetTicket.priority ?? 0
 
-        // If dropping above, we want priority higher than target
-        // If dropping below, we want priority lower than target
+        /*
+         * If dropping above, we want priority higher than target
+         * If dropping below, we want priority lower than target
+         */
         if (dropPosition === 'above') {
             // Check if there's a ticket above the target
             if (targetIndex > 0) {
@@ -222,7 +224,7 @@ export const Board = () => {
         const dropPosition = dragState.dropPosition ?? 'below'
 
         try {
-            const updates: {status?: string; priority?: number} = {}
+            const updates: {priority?: number; status?: string} = {}
 
             if (!isSameLane) {
                 // Moving to different lane - update status

@@ -24,7 +24,6 @@ import {
     EnrichedTicketSchema,
     TicketCommentParamsSchema,
     TicketParamsSchema,
-    TicketWithRepositoryPathSchema,
     TicketWithRepositorySchema,
     UpdateTicketRequestSchema,
 } from '../lib/schemas/tickets.ts'
@@ -82,7 +81,11 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
                 ticketId: params.ticketId,
                 type: `comment:${data.type}`,
             })
-            logger.debug(`[API] Broadcast comment ${data.type} event for comment ${params.commentId} on ticket ${params.ticketId}`)
+            const eventMsg =
+                `[API] Broadcast comment ${data.type} event ` +
+                `for comment ${params.commentId} ` +
+                `on ticket ${params.ticketId}`
+            logger.debug(eventMsg)
         }
 
         return {success: true}
@@ -153,11 +156,17 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
             throw new Error('Ticket not found')
         }
 
-        // Validate ticket (without repository_path for enrichment)
-        const ticketForEnrichment = validateRequest(TicketWithRepositorySchema, {
-            ...ticket,
-            repository_path: undefined,
-        })
+        /*
+         * Validate ticket (without repository_path for enrichment).
+         * This is used for enrichment tasks.
+         */
+        const ticketForEnrichment = validateRequest(
+            TicketWithRepositorySchema,
+            {
+                ...ticket,
+                repository_path: undefined,
+            },
+        )
 
         // Get comments
         const comments = db.prepare(`
@@ -248,10 +257,10 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
             // Queue indexing job (processed by indexing service)
             const {queueIndexingJob} = await import('../lib/indexing/queue.ts')
             await queueIndexingJob({
-                type: 'ticket',
                 ticketId,
+                type: 'ticket',
             })
-        } catch (error) {
+        } catch(error) {
             logger.warn(`[Tickets API] Failed to generate embedding for ticket ${ticketId}:`, error)
             // Continue anyway - embedding can be regenerated later
         }
@@ -311,19 +320,28 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
                     {
                         ticket_id: ticketId,
                     },
-                    50, // Medium priority for backlog refinement
+                    // Medium priority for backlog refinement
+                    50,
                 )
 
                 // Broadcast task event to agent via WebSocket (for agent service)
-                wsManager.emitEvent(`/agents/${plannerAgent.id}/tasks`, {
-                    task_id: taskId,
-                    task_type: 'refinement',
-                    task_data: {
-                        ticket_id: ticketId,
+                const agentTaskUrl = `/agents/${plannerAgent.id}/tasks`
+                wsManager.emitEvent(
+                    agentTaskUrl,
+                    {
+                        task_data: {
+                            ticket_id: ticketId,
+                        },
+                        task_id: taskId,
+                        task_type: 'refinement',
                     },
-                })
+                )
 
-                logger.info(`[API] Created and broadcast refinement task ${taskId} for PlannerAgent (ticket: ${ticketId})`)
+                // Created and broadcast refinement task
+                logger.info(
+                    `[API] Created and broadcast refinement task ${taskId} ` +
+                    `for PlannerAgent (ticket: ${ticketId})`,
+                )
 
                 // Log task details for debugging
                 const task = db.prepare('SELECT * FROM agent_tasks WHERE id = ?').get(taskId)
@@ -457,8 +475,8 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
         if (updates.title !== undefined || updates.description !== undefined) {
             try {
                 const ticket = db.prepare('SELECT title, description FROM tickets WHERE id = ?').get(params.id) as {
-                    title: string
                     description: string | null
+                    title: string
                 } | undefined
                 if (ticket) {
                     // Queue indexing job (processed by indexing service)
@@ -468,7 +486,7 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
                         type: 'ticket',
                     })
                 }
-            } catch (error) {
+            } catch(error) {
                 logger.warn(`[Tickets API] Failed to regenerate embedding for ticket ${params.id}:`, error)
             }
         }
@@ -615,7 +633,9 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
                     continue
                 }
 
-                logger.info(`[API] Creating task for agent ${agent.name} (${agent.id}) via mention in comment for ticket ${params.id}`)
+                logger.info(
+                    `[API] Creating task for agent ${agent.name} (${agent.id}) via mention in comment for ticket ${params.id}`,
+                )
 
                 // Create task with high priority (mentions are urgent)
                 const taskId = createTask(
@@ -629,13 +649,12 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
                         mentions: mentionNames,
                         ticket_id: params.id,
                     },
-                    100, // High priority for mentions
+                    // High priority for mentions
+                    100,
                 )
 
                 // Broadcast task event to agent via WebSocket
                 wsManager.emitEvent(`/agents/${agent.id}/tasks`, {
-                    task_id: taskId,
-                    task_type: 'mention',
                     task_data: {
                         author_id: data.author_id,
                         author_type: data.author_type,
@@ -644,6 +663,8 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
                         mentions: mentionNames,
                         ticket_id: params.id,
                     },
+                    task_id: taskId,
+                    task_type: 'mention',
                 })
 
                 logger.info(`[API] Created and broadcast task ${taskId} for agent ${agent.name}`)

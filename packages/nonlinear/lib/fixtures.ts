@@ -201,15 +201,18 @@ function convertToWikiPath(filePath: string, workspaceRoot: string, pkg: string,
 /**
  * Import docs from a directory
  */
-async function importDocsFromDirectory(
-    db: Database,
-    dirPath: string,
-    baseWikiPath: string,
-    workspaceId: string,
-    pkg: string,
-    workspaceRoot: string,
-    fixturesDir?: string,
-): Promise<void> {
+interface ImportDocsOptions {
+    baseWikiPath: string
+    db: Database
+    dirPath: string
+    fixturesDir?: string
+    pkg: string
+    workspaceId: string
+    workspaceRoot: string
+}
+
+async function importDocsFromDirectory(options: ImportDocsOptions): Promise<void> {
+    const {baseWikiPath, db, dirPath, fixturesDir, pkg, workspaceId, workspaceRoot} = options
     if (!existsSync(dirPath)) {
         return
     }
@@ -226,15 +229,15 @@ async function importDocsFromDirectory(
 
         if (entry.isDirectory()) {
             // Recursively import subdirectories
-            await importDocsFromDirectory(
-                db,
-                fullPath,
+            await importDocsFromDirectory({
                 baseWikiPath,
-                workspaceId,
-                pkg,
-                workspaceRoot,
+                db,
+                dirPath: fullPath,
                 fixturesDir,
-            )
+                pkg,
+                workspaceId,
+                workspaceRoot,
+            })
         } else if (entry.isFile() && (entry.name.endsWith('.md') || entry.name.endsWith('.mdc'))) {
             // Skip index files (handled separately)
             if (entry.name === 'index.md' || entry.name === 'index.mdc') {
@@ -283,9 +286,9 @@ async function importDocsFromDirectory(
                     // Normalize tag before ensuring it exists
                     const normalizedTag = tag
                         .toLowerCase()
-                        .replace(/\s+/g, '-')
-                        .replace(/\//g, '-')
-                        .replace(/[^a-z0-9:-]/g, '')
+                        .replaceAll(/\s+/g, '-')
+                        .replaceAll('/', '-')
+                        .replaceAll(/[^a-z0-9:-]/g, '')
 
                     // Ensure tag exists in label_definitions
                     ensureLabelExists(db, normalizedTag)
@@ -327,9 +330,9 @@ function ensureLabelExists(db: Database, label: string): void {
     /* Normalize tag: replace spaces and slashes with hyphens, remove invalid chars */
     const normalizedLabel = label
         .toLowerCase()
-        .replace(/\s+/g, '-')
-        .replace(/\//g, '-')
-        .replace(/[^a-z0-9:-]/g, '')
+        .replaceAll(/\s+/g, '-')
+        .replaceAll('/', '-')
+        .replaceAll(/[^a-z0-9:-]/g, '')
 
     // Validate tag format (hyphens only, no underscores)
     if (!/^[a-z0-9:-]+$/.test(normalizedLabel) || normalizedLabel.includes('_')) {
@@ -339,7 +342,7 @@ function ensureLabelExists(db: Database, label: string): void {
 
     const existing = db.prepare('SELECT id FROM label_definitions WHERE name = ?').get(normalizedLabel)
     if (!existing) {
-        const labelId = `label-${normalizedLabel.toLowerCase().replace(/:/g, '-')}`
+        const labelId = `label-${normalizedLabel.toLowerCase().replaceAll(':', '-')}`
         const now = Date.now()
         const defaultColor = '#64748b'
 
@@ -364,15 +367,15 @@ async function importFixtureDocs(
     // Import malkovich docs from local fixtures directory
     const fixturesDir = join(dirname(fileURLToPath(import.meta.url)), 'fixtures')
     if (existsSync(fixturesDir)) {
-        await importDocsFromDirectory(
+        await importDocsFromDirectory({
+            baseWikiPath: 'workspaces/garage44/packages/malkovich',
             db,
+            dirPath: fixturesDir,
             fixturesDir,
-            'workspaces/garage44/packages/malkovich',
+            pkg: 'malkovich',
             workspaceId,
-            'malkovich',
             workspaceRoot,
-            fixturesDir,
-        )
+        })
     }
 
     // Scan packages/*/docs/ directories (excluding malkovich)
@@ -388,14 +391,14 @@ async function importFixtureDocs(
 
             const docsPath = join(packagesDir, pkg, 'docs')
             if (existsSync(docsPath)) {
-                await importDocsFromDirectory(
+                await importDocsFromDirectory({
+                    baseWikiPath: `workspaces/garage44/packages/${pkg}`,
                     db,
-                    docsPath,
-                    `workspaces/garage44/packages/${pkg}`,
-                    workspaceId,
+                    dirPath: docsPath,
                     pkg,
+                    workspaceId,
                     workspaceRoot,
-                )
+                })
             }
         }
     }
@@ -403,14 +406,14 @@ async function importFixtureDocs(
     // Import workspace-level docs (if exists)
     const workspaceDocsPath = join(workspaceRoot, 'docs')
     if (existsSync(workspaceDocsPath)) {
-        await importDocsFromDirectory(
+        await importDocsFromDirectory({
+            baseWikiPath: 'workspaces/garage44',
             db,
-            workspaceDocsPath,
-            'workspaces/garage44',
+            dirPath: workspaceDocsPath,
+            pkg: 'workspace',
             workspaceId,
-            'workspace',
             workspaceRoot,
-        )
+        })
     }
 
     logger.info('[Fixtures] Finished importing fixture docs')

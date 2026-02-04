@@ -9,14 +9,14 @@ interface AgentBadgeProps {
         status: 'idle' | 'working' | 'error' | 'offline'
         type: 'planner' | 'developer' | 'reviewer'
     }
-    size?: 's' | 'd' | 'l'
     showStatus?: boolean
+    size?: 's' | 'd' | 'l'
 }
 
-export const AgentBadge = ({agent, size = 'd', showStatus = true}: AgentBadgeProps) => {
+export const AgentBadge = ({agent, showStatus = true, size = 'd'}: AgentBadgeProps) => {
     return (
         <div class='c-agent-badge'>
-            <AgentAvatar agent={agent} size={size} showStatus={showStatus} />
+            <AgentAvatar agent={agent} showStatus={showStatus} size={size} />
             <span class='agent-name'>{agent.displayName || agent.name}</span>
         </div>
     )

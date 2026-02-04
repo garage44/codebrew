@@ -1,19 +1,18 @@
 import {deepSignal} from 'deepsignal'
-import {useRef} from 'preact/hooks'
 import {Icon} from '@garage44/common/components'
 
 interface Doc {
+    content: string
     id: string
     path: string
-    title: string
-    content: string
     tags?: string[]
+    title: string
 }
 
 interface DocEditorProps {
     doc: Doc
-    onSave: (content: string, tags: string[]) => void
     onCancel: () => void
+    onSave: (content: string, tags: string[]) => void
 }
 
 const editorState = deepSignal({
@@ -21,7 +20,7 @@ const editorState = deepSignal({
     tags: [] as string[],
 })
 
-export const DocEditor = ({doc, onSave, onCancel}: DocEditorProps) => {
+export const DocEditor = ({doc, onCancel, onSave}: DocEditorProps) => {
     // Initialize state from doc
     if (editorState.content !== doc.content) {
         editorState.content = doc.content
@@ -43,62 +42,60 @@ export const DocEditor = ({doc, onSave, onCancel}: DocEditorProps) => {
     }
 
     return (
-        <div class="c-doc-editor">
-            <div class="editor-header">
+        <div class='c-doc-editor'>
+            <div class='editor-header'>
                 <h2>Edit: {doc.title}</h2>
-                <div class="actions">
+                <div class='actions'>
                     <button onClick={onCancel}>
-                        <Icon name="close" type="info" />
+                        <Icon name='close' type='info' />
                         Cancel
                     </button>
-                    <button onClick={handleSave} class="primary">
-                        <Icon name="check" type="info" />
+                    <button class='primary' onClick={handleSave}>
+                        <Icon name='check' type='info' />
                         Save
                     </button>
                 </div>
             </div>
 
-            <div class="editor-content">
-                <div class="field">
+            <div class='editor-content'>
+                <div class='field'>
                     <label>Content (Markdown)</label>
                     <textarea
-                        value={editorState.content}
                         onInput={(e) => {
                             editorState.content = (e.target as HTMLTextAreaElement).value
                         }}
                         rows={20}
+                        value={editorState.content}
                     />
                 </div>
 
-                <div class="field">
+                <div class='field'>
                     <label>Tags</label>
-                    <div class="tags-input">
+                    <div class='tags-input'>
                         <input
-                            type="text"
-                            placeholder="Add tag (use hyphens, e.g., type:adr)"
                             onKeyDown={(e) => {
                                 if (e.key === 'Enter') {
                                     e.preventDefault()
                                     const tag = (e.target as HTMLInputElement).value.trim()
                                     if (tag) {
-                                        handleTagAdd(tag)
-                                        ;(e.target as HTMLInputElement).value = ''
+                                        handleTagAdd(tag);
+                                        (e.target as HTMLInputElement).value = ''
                                     }
                                 }
                             }}
+                            placeholder='Add tag (use hyphens, e.g., type:adr)'
+                            type='text'
                         />
-                        <div class="tags-list">
-                            {editorState.tags.map((tag) => (
-                                <span key={tag} class="tag">
+                        <div class='tags-list'>
+                            {editorState.tags.map((tag) => <span class='tag' key={tag}>
                                     {tag}
                                     <button
+                                        class='tag-remove'
                                         onClick={() => handleTagRemove(tag)}
-                                        class="tag-remove"
                                     >
                                         ×
                                     </button>
-                                </span>
-                            ))}
+                            </span>)}
                         </div>
                     </div>
                 </div>

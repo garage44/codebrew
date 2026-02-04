@@ -1,5 +1,5 @@
 import {$s} from '@/app'
-import {Button, FieldText, Icon} from '@garage44/common/components'
+import {Button, FieldText} from '@garage44/common/components'
 import {ws, notifier} from '@garage44/common/app'
 import {deepSignal} from 'deepsignal'
 import {useEffect, useRef, useState} from 'preact/hooks'
@@ -37,7 +37,7 @@ export function Labels() {
         loadLabels()
 
         // Listen for label updates
-        const handleLabelUpdate = (data: {type: string; label?: LabelDefinition; labelId?: string}) => {
+        const handleLabelUpdate = (data: {label?: LabelDefinition; labelId?: string; type: string}) => {
             if (data.type === 'label:updated' && data.label) {
                 loadLabels()
                 // Update global state
@@ -213,11 +213,11 @@ export function Labels() {
                         <label>Color</label>
                         <div class='color-input-wrapper'>
                             <input
-                                type='color'
-                                value={formState.color}
                                 onInput={(e) => {
                                     formState.color = (e.target as HTMLInputElement).value
                                 }}
+                                type='color'
+                                value={formState.color}
                             />
                             <FieldText
                                 model={formState.$color}
@@ -234,8 +234,7 @@ export function Labels() {
             <div class='list'>
                 {labels.length === 0 ?
                     <p class='empty'>No labels defined</p> :
-                    labels.map((label) => (
-                        <div class='item' key={label.id}>
+                        labels.map((label) => <div class='item' key={label.id}>
                             {editingId === label.id ?
                                 <div class='edit-form'>
                                     <div class='form-fields'>
@@ -248,11 +247,11 @@ export function Labels() {
                                             <label>Color</label>
                                             <div class='color-input-wrapper'>
                                                 <input
-                                                    type='color'
-                                                    value={editFormState.color}
                                                     onInput={(e) => {
                                                         editFormState.color = (e.target as HTMLInputElement).value
                                                     }}
+                                                    type='color'
+                                                    value={editFormState.color}
                                                 />
                                                 <FieldText
                                                     model={editFormState.$color}
@@ -299,8 +298,7 @@ export function Labels() {
                                         />
                                     </div>
                                 </div>}
-                        </div>
-                    ))}
+                        </div>)}
             </div>
         </div>
     )

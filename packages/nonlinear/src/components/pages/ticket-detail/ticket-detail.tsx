@@ -48,7 +48,7 @@ interface TicketDetailProps {
 interface Ticket {
     assignee_id: string | null
     assignee_type: 'agent' | 'human' | null
-    assignees: Array<{assignee_id: string, assignee_type: 'agent' | 'human'}>
+    assignees: Array<{assignee_id: string; assignee_type: 'agent' | 'human'}>
     description: string | null
     id: string
     labels: string[]
@@ -98,7 +98,7 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
         }
 
         // Listen for comment updates and ticket updates
-        const handleUpdate = (data: {type: string; comment?: Comment; ticket?: Ticket; ticketId?: string}) => {
+        const handleUpdate = (data: {comment?: Comment; ticket?: Ticket; ticketId?: string; type: string}) => {
             const currentTicketId = ticketId || $s.selectedTicket || route().split('/').pop()
             if (data.ticketId === currentTicketId || (data.ticket && data.ticket.id === currentTicketId)) {
                 if (data.type === 'comment:created' && data.comment) {
@@ -113,22 +113,16 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
                     })
                 } else if (data.type === 'comment:updated' && data.comment) {
                     // Update existing comment content (streaming update)
-                    setComments((prev) =>
-                        prev.map((c) =>
-                            c.id === data.comment!.id
-                                ? {...c, ...data.comment!}
-                                : c
-                        )
-                    )
+                    setComments((prev) => prev.map((c) => {
+                        return c.id === data.comment!.id ? {...c, ...data.comment!} : c
+                    }))
                 } else if (data.type === 'comment:completed' && data.comment) {
                     // Finalize comment (mark as completed)
-                    setComments((prev) =>
-                        prev.map((c) =>
-                            c.id === data.comment!.id
-                                ? {...c, ...data.comment!, status: 'completed' as const}
-                                : c
-                        )
-                    )
+                    setComments((prev) => prev.map((c) => {
+                        return c.id === data.comment!.id ?
+                                {...c, ...data.comment!, status: 'completed' as const} :
+                            c
+                    }))
                 } else if (data.type === 'ticket:updated' && data.ticket) {
                     // Update ticket in state
                     setTicket(data.ticket)
@@ -274,98 +268,6 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
         }
     }
 
-    const handleAssignAgent = async(agentName: string) => {
-        if (!ticket) return
-
-        try {
-            await ws.put(`/api/tickets/${ticket.id}`, {
-                assignee_id: agentName,
-                assignee_type: 'agent',
-            })
-
-            notifier.notify({
-                message: `Ticket assigned to agent: ${agentName}`,
-                type: 'success',
-            })
-
-            await loadTicket(ticket.id)
-        } catch(error) {
-            notifier.notify({
-                message: `Failed to assign agent: ${error instanceof Error ? error.message : String(error)}`,
-                type: 'error',
-            })
-        }
-    }
-
-    const handleAssigneeChange = async() => {
-        if (!ticket) return
-
-        try {
-            // Get current assignees from ticket
-            const currentAssignees = ticket.assignees || []
-            let newAssignees = [...currentAssignees]
-
-            if (assigneeState.assignee_type && assigneeState.assignee_id) {
-                // Add or update single assignee (backward compatibility)
-                const existingIndex = newAssignees.findIndex(
-                    (a) => a.assignee_type === assigneeState.assignee_type && a.assignee_id === assigneeState.assignee_id,
-                )
-                if (existingIndex === -1) {
-                    newAssignees.push({
-                        assignee_id: assigneeState.assignee_id,
-                        assignee_type: assigneeState.assignee_type,
-                    })
-                }
-            } else {
-                // Clear all assignees if type is empty
-                newAssignees = []
-            }
-
-            await ws.put(`/api/tickets/${ticket.id}`, {
-                assignees: newAssignees,
-            })
-
-            // If assigned to PlannerAgent, trigger refinement
-            if (assigneeState.assignee_type === 'agent' && assigneeState.assignee_id) {
-                const agent = $s.agents.find((a) => a.id === assigneeState.assignee_id || a.name === assigneeState.assignee_id)
-                if (agent && agent.type === 'planner') {
-                    try {
-                        await ws.post(`/api/agents/${agent.id}/trigger`, {
-                            ticket_id: ticket.id,
-                        })
-                        notifier.notify({
-                            message: 'Ticket assigned to PlannerAgent. Refinement will begin shortly.',
-                            type: 'success',
-                        })
-                    } catch(error) {
-                        // Assignment succeeded but refinement trigger failed
-                        notifier.notify({
-                            message: 'Ticket assigned, but failed to trigger refinement',
-                            type: 'warn',
-                        })
-                    }
-                } else {
-                    notifier.notify({
-                        message: `Ticket assigned to ${agent?.name || assigneeState.assignee_id}`,
-                        type: 'success',
-                    })
-                }
-            } else {
-                notifier.notify({
-                    message: 'Assignment updated',
-                    type: 'success',
-                })
-            }
-
-            await loadTicket(ticket.id)
-        } catch(error) {
-            notifier.notify({
-                message: `Failed to update assignment: ${error instanceof Error ? error.message : String(error)}`,
-                type: 'error',
-            })
-        }
-    }
-
     const handleRequestRefinement = async() => {
         if (!ticket) return
 
@@ -430,8 +332,8 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
         const query = labelsState.newLabel.trim().toLowerCase()
         if (!query) return $s.labelDefinitions
 
-        return $s.labelDefinitions.filter((def) =>
-            def.name.toLowerCase().includes(query) && !labelsState.labels.includes(def.name),
+        return $s.labelDefinitions.filter(
+            (def) => def.name.toLowerCase().includes(query) && !labelsState.labels.includes(def.name),
         )
     }
 
@@ -599,8 +501,8 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
 
         try {
             await ws.put(`/api/tickets/${ticket.id}`, {
-                title: editState.title,
                 description: editState.description || null,
+                title: editState.title,
             })
 
             notifier.notify({
@@ -674,8 +576,8 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
                             const labelColor = labelDef?.color || 'var(--info-6)'
                             return (
                                 <span
-                                    key={label}
                                     class='label-badge'
+                                    key={label}
                                     style={{
                                         backgroundColor: labelColor,
                                         borderColor: labelColor,
@@ -704,8 +606,8 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
                                 const labelColor = labelDef?.color || 'var(--info-6)'
                                 return (
                                     <span
-                                        key={label}
                                         class='label-badge'
+                                        key={label}
                                         style={{
                                             backgroundColor: labelColor,
                                             borderColor: labelColor,
@@ -735,13 +637,12 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
                                 />
                                 {labelsState.newLabel.trim() && getLabelSuggestions().length > 0 &&
                                     <div class='label-suggestions'>
-                                        {getLabelSuggestions().slice(0, 5).map((def) => (
-                                            <button
-                                                class='suggestion-item'
-                                                key={def.id}
-                                                onClick={() => handleAddLabel(def.name)}
-                                                type='button'
-                                            >
+                                        {getLabelSuggestions().slice(0, 5).map((def) => <button
+                                            class='suggestion-item'
+                                            key={def.id}
+                                            onClick={() => handleAddLabel(def.name)}
+                                            type='button'
+                                        >
                                                 <span
                                                     class='suggestion-badge'
                                                     style={{
@@ -751,8 +652,7 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
                                                 >
                                                     {def.name}
                                                 </span>
-                                            </button>
-                                        ))}
+                                        </button>)}
                                     </div>}
                             </div>
                             <Button onClick={() => handleAddLabel()} variant='secondary'>
@@ -767,9 +667,11 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
                     <div class='assignees-list'>
                         {(ticket.assignees || []).map((assignee) => {
                             if (assignee.assignee_type === 'agent') {
-                                const agent = $s.agents.find((a) => a.id === assignee.assignee_id || a.name === assignee.assignee_id)
+                                const agent = $s.agents.find(
+                                    (a) => a.id === assignee.assignee_id || a.name === assignee.assignee_id,
+                                )
                                 return agent ?
-                                    <div key={`${assignee.assignee_type}-${assignee.assignee_id}`} class='assignee-item'>
+                                    <div class='assignee-item' key={`${assignee.assignee_type}-${assignee.assignee_id}`}>
                                         <AgentBadge agent={agent} size='d' />
                                         <Icon
                                             name='close'
@@ -778,7 +680,7 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
                                             type='info'
                                         />
                                     </div> :
-                                    <div key={`${assignee.assignee_type}-${assignee.assignee_id}`} class='assignee-item'>
+                                    <div class='assignee-item' key={`${assignee.assignee_type}-${assignee.assignee_id}`}>
                                         <span>{assignee.assignee_id}</span>
                                         <Icon
                                             name='close'
@@ -789,7 +691,7 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
                                     </div>
                             }
                             return (
-                                <div key={`${assignee.assignee_type}-${assignee.assignee_id}`} class='assignee-item'>
+                                <div class='assignee-item' key={`${assignee.assignee_type}-${assignee.assignee_id}`}>
                                     <UserBadge userId={assignee.assignee_id} />
                                     <Icon
                                         name='close'
@@ -822,13 +724,18 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
                                         label='Select Assignee'
                                         model={assigneeState.$assignee_id}
                                         options={getAssigneeOptions()}
-                                        placeholder={getAssigneeOptions().length === 0 ? 'No available assignees' : 'Select assignee'}
+                                        placeholder={
+                                            getAssigneeOptions().length === 0 ? 'No available assignees' : 'Select assignee'
+                                        }
                                     />
                                     {assigneeState.assignee_id &&
                                         <Button
                                             onClick={() => {
                                                 if (assigneeState.assignee_id) {
-                                                    handleAddAssignee(assigneeState.assignee_type as 'agent' | 'human', assigneeState.assignee_id)
+                                                    handleAddAssignee(
+                                                        assigneeState.assignee_type as 'agent' | 'human',
+                                                        assigneeState.assignee_id,
+                                                    )
                                                     assigneeState.assignee_id = ''
                                                     assigneeState.assignee_type = ''
                                                 }
@@ -897,39 +804,55 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
                                         <div class={`comment ${isGenerating ? 'comment--generating' : ''}`} key={comment.id}>
                                             <div class='comment-header'>
                                                 {comment.author_type === 'agent' ?
-                                                    (() => {
-                                                        const agent = $s.agents.find((a) => a.id === comment.author_id || a.name === comment.author_id)
-                                                        return agent ?
+                                                        (() => {
+                                                            const agent = $s.agents.find(
+                                                                (a) => a.id === comment.author_id || a.name === comment.author_id,
+                                                            )
+                                                            return agent ?
                                                             <AgentBadge agent={agent} size='d' /> :
-                                                            <UserBadge userId={comment.author_id} displayName={comment.author_id} />
-                                                    })() :
-                                                    <UserBadge userId={comment.author_id} displayName={comment.author_id === $s.profile.username ? $s.profile.displayName : comment.author_id} avatar={comment.author_id === $s.profile.username ? $s.profile.avatar : undefined} />}
+                                                            <UserBadge
+                                                                displayName={comment.author_id}
+                                                                userId={comment.author_id}
+                                                            />
+                                                        })() :
+                                                    <UserBadge
+                                                        avatar={
+                                                            comment.author_id === $s.profile.username ?
+                                                                $s.profile.avatar :
+                                                                undefined
+                                                        }
+                                                        displayName={
+                                                            comment.author_id === $s.profile.username ?
+                                                                $s.profile.displayName :
+                                                                comment.author_id
+                                                        }
+                                                        userId={comment.author_id}
+                                                    />}
                                                 <span class='comment-time'>
                                                     {new Date(comment.created_at).toLocaleString()}
                                                 </span>
-                                                {isGenerating && (
+                                                {isGenerating &&
                                                     <span class='comment-status'>
                                                         <Icon name='more_horiz' size='d' />
                                                         <span>Agent is thinking...</span>
-                                                    </span>
-                                                )}
+                                                    </span>}
                                             </div>
-                                            {hasContent ? (
+                                            {hasContent ?
                                                 <div
                                                     class='comment-content'
                                                     dangerouslySetInnerHTML={{
                                                         __html: renderMarkdown(comment.content),
                                                     }}
-                                                />
-                                            ) : isGenerating ? (
+                                                /> :
+                                                isGenerating ?
                                                 <div class='comment-content comment-content--placeholder'>
                                                     <span class='typing-indicator'>
-                                                        <span></span>
-                                                        <span></span>
-                                                        <span></span>
+                                                        <span />
+                                                        <span />
+                                                        <span />
                                                     </span>
-                                                </div>
-                                            ) : null}
+                                                </div> :
+                                                    null}
                                         </div>
                                     )
                                 })}
@@ -938,12 +861,12 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
                     <div class='add-comment'>
                         <div class='comment-input-wrapper'>
                             <textarea
-                                ref={commentTextareaRef}
                                 class='comment-input'
                                 onInput={(e) => {
                                     commentState.content = (e.target as HTMLTextAreaElement).value
                                 }}
                                 placeholder='Type your comment... Use @ to mention agents or users'
+                                ref={commentTextareaRef}
                                 rows={4}
                                 value={commentState.content}
                             />

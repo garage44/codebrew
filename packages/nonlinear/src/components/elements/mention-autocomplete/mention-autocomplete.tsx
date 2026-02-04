@@ -10,15 +10,15 @@ interface MentionAutocompleteProps {
 }
 
 interface MentionData {
-    name: string
-    displayName: string
-    type: 'agent' | 'human'
     agent?: {
+        displayName: string
         id: string
         name: string
-        displayName: string
         type: 'prioritizer' | 'developer' | 'reviewer'
     }
+    displayName: string
+    name: string
+    type: 'agent' | 'human'
 }
 
 export function MentionAutocomplete({content, onContentChange, textareaRef}: MentionAutocompleteProps) {
@@ -31,27 +31,27 @@ export function MentionAutocomplete({content, onContentChange, textareaRef}: Men
             if (agent.enabled === 1) {
                 // Default avatars for agent types
                 const defaultAvatars: Record<'planner' | 'developer' | 'reviewer', string> = {
-                    planner: 'placeholder-2.png',
                     developer: 'placeholder-3.png',
+                    planner: 'placeholder-2.png',
                     reviewer: 'placeholder-4.png',
                 }
                 const avatar = agent.avatar || defaultAvatars[agent.type] || 'placeholder-1.png'
 
                 mentions.push({
-                    id: agent.id,
                     data: {
-                        name: agent.name,
-                        displayName: agent.displayName || agent.name,
-                        type: 'agent',
                         agent: {
                             avatar,
+                            displayName: agent.displayName || agent.name,
                             id: agent.id,
                             name: agent.name,
-                            displayName: agent.displayName || agent.name,
                             status: agent.status || 'idle',
                             type: agent.type,
                         },
+                        displayName: agent.displayName || agent.name,
+                        name: agent.name,
+                        type: 'agent',
                     },
+                    id: agent.id,
                 })
             }
         }
@@ -59,12 +59,12 @@ export function MentionAutocomplete({content, onContentChange, textareaRef}: Men
         // Add current user
         if ($s.profile.username) {
             mentions.push({
-                id: $s.profile.username,
                 data: {
-                    name: $s.profile.username,
                     displayName: $s.profile.displayName || $s.profile.username,
+                    name: $s.profile.username,
                     type: 'human',
                 },
+                id: $s.profile.username,
             })
         }
 
@@ -87,7 +87,7 @@ export function MentionAutocomplete({content, onContentChange, textareaRef}: Men
             inputRef={textareaRef}
             items={items}
             onContentChange={onContentChange}
-            renderItem={(item, isSelected) => {
+            renderItem={(item, _isSelected) => {
                 if (item.data?.type === 'agent' && item.data?.agent) {
                     return (
                         <div class='mention-agent' style={{pointerEvents: 'none'}}>

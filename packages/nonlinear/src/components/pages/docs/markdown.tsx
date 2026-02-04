@@ -9,16 +9,16 @@ interface Frontmatter {
     [key: string]: unknown
 }
 
-function parseFrontmatter(content: string): {frontmatter: Frontmatter | null, body: string} {
+function parseFrontmatter(content: string): {body: string; frontmatter: Frontmatter | null} {
     // Check if content starts with frontmatter delimiter
     if (!content.startsWith('---\n')) {
-        return {frontmatter: null, body: content}
+        return {body: content, frontmatter: null}
     }
 
     // Find the closing delimiter
     const endIndex = content.indexOf('\n---\n', 4)
     if (endIndex === -1) {
-        return {frontmatter: null, body: content}
+        return {body: content, frontmatter: null}
     }
 
     // Extract frontmatter and body
@@ -79,7 +79,7 @@ function parseFrontmatter(content: string): {frontmatter: Frontmatter | null, bo
         }
     }
 
-    return {frontmatter: Object.keys(frontmatter).length > 0 ? frontmatter : null, body}
+    return {body, frontmatter: Object.keys(frontmatter).length > 0 ? frontmatter : null}
 }
 
 function formatFrontmatterValue(value: unknown): string {
@@ -93,25 +93,22 @@ function formatFrontmatterValue(value: unknown): string {
 }
 
 export const Markdown = ({content}: MarkdownProps) => {
-    const {frontmatter, body} = parseFrontmatter(content)
+    const {body, frontmatter} = parseFrontmatter(content)
     const html = marked(body)
 
     return (
-        <div class="markdown-content">
-            {frontmatter && (
-                <div class="doc-metadata">
+        <div class='markdown-content'>
+            {frontmatter &&
+                <div class='doc-metadata'>
                     <table>
                         <tbody>
-                            {Object.entries(frontmatter).map(([key, value]) => (
-                                <tr key={key}>
-                                    <td class="metadata-key">{key}:</td>
-                                    <td class="metadata-value">{formatFrontmatterValue(value)}</td>
-                                </tr>
-                            ))}
+                            {Object.entries(frontmatter).map(([key, value]) => <tr key={key}>
+                                    <td class='metadata-key'>{key}:</td>
+                                    <td class='metadata-value'>{formatFrontmatterValue(value)}</td>
+                            </tr>)}
                         </tbody>
                     </table>
-                </div>
-            )}
+                </div>}
             <div dangerouslySetInnerHTML={{__html: html}} />
         </div>
     )

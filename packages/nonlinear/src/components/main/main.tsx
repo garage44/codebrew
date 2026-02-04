@@ -62,15 +62,32 @@ export const Main = () => {
                     }
                 }
 
-                // Load bootstrap state from HTML if available (SSR hydration pattern)
-                // This should be loaded BEFORE the API call so we can merge it
-                const bootstrapState = typeof window !== 'undefined' && (window as {__NONLINEAR_BOOTSTRAP_STATE__?: {agents: Record<string, {status: 'idle' | 'working' | 'error' | 'offline'; stats?: {pending: number; processing: number; completed: number; failed: number}}>}}).__NONLINEAR_BOOTSTRAP_STATE__
+                /*
+                 * Load bootstrap state from HTML if available (SSR hydration pattern)
+                 * This should be loaded BEFORE the API call so we can merge it
+                 */
+                const bootstrapState =
+                    typeof window !== 'undefined' &&
+                    (window as {
+                        __NONLINEAR_BOOTSTRAP_STATE__?: {
+                            agents: Record<
+                                string,
+                                {
+                                    stats?: {completed: number; failed: number; pending: number; processing: number}
+                                    status: 'idle' | 'working' | 'error' | 'offline'
+                                }
+                            >
+                        }
+                    }).__NONLINEAR_BOOTSTRAP_STATE__
 
                 if (bootstrapState?.agents) {
                     const agentIds = Object.keys(bootstrapState.agents)
                     logger.info(`[Bootstrap] Applying bootstrap state for ${agentIds.length} agents: ${agentIds.join(', ')}`)
                     for (const [agentId, state] of Object.entries(bootstrapState.agents)) {
-                        logger.debug(`[Bootstrap] Agent ${agentId}: status=${state.status}, stats=${JSON.stringify(state.stats)}, statsExists=${!!state.stats}`)
+                        logger.debug(
+                            `[Bootstrap] Agent ${agentId}: status=${state.status}, ` +
+                            `stats=${JSON.stringify(state.stats)}, statsExists=${!!state.stats}`,
+                        )
                     }
                 }
 
@@ -97,19 +114,16 @@ export const Main = () => {
                     }) => {
                         // Start with base agent data from API
                         const baseAgent = {
-                            id: agent.id,
-                            name: agent.name,
-                            username: agent.name,
-                            displayName: agent.display_name || `${agent.name} Agent`,
                             avatar: agent.avatar || 'placeholder-2.png',
-                            status: (agent.status || 'idle') as 'idle' | 'working' | 'error' | 'offline',
-                            type: agent.type,
                             config: '',
-                            enabled: agent.enabled,
                             created_at: agent.created_at,
-                            isAgent: true as const,
                             currentTicketId: agent.currentTicketId || null,
+                            displayName: agent.display_name || `${agent.name} Agent`,
+                            enabled: agent.enabled,
+                            id: agent.id,
+                            isAgent: true as const,
                             lastActivity: agent.lastActivity || agent.created_at,
+                            name: agent.name,
                             serviceOnline: agent.serviceOnline ?? false,
                             stats: agent.stats || {
                                 completed: 0,
@@ -117,6 +131,9 @@ export const Main = () => {
                                 pending: 0,
                                 processing: 0,
                             },
+                            status: (agent.status || 'idle') as 'idle' | 'working' | 'error' | 'offline',
+                            type: agent.type,
+                            username: agent.name,
                         }
 
                         // Merge bootstrap state over base agent (bootstrap takes precedence)
@@ -125,18 +142,23 @@ export const Main = () => {
                             // Create a copy of baseAgent before merging (mergeDeep mutates the target)
                             const agentCopy = copyObject(baseAgent)
 
-                            // Use mergeDeep to merge bootstrap state over base agent
-                            // Bootstrap state has status and stats, which will override base values
+                            /*
+                             * Use mergeDeep to merge bootstrap state over base agent
+                             * Bootstrap state has status and stats, which will override base values
+                             */
                             mergeDeep(agentCopy, {
-                                status: bootstrapAgent.status,
                                 stats: bootstrapAgent.stats,
+                                status: bootstrapAgent.status,
                             })
 
                             // serviceOnline is derived from status
                             agentCopy.serviceOnline = agentCopy.status !== 'offline'
 
                             if (process.env.NODE_ENV === 'development') {
-                                logger.debug(`[Bootstrap] Merged agent ${agent.id} using mergeDeep: status=${agentCopy.status}, stats=${JSON.stringify(agentCopy.stats)}`)
+                                logger.debug(
+                                    `[Bootstrap] Merged agent ${agent.id} using mergeDeep: ` +
+                                    `status=${agentCopy.status}, stats=${JSON.stringify(agentCopy.stats)}`,
+                                )
                             }
 
                             return agentCopy
@@ -190,16 +212,18 @@ export const Main = () => {
                         console.log('[Frontend] Received /agents/state broadcast:', {agentStates, timestamp})
                     }
 
-                    // Update status and stats for all agents from watched state
-                    // Create a new array to ensure DeepSignal detects the change
+                    /*
+                     * Update status and stats for all agents from watched state
+                     * Create a new array to ensure DeepSignal detects the change
+                     */
                     const updatedAgents = $s.agents.map((agent) => {
                         const state = agentStates[agent.id]
                         if (state) {
                             // Use mergeDeep to merge state updates (status and stats)
                             const agentCopy = copyObject(agent)
                             mergeDeep(agentCopy, {
-                                status: state.status,
                                 stats: state.stats,
+                                status: state.status,
                             })
 
                             // serviceOnline is derived from status
@@ -209,14 +233,19 @@ export const Main = () => {
                         }
                         return agent
                     })
-                    // Assign new array to trigger reactivity
-                    // DeepSignal tracks array assignment and will trigger component re-renders
+
+                    /*
+                     * Assign new array to trigger reactivity
+                     * DeepSignal tracks array assignment and will trigger component re-renders
+                     */
                     $s.agents = updatedAgents
 
                     if (process.env.NODE_ENV === 'development') {
                         logger.info(`[Frontend] Updated ${updatedAgents.length} agents from /agents/state broadcast`)
                         for (const agent of updatedAgents) {
-                            logger.debug(`[Frontend] Agent ${agent.id}: status=${agent.status}, stats=${JSON.stringify(agent.stats)}`)
+                            logger.debug(
+                                `[Frontend] Agent ${agent.id}: status=${agent.status}, stats=${JSON.stringify(agent.stats)}`,
+                            )
                         }
                     }
                 })
@@ -226,20 +255,20 @@ export const Main = () => {
                         const agent = data.agent
                         const index = $s.agents.findIndex((a) => a.id === agent.id)
                         const transformedAgent = {
-                            id: agent.id,
-                            name: agent.name,
-                            username: agent.name,
-                            displayName: agent.display_name || `${agent.name} Agent`,
                             avatar: agent.avatar || 'placeholder-2.png',
+                            config: agent.config || '',
+                            created_at: agent.created_at,
+                            currentTicketId: null,
+                            displayName: agent.display_name || `${agent.name} Agent`,
+                            enabled: agent.enabled,
+                            id: agent.id,
+                            isAgent: true as const,
+                            lastActivity: Date.now(),
+                            name: agent.name,
+                            serviceOnline: false,
                             status: (agent.status || 'idle') as 'idle' | 'working' | 'error' | 'offline',
                             type: agent.type,
-                            config: agent.config || '',
-                            enabled: agent.enabled,
-                            created_at: agent.created_at,
-                            isAgent: true as const,
-                            currentTicketId: null,
-                            lastActivity: Date.now(),
-                            serviceOnline: false,
+                            username: agent.name,
                         }
                         if (index >= 0) {
                             const updatedAgents = [...$s.agents]
@@ -256,9 +285,9 @@ export const Main = () => {
                             const updatedAgents = [...$s.agents]
                             updatedAgents[index] = {
                                 ...updatedAgents[index],
-                                status: data.status,
                                 currentTicketId: data.currentTicketId || null,
                                 lastActivity: data.lastActivity || Date.now(),
+                                status: data.status,
                             }
                             $s.agents = updatedAgents
                         }
@@ -297,8 +326,10 @@ export const Main = () => {
     }
 
     // Allow public access to docs and board (if configured)
-    const isPublicRoute = $s.env.url === '/docs' || $s.env.url === '/' || $s.env.url.startsWith('/docs/')
-    const showPublicBoard = true // TODO: Get from config.public.showPlanning
+    const isPublicRoute =
+        $s.env.url === '/docs' || $s.env.url === '/' || $s.env.url.startsWith('/docs/')
+    // TODO: Get from config.public.showPlanning
+    const showPublicBoard = true
 
     // Don't redirect to login if on public routes
     if ($s.profile.authenticated === false && !isPublicRoute && !showPublicBoard) {
@@ -355,7 +386,7 @@ export const Main = () => {
             menu={(
                 <PanelMenu
                     actions={(
-                        $s.profile.authenticated ? (
+                        $s.profile.authenticated ?
                             <UserMenu
                                 collapsed={$s.panels.menu.collapsed}
                                 onLogout={async() => {
@@ -372,14 +403,13 @@ export const Main = () => {
                                         displayName: $s.profile.displayName || $s.profile.username || 'User',
                                     },
                                 }}
-                            />
-                        ) : (
-                            <div style="padding: var(--spacer-2);">
-                                <Link href="/login" style="color: var(--text-1); text-decoration: none;">
+                            /> :
+                            <div style='padding: var(--spacer-2);'>
+                                <Link href='/login' style='color: var(--text-1); text-decoration: none;'>
                                     Login
                                 </Link>
                             </div>
-                        )
+
                       )}
                     collapsed={$s.panels.menu.collapsed}
                     footer={
@@ -389,7 +419,11 @@ export const Main = () => {
                                 boundaries={[$s.anthropic.usage.count, $s.anthropic.usage.limit]}
                                 iso6391='en-gb'
                                 loading={$s.anthropic.usage.loading}
-                                percentage={$s.anthropic.usage.limit > 0 ? $s.anthropic.usage.count / $s.anthropic.usage.limit : 0}
+                                percentage={
+                                    $s.anthropic.usage.limit > 0 ?
+                                        $s.anthropic.usage.count / $s.anthropic.usage.limit :
+                                        0
+                                }
                             />
                         </div>
                     }

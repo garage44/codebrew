@@ -158,29 +158,41 @@ async function initMiddleware(_bunchyConfig) {
                 try {
                     const html = await response.text()
 
-                    // Get agent state and stats for bootstrap
-                    // Use the same structure as the API response (status, stats)
+                    /*
+                     * Get agent state and stats for bootstrap
+                     * Use the same structure as the API response (status, stats)
+                     */
                     const {getAllAgentStates} = await import('../lib/agent/state.ts')
                     const {getTaskStats} = await import('../lib/agent/tasks.ts')
                     const {getAgentStatus} = await import('../lib/agent/status.ts')
                     const agentStates = getAllAgentStates()
 
                     // Enrich with status and stats (matching API response structure)
-                    const bootstrapAgents: Record<string, {status: 'idle' | 'working' | 'error' | 'offline'; stats?: {pending: number; processing: number; completed: number; failed: number}}> = {}
+                    const bootstrapAgents: Record<
+                        string,
+                        {
+                            stats?: {completed: number; failed: number; pending: number; processing: number}
+                            status: 'idle' | 'working' | 'error' | 'offline'
+                        }
+                    > = {}
                     for (const [agentId, state] of Object.entries(agentStates)) {
                         const agentStatus = getAgentStatus(agentId)
                         const serviceOnline = state.serviceOnline
 
-                        // Determine status - if service is offline, status should be 'offline'
-                        // Otherwise use the actual agent status (idle, working, error)
-                        let status: 'idle' | 'working' | 'error' | 'offline' = (agentStatus?.status || 'idle') as 'idle' | 'working' | 'error' | 'offline'
+                        /*
+                         * Determine status - if service is offline, status should be 'offline'
+                         * Otherwise use the actual agent status (idle, working, error)
+                         */
+                        let status: 'idle' | 'working' | 'error' | 'offline' = (
+                            agentStatus?.status || 'idle'
+                        ) as 'idle' | 'working' | 'error' | 'offline'
                         if (!serviceOnline && status !== 'working') {
                             status = 'offline'
                         }
 
                         bootstrapAgents[agentId] = {
-                            status,
                             stats: getTaskStats(agentId),
+                            status,
                         }
                     }
 
