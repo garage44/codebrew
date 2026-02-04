@@ -2,9 +2,10 @@
  * Interactive CLI for running agents with REPL mode
  */
 
+import pc from 'picocolors'
 import {BaseAgent, type AgentContext, type AgentResponse} from '../agent/base.ts'
 import {REPL, type REPLOptions} from './repl.ts'
-import {executeToolCommand, getToolsHelp} from './command-parser.ts'
+import {executeToolCommand, getToolsHelp, getToolsList} from './command-parser.ts'
 
 /**
  * Create a writable stream for agent reasoning output
@@ -55,43 +56,46 @@ export async function runAgentInteractive(options: InteractiveCLIOptions): Promi
     const agentType = agent.getType()
     const prompt = `${agentName}> `
 
-    const welcomeMessage = `\n🤖 ${agentName} Interactive Mode\nType 'help' for available commands, 'exit' to quit.\n`
+    const welcomeMessage = `\n${pc.bold(pc.cyan(`${agentName} Interactive Mode`))}\nType ${pc.yellow('help')} for available commands, ${pc.yellow('exit')} to quit.\n`
 
     // Agent-specific help messages
-    const toolsHelp = getToolsHelp(agent.getTools())
     let helpMessage = ''
     if (agentType === 'prioritizer') {
-        helpMessage = `\nAvailable commands:
-  - Natural language instructions (e.g., "prioritize tickets", "prioritize ticket abc123", "show backlog")
-  - Direct tool invocation: tool:tool_name --param=value (e.g., "tool:list_tickets --status=todo")
-  - tools - List all available tools
-  - help, h - Show this help message
-  - clear, cls - Clear the screen
-  - exit, quit, q - Exit interactive mode\n`
+        helpMessage = `\n${pc.bold('Available commands:')}
+  ${pc.cyan('Natural language')} - e.g., ${pc.gray('"prioritize tickets"')}, ${pc.gray('"show backlog"')}
+  ${pc.cyan('tool:tool_name')} - Direct tool invocation, e.g., ${pc.gray('tool:list_tickets --status=todo')}
+  ${pc.yellow('tools')} - List all available tools (compact)
+  ${pc.yellow('tools --help')} - Detailed tool documentation
+  ${pc.yellow('help')}, ${pc.yellow('h')} - Show this help message
+  ${pc.yellow('clear')}, ${pc.yellow('cls')} - Clear the screen
+  ${pc.yellow('exit')}, ${pc.yellow('quit')}, ${pc.yellow('q')} - Exit interactive mode\n`
     } else if (agentType === 'developer') {
-        helpMessage = `\nAvailable commands:
-  - Natural language instructions (e.g., "work on ticket abc123", "implement ticket xyz", "show my tickets")
-  - Direct tool invocation: tool:tool_name --param=value (e.g., "tool:list_tickets --status=todo")
-  - tools - List all available tools
-  - help, h - Show this help message
-  - clear, cls - Clear the screen
-  - exit, quit, q - Exit interactive mode\n`
+        helpMessage = `\n${pc.bold('Available commands:')}
+  ${pc.cyan('Natural language')} - e.g., ${pc.gray('"work on ticket abc123"')}, ${pc.gray('"show my tickets"')}
+  ${pc.cyan('tool:tool_name')} - Direct tool invocation, e.g., ${pc.gray('tool:list_tickets --status=todo')}
+  ${pc.yellow('tools')} - List all available tools (compact)
+  ${pc.yellow('tools --help')} - Detailed tool documentation
+  ${pc.yellow('help')}, ${pc.yellow('h')} - Show this help message
+  ${pc.yellow('clear')}, ${pc.yellow('cls')} - Clear the screen
+  ${pc.yellow('exit')}, ${pc.yellow('quit')}, ${pc.yellow('q')} - Exit interactive mode\n`
     } else if (agentType === 'reviewer') {
-        helpMessage = `\nAvailable commands:
-  - Natural language instructions (e.g., "review tickets", "review ticket abc123", "show reviews")
-  - Direct tool invocation: tool:tool_name --param=value (e.g., "tool:list_tickets --status=todo")
-  - tools - List all available tools
-  - help, h - Show this help message
-  - clear, cls - Clear the screen
-  - exit, quit, q - Exit interactive mode\n`
+        helpMessage = `\n${pc.bold('Available commands:')}
+  ${pc.cyan('Natural language')} - e.g., ${pc.gray('"review tickets"')}, ${pc.gray('"review ticket abc123"')}
+  ${pc.cyan('tool:tool_name')} - Direct tool invocation, e.g., ${pc.gray('tool:list_tickets --status=todo')}
+  ${pc.yellow('tools')} - List all available tools (compact)
+  ${pc.yellow('tools --help')} - Detailed tool documentation
+  ${pc.yellow('help')}, ${pc.yellow('h')} - Show this help message
+  ${pc.yellow('clear')}, ${pc.yellow('cls')} - Clear the screen
+  ${pc.yellow('exit')}, ${pc.yellow('quit')}, ${pc.yellow('q')} - Exit interactive mode\n`
     } else {
-        helpMessage = `\nAvailable commands:
-  - Natural language instructions
-  - Direct tool invocation: tool:tool_name --param=value
-  - tools - List all available tools
-  - help, h - Show this help message
-  - clear, cls - Clear the screen
-  - exit, quit, q - Exit interactive mode\n`
+        helpMessage = `\n${pc.bold('Available commands:')}
+  ${pc.cyan('Natural language')} - Give instructions in plain English
+  ${pc.cyan('tool:tool_name')} - Direct tool invocation
+  ${pc.yellow('tools')} - List all available tools (compact)
+  ${pc.yellow('tools --help')} - Detailed tool documentation
+  ${pc.yellow('help')}, ${pc.yellow('h')} - Show this help message
+  ${pc.yellow('clear')}, ${pc.yellow('cls')} - Clear the screen
+  ${pc.yellow('exit')}, ${pc.yellow('quit')}, ${pc.yellow('q')} - Exit interactive mode\n`
     }
 
     const replOptions: REPLOptions = {
@@ -104,6 +108,12 @@ export async function runAgentInteractive(options: InteractiveCLIOptions): Promi
 
                 // Handle "tools" command
                 if (trimmed === 'tools') {
+                    console.log(getToolsList(agent.getTools()))
+                    return
+                }
+
+                // Handle "tools --help" command
+                if (trimmed === 'tools --help' || trimmed === 'tools -h') {
                     console.log(getToolsHelp(agent.getTools()))
                     return
                 }
@@ -114,18 +124,18 @@ export async function runAgentInteractive(options: InteractiveCLIOptions): Promi
 
                 if (toolResult !== null) {
                     // Direct tool invocation
-                    console.log('\n🔧 Direct Tool Execution:\n')
+                    console.log(`\n${pc.bold(pc.cyan('Direct Tool Execution:'))}\n`)
                     if (toolResult.success) {
-                        console.log('✅ Tool executed successfully\n')
+                        console.log(pc.green('Tool executed successfully\n'))
                         if (toolResult.data) {
-                            console.log(JSON.stringify(toolResult.data, null, 2))
+                            console.log(pc.gray(JSON.stringify(toolResult.data, null, 2)))
                         }
                         if (toolResult.context) {
-                            console.log('\n📊 Context:')
-                            console.log(JSON.stringify(toolResult.context, null, 2))
+                            console.log(`\n${pc.bold('Context:')}`)
+                            console.log(pc.gray(JSON.stringify(toolResult.context, null, 2)))
                         }
                     } else {
-                        console.error(`❌ Tool execution failed: ${toolResult.error || 'Unknown error'}\n`)
+                        console.error(pc.red(`Tool execution failed: ${toolResult.error || 'Unknown error'}\n`))
                     }
                     return
                 }
@@ -136,20 +146,20 @@ export async function runAgentInteractive(options: InteractiveCLIOptions): Promi
                 // Display result
                 console.log('\n') // New line after reasoning stream
                 if (response.success) {
-                    console.log(`✅ ${response.message}`)
+                    console.log(pc.green(response.message))
                     if (response.data) {
-                        console.log(JSON.stringify(response.data, null, 2))
+                        console.log(pc.gray(JSON.stringify(response.data, null, 2)))
                     }
                 } else {
-                    console.error(`❌ ${response.message}`)
+                    console.error(pc.red(response.message))
                     if (response.error) {
-                        console.error(`Error: ${response.error}`)
+                        console.error(pc.red(`Error: ${response.error}`))
                     }
                 }
                 console.log('') // Blank line for readability
             } catch(error) {
                 const errorMsg = error instanceof Error ? error.message : String(error)
-                console.error(`\n❌ Error processing instruction: ${errorMsg}\n`)
+                console.error(pc.red(`\nError processing instruction: ${errorMsg}\n`))
             }
         },
         onExit() {
@@ -182,21 +192,21 @@ export async function runAgentOneShot(
         console.log('\n') // New line after reasoning stream
 
         if (response.success) {
-            console.log(`✅ ${response.message}`)
+            console.log(pc.green(response.message))
             if (response.data) {
-                console.log(JSON.stringify(response.data, null, 2))
+                console.log(pc.gray(JSON.stringify(response.data, null, 2)))
             }
         } else {
-            console.error(`❌ ${response.message}`)
+            console.error(pc.red(response.message))
             if (response.error) {
-                console.error(`Error: ${response.error}`)
+                console.error(pc.red(`Error: ${response.error}`))
             }
         }
 
         return response
     } catch(error) {
         const errorMsg = error instanceof Error ? error.message : String(error)
-        console.error(`\n❌ Fatal error: ${errorMsg}`)
+        console.error(pc.red(`\nFatal error: ${errorMsg}`))
         throw error
     }
 }

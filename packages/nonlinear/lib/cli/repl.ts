@@ -170,7 +170,8 @@ export class REPL {
 
         // Handle Ctrl+C
         this.rl.on('SIGINT', async() => {
-            console.log('\n\nExiting...')
+            const pc = await import('picocolors')
+            console.log(`\n\n${pc.gray('Exiting...')}`)
             await this.exit()
         })
 

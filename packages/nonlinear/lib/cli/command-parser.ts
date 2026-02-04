@@ -3,6 +3,7 @@
  * Allows testing tools without going through Anthropic
  */
 
+import pc from 'picocolors'
 import type {Tool, ToolResult} from '../fixtures/tools/types.ts'
 import type {ToolContext} from '../fixtures/tools/types.ts'
 
@@ -175,26 +176,64 @@ export async function executeToolCommand(
 }
 
 /**
+ * Get compact list of tools (names and descriptions only)
+ */
+export function getToolsList(tools: Record<string, Tool>): string {
+    const toolNames = Object.keys(tools).sort()
+    const lines: string[] = []
+
+    lines.push(pc.cyan('\nAvailable Tools:\n'))
+
+    // Group tools by category (prefix before underscore)
+    const categories: Record<string, Array<{name: string; tool: Tool}>> = {}
+    for (const toolName of toolNames) {
+        const tool = tools[toolName]
+        const category = toolName.includes('_') ? toolName.split('_')[0] : 'other'
+        if (!categories[category]) {
+            categories[category] = []
+        }
+        categories[category].push({name: toolName, tool})
+    }
+
+    // Display by category
+    for (const [category, toolList] of Object.entries(categories).sort()) {
+        if (category !== 'other') {
+            lines.push(pc.gray(`  ${category}:`))
+        }
+        for (const {name, tool} of toolList) {
+            const nameColor = pc.bold(pc.cyan(name))
+            const descColor = pc.gray(tool.description)
+            lines.push(`    ${nameColor} - ${descColor}`)
+        }
+        lines.push('')
+    }
+
+    lines.push(pc.gray('Use "tools --help" for detailed parameter information\n'))
+
+    return lines.join('\n')
+}
+
+/**
  * Get help text for all available tools
  */
 export function getToolsHelp(tools: Record<string, Tool>): string {
     const toolNames = Object.keys(tools).sort()
     const helpLines: string[] = []
 
-    helpLines.push('\n📋 Available Tools:\n')
+    helpLines.push(pc.cyan('\nAvailable Tools:\n'))
 
     for (const toolName of toolNames) {
         const tool = tools[toolName]
-        helpLines.push(`  ${toolName}`)
-        helpLines.push(`    ${tool.description}`)
+        helpLines.push(`  ${pc.bold(pc.cyan(toolName))}`)
+        helpLines.push(`    ${pc.gray(tool.description)}`)
 
         if (tool.parameters.length > 0) {
             helpLines.push('    Parameters:')
             for (const param of tool.parameters) {
-                const required = param.required ? '(required)' : '(optional)'
-                helpLines.push(`      --${param.name} (${param.type}) ${required}`)
+                const required = param.required ? pc.red('(required)') : pc.gray('(optional)')
+                helpLines.push(`      ${pc.yellow(`--${param.name}`)} ${pc.gray(`(${param.type})`)} ${required}`)
                 if (param.description) {
-                    helpLines.push(`        ${param.description}`)
+                    helpLines.push(`        ${pc.gray(param.description)}`)
                 }
             }
         }
@@ -202,8 +241,8 @@ export function getToolsHelp(tools: Record<string, Tool>): string {
         helpLines.push('')
     }
 
-    helpLines.push('Usage: tool:tool_name --param1=value1 --param2=value2')
-    helpLines.push('Example: tool:list_tickets --status=todo --limit=10\n')
+    helpLines.push(pc.gray('Usage: tool:tool_name --param1=value1 --param2=value2'))
+    helpLines.push(pc.gray('Example: tool:list_tickets --status=todo --limit=10\n'))
 
     return helpLines.join('\n')
 }
