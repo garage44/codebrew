@@ -100,8 +100,8 @@ export function Agents() {
 
     const getTypeLabel = (type: string) => {
         switch (type) {
-            case 'prioritizer':
-                return 'Prioritizer'
+            case 'planner':
+                return 'Planner'
             case 'developer':
                 return 'Developer'
             case 'reviewer':

@@ -7,7 +7,7 @@ interface AgentBadgeProps {
         id: string
         name: string
         status: 'idle' | 'working' | 'error' | 'offline'
-        type: 'prioritizer' | 'developer' | 'reviewer'
+        type: 'planner' | 'developer' | 'reviewer'
     }
     size?: 's' | 'd' | 'l'
     showStatus?: boolean

@@ -37,13 +37,13 @@ export abstract class BaseAgent {
     protected client: Anthropic
     protected model: string
     protected name: string
-    protected type: 'prioritizer' | 'developer' | 'reviewer'
+    protected type: 'planner' | 'developer' | 'reviewer'
     protected tools: Record<string, Tool> = {}
     protected skills: Skill[] = []
     protected stream?: WritableStream<string>
     protected apiKey: string
 
-    constructor(name: string, type: 'prioritizer' | 'developer' | 'reviewer', agentConfig?: {tools?: string[]; skills?: string[]}) {
+    constructor(name: string, type: 'planner' | 'developer' | 'reviewer', agentConfig?: {tools?: string[]; skills?: string[]}) {
         this.name = name
         this.type = type
         this.model = config.anthropic.model || 'claude-3-5-sonnet-20241022'
@@ -162,7 +162,7 @@ ${result.doc.content}
     /**
      * Get agent type
      */
-    getType(): 'prioritizer' | 'developer' | 'reviewer' {
+    getType(): 'planner' | 'developer' | 'reviewer' {
         return this.type
     }
 

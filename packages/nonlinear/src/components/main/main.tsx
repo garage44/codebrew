@@ -73,7 +73,7 @@ export const Main = () => {
                         lastActivity: number
                         name: string
                         status: string
-                        type: 'prioritizer' | 'developer' | 'reviewer'
+                        type: 'planner' | 'developer' | 'reviewer'
                     }) => ({
                         id: agent.id,
                         name: agent.name,
@@ -107,7 +107,7 @@ export const Main = () => {
                         lastActivity: number
                         name: string
                         status: string
-                        type: 'prioritizer' | 'developer' | 'reviewer'
+                        type: 'planner' | 'developer' | 'reviewer'
                     }) => ({
                         id: agent.id,
                         name: agent.name,

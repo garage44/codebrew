@@ -61,12 +61,12 @@ async function createDefaultAgents(db: Database): Promise<void> {
 
     const defaultAgents = [
         {
-            avatar: DEFAULT_AVATARS.prioritizer,
-            display_name: 'Prioritizer Agent',
+            avatar: DEFAULT_AVATARS.planner,
+            display_name: 'Planner Agent',
             id: randomId(),
-            name: 'Prioritizer',
+            name: 'Planner',
             status: 'idle',
-            type: 'prioritizer' as const,
+            type: 'planner' as const,
         },
         {
             avatar: DEFAULT_AVATARS.developer,

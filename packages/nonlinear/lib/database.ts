@@ -81,7 +81,7 @@ export interface Agent {
     id: string
     name: string
     status: 'idle' | 'working' | 'error' | 'offline'
-    type: 'prioritizer' | 'developer' | 'reviewer'
+    type: 'planner' | 'developer' | 'reviewer'
 }
 
 export interface AgentTask {
@@ -864,7 +864,7 @@ function initializePresetTags() {
         {color: '#f59e0b', name: 'role:designer'},
         {color: '#8b5cf6', name: 'role:ux'},
         {color: '#ef4444', name: 'role:qa'},
-        {color: '#06b6d4', name: 'role:prioritizer'},
+        {color: '#06b6d4', name: 'role:planner'},
 
         // Essential type tags
         {color: '#ec4899', name: 'type:prioritization'},

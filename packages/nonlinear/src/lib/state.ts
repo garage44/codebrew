@@ -49,7 +49,7 @@ const volatileState = mergeDeep({
         displayName: string
         avatar: string
         status: 'idle' | 'working' | 'error' | 'offline'
-        type: 'prioritizer' | 'developer' | 'reviewer'
+        type: 'planner' | 'developer' | 'reviewer'
         config: string
         enabled: number
         created_at: number

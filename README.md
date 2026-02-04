@@ -37,7 +37,7 @@ bunx @garage44/expressio start
 
 ### Nonlinear
 
-AI-powered automated project management and platform hub. Manages complete software development lifecycle from backlog to closed tickets using AI agents (prioritizer, developer, reviewer). Also provides unified documentation, deployment automation, and AI discovery mechanisms for the entire monorepo.
+AI-powered automated project management and platform hub. Manages complete software development lifecycle from backlog to closed tickets using AI agents (planner, developer, reviewer). Also provides unified documentation, deployment automation, and AI discovery mechanisms for the entire monorepo.
 
 **🌐 Live:** [garage44.org](https://garage44.org)
 

@@ -12,7 +12,7 @@ const defaultConfig = {
             enabled: true,
             maxConcurrent: 3,
         },
-        prioritizer: {
+        planner: {
             // 5 minutes
             checkInterval: 300000,
             enabled: true,

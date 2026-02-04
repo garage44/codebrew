@@ -36,7 +36,7 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
             id: string
             name: string
             status: string
-            type: 'prioritizer' | 'developer' | 'reviewer'
+            type: 'planner' | 'developer' | 'reviewer'
         }>
 
         // Enrich with status information
@@ -78,7 +78,7 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
             config?: Record<string, unknown>
             enabled?: boolean
             name: string
-            type: 'prioritizer' | 'developer' | 'reviewer'
+            type: 'planner' | 'developer' | 'reviewer'
         }
 
         if (!name || !type) {
@@ -132,7 +132,7 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
             enabled: number
             id: string
             name: string
-            type: 'prioritizer' | 'developer' | 'reviewer'
+            type: 'planner' | 'developer' | 'reviewer'
         } | undefined
 
         if (!agent) {

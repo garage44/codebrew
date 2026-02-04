@@ -8,7 +8,7 @@ Nonlinear uses specialized AI agents to autonomously manage the complete softwar
 
 - **Automated Lifecycle**: Backlog → Todo → In Progress → Review → Closed
 - **AI Agents**:
-  - **Prioritizer**: Analyzes and prioritizes backlog tickets, refines descriptions, responds to @mentions
+  - **Planner**: Analyzes and prioritizes backlog tickets, refines descriptions, responds to @mentions
   - **Developer**: Implements tickets, creates branches/MRs, runs CI with auto-fix
   - **Reviewer**: Reviews code, provides feedback, approves or requests changes
 - **Context-Aware**: Vector search across documentation and tickets for relevant context
@@ -48,7 +48,7 @@ Create a `.nonlinearrc` file in your home directory or set environment variables
     }
   },
   "agents": {
-    "prioritizer": {
+    "planner": {
       "enabled": true,
       "checkInterval": 300000  // Run every 5 minutes
     },
@@ -107,7 +107,7 @@ Navigate to `http://localhost:3030` (or configured port)
 ### Workflow
 
 1. Create tickets in the backlog
-2. Prioritizer agent refines and prioritizes tickets (moves high-priority ≥70 to todo)
+2. Planner agent refines and prioritizes tickets (moves high-priority ≥70 to todo)
 3. Developer agent picks up refined tickets, implements them, creates MRs
 4. Reviewer agent reviews MRs and provides feedback
 5. Humans approve closed tickets or reopen with comments

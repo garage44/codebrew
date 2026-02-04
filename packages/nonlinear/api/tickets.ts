@@ -249,21 +249,21 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
 
         logger.info(`[API] Created ticket ${ticketId}: ${title}`)
 
-        // If ticket is in backlog, create task for PrioritizerAgent to refine it
+        // If ticket is in backlog, create task for PlannerAgent to refine it
         if (status === 'backlog') {
-            // Find PrioritizerAgent ID
-            const prioritizerAgent = db.prepare(`
+            // Find PlannerAgent ID
+            const plannerAgent = db.prepare(`
                 SELECT id FROM agents
-                WHERE type = 'prioritizer' AND enabled = 1
+                WHERE type = 'planner' AND enabled = 1
                 LIMIT 1
             `).get() as {id: string} | undefined
 
-            if (prioritizerAgent) {
-                logger.info(`[API] Creating refinement task for PrioritizerAgent to refine new backlog ticket ${ticketId}`)
+            if (plannerAgent) {
+                logger.info(`[API] Creating refinement task for PlannerAgent to refine new backlog ticket ${ticketId}`)
 
                 // Create task with medium priority (backlog refinement is important but not urgent)
                 const taskId = createTask(
-                    prioritizerAgent.id,
+                    plannerAgent.id,
                     'refinement',
                     {
                         ticket_id: ticketId,
@@ -272,7 +272,7 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
                 )
 
                 // Broadcast task event to agent via WebSocket
-                wsManager.emitEvent(`/agents/${prioritizerAgent.id}/tasks`, {
+                wsManager.emitEvent(`/agents/${plannerAgent.id}/tasks`, {
                     task_id: taskId,
                     task_type: 'refinement',
                     task_data: {
@@ -280,9 +280,9 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
                     },
                 })
 
-                logger.info(`[API] Created and broadcast refinement task ${taskId} for PrioritizerAgent`)
+                logger.info(`[API] Created and broadcast refinement task ${taskId} for PlannerAgent`)
             } else {
-                logger.warn('[API] No enabled PrioritizerAgent found to refine new ticket')
+                logger.warn('[API] No enabled PlannerAgent found to refine new ticket')
             }
         }
 
@@ -554,7 +554,7 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
                     enabled: number
                     id: string
                     name: string
-                    type: 'prioritizer' | 'developer' | 'reviewer'
+                    type: 'planner' | 'developer' | 'reviewer'
                 } | undefined
 
                 if (!agent) {

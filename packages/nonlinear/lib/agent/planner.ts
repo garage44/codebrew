@@ -1,5 +1,5 @@
 /**
- * Prioritization Agent
+ * Planning Agent
  * Analyzes backlog tickets and moves high-priority ones to "todo"
  */
 
@@ -9,9 +9,9 @@ import {logger} from '../../service.ts'
 import {addAgentComment} from './comments.ts'
 import {updateTicketFromAgent} from './ticket-updates.ts'
 
-export class PrioritizerAgent extends BaseAgent {
+export class PlannerAgent extends BaseAgent {
     constructor(agentConfig?: {tools?: string[]; skills?: string[]}) {
-        super('Prioritizer', 'prioritizer', agentConfig)
+        super('Planner', 'planner', agentConfig)
     }
 
     async process(context: AgentContext): Promise<AgentResponse> {
@@ -677,7 +677,7 @@ Please respond to the user's request and refine the ticket as requested.`
     }
 
     async executeInstruction(instruction: string, context?: AgentContext): Promise<AgentResponse> {
-        const systemPrompt = `You are a Prioritizer agent. You help prioritize tickets in the backlog.
+        const systemPrompt = `You are a Planner agent. You help prioritize tickets in the backlog.
 
 Available commands:
 - "prioritize tickets" or "prioritize" - Analyze and prioritize all backlog tickets

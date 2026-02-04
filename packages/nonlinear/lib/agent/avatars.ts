@@ -9,8 +9,8 @@ import {logger} from '../../service.ts'
 /**
  * Default avatar assignments for agent types
  */
-export const DEFAULT_AVATARS: Record<'prioritizer' | 'developer' | 'reviewer', string> = {
-    prioritizer: 'placeholder-2.png',
+export const DEFAULT_AVATARS: Record<'planner' | 'developer' | 'reviewer', string> = {
+    planner: 'placeholder-2.png',
     developer: 'placeholder-3.png',
     reviewer: 'placeholder-4.png',
 }
@@ -28,7 +28,7 @@ export function initAgentAvatars() {
         display_name: string | null
         id: string
         name: string
-        type: 'prioritizer' | 'developer' | 'reviewer'
+        type: 'planner' | 'developer' | 'reviewer'
     }>
 
     for (const agent of agents) {

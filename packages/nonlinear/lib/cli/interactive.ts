@@ -83,7 +83,7 @@ export async function runAgentInteractive(options: InteractiveCLIOptions): Promi
 
     // Agent-specific help messages
     let helpMessage = ''
-    if (agentType === 'prioritizer') {
+    if (agentType === 'planner') {
         helpMessage = `\n${pc.bold('Available commands:')}
   ${pc.cyan('Natural language')} - e.g., ${pc.gray('"prioritize tickets"')}, ${pc.gray('"show backlog"')}
   ${pc.cyan('tool:tool_name')} - Direct tool invocation, e.g., ${pc.gray('tool:list_tickets --status=todo')}

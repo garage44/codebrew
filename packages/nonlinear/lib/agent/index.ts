@@ -2,7 +2,7 @@
  * Agent factory and exports
  */
 
-import {PrioritizerAgent} from './prioritizer.ts'
+import {PlannerAgent} from './planner.ts'
 import {DeveloperAgent} from './developer.ts'
 import {ReviewerAgent} from './reviewer.ts'
 import type {BaseAgent} from './base.ts'
@@ -31,7 +31,7 @@ export function getAgentById(agentId: string): BaseAgent | null {
         enabled: number
         id: string
         name: string
-        type: 'prioritizer' | 'developer' | 'reviewer'
+        type: 'planner' | 'developer' | 'reviewer'
     } | undefined
 
     if (!agentRecord) {
@@ -51,8 +51,8 @@ export function getAgentById(agentId: string): BaseAgent | null {
     // Create agent instance based on type
     let agent: BaseAgent
     switch (agentRecord.type) {
-        case 'prioritizer':
-            agent = new PrioritizerAgent(agentConfig)
+        case 'planner':
+            agent = new PlannerAgent(agentConfig)
             break
         case 'developer':
             agent = new DeveloperAgent(agentConfig)
@@ -74,7 +74,7 @@ export function getAgentById(agentId: string): BaseAgent | null {
  * Get agent instance by type (backward compatibility)
  * @deprecated Use getAgentById() instead
  */
-export function getAgent(type: 'prioritizer' | 'developer' | 'reviewer'): BaseAgent | null {
+export function getAgent(type: 'planner' | 'developer' | 'reviewer'): BaseAgent | null {
     // Find first agent of this type
     const agentRecord = db.prepare(`
         SELECT id
@@ -91,7 +91,7 @@ export function getAgent(type: 'prioritizer' | 'developer' | 'reviewer'): BaseAg
 }
 
 // Export agent classes
-export {PrioritizerAgent} from './prioritizer.ts'
+export {PlannerAgent} from './planner.ts'
 export {DeveloperAgent} from './developer.ts'
 export {ReviewerAgent} from './reviewer.ts'
 export {BaseAgent} from './base.ts'

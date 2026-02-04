@@ -34,7 +34,7 @@ export async function runAgent(agentId: string, context: Record<string, unknown>
         id: string
         name: string
         status: string
-        type: 'prioritizer' | 'developer' | 'reviewer'
+        type: 'planner' | 'developer' | 'reviewer'
     } | undefined
 
     if (!agentRecord) {

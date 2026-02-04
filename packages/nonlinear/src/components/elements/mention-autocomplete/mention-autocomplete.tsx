@@ -30,8 +30,8 @@ export function MentionAutocomplete({content, onContentChange, textareaRef}: Men
         for (const agent of $s.agents) {
             if (agent.enabled === 1) {
                 // Default avatars for agent types
-                const defaultAvatars: Record<'prioritizer' | 'developer' | 'reviewer', string> = {
-                    prioritizer: 'placeholder-2.png',
+                const defaultAvatars: Record<'planner' | 'developer' | 'reviewer', string> = {
+                    planner: 'placeholder-2.png',
                     developer: 'placeholder-3.png',
                     reviewer: 'placeholder-4.png',
                 }

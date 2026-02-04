@@ -8,7 +8,7 @@ interface AgentAvatarProps {
         displayName: string
         id: string
         status: 'idle' | 'working' | 'error' | 'offline'
-        type: 'prioritizer' | 'developer' | 'reviewer'
+        type: 'planner' | 'developer' | 'reviewer'
     }
     size?: 's' | 'd' | 'l'
     showStatus?: boolean
@@ -26,7 +26,7 @@ export const AgentAvatar = ({agent, size = 'd', showStatus = true, showType = fa
     }[agent.status]
 
     const typeIcon = {
-        prioritizer: 'priority_high',
+        planner: 'priority_high',
         developer: 'code',
         reviewer: 'rate_review',
     }[agent.type]

@@ -7,7 +7,7 @@ export interface NonlinearState extends CommonState {
         enabled: number
         id: string
         name: string
-        type: 'prioritizer' | 'developer' | 'reviewer'
+        type: 'planner' | 'developer' | 'reviewer'
     }>
     labelDefinitions: Array<{
         color: string

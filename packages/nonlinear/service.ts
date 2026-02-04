@@ -320,7 +320,7 @@ void cli.usage('Usage: $0 [task]')
             })
             .option('agent-type', {
                 alias: 'a',
-                describe: 'Agent type (developer, prioritizer, reviewer)',
+                describe: 'Agent type (developer, planner, reviewer)',
                 type: 'string',
                 default: 'developer',
             })
@@ -337,7 +337,7 @@ void cli.usage('Usage: $0 [task]')
         const {getAgent} = await import('./lib/agent/index.ts')
         const {runAgentInteractive, formatReasoningMessage, formatToolExecution, formatToolResult} = await import('./lib/cli/interactive.ts')
 
-        const agentType = argv.agentType as 'developer' | 'prioritizer' | 'reviewer'
+        const agentType = argv.agentType as 'developer' | 'planner' | 'reviewer'
         const agent = getAgent(agentType)
 
         if (!agent) {
@@ -527,7 +527,7 @@ void cli.usage('Usage: $0 [task]')
             enabled: number
             id: string
             name: string
-            type: 'prioritizer' | 'developer' | 'reviewer'
+            type: 'planner' | 'developer' | 'reviewer'
         } | undefined
 
         if (!agent) {

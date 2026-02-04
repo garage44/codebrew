@@ -325,16 +325,16 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
                 assignees: newAssignees,
             })
 
-            // If assigned to PrioritizerAgent, trigger refinement
+            // If assigned to PlannerAgent, trigger refinement
             if (assigneeState.assignee_type === 'agent' && assigneeState.assignee_id) {
                 const agent = $s.agents.find((a) => a.id === assigneeState.assignee_id || a.name === assigneeState.assignee_id)
-                if (agent && agent.type === 'prioritizer') {
+                if (agent && agent.type === 'planner') {
                     try {
                         await ws.post(`/api/agents/${agent.id}/trigger`, {
                             ticket_id: ticket.id,
                         })
                         notifier.notify({
-                            message: 'Ticket assigned to PrioritizerAgent. Refinement will begin shortly.',
+                            message: 'Ticket assigned to PlannerAgent. Refinement will begin shortly.',
                             type: 'success',
                         })
                     } catch(error) {
@@ -369,24 +369,24 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
     const handleRequestRefinement = async() => {
         if (!ticket) return
 
-        // Find PrioritizerAgent
-        const prioritizerAgent = $s.agents.find((a) => a.type === 'prioritizer' && a.enabled === 1)
+        // Find PlannerAgent
+        const plannerAgent = $s.agents.find((a) => a.type === 'planner' && a.enabled === 1)
 
-        if (!prioritizerAgent) {
+        if (!plannerAgent) {
             notifier.notify({
-                message: 'No enabled PrioritizerAgent found',
+                message: 'No enabled PlannerAgent found',
                 type: 'error',
             })
             return
         }
 
         try {
-            await ws.post(`/api/agents/${prioritizerAgent.id}/trigger`, {
+            await ws.post(`/api/agents/${plannerAgent.id}/trigger`, {
                 ticket_id: ticket.id,
             })
 
             notifier.notify({
-                message: 'Refinement requested. The PrioritizerAgent will analyze and update the ticket shortly.',
+                message: 'Refinement requested. The PlannerAgent will analyze and update the ticket shortly.',
                 type: 'success',
             })
         } catch(error) {

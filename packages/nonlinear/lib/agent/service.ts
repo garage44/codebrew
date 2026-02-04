@@ -54,7 +54,7 @@ class AgentService {
             WHERE id = ?
         `).get(agentId) as {
             enabled: number
-            type: 'prioritizer' | 'developer' | 'reviewer'
+            type: 'planner' | 'developer' | 'reviewer'
         } | undefined
 
         if (!agentRecord) {
