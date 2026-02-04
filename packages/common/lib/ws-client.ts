@@ -142,40 +142,52 @@ class WebSocketClient extends EventEmitter {
         }
 
         this.ws.onmessage = (event) => {
+            let message: WebSocketMessage
             try {
-                const message = JSON.parse(event.data)
-
-                // Handle request-response messages first
-                if (this.handleResponse(message)) {
-                    return
-                }
-
-                // Debug logging for HMR messages
-                if (message.url === '/tasks/hmr') {
-                    logger.debug('[WS] HMR message received, emitting and routing:', message)
-                    logger.debug('[WS] Registered handlers for /tasks/hmr:', this.eventHandlers['/tasks/hmr'])
-                }
-
-                this.emit('message', message)
-
-                // Handle route-specific handlers
-                if (message.url && this.eventHandlers[message.url]) {
-                    logger.debug(`[WS] Calling handlers for ${message.url}:`, this.eventHandlers[message.url].length)
-                    this.eventHandlers[message.url].forEach((handler) => handler(message.data))
-                } else if (message.url) {
-                    logger.debug(`[WS] No handlers registered for ${message.url}`)
-                }
-
-                // Emit on the URL as an event
-                if (message.url) {
-                    this.emit(message.url, message.data)
-                }
-
-                // Pass to generic message listeners
-                this.messageListeners.forEach((listener) => listener(event))
+                message = JSON.parse(event.data)
             } catch(error) {
-                logger.error('[WS] failed to parse message', error)
+                // Log at debug level - this is expected for invalid messages
+                logger.debug('[WS] failed to parse message', error)
+                this.emit('error', new Error('Invalid JSON message'))
+                return
             }
+
+            // Validate message structure
+            if (!message || typeof message !== 'object') {
+                // Log at debug level - this is expected for malformed messages
+                logger.debug('[WS] invalid message format')
+                this.emit('error', new Error('Invalid message format'))
+                return
+            }
+
+            // Handle request-response messages first
+            if (this.handleResponse(message)) {
+                return
+            }
+
+            // Debug logging for HMR messages
+            if (message.url === '/tasks/hmr') {
+                logger.debug('[WS] HMR message received, emitting and routing:', message)
+                logger.debug('[WS] Registered handlers for /tasks/hmr:', this.eventHandlers['/tasks/hmr'])
+            }
+
+            this.emit('message', message)
+
+            // Handle route-specific handlers (only if url exists)
+            if (message.url && this.eventHandlers[message.url]) {
+                logger.debug(`[WS] Calling handlers for ${message.url}:`, this.eventHandlers[message.url].length)
+                this.eventHandlers[message.url].forEach((handler) => handler(message.data))
+            } else if (message.url) {
+                logger.debug(`[WS] No handlers registered for ${message.url}`)
+            }
+
+            // Emit on the URL as an event (only if url exists)
+            if (message.url) {
+                this.emit(message.url, message.data)
+            }
+
+            // Pass to generic message listeners
+            this.messageListeners.forEach((listener) => listener(event))
         }
 
         this.ws.onclose = (event) => {
@@ -373,4 +385,5 @@ export {
     parseMessage,
     WebSocketClient,
     WebSocketEvents,
+    type WebSocketMessage,
 }

@@ -127,6 +127,8 @@ sequenceDiagram
 
 **Pattern**: WebSocket-first for real-time features, REST fallback for one-time operations.
 
+**Protocol Documentation**: See [WebSocket Protocol Guide](./websocket-protocol.md) for complete protocol specification, message formats, error handling, and agent usage guidelines.
+
 ## Package Boundaries
 
 ### Expressio Package
@@ -253,3 +255,9 @@ const BadComponent = () => {
 - **ADR-011**: Modern CSS migration
 - **ADR-012**: Design system consolidation
 - **ADR-019**: Type-safe i18n system
+- **ADR-028**: Agent Mention Processing with WebSocket Push
+- **ADR-029**: WebSocket Robustness Improvements and Protocol Documentation
+
+## Protocol Guides
+
+- **[WebSocket Protocol](./websocket-protocol.md)**: Complete WebSocket protocol specification, message formats, routing, subscriptions, error handling, and agent usage guidelines

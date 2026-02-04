@@ -1,5 +1,5 @@
 import {EventEmitter} from 'node:events'
-import {constructMessage} from './ws-client'
+import {constructMessage, type WebSocketMessage} from './ws-client'
 import {devContext} from './dev-context'
 import {logger} from './logger'
 import {match} from 'path-to-regexp'
@@ -85,7 +85,15 @@ class WebSocketServerManager extends EventEmitter {
                 logger.debug(`${ctx.method} ${ctx.url} - ${Date.now() - startTime}ms`)
                 return result
             } catch(error) {
-                logger.error(`${ctx.method} ${ctx.url} - Failed: ${error.message}`)
+                // Suppress error logs during tests (expected errors from error handling tests)
+                const isTest = typeof process !== 'undefined' && (
+                    process.env.NODE_ENV === 'test' ||
+                    process.env.BUN_ENV === 'test' ||
+                    process.argv.some((arg) => arg.includes('test'))
+                )
+                if (!isTest) {
+                    logger.error(`${ctx.method} ${ctx.url} - Failed: ${error.message}`)
+                }
                 throw error
             }
         },
@@ -191,6 +199,23 @@ class WebSocketServerManager extends EventEmitter {
         }
     }
 
+    // Clean up dead connections (connections not in OPEN state)
+    cleanupDeadConnections(): void {
+        const deadConnections: WebSocketConnection[] = []
+        for (const ws of this.connections) {
+            if (ws.readyState !== 1) {
+                deadConnections.push(ws)
+            }
+        }
+        for (const ws of deadConnections) {
+            this.connections.delete(ws)
+            this.cleanupSubscriptions(ws)
+        }
+        if (deadConnections.length > 0) {
+            logger.debug(`[WS] Cleaned up ${deadConnections.length} dead connection(s)`)
+        }
+    }
+
     // Broadcast a message to all connections
     broadcast(url: string, data: MessageData, method = 'POST') {
         const message = constructMessage(url, data, undefined, method)
@@ -204,11 +229,25 @@ class WebSocketServerManager extends EventEmitter {
                 url,
             })
         } catch {}
+        const deadConnections: WebSocketConnection[] = []
+        const messageStr = JSON.stringify(message)
         for (const ws of this.connections) {
             // OPEN state for Bun WebSocket
             if (ws.readyState === 1) {
-                ws.send(JSON.stringify(message))
+                try {
+                    ws.send(messageStr)
+                } catch (error) {
+                    logger.debug(`[WS] Failed to send broadcast to connection: ${error}`)
+                    deadConnections.push(ws)
+                }
+            } else {
+                deadConnections.push(ws)
             }
+        }
+        // Clean up dead connections
+        for (const ws of deadConnections) {
+            this.connections.delete(ws)
+            this.cleanupSubscriptions(ws)
         }
     }
 
@@ -217,11 +256,25 @@ class WebSocketServerManager extends EventEmitter {
         const message = constructMessage(topic, data as MessageData)
         const subscribers = this.subscriptions[topic]
         if (subscribers) {
+            const messageStr = JSON.stringify(message)
+            const deadConnections: WebSocketConnection[] = []
             for (const ws of subscribers) {
                 // OPEN state
                 if (ws.readyState === 1) {
-                    ws.send(JSON.stringify(message))
+                    try {
+                        ws.send(messageStr)
+                    } catch (error) {
+                        logger.debug(`[WS] Failed to send event to subscribed connection: ${error}`)
+                        deadConnections.push(ws)
+                    }
+                } else {
+                    deadConnections.push(ws)
                 }
+            }
+            // Clean up dead connections
+            for (const ws of deadConnections) {
+                subscribers.delete(ws)
+                this.clientSubscriptions.get(ws)?.delete(topic)
             }
         }
     }
@@ -275,91 +328,148 @@ class WebSocketServerManager extends EventEmitter {
         } catch {}
         this.connections.delete(ws)
         this.cleanupSubscriptions(ws)
+        // Clean up any other dead connections while we're at it
+        this.cleanupDeadConnections()
     }
 
     // Handle WebSocket message
     async message(ws: WebSocketConnection, message: string, request?: {session?: {userid?: string}}) {
+        let parsedMessage: WebSocketMessage
+        let messageId: string | undefined
+
         try {
-            const parsedMessage = JSON.parse(message)
-            const {data, id, method = 'GET', url} = parsedMessage
+            parsedMessage = JSON.parse(message)
+            messageId = parsedMessage.id
+        } catch (error) {
+            // Send error response if we can
             try {
-                const dataPreview = JSON.stringify({data, id, method, url}).slice(0, 200)
-                devContext.addWs({
-                    dataPreview,
-                    endpoint: this.endpoint,
-                    ts: Date.now(),
-                    type: 'message',
-                    url,
-                })
+                const errorMsg = constructMessage('/error', {
+                    error: 'Invalid JSON message',
+                }, undefined)
+                ws.send(JSON.stringify(errorMsg))
             } catch {}
-            // Parse query parameters from URL (once, before route matching)
-            let queryParams: Record<string, unknown> = {}
-            let pathname = url
+            // Log at debug level - this is expected for invalid messages
+            logger.debug('[WS] Failed to parse message:', error)
+            return
+        }
+
+        const {data, id, method = 'GET', url} = parsedMessage
+
+        // Validate required fields
+        if (!url) {
             try {
-                // URL might be a path like '/api/docs' or full URL like 'http://example.com/api/docs?tags=foo'
-                const urlObj = url.startsWith('http') ? new URL(url) : new URL(url, 'http://localhost')
-                pathname = urlObj.pathname
-                // URLSearchParams automatically decodes values
-                queryParams = Object.fromEntries(urlObj.searchParams.entries())
-            } catch (error) {
-                // If URL parsing fails, try to extract query string manually
-                const queryMatch = url.match(/^([^?]+)(\?.+)?$/)
-                if (queryMatch) {
-                    pathname = queryMatch[1]
-                    if (queryMatch[2]) {
-                        const searchParams = new URLSearchParams(queryMatch[2].slice(1))
-                        queryParams = Object.fromEntries(searchParams.entries())
-                    }
+                const errorMsg = constructMessage('/error', {
+                    error: 'Missing required field: url',
+                }, id)
+                ws.send(JSON.stringify(errorMsg))
+            } catch {}
+            // Log at debug level - this is expected for malformed messages
+            logger.debug('[WS] Message missing url field')
+            return
+        }
+
+        try {
+            const dataPreview = JSON.stringify({data, id, method, url}).slice(0, 200)
+            devContext.addWs({
+                dataPreview,
+                endpoint: this.endpoint,
+                ts: Date.now(),
+                type: 'message',
+                url,
+            })
+        } catch {}
+
+        // Parse query parameters from URL (once, before route matching)
+        let queryParams: Record<string, unknown> = {}
+        let pathname = url
+        try {
+            // URL might be a path like '/api/docs' or full URL like 'http://example.com/api/docs?tags=foo'
+            const urlObj = url.startsWith('http') ? new URL(url) : new URL(url, 'http://localhost')
+            pathname = urlObj.pathname
+            // URLSearchParams automatically decodes values
+            queryParams = Object.fromEntries(urlObj.searchParams.entries())
+        } catch (error) {
+            // If URL parsing fails, try to extract query string manually
+            const queryMatch = url.match(/^([^?]+)(\?.+)?$/)
+            if (queryMatch) {
+                pathname = queryMatch[1]
+                if (queryMatch[2]) {
+                    const searchParams = new URLSearchParams(queryMatch[2].slice(1))
+                    queryParams = Object.fromEntries(searchParams.entries())
                 }
             }
+        }
 
-            // Create context for this request
-            const ctx: WebSocketContext = {
-                broadcast: this.broadcast.bind(this),
-                method: method as HttpMethod,
-                session: request?.session,
-                subscribe: (topic: string) => this.subscribe(ws, topic),
-                unsubscribe: (topic: string) => this.unsubscribe(ws, topic),
-                url,
-                ws,
-            }
+        // Create context for this request
+        const ctx: WebSocketContext = {
+            broadcast: this.broadcast.bind(this),
+            method: method as HttpMethod,
+            session: request?.session,
+            subscribe: (topic: string) => this.subscribe(ws, topic),
+            unsubscribe: (topic: string) => this.unsubscribe(ws, topic),
+            url,
+            ws,
+        }
 
-            // Find matching route handler
-            let matched = false
-            for (const {handler, matchFn, method: handlerMethod} of this.routeHandlers) {
-                const matchResult = matchFn(pathname)
+        // Find matching route handler
+        let matched = false
+        for (const {handler, matchFn, method: handlerMethod} of this.routeHandlers) {
+            const matchResult = matchFn(pathname)
 
-                // Check both URL pattern match AND matching HTTP method
-                if (matchResult !== false && handlerMethod === method) {
-                    matched = true
-                    try {
-                        const request: ApiRequest = {
-                            data,
-                            id,
-                            params: matchResult.params,
-                            query: queryParams || {},
-                        }
+            // Check both URL pattern match AND matching HTTP method
+            if (matchResult !== false && handlerMethod === method) {
+                matched = true
+                try {
+                    const request: ApiRequest = {
+                        data,
+                        id,
+                        params: matchResult.params,
+                        query: queryParams || {},
+                    }
 
-                        const result = await handler(ctx, request)
-                        // Always respond to messages with an ID
-                        if (id) {
+                    const result = await handler(ctx, request)
+                    // Always respond to messages with an ID
+                    if (id) {
+                        try {
                             const response = constructMessage(url, (result as MessageData) || null, id)
                             ws.send(JSON.stringify(response))
+                        } catch (sendError) {
+                            logger.error('[WS] Failed to send response:', sendError)
                         }
-                    } catch(error) {
-                        const errorResponse = constructMessage(url, {error: error.message}, id)
-                        ws.send(JSON.stringify(errorResponse))
-                        logger.error('handler error:', error)
                     }
-                    break
-                }
+                    } catch(error) {
+                        try {
+                            const errorResponse = constructMessage(url, {error: error instanceof Error ? error.message : String(error)}, id)
+                            ws.send(JSON.stringify(errorResponse))
+                        } catch (sendError) {
+                            logger.error('[WS] Failed to send error response:', sendError)
+                        }
+                        // Suppress handler error logs during tests (expected errors from error handling tests)
+                        const isTest = typeof process !== 'undefined' && (
+                            process.env.NODE_ENV === 'test' ||
+                            process.env.BUN_ENV === 'test' ||
+                            process.argv.some((arg) => arg.includes('test'))
+                        )
+                        if (!isTest) {
+                            logger.error('handler error:', error)
+                        }
+                    }
+                break
             }
+        }
 
-            if (!matched) {
-                logger.debug(`[WS] No route matched for: ${method} ${url}`)
+        if (!matched && id) {
+            // Send error response for unmatched routes
+            try {
+                const errorResponse = constructMessage(url, {
+                    error: `No route matched for: ${method} ${url}`,
+                }, id)
+                ws.send(JSON.stringify(errorResponse))
+            } catch (sendError) {
+                logger.error('[WS] Failed to send no-route error:', sendError)
             }
-        } catch(error) {
-            logger.error('Error processing WebSocket message:', error)
+        } else if (!matched) {
+            logger.debug(`[WS] No route matched for: ${method} ${url}`)
         }
     }
 }
