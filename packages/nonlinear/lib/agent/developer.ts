@@ -9,7 +9,7 @@ import {logger} from '../../service.ts'
 import {createGitPlatform} from '../git/index.ts'
 import {addAgentComment} from './comments.ts'
 import {CIRunner} from '../ci/runner.ts'
-import {applyFileModifications, validateModifications} from './file-editor.ts'
+import {updateTicketFromAgent} from './ticket-updates.ts'
 import {$} from 'bun'
 import path from 'node:path'
 
@@ -96,9 +96,6 @@ export class DeveloperAgent extends BaseAgent {
                 WHERE id = ?
             `).run(branchName, Date.now(), ticket.id)
 
-            // Get repository context for implementation
-            const repoContext = await this.getRepositoryContext(ticket.path)
-
             // Build agent context for tools
             const agentContext: AgentContext = {
                 ticketId: ticket.id,
@@ -107,121 +104,106 @@ export class DeveloperAgent extends BaseAgent {
                 branchName,
             }
 
-            // Generate implementation plan using LLM with tools
-            const systemPrompt = `You are a software development AI agent working on a Bun/TypeScript project.
+            // Check if solution plan already exists (resume scenario)
+            const existingTicket = db.prepare('SELECT solution_plan FROM tickets WHERE id = ?').get(ticket.id) as {
+                solution_plan: string | null
+            } | undefined
+
+            let solutionPlan = existingTicket?.solution_plan
+
+            // Phase 1: Planning - Generate solution plan if it doesn't exist
+            if (!solutionPlan) {
+                this.log(`Generating solution plan for ticket ${ticket.id}`)
+
+                const repoContext = await this.getRepositoryContext(ticket.path)
+
+                const planningPrompt = `You are a Developer agent working on a Bun/TypeScript project.
+
+Your task is to analyze the ticket requirements and codebase to create a detailed solution plan.
+
+Use available tools to:
+- Search documentation and ADRs for relevant patterns and decisions
+- Read relevant files to understand the codebase structure
+- Search for similar code patterns and implementations
+- Analyze dependencies and types
+- Find existing tests for similar functionality
+- Review git history for similar past implementations
+
+Generate a comprehensive solution plan in markdown format that includes:
+1. Analysis of the ticket requirements
+2. Understanding of the codebase structure
+3. Step-by-step implementation approach
+4. Files that will be created or modified
+5. Tests that need to be written
+6. Any dependencies or considerations
+
+Be thorough and specific. This plan will guide the implementation phase.`
+
+                const planningMessage = `Create a solution plan for this ticket:
+
+**Title:** ${ticket.title}
+**Description:** ${ticket.description || 'No description provided'}
+
+**Repository Context:**
+${repoContext}
+
+Use the available tools to gather context and create a detailed solution plan.`
+
+                solutionPlan = await this.respondWithTools(planningPrompt, planningMessage, 8192, agentContext)
+
+                // Store solution plan in ticket
+                await updateTicketFromAgent(ticket.id, {solution_plan: solutionPlan})
+                this.log(`Solution plan generated and stored for ticket ${ticket.id}`)
+            } else {
+                this.log(`Using existing solution plan for ticket ${ticket.id}`)
+            }
+
+            // Phase 2: Execution - Execute the solution plan using tools
+            this.log(`Executing solution plan for ticket ${ticket.id}`)
+
+            const executionPrompt = `You are a Developer agent. Execute the solution plan that was created for this ticket.
 
 Your task is to:
-1. Understand the ticket requirements
-2. Analyze the codebase structure using available tools
-3. Implement the necessary changes using file tools
-4. Write tests if needed
-5. Ensure code follows project conventions
+1. Follow the solution plan step by step
+2. Use tools to make changes directly (read_file, write_file, etc.)
+3. Run tests after making changes
+4. Fix any issues that arise
+5. Commit changes when complete
+6. Create merge request
 
 You have access to tools for:
 - Reading and writing files (read_file, write_file)
 - Searching code semantically (search_code, find_similar_code)
 - Running commands and tests (run_command, run_tests, lint_code)
 - Git operations (git_status, git_branch, git_commit, git_create_mr)
+- Ticket operations (get_ticket, update_ticket_status, add_ticket_comment)
 
-Use the tools to:
-1. Read relevant files to understand the codebase
-2. Search for similar code patterns if needed
-3. Create or modify files as required
-4. Run tests and linting to verify changes
-5. Commit changes and create merge request
+Work step by step, using tools to implement the solution plan.`
 
-Work step by step, using tools to gather information and make changes.`
+            const executionMessage = `Execute the solution plan for this ticket:
 
-            const userMessage = `Implement this ticket:
+**Title:** ${ticket.title}
+**Description:** ${ticket.description || 'No description'}
 
-Title: ${ticket.title}
-Description: ${ticket.description || 'No description'}
+**Solution Plan:**
+${solutionPlan}
 
-Repository Context:
-${repoContext}
+Use the available tools to implement the solution plan. Make changes directly using file tools, run tests, and commit changes.`
 
-Use the available tools to implement this ticket. Start by reading relevant files to understand the codebase structure, then make the necessary changes.`
+            // Execute using tools - tools will handle file operations directly
+            await this.respondWithTools(executionPrompt, executionMessage, 8192, agentContext)
 
-            // Use tool-enabled response (will use tools automatically)
-            const response = await this.respondWithTools(systemPrompt, userMessage, 8192, agentContext)
-
-            // Parse implementation plan
-            let implementation: {
-                plan: string[]
-                files_to_create?: Array<{path: string; content: string}>
-                files_to_modify?: Array<{path: string; changes: string}>
-                commands_to_run?: string[]
-            }
-
-            try {
-                const jsonMatch = response.match(/```json\n([\s\S]*?)\n```/) || response.match(/```\n([\s\S]*?)\n```/)
-                const jsonStr = jsonMatch ? jsonMatch[1] : response
-                implementation = JSON.parse(jsonStr)
-            } catch (error) {
-                this.log(`Failed to parse implementation plan: ${error}`, 'error')
-                // Fallback: save the response as a comment and mark ticket as needing review
-                await addAgentComment(ticket.id, this.name, `Implementation plan generated but could not be parsed:\n\n${response}`)
-                return {
-                    success: false,
-                    message: 'Failed to parse implementation plan',
-                    error: String(error),
-                }
-            }
-
-            // Apply implementation
+            // After tools have made changes, commit and create MR
             const originalCwd = process.cwd()
             try {
                 process.chdir(ticket.path)
 
-                // Create files
-                if (implementation.files_to_create) {
-                    for (const file of implementation.files_to_create) {
-                        const filePath = path.join(ticket.path, file.path)
-                        await Bun.write(filePath, file.content)
-                        this.log(`Created file: ${file.path}`)
-                    }
-                }
-
-                // Modify files
-                if (implementation.files_to_modify) {
-                    const modifications = implementation.files_to_modify.map((file) => ({
-                        changes: file.changes,
-                        path: file.path,
-                    }))
-
-                    const {invalid, valid} = validateModifications(modifications)
-
-                    if (invalid.length > 0) {
-                        this.log(`Invalid file modifications: ${invalid.map(m => m.path).join(', ')}`, 'warn')
-                    }
-
-                    if (valid.length > 0) {
-                        this.log(`Applying ${valid.length} file modifications`)
-                        const results = await applyFileModifications(ticket.path, valid)
-
-                        const failed = results.filter((r) => !r.success)
-                        if (failed.length > 0) {
-                            this.log(`Failed to modify ${failed.length} files: ${failed.map(r => r.path).join(', ')}`, 'warn')
-                            await addAgentComment(ticket.id, this.name, `Failed to modify some files:\n${failed.map(r => `- ${r.path}: ${r.error}`).join('\n')}`)
-                        }
-
-                        const succeeded = results.filter((r) => r.success)
-                        if (succeeded.length > 0) {
-                            this.log(`Successfully modified ${succeeded.length} files`)
-                        }
-                    }
-                }
-
-                // Commit changes
-                await $`git add -A`.quiet()
-                await $`git commit -m "Implement: ${ticket.title}"`.quiet()
-
-                // Run commands (tests, linting)
-                if (implementation.commands_to_run) {
-                    for (const cmd of implementation.commands_to_run) {
-                        this.log(`Running: ${cmd}`)
-                        // TODO: Execute commands safely
-                    }
+                // Commit changes (tools may have already committed, but ensure we have a commit)
+                const gitStatus = await $`git status --porcelain`.cwd(ticket.path).quiet().text()
+                if (gitStatus.trim()) {
+                    await $`git add -A`.cwd(ticket.path).quiet()
+                    await $`git commit -m "Implement: ${ticket.title}"`.cwd(ticket.path).quiet()
+                    this.log('Committed changes')
                 }
 
                 // Run CI before creating MR
@@ -236,8 +218,8 @@ Use the available tools to implement this ticket. Start by reading relevant file
 
                     // If CI fixed some issues, commit the fixes
                     if (ciResult.fixesApplied.length > 0) {
-                        await $`git add -A`.quiet()
-                        await $`git commit -m "Fix: Apply CI auto-fixes"`.quiet()
+                        await $`git add -A`.cwd(ticket.path).quiet()
+                        await $`git commit -m "Fix: Apply CI auto-fixes"`.cwd(ticket.path).quiet()
                         this.log(`Applied ${ciResult.fixesApplied.length} CI fixes`)
                     } else {
                         // CI failed and couldn't be auto-fixed, mark ticket as needing attention

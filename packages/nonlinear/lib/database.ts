@@ -39,6 +39,7 @@ export interface Ticket {
     merge_request_id: string | null
     priority: number | null
     repository_id: string
+    solution_plan: string | null
     status: 'backlog' | 'todo' | 'in_progress' | 'review' | 'closed'
     title: string
     updated_at: number
@@ -219,6 +220,7 @@ function createNonlinearTables() {
             repository_id TEXT NOT NULL,
             title TEXT NOT NULL,
             description TEXT,
+            solution_plan TEXT,
             status TEXT NOT NULL,
             priority INTEGER,
             assignee_type TEXT,

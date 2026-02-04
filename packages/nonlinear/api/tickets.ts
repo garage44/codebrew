@@ -62,6 +62,7 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
             priority: number | null
             repository_id: string
             repository_name: string | null
+            solution_plan: string | null
             status: string
             title: string
             updated_at: number
@@ -93,6 +94,7 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
             repository_id: string
             repository_name: string | null
             repository_path: string | null
+            solution_plan: string | null
             status: string
             title: string
             updated_at: number
@@ -260,6 +262,7 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
             description: string
             labels: string[]
             priority: number
+            solution_plan: string
             status: string
             title: string
         }>
@@ -275,6 +278,10 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
         if (updates.description !== undefined) {
             fields.push('description = ?')
             values.push(updates.description)
+        }
+        if (updates.solution_plan !== undefined) {
+            fields.push('solution_plan = ?')
+            values.push(updates.solution_plan)
         }
         if (updates.status !== undefined) {
             fields.push('status = ?')

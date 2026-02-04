@@ -10,6 +10,10 @@ import {shellTools} from './shell.ts'
 import {codeTools} from './code.ts'
 import {gitTools} from './git.ts'
 import {ticketTools} from './ticket.ts'
+import {documentationTools} from './documentation.ts'
+import {testTools} from './test.ts'
+import {dependencyTools} from './dependency.ts'
+import {typeTools} from './type.ts'
 
 // Export all tools
 export const tools: Record<string, Tool> = {
@@ -18,6 +22,10 @@ export const tools: Record<string, Tool> = {
     ...codeTools,
     ...gitTools,
     ...ticketTools,
+    ...documentationTools,
+    ...testTools,
+    ...dependencyTools,
+    ...typeTools,
 }
 
 /**

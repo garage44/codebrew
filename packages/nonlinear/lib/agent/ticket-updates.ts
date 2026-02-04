@@ -24,6 +24,7 @@ export async function updateTicketFromAgent(
     ticketId: string,
     updates: {
         description?: string | null
+        solution_plan?: string | null
         title?: string
     },
 ): Promise<void> {
@@ -37,6 +38,10 @@ export async function updateTicketFromAgent(
     if (updates.description !== undefined) {
         fields.push('description = ?')
         values.push(updates.description)
+    }
+    if (updates.solution_plan !== undefined) {
+        fields.push('solution_plan = ?')
+        values.push(updates.solution_plan)
     }
 
     if (fields.length === 0) {
@@ -69,6 +74,7 @@ export async function updateTicketFromAgent(
         priority: number | null
         repository_id: string
         repository_name: string | null
+        solution_plan: string | null
         status: string
         title: string
         updated_at: number
