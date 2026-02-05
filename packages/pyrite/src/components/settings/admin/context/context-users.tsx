@@ -143,9 +143,12 @@ export default function ContextUsers({path: _path, userId}: ContextUsersProps) {
             {orderedUsers.map((user) => {
                 const userIdNum = typeof user.id === 'number' ? user.id : parseInt(String(user.id || '0'), 10)
                 return <Link
-                    {...({class: classnames('user item', {
-                        active: parseInt(userId || '0', 10) === userIdNum,
-                    }), href: userLink(userIdNum)} as Record<string, unknown>)}
+                    {...({
+                        class: classnames('user item', {
+                            active: parseInt(userId || '0', 10) === userIdNum,
+                        }),
+                        href: userLink(userIdNum),
+                    } as Record<string, unknown>)}
                     key={userIdNum}
                 >
                     <Icon
@@ -156,7 +159,7 @@ export default function ContextUsers({path: _path, userId}: ContextUsersProps) {
                     <div class='name'>
                         {typeof user.name === 'string' ? user.name : String(user.name || '')}
                     </div>
-            </Link>
+                </Link>
             })}
         </section>
     )

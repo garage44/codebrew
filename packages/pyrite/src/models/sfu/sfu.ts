@@ -745,7 +745,7 @@ function onUser(id, kind) {
             const galeneUser = connection.users[id]
             const hadPresent = galeneUser?.permissions?.includes('present')
             const hadOp = galeneUser?.permissions?.includes('op')
-            
+
             // Shutdown the local stream when the Present permission is taken away.
             if (hadPresent && !user.permissions.present) {
                 delUpMedia(localGlnStream)

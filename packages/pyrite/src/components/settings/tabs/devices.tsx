@@ -24,12 +24,12 @@ export default function TabDevices() {
     const [streamId, setStreamId] = useState<string | null>(null)
     const [soundAudio, setSoundAudio] = useState<Sound | null>(null)
     const [playing] = useState(false)
-    
+
     // Create writable signals for device IDs that sync with DeepSignal
     const camIdSignalRef = useRef<ReturnType<typeof signal<string>>>(signal(''))
     const micIdSignalRef = useRef<ReturnType<typeof signal<string>>>(signal(''))
     const audioIdSignalRef = useRef<ReturnType<typeof signal<string>>>(signal(''))
-    
+
     useEffect(() => {
         const updateCamId = () => {
             const selected = $s.devices.cam.selected
@@ -52,7 +52,7 @@ export default function TabDevices() {
                 audioIdSignalRef.current.value = id
             }
         }
-        
+
         const unsubscribeCam = effect(() => {
             updateCamId()
         })
@@ -62,7 +62,7 @@ export default function TabDevices() {
         const unsubscribeAudio = effect(() => {
             updateAudioId()
         })
-        
+
         return () => {
             unsubscribeCam()
             unsubscribeMic()
@@ -155,20 +155,27 @@ export default function TabDevices() {
                     label={$t('device.select_cam_label')}
                     model={camIdSignalRef.current as Signal<string>}
                     onChange={(value) => {
-                        const selectedOption = Array.isArray($s.devices.cam.options) ? $s.devices.cam.options.find((opt: {id: string; name: string}) => opt.id === value) : undefined
+                        const selectedOption = Array.isArray($s.devices.cam.options) ?
+                                $s.devices.cam.options.find((opt: {id: string; name: string}) => opt.id === value) :
+                            undefined
                         if (selectedOption) {
                             $s.devices.cam.selected = selectedOption
                         }
                     }}
-                    options={Array.isArray($s.devices.cam.options) ? $s.devices.cam.options as Array<{id: string; name: string}> : []}
+                    options={Array.isArray($s.devices.cam.options) ?
+                        $s.devices.cam.options as Array<{id: string; name: string}> :
+                            []}
                 />
 
-                {description && <Stream controls={false} modelValue={{
-                    hasAudio: description.hasAudio,
-                    hasVideo: description.hasVideo,
-                    id: description.id,
-                    src: description.src,
-                }} />}
+                {description && <Stream
+                    controls={false}
+                    modelValue={{
+                        hasAudio: description.hasAudio,
+                        hasVideo: description.hasVideo,
+                        id: description.id,
+                        src: description.src,
+                    }}
+                />}
                 {!description &&
                     <div class='webcam-placeholder'>
                         <Icon name='webcam' />
@@ -180,12 +187,16 @@ export default function TabDevices() {
                 label={$t('device.select_mic_label')}
                 model={micIdSignalRef.current as Signal<string>}
                 onChange={(value) => {
-                    const selectedOption = Array.isArray($s.devices.mic.options) ? $s.devices.mic.options.find((opt: {id: string; name: string}) => opt.id === value) : undefined
+                    const selectedOption = Array.isArray($s.devices.mic.options) ?
+                            $s.devices.mic.options.find((opt: {id: string; name: string}) => opt.id === value) :
+                        undefined
                     if (selectedOption) {
                         $s.devices.mic.selected = selectedOption
                     }
                 }}
-                options={Array.isArray($s.devices.mic.options) ? $s.devices.mic.options as Array<{id: string; name: string}> : []}
+                options={Array.isArray($s.devices.mic.options) ?
+                    $s.devices.mic.options as Array<{id: string; name: string}> :
+                        []}
             />
 
             <div class='soundmeter'>
@@ -201,12 +212,16 @@ export default function TabDevices() {
                         label={$t('device.select_audio_label')}
                         model={audioIdSignalRef.current as Signal<string>}
                         onChange={(value) => {
-                            const selectedOption = Array.isArray($s.devices.audio.options) ? $s.devices.audio.options.find((opt: {id: string; name: string}) => opt.id === value) : undefined
+                            const selectedOption = Array.isArray($s.devices.audio.options) ?
+                                    $s.devices.audio.options.find((opt: {id: string; name: string}) => opt.id === value) :
+                                undefined
                             if (selectedOption) {
                                 $s.devices.audio.selected = selectedOption
                             }
                         }}
-                        options={Array.isArray($s.devices.audio.options) ? $s.devices.audio.options as Array<{id: string; name: string}> : []}
+                        options={Array.isArray($s.devices.audio.options) ?
+                            $s.devices.audio.options as Array<{id: string; name: string}> :
+                                []}
                     />}
 
                 {($s.env.isFirefox || !$s.devices.audio.options.length) &&

@@ -33,7 +33,12 @@ export default function ContextGroups({groupId, path}: ContextGroupsProps) {
     }
 
     const deleteGroups = async() => {
-        notifier.notify({level: 'info', message: deletionGroups.length === 1 ? $t('deleting one group') : $t('deleting {count} groups', {count: deletionGroups.length})})
+        notifier.notify({
+            level: 'info',
+            message: deletionGroups.length === 1 ?
+                    $t('deleting one group') :
+                    $t('deleting {count} groups', {count: deletionGroups.length}),
+        })
         const deleteRequests = []
         for (const group of deletionGroups) {
             $s.admin.groups.splice($s.admin.groups.findIndex((i) => i._name === group._name), 1)
@@ -64,10 +69,10 @@ export default function ContextGroups({groupId, path}: ContextGroupsProps) {
         const group = await saveGroup(groupId, $s.admin.group)
 
         // Select the next unsaved group to speed up group creation.
-        const adminGroup = $s.admin.group as {_unsaved?: boolean; _name?: string} | null
+        const adminGroup = $s.admin.group as {_name?: string; _unsaved?: boolean} | null
         if (adminGroup && adminGroup._unsaved) {
             const nextGroupIndex = orderedGroups.findIndex((g) => {
-                const groupName = typeof g._name === 'string' ? g._name : String(g._name || '')
+                const _groupName = typeof g._name === 'string' ? g._name : String(g._name || '')
                 return typeof g._unsaved !== 'undefined' && g._unsaved
             })
             if (nextGroupIndex >= 0) {
@@ -150,7 +155,10 @@ export default function ContextGroups({groupId, path}: ContextGroupsProps) {
                 const isDelete = typeof group._delete === 'boolean' ? group._delete : Boolean(group._delete)
                 const isUnsaved = typeof group._unsaved === 'boolean' ? group._unsaved : Boolean(group._unsaved)
                 return <Link
-                    {...({class: classnames('group item', {active: groupId === groupName}), href: groupLink(groupName)} as Record<string, unknown>)}
+                    {...({
+                        class: classnames('group item', {active: groupId === groupName}),
+                        href: groupLink(groupName),
+                    } as Record<string, unknown>)}
                     key={groupName}
                 >
                         <Icon

@@ -52,7 +52,9 @@ export const GetDocByPathQuerySchema = z.object({
 
 export const DocSearchQuerySchema = z.object({
     contentType: z.enum(['doc', 'ticket', 'both']).default('both'),
-    limit: z.coerce.number().int().min(1).max(100).default(10),
+    limit: z.coerce.number().int().min(1)
+        .max(100)
+        .default(10),
     query: z.string().min(1),
     tags: z.string().optional(),
     workspace: z.string().optional(),

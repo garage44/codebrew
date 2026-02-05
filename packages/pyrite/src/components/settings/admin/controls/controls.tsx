@@ -16,9 +16,17 @@ export default function AdminControls({path}: AdminControlsProps) {
             // Use first channel from sfu.channels that has metadata
             const firstChannel = Object.entries($s.sfu.channels).find(
                 ([_, data]) => {
-                    const channel = (typeof data === 'object' && data !== null && 'audio' in data)
-                        ? data as {audio: boolean; clientCount?: number; comment?: string; connected?: boolean; description?: string; locked?: boolean; video: boolean}
-                        : null
+                    const channel = typeof data === 'object' && data !== null && 'audio' in data ?
+                        data as {
+                            audio: boolean
+                            clientCount?: number
+                            comment?: string
+                            connected?: boolean
+                            description?: string
+                            locked?: boolean
+                            video: boolean
+                        } :
+                        null
                     return channel && (channel.description || channel.comment || channel.clientCount !== undefined)
                 },
             )

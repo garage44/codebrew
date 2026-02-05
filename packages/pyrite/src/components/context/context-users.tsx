@@ -37,7 +37,12 @@ export default function UsersContext() {
         return users
     }, [$s.users])
 
-    const className = (user: {data?: {availability?: {id: string}; mic?: boolean; raisehand?: boolean}; id: string; permissions?: {op?: boolean; present?: boolean}; username?: string}) => {
+    const className = (user: {
+        data?: {availability?: {id: string}; mic?: boolean; raisehand?: boolean}
+        id: string
+        permissions?: {op?: boolean; present?: boolean}
+        username?: string
+    }) => {
         const classes: Record<string, boolean> = {}
         if (user.data?.raisehand) {
             classes.hand = true
@@ -56,7 +61,12 @@ export default function UsersContext() {
     return (
         <section class='c-users-context presence'>
             {sortedUsers.map((user) => {
-                const userObj = user as {data?: {availability?: {id: string}; mic?: boolean; raisehand?: boolean}; id: string; permissions?: {op?: boolean; present?: boolean}; username?: string}
+                const userObj = user as {
+                    data?: {availability?: {id: string}; mic?: boolean; raisehand?: boolean}
+                    id: string
+                    permissions?: {op?: boolean; present?: boolean}
+                    username?: string
+                }
                 return <div class='user item' key={userObj.id}>
                     <Icon
                         className={classnames('icon item-icon icon-d', className(userObj))}
@@ -90,14 +100,27 @@ export default function UsersContext() {
                         </div>
                     </div>
                     {userObj.username !== 'RECORDING' && <ContextMenu user={{
-                        data: userObj.data && typeof userObj.data === 'object' && 'availability' in userObj.data && typeof userObj.data.availability === 'object' && userObj.data.availability !== null && 'id' in userObj.data.availability
-                            ? {availability: String(userObj.data.availability.id), raisehand: Boolean(userObj.data.raisehand)}
-                            : {availability: typeof userObj.data?.availability === 'string' ? userObj.data.availability : undefined, raisehand: Boolean(userObj.data?.raisehand)},
+                        data: userObj.data && typeof userObj.data === 'object' &&
+                            'availability' in userObj.data &&
+                            typeof userObj.data.availability === 'object' &&
+                            userObj.data.availability !== null &&
+                            'id' in userObj.data.availability ?
+                                {
+                                    availability: String(userObj.data.availability.id),
+                                    raisehand: Boolean(userObj.data.raisehand),
+                                } :
+                                {
+                                    availability: typeof userObj.data?.availability === 'string' ?
+                                        userObj.data.availability :
+                                        undefined,
+                                    raisehand: Boolean(userObj.data?.raisehand),
+                                },
                         id: userObj.id,
                         permissions: userObj.permissions,
                         username: userObj.username || '',
-                    }} />}
-            </div>
+                    }}
+                    />}
+                </div>
             })}
         </section>
     )

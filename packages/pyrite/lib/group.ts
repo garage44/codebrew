@@ -12,12 +12,13 @@ const ROLES = ['op', 'other', 'presenter'] as const
 
 // Group data type with Pyrite-specific metadata
 export interface GroupData {
+    [key: string]: unknown
+    _delete?: boolean
+    _isNativeGalene?: boolean
     _name: string
     _newName?: string
     _permissions?: {op: string[]; other: string[]; presenter: string[]}
     _unsaved?: boolean
-    _delete?: boolean
-    _isNativeGalene?: boolean
     'allow-anonymous': boolean
     'allow-recording': boolean
     'allow-subgroups': boolean
@@ -36,7 +37,6 @@ export interface GroupData {
     public: boolean
     'public-access'?: boolean
     redirect: string
-    [key: string]: unknown
 }
 
 // Helper functions to use UserManager from service
@@ -110,7 +110,8 @@ export async function loadGroupPermissions(groupName: string): Promise<{op: stri
         for (const permissionName of Object.keys(userGroups)) {
             const groups = userGroups[permissionName] || []
             for (const _groupName of groups) {
-                if (groupName === _groupName && (permissionName === 'op' || permissionName === 'other' || permissionName === 'presenter')) {
+                if (groupName === _groupName &&
+                    (permissionName === 'op' || permissionName === 'other' || permissionName === 'presenter')) {
                     permissions[permissionName].push(user.username)
                 }
             }

@@ -20,8 +20,11 @@ export const IdSchema = z.string().min(1)
 export const UuidSchema = z.string().uuid()
 
 export const PaginationQuerySchema = z.object({
-    limit: z.coerce.number().int().min(1).max(100).default(50),
-    offset: z.coerce.number().int().min(0).default(0),
+    limit: z.coerce.number().int().min(1)
+        .max(100)
+        .default(50),
+    offset: z.coerce.number().int().min(0)
+        .default(0),
 })
 
 export const SuccessResponseSchema = z.object({

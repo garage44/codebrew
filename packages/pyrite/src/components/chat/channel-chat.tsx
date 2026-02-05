@@ -209,11 +209,13 @@ export default function ChannelChat({channel, channelSlug}: ChannelChatProps) {
                 // Access messages directly in render for DeepSignal reactivity
                 const channelData = $s.chat.channels[channelKey]
                 const msgs = channelData?.messages || []
-                const sorted = msgs.length > 0 ? [...msgs].toSorted((a, b) => {
-                    const timeA = (a as {time?: number}).time ?? 0
-                    const timeB = (b as {time?: number}).time ?? 0
-                    return timeA - timeB
-                }) : []
+                const sorted = msgs.length > 0 ?
+                        [...msgs].toSorted((a, b) => {
+                            const timeA = (a as {time?: number}).time ?? 0
+                            const timeB = (b as {time?: number}).time ?? 0
+                            return timeA - timeB
+                        }) :
+                        []
 
                 // Get typing indicators for this channel
                 const typingUsers = channelData?.typing ? Object.values(channelData.typing) : []

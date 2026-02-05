@@ -102,13 +102,17 @@ export default function ChannelsContext() {
 
                         return (
                             <Link
-                                {...({class: classnames('channel item', {
-                                    active: currentChannel?.slug === channel.slug,
-                                    'has-unread': hasUnread,
-                                }), href: channelLink(channel.slug), onClick: () => {
-                                    $s.chat.activeChannelSlug = channel.slug
-                                    setAutofocus()
-                                }} as Record<string, unknown>)}
+                                {...({
+                                    class: classnames('channel item', {
+                                        active: currentChannel?.slug === channel.slug,
+                                        'has-unread': hasUnread,
+                                    }),
+                                    href: channelLink(channel.slug),
+                                    onClick: () => {
+                                        $s.chat.activeChannelSlug = channel.slug
+                                        setAutofocus()
+                                    },
+                                } as Record<string, unknown>)}
                                 key={channel.id}
                             >
                                 <Icon name='chat' type='info' />
@@ -166,9 +170,10 @@ export default function ChannelsContext() {
 
                         return uniqueUsers.map(([userId, userInfo]) => {
                             // Extract user info - handle both Signal and plain object types
-                            const user = (typeof userInfo === 'object' && userInfo !== null && 'avatar' in userInfo && 'username' in userInfo) 
-                                ? userInfo as {avatar: string; status?: 'busy' | 'offline' | 'online'; username: string}
-                                : {avatar: '', username: '', status: 'offline' as const}
+                            const user = typeof userInfo === 'object' && userInfo !== null &&
+                                'avatar' in userInfo && 'username' in userInfo ?
+                                userInfo as {avatar: string; status?: 'busy' | 'offline' | 'online'; username: string} :
+                                    {avatar: '', status: 'offline' as const, username: ''}
                             const avatarUrl = getAvatarUrl(user.avatar, String(userId))
                             const isCurrentUser = String($s.profile.id) === String(userId)
                             const status = user.status || 'offline'

@@ -198,7 +198,7 @@ export const registerChatWebSocket = (wsManager: WebSocketServerManager) => {
         try {
             const {channelSlug} = request.params
             const {limit = 100} = (request.data || {}) as {limit?: number}
-            
+
             // Ensure limit is a number
             const messageLimit: number = typeof limit === 'number' ? limit : 100
 

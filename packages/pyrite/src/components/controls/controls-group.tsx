@@ -1,4 +1,4 @@
-import {useEffect, useState, useMemo, useRef} from 'preact/hooks'
+import {useEffect, useState, useMemo} from 'preact/hooks'
 import {Button, FieldSlider, Icon} from '@garage44/common/components'
 import {unreadMessages} from '@/models/chat'
 import {$s} from '@/app'
@@ -208,7 +208,11 @@ export const GroupControls = () => {
                 tip={`${volume.value}% ${$t('group.audio_volume')}`}
                 variant='unset'
             >
-                <FieldSlider IconComponent={Icon} onChange={(v) => setVolume({locked: v.locked ?? null, value: v.value})} value={volume} />
+                <FieldSlider
+                    IconComponent={Icon}
+                    onChange={(v) => setVolume({locked: v.locked ?? null, value: v.value})}
+                    value={volume}
+                />
             </Button>
         </div>
     )

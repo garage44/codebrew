@@ -69,9 +69,20 @@ export default function Recordings({groupId}: RecordingsProps) {
                     </div>
                     <video
                         controls
-                        src={`/api/recordings/${typeof $s.admin.group === 'object' && $s.admin.group !== null && '_name' in $s.admin.group ? String($s.admin.group._name) : ''}/${rec.filename}.${rec.extension}`}
+                        src={`/api/recordings/${
+                            typeof $s.admin.group === 'object' && $s.admin.group !== null && '_name' in $s.admin.group ?
+                                String($s.admin.group._name) :
+''
+                        }/${rec.filename}.${rec.extension}`}
                     >
-                        <source src={`/api/recordings/${typeof $s.admin.group === 'object' && $s.admin.group !== null && '_name' in $s.admin.group ? String($s.admin.group._name) : ''}/${rec.filename}.${rec.extension}`} type='video/webm' />
+                        <source
+                            src={`/api/recordings/${
+                                typeof $s.admin.group === 'object' && $s.admin.group !== null && '_name' in $s.admin.group ?
+                                    String($s.admin.group._name) :
+''
+                            }/${rec.filename}.${rec.extension}`}
+                            type='video/webm'
+                        />
                     </video>
                     <div class='info'>
                         <div class='line'>

@@ -13,9 +13,9 @@ export default function TabPermissions() {
     const toggleCategory = (category: string) => {
         const adminUser = $s.admin.user as {_permissions?: Record<string, string[]>} | null
         if (!adminUser) return
-        
+
         if (!adminUser._permissions) adminUser._permissions = {}
-        
+
         const allSelected = !$s.admin.groups.some((i) => {
             const groupName = typeof i.name === 'string' ? i.name : String(i.name || '')
             return !adminUser._permissions![category]?.includes(groupName)
@@ -32,7 +32,7 @@ export default function TabPermissions() {
     const toggleGroup = (groupname: string) => {
         const adminUser = $s.admin.user as {_permissions?: Record<string, string[]>} | null
         if (!adminUser) return
-        
+
         if (!adminUser._permissions) adminUser._permissions = {}
 
         const allSelected = categories.every((c) => adminUser._permissions?.[c]?.includes(groupname))
@@ -62,7 +62,7 @@ export default function TabPermissions() {
     const handleCheckboxChange = (category: string, groupname: string, checked: boolean) => {
         const adminUser = $s.admin.user as {_permissions?: Record<string, string[]>} | null
         if (!adminUser) return
-        
+
         if (!adminUser._permissions) adminUser._permissions = {}
         if (!adminUser._permissions[category]) adminUser._permissions[category] = []
 
@@ -145,7 +145,7 @@ export default function TabPermissions() {
                                 />
                         </div>)}
                     </div>
-            </div>
+                </div>
             })}
         </section>
     )

@@ -13,12 +13,6 @@ export interface Channel {
 }
 
 export interface PyriteState extends CommonState {
-    panels: CommonState['panels'] & {
-        chat?: {
-            collapsed: boolean
-            width?: number
-        }
-    }
     admin: {
         authenticated: boolean | null
         group: Record<string, unknown> | null
@@ -104,6 +98,12 @@ export interface PyriteState extends CommonState {
     }
     mediaReady: boolean
     notifications: Array<Record<string, unknown>>
+    panels: CommonState['panels'] & {
+        chat?: {
+            collapsed: boolean
+            width?: number
+        }
+    }
     permissions: {
         op: boolean
         present: boolean

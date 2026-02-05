@@ -10,7 +10,7 @@ export default function TabMedia() {
     const acceptIdSignalRef = useRef<ReturnType<typeof signal<string>>>(signal(''))
     const resolutionIdSignalRef = useRef<ReturnType<typeof signal<string>>>(signal(''))
     const upstreamIdSignalRef = useRef<ReturnType<typeof signal<string>>>(signal(''))
-    
+
     useEffect(() => {
         const updateAcceptId = () => {
             const accept = $s.media.accept
@@ -21,7 +21,9 @@ export default function TabMedia() {
         }
         const updateResolutionId = () => {
             const resolution = $s.devices.cam.resolution
-            const id = typeof resolution === 'object' && resolution !== null && 'id' in resolution ? String(resolution.id || '') : ''
+            const id = typeof resolution === 'object' && resolution !== null && 'id' in resolution ?
+                    String(resolution.id || '') :
+                ''
             if (resolutionIdSignalRef.current.value !== id) {
                 resolutionIdSignalRef.current.value = id
             }
@@ -33,7 +35,7 @@ export default function TabMedia() {
                 upstreamIdSignalRef.current.value = id
             }
         }
-        
+
         const unsubscribeAccept = effect(() => {
             updateAcceptId()
         })
@@ -43,7 +45,7 @@ export default function TabMedia() {
         const unsubscribeUpstream = effect(() => {
             updateUpstreamId()
         })
-        
+
         return () => {
             unsubscribeAccept()
             unsubscribeResolution()
@@ -85,7 +87,7 @@ export default function TabMedia() {
                 label={$t('ui.settings.media.accept_label')}
                 model={acceptIdSignalRef.current as Signal<string>}
                 onChange={(value) => {
-                    const selectedOption = acceptOptions.find(opt => opt.id === value)
+                    const selectedOption = acceptOptions.find((opt) => opt.id === value)
                     if (selectedOption) {
                         $s.media.accept = selectedOption
                     }
@@ -98,7 +100,7 @@ export default function TabMedia() {
                 label={$t('ui.settings.media.resolution_label')}
                 model={resolutionIdSignalRef.current as Signal<string>}
                 onChange={(value) => {
-                    const selectedOption = resolutionOptions.find(opt => opt.id === value)
+                    const selectedOption = resolutionOptions.find((opt) => opt.id === value)
                     if (selectedOption) {
                         $s.devices.cam.resolution = selectedOption
                     }
@@ -111,7 +113,7 @@ export default function TabMedia() {
                 label={$t('ui.settings.media.bandwidth_label')}
                 model={upstreamIdSignalRef.current as Signal<string>}
                 onChange={(value) => {
-                    const selectedOption = bandwidthOptions.find(opt => opt.id === value)
+                    const selectedOption = bandwidthOptions.find((opt) => opt.id === value)
                     if (selectedOption) {
                         $s.media.upstream = selectedOption
                     }

@@ -24,7 +24,7 @@ export const FieldCheckbox = ({
 }: FieldCheckboxProps) => {
     // Support both model (Signal) and value/onChange patterns
     const internalModel = model || (value !== undefined ? signal(value) : signal(false))
-    const currentValue = model ? model.value : (value ?? false)
+    const currentValue = model ? model.value : value ?? false
     const id = randomId()
 
     return <div class={classnames('c-field-checkbox', 'field', className)}>

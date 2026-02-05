@@ -1,5 +1,5 @@
 import classnames from 'classnames'
-import {ContextInput, ContextSelect, FieldSelect, FieldText, FieldUpload as FieldFile, Icon} from '@garage44/common/components'
+import {ContextInput, ContextSelect, FieldSelect, FieldText, Icon} from '@garage44/common/components'
 import {useState} from 'preact/hooks'
 import {$s} from '@/app'
 import {$t, events, notifier} from '@garage44/common/app'
@@ -64,7 +64,7 @@ export default function UsersContextMenu({user}: UsersContextMenuProps) {
     }
 
     const sendNotification = (message: string) => {
-        notifier.notify({message: $t('user.action.notification', {username: user.username, message}), type: 'info'})
+        notifier.notify({message: $t('user.action.notification', {message, username: user.username}), type: 'info'})
         connection?.userMessage('notification', user.id, message)
         toggleMenu()
     }
@@ -115,18 +115,21 @@ export default function UsersContextMenu({user}: UsersContextMenuProps) {
                     </button>}
 
                 {user.id !== $s.profile.id &&
-                    <button class='action' onClick={() => {
-                        const input = document.createElement('input')
-                        input.type = 'file'
-                        input.accept = '*'
-                        input.onchange = (e) => {
-                            const file = (e.target as HTMLInputElement).files?.[0]
-                            if (file) {
-                                sendFile(file)
+                    <button
+                        class='action'
+                        onClick={() => {
+                            const input = document.createElement('input')
+                            input.type = 'file'
+                            input.accept = '*'
+                            input.onchange = (e) => {
+                                const file = (e.target as HTMLInputElement).files?.[0]
+                                if (file) {
+                                    sendFile(file)
+                                }
                             }
-                        }
-                        input.click()
-                    }}>
+                            input.click()
+                        }}
+                    >
                     <Icon className='icon icon-s' name='upload' />
                     {$t('user.action.share_file.send')}
                     </button>}

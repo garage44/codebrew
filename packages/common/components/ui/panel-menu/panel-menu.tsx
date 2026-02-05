@@ -71,36 +71,33 @@ export const PanelMenu = ({
     }, [logoCommitHash])
 
     const renderLogo = () => {
-        const logoContent = (
+        const logoContent =
             <>
-                {logoSrc && <img src={logoSrc} alt={`${logoText} Logo`} />}
-                {LogoIcon && (
-                    <svg class="icon" viewBox="0 0 24 24" height="40" width="40">
+                {logoSrc && <img alt={`${logoText} Logo`} src={logoSrc} />}
+                {LogoIcon &&
+                    <svg class='icon' height='40' viewBox='0 0 24 24' width='40'>
                         <LogoIcon />
-                    </svg>
-                )}
-                {logoText && (
-                    <div class="l-name">
-                        <span class="name logo-text">{logoText}</span>
-                        {logoVersion && (
-                            <span ref={versionRef} class="version">
+                    </svg>}
+                {logoText &&
+                    <div class='l-name'>
+                        <span class='name logo-text'>{logoText}</span>
+                        {logoVersion &&
+                            <span class='version' ref={versionRef}>
                                 {logoVersion}
-                            </span>
-                        )}
-                    </div>
-                )}
+                            </span>}
+                    </div>}
             </>
-        )
+
 
         if (LinkComponent && logoHref) {
             return (
-                <LinkComponent class="logo" href={logoHref}>
+                <LinkComponent class='logo' href={logoHref}>
                     {logoContent}
                 </LinkComponent>
             )
         }
 
-        return <div class="logo">{logoContent}</div>
+        return <div class='logo'>{logoContent}</div>
     }
 
     return (
@@ -113,29 +110,26 @@ export const PanelMenu = ({
             <header>
                 {renderLogo()}
             </header>
-            <div class="content">
-                {navigation && (
-                    <div class="navigation" data-collapsed={collapsed}>
+            <div class='content'>
+                {navigation &&
+                    <div class='navigation' data-collapsed={collapsed}>
                         {navigation}
-                    </div>
-                )}
-                {actions && (
-                    <div class="actions" data-collapsed={collapsed}>
+                    </div>}
+                {actions &&
+                    <div class='actions' data-collapsed={collapsed}>
                         {actions}
-                    </div>
-                )}
-                {footer && <div class="footer">{footer}</div>}
+                    </div>}
+                {footer && <div class='footer'>{footer}</div>}
             </div>
-            {onCollapseChange && (
+            {onCollapseChange &&
                 <Button
                     icon={collapsed ? 'chevron_right' : 'chevron_left'}
                     onClick={() => onCollapseChange(!collapsed)}
-                    size="s"
+                    size='s'
                     tip={collapsed ? 'Expand panel' : 'Collapse panel'}
-                    type="info"
-                    variant="toggle"
-                />
-            )}
+                    type='info'
+                    variant='toggle'
+                />}
         </aside>
     )
 }

@@ -35,7 +35,7 @@ function prepareMermaidDiagrams(html: string): string {
  */
 export function renderMarkdown(markdown: string): string {
     try {
-        const html = typeof marked.parse(markdown) === 'string' 
+        const html = typeof marked.parse(markdown) === 'string'
             ? marked.parse(markdown) as string
             : String(marked.parse(markdown))
         return prepareMermaidDiagrams(html)

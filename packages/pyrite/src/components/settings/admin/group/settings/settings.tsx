@@ -32,38 +32,55 @@ export default function Settings({groupId, path, tabId = 'misc'}: SettingsProps)
             <header>
                 <div class='notice' />
                 <div class='title'>
-                    {$s.admin.group && typeof $s.admin.group === 'object' && $s.admin.group !== null && '_name' in $s.admin.group && <span>{String($s.admin.group._name)}</span>}
+                    {$s.admin.group && typeof $s.admin.group === 'object' &&
+                        $s.admin.group !== null && '_name' in $s.admin.group &&
+                        <span>{String($s.admin.group._name)}</span>}
                     <Icon className='icon icon-regular' name='group' />
                 </div>
             </header>
 
             <ul class='tabs'>
                 <Link
-                    {...({class: classnames('btn btn-menu tab', {active: tabId === 'misc'}), href: routeSettings('misc')} as Record<string, unknown>)}
+                    {...({
+                        class: classnames('btn btn-menu tab', {active: tabId === 'misc'}),
+                        href: routeSettings('misc'),
+                    } as Record<string, unknown>)}
                 >
                     <Icon className='icon-d' name='pirate' />
                 </Link>
 
                 <Link
-                    {...({class: classnames('btn btn-menu tab', {active: tabId === 'access'}), href: routeSettings('access')} as Record<string, unknown>)}
+                    {...({
+                        class: classnames('btn btn-menu tab', {active: tabId === 'access'}),
+                        href: routeSettings('access'),
+                    } as Record<string, unknown>)}
                 >
                     <Icon className='icon-d' name='access' />
                 </Link>
 
                 <Link
-                    {...({class: classnames('btn btn-menu tab', {active: tabId === 'permissions'}), href: routeSettings('permissions')} as Record<string, unknown>)}
+                    {...({
+                        class: classnames('btn btn-menu tab', {active: tabId === 'permissions'}),
+                        href: routeSettings('permissions'),
+                    } as Record<string, unknown>)}
                 >
                     <Icon className='icon-d' name='operator' />
                 </Link>
 
                 <Link
-                    {...({class: classnames('btn btn-menu tab', {active: tabId === 'stats'}), href: routeSettings('stats')} as Record<string, unknown>)}
+                    {...({
+                        class: classnames('btn btn-menu tab', {active: tabId === 'stats'}),
+                        href: routeSettings('stats'),
+                    } as Record<string, unknown>)}
                 >
                     <Icon className='icon-d' name='stats' />
                 </Link>
 
                 <Link
-                    {...({class: classnames('btn btn-menu tab', {active: tabId === 'recordings'}), href: routeSettings('recordings')} as Record<string, unknown>)}
+                    {...({
+                        class: classnames('btn btn-menu tab', {active: tabId === 'recordings'}),
+                        href: routeSettings('recordings'),
+                    } as Record<string, unknown>)}
                 >
                     <Icon className='icon-d' name='record' />
                 </Link>

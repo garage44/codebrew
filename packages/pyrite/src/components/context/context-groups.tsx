@@ -131,10 +131,19 @@ export default function GroupsContext() {
             </div>
             {Object.entries($s.sfu.channels).map(([channelSlug, channelData]) => {
                 // Extract channel data from DeepSignal - access properties directly
-                const channel = (typeof channelData === 'object' && channelData !== null && 'audio' in channelData)
-                    ? channelData as {audio: boolean; clientCount?: number; comment?: string; connected?: boolean; description?: string; locked?: boolean; video: boolean}
-                    : {audio: false, video: false}
-                
+                const channel = typeof channelData === 'object' && channelData !== null &&
+                    'audio' in channelData ?
+                    channelData as {
+                        audio: boolean
+                        clientCount?: number
+                        comment?: string
+                        connected?: boolean
+                        description?: string
+                        locked?: boolean
+                        video: boolean
+                    } :
+                        {audio: false, video: false}
+
                 /*
                  * Only show channels that have group metadata (from public groups API)
                  * A channel with group metadata has at least one of: description, comment, clientCount defined
@@ -150,7 +159,11 @@ export default function GroupsContext() {
 
                 return (
                     <Link
-                        {...({class: classnames('group item', {active: currentGroupData.name === channelSlug}), href: groupLink(channelSlug), onClick: setAutofocus} as Record<string, unknown>)}
+                        {...({
+                            class: classnames('group item', {active: currentGroupData.name === channelSlug}),
+                            href: groupLink(channelSlug),
+                            onClick: setAutofocus,
+                        } as Record<string, unknown>)}
                         key={channelSlug}
                     >
                         <Icon

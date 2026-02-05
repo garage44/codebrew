@@ -12,7 +12,10 @@ export default function TabMisc() {
                     if (user) user.name = value
                 }}
                 placeholder='...'
-                value={typeof $s.admin.user === 'object' && $s.admin.user !== null && 'name' in $s.admin.user ? String($s.admin.user.name || '') : ''}
+                value={typeof $s.admin.user === 'object' && $s.admin.user !== null &&
+                    'name' in $s.admin.user ?
+                        String($s.admin.user.name || '') :
+                    ''}
             />
             <FieldText
                 label={$t('user.settings.misc.password_label')}
@@ -21,7 +24,10 @@ export default function TabMisc() {
                     if (user) user.password = value
                 }}
                 placeholder='...'
-                value={typeof $s.admin.user === 'object' && $s.admin.user !== null && 'password' in $s.admin.user ? String($s.admin.user.password || '') : ''}
+                value={typeof $s.admin.user === 'object' && $s.admin.user !== null &&
+                    'password' in $s.admin.user ?
+                        String($s.admin.user.password || '') :
+                    ''}
             />
             <FieldCheckbox
                 help={$t('user.settings.misc.role_admin_help')}
@@ -30,7 +36,10 @@ export default function TabMisc() {
                     const user = $s.admin.user as Record<string, unknown>
                     if (user) user.admin = value
                 }}
-                value={typeof $s.admin.user === 'object' && $s.admin.user !== null && 'admin' in $s.admin.user ? Boolean($s.admin.user.admin) : false}
+                value={typeof $s.admin.user === 'object' && $s.admin.user !== null &&
+                    'admin' in $s.admin.user ?
+                        Boolean($s.admin.user.admin) :
+                    false}
             />
         </section>
     )

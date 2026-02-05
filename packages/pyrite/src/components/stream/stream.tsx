@@ -315,9 +315,16 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
         setBar({active})
     }
 
-    const handleVolumeChange = (sliderValue: {value: number; locked?: boolean | null}) => {
+    const handleVolumeChange = (sliderValue: {locked?: boolean | null; value: number}) => {
         if (onUpdate) {
-            onUpdate({...modelValue, volume: {...modelValue.volume, value: sliderValue.value, locked: sliderValue.locked ?? null}})
+            onUpdate({
+                ...modelValue,
+                volume: {
+                    ...modelValue.volume,
+                    locked: sliderValue.locked ?? null,
+                    value: sliderValue.value,
+                },
+            })
         }
     }
 
@@ -437,7 +444,7 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
                             <FieldSlider
                                 IconComponent={Icon}
                                 onChange={handleVolumeChange}
-                                value={{value: modelValue.volume?.value || 100, locked: modelValue.volume?.locked ?? null}}
+                                value={{locked: modelValue.volume?.locked ?? null, value: modelValue.volume?.value || 100}}
                             />
                         </div>}
 

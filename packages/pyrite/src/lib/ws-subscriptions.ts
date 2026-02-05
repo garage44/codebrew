@@ -19,21 +19,21 @@ function deduplicateUsers() {
     // Prevent re-entry to avoid infinite loops
     if (isDeduplicating) return
     if (!$s.users || $s.users.length === 0) return
-    
+
     isDeduplicating = true
     try {
         const seenIds = new Set<string>()
         const uniqueUsers: typeof $s.users = []
         let duplicateCount = 0
-        
+
         for (const user of $s.users) {
             if (!user || !user.id) {
                 continue
             }
-            
+
             const normalizedId = String(user.id).trim()
             if (!normalizedId) continue
-            
+
             if (!seenIds.has(normalizedId)) {
                 seenIds.add(normalizedId)
                 uniqueUsers.push(user)
@@ -42,7 +42,7 @@ function deduplicateUsers() {
                 logger.debug(`[deduplicateUsers] Removing duplicate user: ${normalizedId} (${user.username || 'unknown'})`)
             }
         }
-        
+
         // Only update if we found duplicates (prevents unnecessary reactivity triggers)
         if (duplicateCount > 0) {
             logger.info(`[deduplicateUsers] Removed ${duplicateCount} duplicate(s) from users list (${$s.users.length} -> ${uniqueUsers.length})`)
@@ -271,13 +271,13 @@ const initPresenceSubscriptions = () => {
                 }
                 const normalizedUserId = String(userId).trim()
                 const isCurrentUser = $s.profile.id && String($s.profile.id).trim() === normalizedUserId
-                
+
                 // Skip adding current user - they're already added via joinGroup() response
                 if (isCurrentUser) {
                     logger.debug(`[Presence] Skipping current user ${normalizedUserId} - already added via joinGroup response`)
                     return
                 }
-                
+
                 const userIndex = $s.users.findIndex((u) => u && u.id && String(u.id).trim() === normalizedUserId)
                 if (userIndex === -1) {
                     // User doesn't exist, add it
@@ -632,14 +632,14 @@ export const joinGroup = async (groupId: string) => {
                     .filter(m => m && m.id)
                     .map(m => String(m.id).trim())
             )
-            
+
             // Filter out users not in current members list
             $s.users = $s.users.filter((u) => {
                 if (!u || !u.id) return false
                 const normalizedId = String(u.id).trim()
                 return memberIds.has(normalizedId)
             })
-            
+
             // Add/update all current members
             for (const member of members) {
                 // Normalize member.id to string for consistent comparison

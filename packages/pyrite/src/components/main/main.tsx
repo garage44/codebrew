@@ -54,7 +54,7 @@ export const Main = () => {
                     $s.chat.emoji.list = JSON.parse(await api.get('/api/chat/emoji'))
                     store.save()
                 }
-                for (const emoji of ($s.chat.emoji.list || [])) {
+                for (const emoji of $s.chat.emoji.list || []) {
                     const emojiStr = typeof emoji === 'string' ? emoji : String(emoji)
                     const codePoint = emojiStr.codePointAt(0)
                     if (codePoint !== undefined) {

@@ -157,10 +157,10 @@ async function updateGroupWithChannelMembers(groupName: string, db: Database) {
     if (!groupData.op) groupData.op = []
     if (!groupData.other) groupData.other = []
     if (!groupData.presenter) groupData.presenter = []
-    
+
     // Ensure arrays are typed correctly
-    const opArray = Array.isArray(groupData.op) ? (groupData.op as string[]) : []
-    const otherArray = Array.isArray(groupData.other) ? (groupData.other as string[]) : []
+    const _opArray = Array.isArray(groupData.op) ? (groupData.op as string[]) : []
+    const _otherArray = Array.isArray(groupData.other) ? (groupData.other as string[]) : []
 
     // Initialize users dictionary for native Galene format
     groupData.users = {}
