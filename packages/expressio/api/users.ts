@@ -3,6 +3,9 @@ import {getAvatarStoragePath} from '@garage44/common/lib/avatar-routes'
 import {logger} from '../service.ts'
 import fs from 'fs-extra'
 import path from 'node:path'
+import {validateRequest} from '../lib/api/validate.ts'
+import {UploadAvatarParamsSchema, UploadAvatarResponseSchema} from '../lib/schemas/users.ts'
+import {z} from 'zod'
 
 export default function apiUsers(router) {
     /**
@@ -12,40 +15,39 @@ export default function apiUsers(router) {
      * IMPORTANT: This must be registered BEFORE any other /api/users/:userid routes to avoid route matching issues
      */
     router.post('/api/users/:userid/avatar', async(req: Request, params: Record<string, string>) => {
-        const userId = params.param0
-
-        logger.info(`[Users API] POST /api/users/:userid/avatar - userId from params: ${userId}`)
-
-        // Basic path traversal protection
-        if (userId.match(/\.\.\//g) !== null) {
-            return new Response(JSON.stringify({error: 'invalid user id'}), {
-                headers: {'Content-Type': 'application/json'},
-                status: 400,
-            })
-        }
-
-        // Check if user exists
-        logger.info(`[Users API] Looking up user with ID: ${userId}`)
-        // Try to get user by ID first, then by username if not found
-        let user = await userManager.getUser(userId)
-        if (!user) {
-            // If userId is a username, try getUserByUsername
-            user = await userManager.getUserByUsername(userId)
-        }
-        if (!user) {
-            logger.warn(`[Users API] User not found for ID: ${userId}`)
-            const allUsers = await userManager.listUsers()
-            logger.warn('[Users API] Available user IDs:', allUsers.map((u) => u.id).join(', '))
-            logger.warn('[Users API] Available usernames:', allUsers.map((u) => u.username).join(', '))
-            return new Response(JSON.stringify({error: 'user not found'}), {
-                headers: {'Content-Type': 'application/json'},
-                status: 404,
-            })
-        }
-
-        logger.info('[Users API] Found user:', {avatar: user.profile?.avatar, id: user.id, username: user.username})
-
         try {
+            const {param0: userId} = validateRequest(UploadAvatarParamsSchema, params)
+
+            logger.info(`[Users API] POST /api/users/:userid/avatar - userId from params: ${userId}`)
+
+            // Basic path traversal protection
+            if (userId.match(/\.\.\//g) !== null) {
+                return new Response(JSON.stringify({error: 'invalid user id'}), {
+                    headers: {'Content-Type': 'application/json'},
+                    status: 400,
+                })
+            }
+
+            // Check if user exists
+            logger.info(`[Users API] Looking up user with ID: ${userId}`)
+            // Try to get user by ID first, then by username if not found
+            let user = await userManager.getUser(userId)
+            if (!user) {
+                // If userId is a username, try getUserByUsername
+                user = await userManager.getUserByUsername(userId)
+            }
+            if (!user) {
+                logger.warn(`[Users API] User not found for ID: ${userId}`)
+                const allUsers = await userManager.listUsers()
+                logger.warn('[Users API] Available user IDs:', allUsers.map((u) => u.id).join(', '))
+                logger.warn('[Users API] Available usernames:', allUsers.map((u) => u.username).join(', '))
+                return new Response(JSON.stringify({error: 'user not found'}), {
+                    headers: {'Content-Type': 'application/json'},
+                    status: 404,
+                })
+            }
+
+            logger.info('[Users API] Found user:', {avatar: user.profile?.avatar, id: user.id, username: user.username})
             // Parse multipart form data
             const formData = await req.formData()
             const file = formData.get('avatar') as File | null
@@ -138,15 +140,24 @@ export default function apiUsers(router) {
             )
 
             // Return success with avatar URL
-            return new Response(JSON.stringify({
+            const response = {
                 avatar: avatarFilename,
-                success: true,
+                success: true as const,
                 url: `/avatars/${avatarFilename}`,
-            }), {
+            }
+            // Validate response matches schema
+            validateRequest(UploadAvatarResponseSchema, response)
+            return new Response(JSON.stringify(response), {
                 headers: {'Content-Type': 'application/json'},
             })
         } catch(error) {
-            logger.error(`[Users API] Error uploading avatar for user ${userId}:`, error)
+            if (error instanceof z.ZodError) {
+                return new Response(JSON.stringify({error: error.errors}), {
+                    headers: {'Content-Type': 'application/json'},
+                    status: 400,
+                })
+            }
+            logger.error(`[Users API] Error uploading avatar for user ${params.param0}:`, error)
             return new Response(JSON.stringify({error: 'failed to upload avatar'}), {
                 headers: {'Content-Type': 'application/json'},
                 status: 500,

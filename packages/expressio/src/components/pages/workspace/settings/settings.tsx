@@ -22,22 +22,26 @@ export function WorkspaceSettings() {
         }
         state.target_languages.splice(0, state.target_languages.length, ...$s.enola.languages.target.map((language) => {
             const selected = $s.workspace.config.languages.target.find((i) => i.id === language.id)
-            const languageWithExtras = language as {
-                engines?: string[]
-                formality: boolean
-                id: string
-                name: string
-                transcription?: unknown
-            }
+
+            /*
+             * formality_supported should be an array of engine names that support formality
+             * If language.formality is true, use all available engine names
+             * Note: This is a simplification - ideally we'd check which specific engines support formality for each language
+             */
+            const availableEngineNames = Object.values($s.enola.engines).map((engine) => {
+                const engineConfig = engine as {name: string}
+                return engineConfig.name
+            })
+            const formalitySupported = language.formality ? availableEngineNames : []
             return {
                 engine: selected ? selected.engine : '',
-                engines: languageWithExtras.engines || [],
+                engines: availableEngineNames,
                 formality: selected ? selected.formality : 'less',
-                formality_supported: language.formality,
+                formality_supported: formalitySupported,
                 id: language.id,
                 name: language.name,
                 selected: !!selected,
-                transcription: languageWithExtras.transcription || null,
+                transcription: null,
             }
         }))
     }, [])

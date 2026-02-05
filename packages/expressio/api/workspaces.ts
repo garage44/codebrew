@@ -6,6 +6,21 @@ import path from 'node:path'
 import {homedir} from 'node:os'
 
 import {syncLanguage} from '../lib/sync.ts'
+import {validateRequest} from '../lib/api/validate.ts'
+import {
+    WorkspaceIdParamsSchema,
+    WorkspaceIdPathSchema,
+    BrowseRequestSchema,
+    BrowseResponseSchema,
+    GetWorkspaceResponseSchema,
+    GetUsageResponseSchema,
+    UpdateWorkspaceRequestSchema,
+    UpdateWorkspaceResponseSchema,
+    CreateWorkspaceRequestSchema,
+    CreateWorkspaceResponseSchema,
+    DeleteWorkspaceResponseSchema,
+} from '../lib/schemas/workspaces.ts'
+import {z} from 'zod'
 
 /**
  * Get the browse root directory using ~/.expressio/workspaces convention
@@ -99,8 +114,12 @@ export function registerWorkspacesWebSocketApiRoutes(wsManager: WebSocketServerM
         // Validate and get the path to browse
         let absPath: string
         try {
-            absPath = validateBrowsePath((request.data as {path?: string})?.path)
+            const browseData = validateRequest(BrowseRequestSchema, request.data || {})
+            absPath = validateBrowsePath(browseData.path)
         } catch(error: unknown) {
+            if (error instanceof z.ZodError) {
+                throw error
+            }
             const errorMessage = error instanceof Error ? error.message : String(error)
             logger.error(`[api] Invalid browse path: ${errorMessage}`)
             throw new Error(`Access denied: ${errorMessage}`, {cause: error})
@@ -151,7 +170,7 @@ export function registerWorkspacesWebSocketApiRoutes(wsManager: WebSocketServerM
         // Find current workspace if any
         const currentWorkspace = workspaces.workspaces.find((ws) => path.dirname(ws.config.source_file) === absPath) || null
 
-        return {
+        const response = {
             current: {
                 path: absPath,
                 workspace: currentWorkspace ?
@@ -164,21 +183,43 @@ export function registerWorkspacesWebSocketApiRoutes(wsManager: WebSocketServerM
             directories: entries,
             parent,
         }
+        // Validate response matches schema
+        validateRequest(BrowseResponseSchema, response)
+        return response
     })
 
     api.get('/api/workspaces/:workspace_id', async(context, req) => {
-        const workspaceId = req.params.workspace_id
+        const {workspace_id: workspaceId} = validateRequest(WorkspaceIdParamsSchema, req.params)
         const ws = workspaces.get(workspaceId)
         if (!ws) {
             throw new Error(`Workspace not found: ${workspaceId}`)
         }
+        // Normalize config - handle empty formality strings and missing name fields
+        const normalizedConfig = {
+            ...ws.config,
+            languages: {
+                ...ws.config.languages,
+                target: ws.config.languages.target.map((lang) => {
+                    const formality = lang.formality as string | undefined
+                    return {
+                        ...lang,
+                        // Convert empty string formality to undefined
+                        formality: formality === '' || formality === undefined ? undefined : formality,
+                        // name is optional in response schema
+                    }
+                }),
+            },
+        }
         // Only return serializable fields
-        return {
-            config: ws.config,
+        const response = {
+            config: normalizedConfig,
             // oxlint-disable-next-line prefer-structured-clone
             i18n: ws.i18n ? JSON.parse(JSON.stringify(ws.i18n)) : undefined,
             id: ws.config.workspace_id,
         }
+        // Validate response matches schema
+        validateRequest(GetWorkspaceResponseSchema, response)
+        return response
     })
 }
 
@@ -189,71 +230,99 @@ export default function apiWorkspaces(router) {
         // Get the first available engine for usage
         const engine = Object.keys(config.enola.engines)[0] || 'deepl'
         const usage = await enola.usage(engine)
+        // Validate response matches schema
+        validateRequest(GetUsageResponseSchema, usage)
         return new Response(JSON.stringify(usage), {
             headers: {'Content-Type': 'application/json'},
         })
     })
 
     router.post('/api/workspaces/:workspace_id', async(req, params) => {
-        const workspaceId = params.param0
-        const workspace_data = await req.json()
+        try {
+            const {param0: workspaceId} = validateRequest(WorkspaceIdPathSchema, params)
+            const workspace_data = validateRequest(UpdateWorkspaceRequestSchema, await req.json())
 
-        const workspace = workspaces.get(workspaceId)
-        const target_languages = workspace.config.languages.target
+            const workspace = workspaces.get(workspaceId)
+            const target_languages = workspace.config.languages.target
 
-        // The languages we have selected in the new situation.
-        const selectedLanguages = workspace_data.workspace.config.languages.target
+            // The languages we have selected in the new situation.
+            const selectedLanguages = workspace_data.workspace.config.languages.target
 
-        const currentLanguageIds = target_languages.map((language) => language.id)
-        const selectedLanguageIds = selectedLanguages.map((language) => language.id)
-        // The languages not yet in our settings
-        const addLanguages = selectedLanguages.filter((language) => !currentLanguageIds.includes(language.id))
-        const updateLanguages = selectedLanguages
-            .filter((language) => currentLanguageIds.includes(language.id))
-            .filter((language) => {
-                const currentLanguage = target_languages.find((targetLang) => targetLang.id === language.id)
-                return currentLanguage.formality !== language.formality
+            const currentLanguageIds = target_languages.map((language) => language.id)
+            const selectedLanguageIds = selectedLanguages.map((language) => language.id)
+            // The languages not yet in our settings
+            const addLanguages = selectedLanguages.filter((language) => !currentLanguageIds.includes(language.id))
+            const updateLanguages = selectedLanguages
+                .filter((language) => currentLanguageIds.includes(language.id))
+                .filter((language) => {
+                    const currentLanguage = target_languages.find((targetLang) => targetLang.id === language.id)
+                    // Both formality values are 'default' | 'more' | 'less' after validation
+                    return currentLanguage && (currentLanguage.formality as string) !== (language.formality as string)
+                })
+
+            const removeLanguages = target_languages.filter((language) => !selectedLanguageIds.includes(language.id))
+            for (const language of removeLanguages) {
+                logger.info(`sync: remove language ${language.id}`)
+                await syncLanguage(workspace, language, 'remove')
+            }
+
+            await Promise.all([...updateLanguages, ...addLanguages].map((language) => {
+                logger.info(`sync: (re)translate language ${language.id}`)
+                return syncLanguage(workspace, language, 'update')
+            }))
+
+            Object.assign(workspace.config, workspace_data.workspace.config)
+            workspace.save()
+            const response = {languages: workspace.config.languages}
+            // Validate response matches schema
+            validateRequest(UpdateWorkspaceResponseSchema, response)
+            return new Response(JSON.stringify(response), {
+                headers: {'Content-Type': 'application/json'},
             })
-
-        const removeLanguages = target_languages.filter((language) => !selectedLanguageIds.includes(language.id))
-        for (const language of removeLanguages) {
-            logger.info(`sync: remove language ${language.id}`)
-            await syncLanguage(workspace, language, 'remove')
+        } catch(error) {
+            if (error instanceof z.ZodError) {
+                return new Response(JSON.stringify({error: error.errors}), {
+                    headers: {'Content-Type': 'application/json'},
+                    status: 400,
+                })
+            }
+            throw error
         }
-
-        await Promise.all([...updateLanguages, ...addLanguages].map((language) => {
-            logger.info(`sync: (re)translate language ${language.id}`)
-            return syncLanguage(workspace, language, 'update')
-        }))
-
-        Object.assign(workspace.config, workspace_data.workspace.config)
-        workspace.save()
-        return new Response(JSON.stringify({languages: workspace.config.languages}), {
-            headers: {'Content-Type': 'application/json'},
-        })
     })
 
     router.delete('/api/workspaces/:workspace_id', async(req, params) => {
-        const workspaceId = params.param0
+        const {param0: workspaceId} = validateRequest(WorkspaceIdPathSchema, params)
         logger.info(`Deleting workspace: ${workspaceId}`)
         await workspaces.delete(workspaceId)
 
-        return new Response(JSON.stringify({message: 'ok'}), {
+        const response = {message: 'ok' as const}
+        // Validate response matches schema
+        validateRequest(DeleteWorkspaceResponseSchema, response)
+        return new Response(JSON.stringify(response), {
             headers: {'Content-Type': 'application/json'},
         })
     })
 
     router.post('/api/workspaces', async(req) => {
         try {
-            const body = await req.json()
-            const workspace = await workspaces.add(body.path)
+            const body = validateRequest(CreateWorkspaceRequestSchema, await req.json())
+            const workspace = await workspaces.add({source_file: body.path})
 
-            return new Response(JSON.stringify({workspace: workspace.config}), {
+            const response = {workspace: workspace.config}
+            // Validate response matches schema
+            validateRequest(CreateWorkspaceResponseSchema, response)
+            return new Response(JSON.stringify(response), {
                 headers: {'Content-Type': 'application/json'},
             })
         } catch(error) {
+            if (error instanceof z.ZodError) {
+                return new Response(JSON.stringify({error: error.errors}), {
+                    headers: {'Content-Type': 'application/json'},
+                    status: 400,
+                })
+            }
             logger.error(`Failed to add workspace: ${error}`)
-            return new Response(JSON.stringify({error: error.message}), {
+            return new Response(JSON.stringify({error: error instanceof Error ? error.message : String(error)}), {
                 headers: {'Content-Type': 'application/json'},
                 status: 400,
             })

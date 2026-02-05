@@ -4,6 +4,18 @@ import type {WebSocketServerManager} from '@garage44/common/lib/ws-server'
 import {i18nFormat} from '@garage44/expressio/lib/i18n'
 import {logger} from '@garage44/common/app'
 import {workspaces} from '../service.ts'
+import {validateRequest} from '../lib/api/validate.ts'
+import {
+    WorkspaceIdParamsSchema,
+    CreatePathRequestSchema,
+    DeletePathRequestSchema,
+    MovePathRequestSchema,
+    CollapsePathRequestSchema,
+    UpdateTagRequestSchema,
+    TranslateRequestSchema,
+    TranslateResponseSchema,
+    GetTranslationsParamsSchema,
+} from '../lib/schemas/i18n.ts'
 
 export function registerI18nWebSocketApiRoutes(wsManager: WebSocketServerManager) {
     // WebSocket API routes (unchanged) - these are for real-time features
@@ -11,29 +23,29 @@ export function registerI18nWebSocketApiRoutes(wsManager: WebSocketServerManager
 
     // oxlint-disable-next-line require-await
     apiWs.post('/api/workspaces/:workspace_id/paths', async(_context, request) => {
-        const {workspace_id} = request.params
+        const {workspace_id} = validateRequest(WorkspaceIdParamsSchema, request.params)
         const workspace = workspaces.get(workspace_id)
-        const {path, value} = request.data as {path: string[]; value: unknown}
-        const targetLanguages = workspace.config.languages.target as unknown as Array<{
-            engine: 'anthropic' | 'deepl'
-            formality: 'default' | 'more' | 'less'
-            id: string
-            name: string
-        }>
+        const {path, value} = validateRequest(CreatePathRequestSchema, request.data)
+        const targetLanguages = workspace.config.languages.target
         pathCreate(
             workspace.i18n,
             path,
             value as {cache?: string; source: string; target: Record<string, string>},
-            targetLanguages,
+            targetLanguages as unknown as Array<{
+                engine: 'anthropic' | 'deepl'
+                formality: 'default' | 'more' | 'less'
+                id: string
+                name: string
+            }>,
         )
         workspace.save()
     })
 
     // oxlint-disable-next-line require-await
     apiWs.delete('/api/workspaces/:workspace_id/paths', async(_context, request) => {
-        const {workspace_id} = request.params
+        const {workspace_id} = validateRequest(WorkspaceIdParamsSchema, request.params)
         const workspace = workspaces.get(workspace_id)
-        const path = (request.data as {path: string | string[]}).path
+        const {path} = validateRequest(DeletePathRequestSchema, request.data)
         const pathArray = Array.isArray(path) ? path : [path]
         pathDelete(workspace.i18n, pathArray)
         workspace.save()
@@ -41,20 +53,20 @@ export function registerI18nWebSocketApiRoutes(wsManager: WebSocketServerManager
 
     // oxlint-disable-next-line require-await
     apiWs.put('/api/workspaces/:workspace_id/paths', async(_context, request) => {
-        const {workspace_id} = request.params
+        const {workspace_id} = validateRequest(WorkspaceIdParamsSchema, request.params)
         const workspace = workspaces.get(workspace_id)
-        const {new_path, old_path} = request.data as {new_path: string[]; old_path: string[]}
-        pathMove(workspace.i18n, old_path as string[], new_path as string[])
+        const {new_path, old_path} = validateRequest(MovePathRequestSchema, request.data)
+        pathMove(workspace.i18n, old_path, new_path)
         workspace.save()
     })
     // oxlint-disable-next-line require-await
     apiWs.post('/api/workspaces/:workspace_id/collapse', async(_context, request) => {
-        const {workspace_id} = request.params
-        const {path, tag_modifier, value} = request.data as {path: string[]; tag_modifier?: boolean; value?: unknown}
+        const {workspace_id} = validateRequest(WorkspaceIdParamsSchema, request.params)
+        const {path, tag_modifier, value} = validateRequest(CollapsePathRequestSchema, request.data)
         const workspace = workspaces.get(workspace_id)
 
         // Determine which mode to use based on the request
-        const valueData = value as {_collapsed?: boolean} | null
+        const valueData = value
         const mode = tag_modifier || (valueData && valueData._collapsed === true) ? 'all' : 'groups'
 
         // Use new pathToggle signature with explicit mode string
@@ -65,79 +77,93 @@ export function registerI18nWebSocketApiRoutes(wsManager: WebSocketServerManager
 
     // oxlint-disable-next-line require-await
     apiWs.post('/api/workspaces/:workspace_id/tags', async(_context, request) => {
-        const {workspace_id} = request.params
+        const {workspace_id} = validateRequest(WorkspaceIdParamsSchema, request.params)
         const workspace = workspaces.get(workspace_id)
-        const {path, source} = request.data as {path: string[]; source: string}
-        const {id, ref} = pathRef(workspace.i18n, path as string[])
+        const {path, source} = validateRequest(UpdateTagRequestSchema, request.data)
+        const {id, ref} = pathRef(workspace.i18n, path)
         const refId = ref[id] as {source: string}
         refId.source = source
         workspace.save()
     })
 
     apiWs.post('/api/workspaces/:workspace_id/translate', async(_context, request) => {
-        const workspace = workspaces.get(request.params.workspace_id)
+        const {workspace_id} = validateRequest(WorkspaceIdParamsSchema, request.params)
+        const workspace = workspaces.get(workspace_id)
 
-        const {ignore_cache, path, value} = request.data
+        const {ignore_cache, path, value} = validateRequest(TranslateRequestSchema, request.data)
 
         // Expand the path to ensure it's visible in the UI
-        pathToggle(workspace.i18n, path as string[], {_collapsed: false}, 'all' as const)
+        pathToggle(workspace.i18n, path, {_collapsed: false}, 'all' as const)
 
         if (value) {
-            const valueData = value as {_soft?: boolean; source: string}
-            const sourceText = valueData.source
-            const persist = !valueData._soft
+            const sourceText = value.source
+            const persist = !value._soft
 
             try {
-                const result = await translate_tag(workspace, path as string[], sourceText, persist)
+                const result = await translate_tag(workspace, path, sourceText, persist)
                 workspace.save()
 
                 // Return proper translation result for UI feedback
-                return {
+                const response = {
                     cached: [],
-                    success: true,
+                    success: true as const,
                     targets: [result],
                     translations: workspace.config.languages.target.map((lang) => {
                         const resultTag = result.ref[result.id] as {target: Record<string, string>}
                         return resultTag.target[lang.id]
                     }),
                 }
+                // Validate response matches schema
+                validateRequest(TranslateResponseSchema, response)
+                return response
             } catch(error) {
                 logger.error('Translation error:', error)
-                return {
+                const errorResponse = {
                     cached: [],
-                    error: error.message,
-                    success: false,
+                    error: error instanceof Error ? error.message : String(error),
+                    success: false as const,
                     targets: [],
                     translations: [],
                 }
+                // Validate error response matches schema
+                validateRequest(TranslateResponseSchema, errorResponse)
+                return errorResponse
             }
         } else {
             try {
-                const {cached, targets, translations} = await translate_path(workspace, path as string[], ignore_cache)
+                const {cached, targets, translations} = await translate_path(workspace, path, ignore_cache)
                 workspace.save()
-                return {cached, success: true, targets, translations}
+                const response = {cached, success: true as const, targets, translations}
+                // Validate response matches schema
+                validateRequest(TranslateResponseSchema, response)
+                return response
             } catch(error) {
                 logger.error('Translation error:', error)
-                return {
+                const errorResponse = {
                     cached: [],
-                    error: error.message,
-                    success: false,
+                    error: error instanceof Error ? error.message : String(error),
+                    success: false as const,
                     targets: [],
                     translations: [],
                 }
+                // Validate error response matches schema
+                validateRequest(TranslateResponseSchema, errorResponse)
+                return errorResponse
             }
         }
     })
 
     // oxlint-disable-next-line require-await
     apiWs.post('/api/workspaces/:workspace_id/undo', async(_context, request) => {
-        const workspace = workspaces.get(request.params.workspace_id)
+        const {workspace_id} = validateRequest(WorkspaceIdParamsSchema, request.params)
+        const workspace = workspaces.get(workspace_id)
         workspace.undo()
     })
 
     // oxlint-disable-next-line require-await
     apiWs.post('/api/workspaces/:workspace_id/redo', async(_context, request) => {
-        const workspace = workspaces.get(request.params.workspace_id)
+        const {workspace_id} = validateRequest(WorkspaceIdParamsSchema, request.params)
+        const workspace = workspaces.get(workspace_id)
         workspace.redo()
     })
 }
@@ -148,10 +174,9 @@ export default function apiI18n(router: {
 }) {
     // HTTP API endpoints using familiar Express-like pattern
     router.get('/api/workspaces/:workspace_id/translations', (req: Request, params: Record<string, string>) => {
-        // Extract workspace_id from path params
-        const workspaceId = params.param0
+        const {param0: workspaceId} = validateRequest(GetTranslationsParamsSchema, params)
         const workspace = workspaces.get(workspaceId)
-        const targetLanguages = workspace.config.languages.target as unknown as Array<{id: string}>
+        const targetLanguages = workspace.config.languages.target
         return new Response(JSON.stringify(i18nFormat(workspace.i18n, targetLanguages)), {
             headers: {'Content-Type': 'application/json'},
         })
