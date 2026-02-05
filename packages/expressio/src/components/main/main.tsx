@@ -13,7 +13,7 @@ import {
     Progress,
     UserMenu,
 } from '@garage44/common/components'
-import {Link, Router, getCurrentUrl, route} from 'preact-router'
+import {Link, Route, Router, getCurrentUrl, route} from 'preact-router'
 import {mergeDeep} from '@garage44/common/lib/utils'
 import {Login} from '@/components/pages/login/login'
 import {deepSignal} from 'deepsignal'
@@ -157,10 +157,25 @@ export const Main = () => {
      * Only mount Router when workspace state is ready
      * This prevents preact-router from processing routes before workspace state is initialized
      * At this point, authenticated must be true (we've already handled null and false cases above)
-     * So we wait for workspaces to be loaded before mounting Router
+     * Wait for workspaces config to be loaded from API (not just initialized as empty array)
+     * We know workspaces are loaded when the array exists and either:
+     * 1. It has items (workspaces exist), OR
+     * 2. A workspace has been selected and loaded ($s.workspace is set)
      */
-    const workspacesReady = $s.workspaces !== undefined && $s.workspaces !== null
-    const shouldMountRouter = workspacesReady
+    /*
+     * CRITICAL: Router must only mount after the initial API call to /api/config has completed.
+     * We detect this by checking if enola config exists (set alongside workspaces in mergeDeep).
+     * This prevents Router from mounting when $s.workspaces is just the initial empty array [].
+     * When user manually sets authenticated=true, Router would mount too early without this check.
+     */
+    const workspacesConfigLoaded = $s.workspaces !== undefined && $s.workspaces !== null && Array.isArray($s.workspaces)
+
+    /*
+     * Only mount Router if enola config exists (indicates /api/config has been called)
+     * This ensures Router doesn't mount before the initial API call completes
+     */
+    const configLoaded = $s.enola !== undefined && $s.enola !== null
+    const shouldMountRouter = workspacesConfigLoaded && configLoaded
 
     const handleRoute = async({url}: {url: string}) => {
         // Guard against undefined or invalid url
@@ -172,11 +187,9 @@ export const Main = () => {
          * Early return if workspaces aren't loaded yet (prevents processing routes during initialization)
          * This prevents preact-router from trying to process routes before workspace state is ready
          */
-        if (!$s.workspaces || $s.workspaces.length === 0) {
+        if ((!$s.workspaces || $s.workspaces.length === 0) && url !== '/login') {
             // If we're not on login page, wait for workspaces to load
-            if (url !== '/login') {
-                return
-            }
+            return
         }
 
         // Update URL in global state for reactive access
@@ -410,18 +423,18 @@ export const Main = () => {
                 {shouldMountRouter ?
                         <Router onChange={handleRoute}>
                             {/* Root redirect - must be first to catch / */}
-                            <RootRedirect />
+                            <Route component={RootRedirect} path='/' />
 
                             {/* User settings - always at /settings */}
-                            <Settings />
+                            <Route component={Settings} path='/settings' />
 
                             {/* Simplified routes for single workspace mode */}
-                            <WorkspaceTranslations />
-                            <WorkspaceSettings />
+                            <Route component={WorkspaceTranslations} path='/translations' />
+                            <Route component={WorkspaceSettings} path='/config' />
 
                             {/* Full workspace routes for multi-workspace mode */}
-                            <WorkspaceSettings />
-                            <WorkspaceTranslations />
+                            <Route component={WorkspaceSettings} path='/workspaces/:workspaceId/settings' />
+                            <Route component={WorkspaceTranslations} path='/workspaces/:workspaceId/translations' />
                         </Router> :
                     null}
             </div>
