@@ -21,7 +21,8 @@
     "preact-router": "catalog:",
     "rc": "catalog:",
     "unique-names-generator": "^4.7.1",
-    "yargs": "^18.0.0"
+    "yargs": "^18.0.0",
+    "zod": "catalog:"
   },
   "files": [
     "api/*",

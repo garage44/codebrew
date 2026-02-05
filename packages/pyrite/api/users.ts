@@ -6,6 +6,8 @@ import path from 'node:path'
 import fs from 'fs-extra'
 import type {Router, Session} from '../lib/middleware.ts'
 import type {User} from '@garage44/common/lib/user-manager'
+import {validateRequest} from '../lib/api/validate.ts'
+import {UserIdPathSchema, UserPresenceRequestSchema, UserDataSchema} from '../lib/schemas/users.ts'
 
 // Helper functions using UserManager
 const loadUser = (userId: string) => userManager.getUser(userId)
@@ -42,7 +44,7 @@ export function registerUsersWebSocketApiRoutes(wsManager: WebSocketServerManage
 
     // WebSocket API for user presence updates
     apiWs.post('/api/users/presence', async(context, request) => {
-        const {status, userid} = request.data
+        const {status, userid} = validateRequest(UserPresenceRequestSchema, request.data)
 
         // Broadcast user presence changes
         wsManager.broadcast('/users/presence', {
@@ -140,7 +142,7 @@ export default function(router: Router) {
     })
 
     router.get('/api/users/:userid', async(_req: Request, params: Record<string, string>, _session: Session) => {
-        const userId = params.param0
+        const {param0: userId} = validateRequest(UserIdPathSchema, params)
         // Basic path traversal protection
         if (userId.match(/\.\.\//g) !== null) {
             return new Response(JSON.stringify({error: 'invalid user id'}), {
@@ -164,8 +166,8 @@ export default function(router: Router) {
     })
 
     router.post('/api/users/:userid', async(req: Request, params: Record<string, string>, _session: Session) => {
-        const userId = params.param0
-        const userData = await req.json()
+        const {param0: userId} = validateRequest(UserIdPathSchema, params)
+        const userData = validateRequest(UserDataSchema, await req.json())
 
         // Check if user exists (by ID or username)
         let existingUser = await userManager.getUser(userId)
@@ -199,7 +201,7 @@ export default function(router: Router) {
     })
 
     router.get('/api/users/:userid/delete', async(_req: Request, params: Record<string, string>, _session: Session) => {
-        const userId = params.param0
+        const {param0: userId} = validateRequest(UserIdPathSchema, params)
         const users = await loadUsers()
         for (let [index, user] of users.entries()) {
             if (user.id === userId) {
@@ -216,7 +218,7 @@ export default function(router: Router) {
     })
 
     router.post('/api/users/:userid/avatar', async(req: Request, params: Record<string, string>, _session: Session) => {
-        const userId = params.param0
+        const {param0: userId} = validateRequest(UserIdPathSchema, params)
 
         logger.info(`[Users API] POST /api/users/:userid/avatar - userId from params: ${userId}`)
 

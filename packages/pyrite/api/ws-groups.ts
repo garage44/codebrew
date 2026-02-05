@@ -5,6 +5,15 @@
  */
 
 import type {WebSocketServerManager} from '@garage44/common/lib/ws-server'
+import {validateRequest} from '../lib/api/validate.ts'
+import {
+    GroupIdParamsSchema,
+    GroupLockRequestSchema,
+    GroupRecordingRequestSchema,
+    GroupConfigRequestSchema,
+    GroupUpdateRequestSchema,
+    OperatorActionRequestSchema,
+} from '../lib/schemas/groups.ts'
 
 export const registerGroupsWebSocket = (wsManager: WebSocketServerManager) => {
     const api = wsManager.api
@@ -14,8 +23,8 @@ export const registerGroupsWebSocket = (wsManager: WebSocketServerManager) => {
      * POST /api/groups/:groupId/lock
      */
     api.post('/api/groups/:groupId/lock', async(context, request) => {
-        const {groupId} = request.params
-        const {locked, reason} = request.data
+        const {groupId} = validateRequest(GroupIdParamsSchema, request.params)
+        const {locked, reason} = validateRequest(GroupLockRequestSchema, request.data)
 
         // Broadcast lock status to all clients
         wsManager.broadcast(`/groups/${groupId}/lock`, {
@@ -32,8 +41,8 @@ export const registerGroupsWebSocket = (wsManager: WebSocketServerManager) => {
      * POST /api/groups/:groupId/recording
      */
     api.post('/api/groups/:groupId/recording', async(context, request) => {
-        const {groupId} = request.params
-        const {recording, recordingId} = request.data
+        const {groupId} = validateRequest(GroupIdParamsSchema, request.params)
+        const {recording, recordingId} = validateRequest(GroupRecordingRequestSchema, request.data)
 
         // Broadcast recording status to all clients
         wsManager.broadcast(`/groups/${groupId}/recording`, {
@@ -50,8 +59,8 @@ export const registerGroupsWebSocket = (wsManager: WebSocketServerManager) => {
      * POST /api/groups/:groupId/config
      */
     api.post('/api/groups/:groupId/config', async(context, request) => {
-        const {groupId} = request.params
-        const {config} = request.data
+        const {groupId} = validateRequest(GroupIdParamsSchema, request.params)
+        const {config} = validateRequest(GroupConfigRequestSchema, request.data)
 
         // Broadcast config update to all clients
         wsManager.broadcast(`/groups/${groupId}/config`, {
@@ -67,7 +76,7 @@ export const registerGroupsWebSocket = (wsManager: WebSocketServerManager) => {
      * POST /api/groups/update
      */
     api.post('/api/groups/update', async(context, request) => {
-        const {action, group, groupId} = request.data
+        const {action, group, groupId} = validateRequest(GroupUpdateRequestSchema, request.data)
 
         // Broadcast group update to all clients
         wsManager.broadcast('/groups/update', {
@@ -85,8 +94,8 @@ export const registerGroupsWebSocket = (wsManager: WebSocketServerManager) => {
      * POST /api/groups/:groupId/op-action
      */
     api.post('/api/groups/:groupId/op-action', async(context, request) => {
-        const {groupId} = request.params
-        const {action, actionData, targetUserId} = request.data
+        const {groupId} = validateRequest(GroupIdParamsSchema, request.params)
+        const {action, actionData, targetUserId} = validateRequest(OperatorActionRequestSchema, request.data)
 
         // Broadcast operator action to all clients in group
         wsManager.broadcast(`/groups/${groupId}/op-action`, {

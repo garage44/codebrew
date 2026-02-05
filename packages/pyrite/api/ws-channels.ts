@@ -10,6 +10,14 @@ import {ChannelManager} from '../lib/channel-manager.ts'
 import {getDatabase} from '../lib/database.ts'
 import {logger} from '../service.ts'
 import {syncUsersToGalene} from '../lib/sync.ts'
+import {validateRequest} from '../lib/api/validate.ts'
+import {
+    ChannelIdParamsSchema,
+    CreateChannelRequestSchema,
+    UpdateChannelRequestSchema,
+    AddChannelMemberRequestSchema,
+    ChannelMemberParamsSchema,
+} from '../lib/schemas/channels.ts'
 
 let channelManager: ChannelManager | null = null
 
@@ -95,14 +103,7 @@ export const registerChannelsWebSocket = (wsManager: WebSocketServerManager) => 
      */
     api.post('/channels', async(context, request) => {
         try {
-            const {description, galeneGroup, name} = request.data as {description?: string; galeneGroup?: string; name?: string}
-
-            if (!name || typeof name !== 'string' || !galeneGroup || typeof galeneGroup !== 'string') {
-                return {
-                    error: 'Name and galeneGroup are required',
-                    success: false,
-                }
-            }
+            const {description, galeneGroup, name} = validateRequest(CreateChannelRequestSchema, request.data)
 
             // Get user ID from context (context.session.userid contains username)
             const creatorId = await getUserIdFromContext(context)
@@ -149,15 +150,7 @@ export const registerChannelsWebSocket = (wsManager: WebSocketServerManager) => 
      */
     api.get('/channels/:channelId', async(context, request) => {
         try {
-            const {channelId} = request.params
-            const channelIdNum = parseInt(channelId, 10)
-
-            if (isNaN(channelIdNum)) {
-                return {
-                    error: 'Invalid channel ID',
-                    success: false,
-                }
-            }
+            const {channelId: channelIdNum} = validateRequest(ChannelIdParamsSchema, request.params)
 
             // Get user ID from context
             const userId = await getUserIdFromContext(context)
@@ -204,16 +197,8 @@ export const registerChannelsWebSocket = (wsManager: WebSocketServerManager) => 
      */
     api.put('/channels/:channelId', async(context, request) => {
         try {
-            const {channelId} = request.params
-            const channelIdNum = parseInt(channelId, 10)
-            const updates = request.data
-
-            if (isNaN(channelIdNum)) {
-                return {
-                    error: 'Invalid channel ID',
-                    success: false,
-                }
-            }
+            const {channelId: channelIdNum} = validateRequest(ChannelIdParamsSchema, request.params)
+            const updates = validateRequest(UpdateChannelRequestSchema, request.data)
 
             // Get user ID from context
             const userId = await getUserIdFromContext(context)
@@ -259,7 +244,7 @@ export const registerChannelsWebSocket = (wsManager: WebSocketServerManager) => 
             }
 
             // Broadcast channel update to all users
-            wsManager.broadcast(`/channels/${channelId}/updated`, {
+            wsManager.broadcast(`/channels/${channelIdNum}/updated`, {
                 channel,
                 timestamp: Date.now(),
             })
@@ -283,15 +268,7 @@ export const registerChannelsWebSocket = (wsManager: WebSocketServerManager) => 
      */
     api.delete('/channels/:channelId', async(context, request) => {
         try {
-            const {channelId} = request.params
-            const channelIdNum = parseInt(channelId, 10)
-
-            if (isNaN(channelIdNum)) {
-                return {
-                    error: 'Invalid channel ID',
-                    success: false,
-                }
-            }
+            const {channelId: channelIdNum} = validateRequest(ChannelIdParamsSchema, request.params)
 
             // Get user ID from context
             const userId = await getUserIdFromContext(context)
@@ -327,7 +304,7 @@ export const registerChannelsWebSocket = (wsManager: WebSocketServerManager) => 
             }
 
             // Broadcast channel deletion to all users
-            wsManager.broadcast(`/channels/${channelId}/deleted`, {
+            wsManager.broadcast(`/channels/${channelIdNum}/deleted`, {
                 channelId: channelIdNum,
                 timestamp: Date.now(),
             })
@@ -350,23 +327,8 @@ export const registerChannelsWebSocket = (wsManager: WebSocketServerManager) => 
      */
     api.post('/channels/:channelId/members', async(context, request) => {
         try {
-            const {channelId} = request.params
-            const channelIdNum = parseInt(channelId, 10)
-            const {role = 'member', userId} = request.data as {role?: 'member' | 'admin'; userId?: string}
-
-            if (isNaN(channelIdNum)) {
-                return {
-                    error: 'Invalid channel ID',
-                    success: false,
-                }
-            }
-
-            if (!userId || typeof userId !== 'string') {
-                return {
-                    error: 'User ID is required',
-                    success: false,
-                }
-            }
+            const {channelId: channelIdNum} = validateRequest(ChannelIdParamsSchema, request.params)
+            const {role, userId} = validateRequest(AddChannelMemberRequestSchema, request.data)
 
             // Get current user ID from session/context and check admin permissions
             const currentUserId = await getUserIdFromContext(context)
@@ -402,7 +364,7 @@ export const registerChannelsWebSocket = (wsManager: WebSocketServerManager) => 
             }
 
             // Broadcast membership change to all users
-            wsManager.broadcast(`/channels/${channelId}/members`, {
+            wsManager.broadcast(`/channels/${channelIdNum}/members`, {
                 action: 'added',
                 channelId: channelIdNum,
                 role,
@@ -428,22 +390,7 @@ export const registerChannelsWebSocket = (wsManager: WebSocketServerManager) => 
      */
     api.delete('/channels/:channelId/members/:userId', async(context, request) => {
         try {
-            const {channelId, userId} = request.params
-            const channelIdNum = parseInt(channelId, 10)
-
-            if (isNaN(channelIdNum)) {
-                return {
-                    error: 'Invalid channel ID',
-                    success: false,
-                }
-            }
-
-            if (!userId || typeof userId !== 'string') {
-                return {
-                    error: 'Invalid user ID',
-                    success: false,
-                }
-            }
+            const {channelId: channelIdNum, userId} = validateRequest(ChannelMemberParamsSchema, request.params)
 
             // Get current user ID from session/context and check admin permissions
             const currentUserId = await getUserIdFromContext(context)
@@ -480,7 +427,7 @@ export const registerChannelsWebSocket = (wsManager: WebSocketServerManager) => 
             }
 
             // Broadcast membership change to all users
-            wsManager.broadcast(`/channels/${channelId}/members`, {
+            wsManager.broadcast(`/channels/${channelIdNum}/members`, {
                 action: 'removed',
                 channelId: channelIdNum,
                 timestamp: Date.now(),

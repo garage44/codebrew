@@ -3,6 +3,12 @@ import {ChannelManager} from '../lib/channel-manager.ts'
 import {getDatabase} from '../lib/database.ts'
 import {userManager} from '@garage44/common/service'
 import {logger} from '../service.ts'
+import {validateRequest} from '../lib/api/validate.ts'
+import {
+    ChannelIdPathSchema,
+    CreateChannelHttpRequestSchema,
+    UpdateChannelRequestSchema,
+} from '../lib/schemas/channels.ts'
 
 let channelManager: ChannelManager | null = null
 
@@ -67,17 +73,7 @@ export default async function apiChannels(router: Router) {
      */
     router.get('/api/channels/:channelId', async(req, params, session) => {
         try {
-            const channelId = parseInt(params.param0, 10)
-
-            if (isNaN(channelId)) {
-                return new Response(JSON.stringify({
-                    error: 'Invalid channel ID',
-                    success: false,
-                }), {
-                    headers: {'Content-Type': 'application/json'},
-                    status: 400,
-                })
-            }
+            const {param0: channelId} = validateRequest(ChannelIdPathSchema, params)
 
             // Get user ID from session (session.userid contains username)
             let userId: string | null = null
@@ -154,17 +150,7 @@ export default async function apiChannels(router: Router) {
             }
 
             const body = await req.json()
-            const {description, is_default, name, slug} = body
-
-            if (!name || !slug) {
-                return new Response(JSON.stringify({
-                    error: 'Name and slug are required',
-                    success: false,
-                }), {
-                    headers: {'Content-Type': 'application/json'},
-                    status: 400,
-                })
-            }
+            const {description, is_default, name, slug} = validateRequest(CreateChannelHttpRequestSchema, body)
 
             // Check if channel with same slug already exists
             const existingChannel = channelManager!.getChannelBySlug(slug)
@@ -211,17 +197,7 @@ export default async function apiChannels(router: Router) {
      */
     router.put('/api/channels/:channelId', async(req, params, session) => {
         try {
-            const channelId = parseInt(params.param0, 10)
-
-            if (isNaN(channelId)) {
-                return new Response(JSON.stringify({
-                    error: 'Invalid channel ID',
-                    success: false,
-                }), {
-                    headers: {'Content-Type': 'application/json'},
-                    status: 400,
-                })
-            }
+            const {param0: channelId} = validateRequest(ChannelIdPathSchema, params)
 
             // Get user ID from session
             let userId: string | null = null
@@ -255,12 +231,11 @@ export default async function apiChannels(router: Router) {
             }
 
             const body = await req.json()
-            const updates: {description?: string; is_default?: number; name?: string; slug?: string} = {}
-
-            if (body.name !== undefined) updates.name = body.name
-            if (body.slug !== undefined) updates.slug = body.slug
-            if (body.description !== undefined) updates.description = body.description
-            if (body.is_default !== undefined) updates.is_default = body.is_default === true ? 1 : 0
+            const updates = validateRequest(UpdateChannelRequestSchema, body)
+            // Convert is_default boolean to number if present
+            if (body.is_default !== undefined && updates.is_default === undefined) {
+                updates.is_default = body.is_default === true ? 1 : 0
+            }
 
             // If slug is being changed, check if new slug already exists
             if (updates.slug) {
@@ -312,17 +287,7 @@ export default async function apiChannels(router: Router) {
      */
     router.delete('/api/channels/:channelId', async(req, params, session) => {
         try {
-            const channelId = parseInt(params.param0, 10)
-
-            if (isNaN(channelId)) {
-                return new Response(JSON.stringify({
-                    error: 'Invalid channel ID',
-                    success: false,
-                }), {
-                    headers: {'Content-Type': 'application/json'},
-                    status: 400,
-                })
-            }
+            const {param0: channelId} = validateRequest(ChannelIdPathSchema, params)
 
             // Get user ID from session
             let userId: string | null = null

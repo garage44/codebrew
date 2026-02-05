@@ -5,6 +5,12 @@
  */
 
 import type {WebSocketServerManager} from '@garage44/common/lib/ws-server'
+import {validateRequest} from '../lib/api/validate.ts'
+import {
+    GroupIdParamsSchema,
+    JoinGroupRequestSchema,
+    UpdateStatusRequestSchema,
+} from '../lib/schemas/presence.ts'
 
 // groupId -> Set of userIds
 interface PresenceState {
@@ -30,15 +36,8 @@ export const registerPresenceWebSocket = (wsManager: WebSocketServerManager) => 
      * POST /api/presence/:groupId/join
      */
     api.post('/api/presence/:groupId/join', async(context, request) => {
-        const {groupId} = request.params
-        const {userId, username} = request.data as {userId?: string; username?: string}
-
-        if (!userId || typeof userId !== 'string') {
-            return {error: 'User ID is required', success: false}
-        }
-        if (!username || typeof username !== 'string') {
-            return {error: 'Username is required', success: false}
-        }
+        const {groupId} = validateRequest(GroupIdParamsSchema, request.params)
+        const {userId, username} = validateRequest(JoinGroupRequestSchema, request.data)
 
         // Add user to group
         if (!state.groups.has(groupId)) {
@@ -115,7 +114,7 @@ export const registerPresenceWebSocket = (wsManager: WebSocketServerManager) => 
      * GET /api/presence/:groupId/members
      */
     api.get('/api/presence/:groupId/members', async(context, request) => {
-        const {groupId} = request.params
+        const {groupId} = validateRequest(GroupIdParamsSchema, request.params)
 
         const members = Array.from(state.groups.get(groupId) || [])
             .map((id) => state.users.get(id))
@@ -152,12 +151,8 @@ export const registerPresenceWebSocket = (wsManager: WebSocketServerManager) => 
      * POST /api/presence/:groupId/status
      */
     api.post('/api/presence/:groupId/status', async(context, request) => {
-        const {groupId} = request.params
-        const {status, userId} = request.data as {status?: Record<string, unknown>; userId?: string}
-
-        if (!userId || typeof userId !== 'string') {
-            return {error: 'User ID is required', success: false}
-        }
+        const {groupId} = validateRequest(GroupIdParamsSchema, request.params)
+        const {status, userId} = validateRequest(UpdateStatusRequestSchema, request.data)
 
         const user = state.users.get(userId)
         if (user) {

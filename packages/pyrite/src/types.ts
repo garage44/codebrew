@@ -1,4 +1,8 @@
-// Pyrite TypeScript types
+/**
+ * Pyrite TypeScript types
+ * Note: API request/response types are available from '../lib/schemas/index.ts'
+ * These types are frontend-specific state types for DeepSignal state management
+ */
 import type {CommonState} from '@garage44/common/types'
 
 export interface Channel {

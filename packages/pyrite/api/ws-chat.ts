@@ -9,6 +9,13 @@ import {userManager} from '@garage44/common/service'
 import {ChannelManager} from '../lib/channel-manager.ts'
 import {getDatabase} from '../lib/database.ts'
 import {logger} from '../service.ts'
+import {validateRequest} from '../lib/api/validate.ts'
+import {
+    ChannelSlugParamsSchema,
+    SendMessageRequestSchema,
+    TypingIndicatorRequestSchema,
+    GetMessagesRequestSchema,
+} from '../lib/schemas/chat.ts'
 
 let channelManager: ChannelManager | null = null
 
@@ -45,25 +52,10 @@ export const registerChatWebSocket = (wsManager: WebSocketServerManager) => {
      */
     api.post('/channels/:channelSlug/messages', async(context, request) => {
         try {
-            const {channelSlug} = request.params
-            const {kind = 'message', message} = request.data as {kind?: string; message?: string}
+            const {channelSlug} = validateRequest(ChannelSlugParamsSchema, request.params)
+            const {kind, message} = validateRequest(SendMessageRequestSchema, request.data)
 
-            if (!channelSlug || typeof channelSlug !== 'string') {
-                return {
-                    error: 'Invalid channel slug',
-                    success: false,
-                }
-            }
-
-            if (!message || typeof message !== 'string') {
-                return {
-                    error: 'Message is required',
-                    success: false,
-                }
-            }
-
-            // Ensure kind is a string
-            const messageKind: string = typeof kind === 'string' ? kind : 'message'
+            const messageKind = kind
 
             // Get user ID and username from context
             const {userId, username} = await getUserIdFromContext(context)
@@ -139,15 +131,8 @@ export const registerChatWebSocket = (wsManager: WebSocketServerManager) => {
      */
     api.post('/channels/:channelSlug/typing', async(context, request) => {
         try {
-            const {channelSlug} = request.params
-            const {typing} = request.data
-
-            if (!channelSlug || typeof channelSlug !== 'string') {
-                return {
-                    error: 'Invalid channel slug',
-                    success: false,
-                }
-            }
+            const {channelSlug} = validateRequest(ChannelSlugParamsSchema, request.params)
+            const {typing} = validateRequest(TypingIndicatorRequestSchema, request.data)
 
             // Look up channel by slug
             const channel = channelManager!.getChannelBySlug(channelSlug)
@@ -196,18 +181,10 @@ export const registerChatWebSocket = (wsManager: WebSocketServerManager) => {
      */
     api.get('/channels/:channelSlug/messages', async(context, request) => {
         try {
-            const {channelSlug} = request.params
-            const {limit = 100} = (request.data || {}) as {limit?: number}
+            const {channelSlug} = validateRequest(ChannelSlugParamsSchema, request.params)
+            const {limit = 100} = validateRequest(GetMessagesRequestSchema, request.data || {})
 
-            // Ensure limit is a number
-            const messageLimit: number = typeof limit === 'number' ? limit : 100
-
-            if (!channelSlug || typeof channelSlug !== 'string') {
-                return {
-                    error: 'Invalid channel slug',
-                    success: false,
-                }
-            }
+            const messageLimit = limit
 
             // Look up channel by slug
             const channel = channelManager!.getChannelBySlug(channelSlug)
