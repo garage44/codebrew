@@ -156,11 +156,11 @@ export const Main = () => {
     /*
      * Only mount Router when workspace state is ready
      * This prevents preact-router from processing routes before workspace state is initialized
-     * If authenticated, wait for workspaces to be loaded
-     * If not authenticated, Router can mount immediately (Login component handles its own routing)
+     * At this point, authenticated must be true (we've already handled null and false cases above)
+     * So we wait for workspaces to be loaded before mounting Router
      */
     const workspacesReady = $s.workspaces !== undefined && $s.workspaces !== null
-    const shouldMountRouter = !$s.profile.authenticated || workspacesReady
+    const shouldMountRouter = workspacesReady
 
     const handleRoute = async({url}: {url: string}) => {
         // Guard against undefined or invalid url
