@@ -52,6 +52,8 @@ AI Decision Records (ADRs) are structured documents that capture important archi
 | [022](./022-nonlinear-labels-assignees.md) | Nonlinear - Label System and Multiple Assignees Workflow | Architecture | Proposed | 2025-01-27 |
 | [023](./023-wiki-vector-search.md) | Wiki System with Vector Search for Agent-Human Collaboration | Architecture | Accepted | 2026-02-01 |
 | [024](./024-malkovich-migration.md) | Malkovich Migration to Nonlinear | Architecture | Proposed | 2025-01-27 |
+| [025](./025-agent-service-architecture.md) | Agent Service Architecture | Architecture | Proposed | 2025-01-27 |
+| [026](./026-interactive-agent-cli-repl.md) | Interactive Agent CLI with REPL Mode | Architecture | Proposed | 2025-02-04 |
 | [027](./027-developer-agent-tools-and-planning.md) | Developer Agent Tools and Planning Workflow | Architecture | Proposed | 2025-02-05 |
 | [028](./028-agent-mention-websocket-push.md) | Agent Mention Processing with WebSocket Push | Architecture | Proposed | 2025-02-04 |
 | [029](./029-websocket-robustness-and-protocol-docs.md) | WebSocket Robustness Improvements and Protocol Documentation | Architecture | Proposed | 2025-02-04 |
@@ -81,6 +83,8 @@ AI Decision Records (ADRs) are structured documents that capture important archi
 - [ADR-022](./022-nonlinear-labels-assignees.md): Nonlinear - Label System and Multiple Assignees Workflow
 - [ADR-023](./023-wiki-vector-search.md): Wiki System with Vector Search for Agent-Human Collaboration
 - [ADR-024](./024-malkovich-migration.md): Malkovich Migration to Nonlinear
+- [ADR-025](./025-agent-service-architecture.md): Agent Service Architecture
+- [ADR-026](./026-interactive-agent-cli-repl.md): Interactive Agent CLI with REPL Mode
 - [ADR-027](./027-developer-agent-tools-and-planning.md): Developer Agent Tools and Planning Workflow
 - [ADR-028](./028-agent-mention-websocket-push.md): Agent Mention Processing with WebSocket Push
 - [ADR-029](./029-websocket-robustness-and-protocol-docs.md): WebSocket Robustness Improvements and Protocol Documentation
@@ -120,7 +124,7 @@ AI Decision Records (ADRs) are structured documents that capture important archi
 
 **Frontend**: ADR-004, ADR-011, ADR-012, ADR-013, ADR-014, ADR-016, ADR-019, ADR-032
 **Real-time**: ADR-004, ADR-006, ADR-028, ADR-029, ADR-030
-**Backend**: ADR-003, ADR-006, ADR-007, ADR-008, ADR-017, ADR-028, ADR-029, ADR-030, ADR-032
+**Backend**: ADR-003, ADR-006, ADR-007, ADR-008, ADR-017, ADR-025, ADR-026, ADR-028, ADR-029, ADR-030, ADR-032
 **Infrastructure**: ADR-001, ADR-003, ADR-005, ADR-007, ADR-010, ADR-011, ADR-017, ADR-024
 **Tooling**: ADR-003, ADR-007, ADR-010, ADR-011, ADR-019, ADR-032
 **Performance**: ADR-003, ADR-010, ADR-011
@@ -192,7 +196,7 @@ grep -i "technology adoption\|migration pattern" adr/guide/PATTERNS.md
 - **Real-time/WebSocket**: ADR-004, ADR-006, ADR-028, ADR-029, ADR-030
 - **Build/Runtime**: ADR-003, ADR-007, ADR-010
 - **Design System**: ADR-011, ADR-012, ADR-013, ADR-014
-- **Architecture**: ADR-001, ADR-004, ADR-008, ADR-021, ADR-027, ADR-028, ADR-029
+- **Architecture**: ADR-001, ADR-004, ADR-008, ADR-021, ADR-025, ADR-026, ADR-027, ADR-028, ADR-029
 - **Migration**: ADR-006, ADR-007, ADR-011
 
 ### For Humans
@@ -400,5 +404,5 @@ Watch for decisions that might need new ADRs:
 - **Pyrite**: WebRTC architecture, recording formats
 - **Infrastructure**: Deployment strategies, monitoring systems
 - **Security**: Authentication patterns, API security
-- **AI Integration**: LLM usage patterns, prompt engineering
+- **AI Integration**: LLM usage patterns, prompt engineering, agent architecture (ADR-021, ADR-024, ADR-025, ADR-026, ADR-027)
 - **Community**: Contribution workflows, plugin systems
