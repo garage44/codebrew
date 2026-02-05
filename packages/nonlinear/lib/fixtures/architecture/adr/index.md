@@ -60,6 +60,7 @@ AI Decision Records (ADRs) are structured documents that capture important archi
 | [030](./030-agent-service-management.md) | Agent Service Management via WebSocket | Architecture | Proposed | 2025-02-05 |
 | [031](./031-watched-state-pattern.md) | Watched State Pattern for Real-time Synchronization | Architecture | Proposed | 2025-02-05 |
 | [032](./032-zod-api-typing.md) | Zod-Based API Typing and Validation for Nonlinear | Architecture | Accepted | 2026-02-04 |
+| [033](./033-zod-api-typing-expressio.md) | Zod-Based API Typing and Validation for Expressio | Architecture | Proposed | 2026-02-05 |
 
 ### ADRs by Decision Type
 
@@ -91,6 +92,7 @@ AI Decision Records (ADRs) are structured documents that capture important archi
 - [ADR-030](./030-agent-service-management.md): Agent Service Management via WebSocket
 - [ADR-031](./031-watched-state-pattern.md): Watched State Pattern for Real-time Synchronization
 - [ADR-032](./032-zod-api-typing.md): Zod-Based API Typing and Validation for Nonlinear
+- [ADR-033](./033-zod-api-typing-expressio.md): Zod-Based API Typing and Validation for Expressio
 - Pattern: [Architecture Pattern](./guide/PATTERNS.md#architecture-pattern)
 
 **Tool Adoption/Replacement** (Developer Tooling):
@@ -98,6 +100,7 @@ AI Decision Records (ADRs) are structured documents that capture important archi
 - [ADR-010](./010-oxlint.md): OxLint replacing ESLint
 - [ADR-011](./011-css.md): Modern CSS Migration
 - [ADR-032](./032-zod-api-typing.md): Zod-Based API Typing (validation library adoption)
+- [ADR-033](./033-zod-api-typing-expressio.md): Zod-Based API Typing for Expressio (validation library adoption)
 - Pattern: [Tool Replacement Pattern](./guide/PATTERNS.md#tool-replacement-pattern)
 
 **Process Changes** (Workflow, Practices):
@@ -124,12 +127,12 @@ AI Decision Records (ADRs) are structured documents that capture important archi
 
 **Frontend**: ADR-004, ADR-011, ADR-012, ADR-013, ADR-014, ADR-016, ADR-019, ADR-032
 **Real-time**: ADR-004, ADR-006, ADR-028, ADR-029, ADR-030
-**Backend**: ADR-003, ADR-006, ADR-007, ADR-008, ADR-017, ADR-025, ADR-026, ADR-028, ADR-029, ADR-030, ADR-032
+**Backend**: ADR-003, ADR-006, ADR-007, ADR-008, ADR-017, ADR-025, ADR-026, ADR-028, ADR-029, ADR-030, ADR-032, ADR-033
 **Infrastructure**: ADR-001, ADR-003, ADR-005, ADR-007, ADR-010, ADR-011, ADR-017, ADR-024
-**Tooling**: ADR-003, ADR-007, ADR-010, ADR-011, ADR-019, ADR-032
+**Tooling**: ADR-003, ADR-007, ADR-010, ADR-011, ADR-019, ADR-032, ADR-033
 **Performance**: ADR-003, ADR-010, ADR-011
 **UX**: ADR-011, ADR-012, ADR-013, ADR-014, ADR-016
-**Developer-Experience**: ADR-003, ADR-010, ADR-019, ADR-032
+**Developer-Experience**: ADR-003, ADR-010, ADR-019, ADR-032, ADR-033
 
 ## Architectural Principles
 
