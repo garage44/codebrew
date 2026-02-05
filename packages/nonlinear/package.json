@@ -60,7 +60,7 @@
     "lint:css": "stylelint src/**/*.css",
     "lint:ts-syntax": "oxlint **/*.{ts,tsx} --config ../../.oxlintrc.json",
     "lint:ts-style": "eslint **/*.{ts,tsx} --config ../../eslint.config.js",
-    "lint:ts-types": "bunx @typescript/native-preview --noEmit",
+    "lint:ts-types": "bun tsgo --noEmit",
     "test": "bun test"
   },
   "type": "module"
