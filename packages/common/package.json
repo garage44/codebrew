@@ -22,6 +22,7 @@
   "scripts": {
     "clean": "rm -rf dist;rm -rf node_modules",
     "lint:css": "stylelint components/**/*.css",
+    "lint:ts": "bun run lint:ts-syntax && bun run lint:ts-style && bun run lint:ts-types",
     "lint:ts-syntax": "oxlint **/*.{ts,tsx} --config ../../.oxlintrc.json",
     "lint:ts-style": "eslint **/*.{ts,tsx} --config ../../eslint.config.js",
     "lint:ts-types": "bun tsgo --noEmit",

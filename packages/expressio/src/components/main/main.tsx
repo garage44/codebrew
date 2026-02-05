@@ -1,5 +1,5 @@
 import {$s, i18n} from '@/app'
-import {api, notifier, ws} from '@garage44/common/app'
+import {api, logger, notifier, ws} from '@garage44/common/app'
 import {$t} from '@garage44/expressio'
 import {WorkspaceSettings, WorkspaceTranslations} from '@/components/pages'
 import {Settings} from '@/components/settings/settings'
@@ -33,8 +33,10 @@ const getTranslationsUrl = () => {
     if (isSingleWorkspace()) {
         return '/translations'
     }
-    if ($s.workspace) {
-        return `/workspaces/${$s.workspace.config.workspace_id}/translations`
+    const workspaceId = $s.workspace?.config?.workspace_id
+    // Ensure workspaceId is a valid string before using it in URL
+    if (workspaceId && typeof workspaceId === 'string' && workspaceId !== 'undefined' && workspaceId !== 'null') {
+        return `/workspaces/${workspaceId}/translations`
     }
     return '/translations'
 }
@@ -44,8 +46,10 @@ const getConfigUrl = () => {
     if (isSingleWorkspace()) {
         return '/config'
     }
-    if ($s.workspace) {
-        return `/workspaces/${$s.workspace.config.workspace_id}/settings`
+    const workspaceId = $s.workspace?.config?.workspace_id
+    // Ensure workspaceId is a valid string before using it in URL
+    if (workspaceId && typeof workspaceId === 'string' && workspaceId !== 'undefined' && workspaceId !== 'null') {
+        return `/workspaces/${workspaceId}/settings`
     }
     return '/config'
 }
@@ -59,12 +63,33 @@ const RootRedirect = () => {
     useEffect(() => {
         return effect(() => {
             // Watch for workspace to be loaded, then redirect
-            if ($s.workspace && $s.workspaces && $s.workspaces.length > 0 && getCurrentUrl() === '/') {
-                if (isSingleWorkspace()) {
-                    route('/translations', true)
-                } else {
-                    route(`/workspaces/${$s.workspaces[0].workspace_id}/translations`, true)
+            try {
+                const currentUrl = getCurrentUrl()
+                if (!currentUrl || typeof currentUrl !== 'string') {
+                    return
                 }
+                if ($s.workspace && $s.workspaces && $s.workspaces.length > 0 && currentUrl === '/') {
+                    try {
+                        if (isSingleWorkspace()) {
+                            route('/translations', true)
+                        } else {
+                            const firstWorkspace = $s.workspaces[0]
+                            if (
+                                firstWorkspace &&
+                                firstWorkspace.workspace_id &&
+                                typeof firstWorkspace.workspace_id === 'string'
+                            ) {
+                                const targetUrl = `/workspaces/${firstWorkspace.workspace_id}/translations`
+                                route(targetUrl, true)
+                            }
+                        }
+                    } catch(error) {
+                        logger.debug('[RootRedirect] Routing error:', error)
+                    }
+                }
+            } catch(error) {
+                // Silently handle routing errors during initialization
+                logger.debug('[RootRedirect] Routing error:', error)
             }
         })
     }, [])
@@ -127,7 +152,33 @@ export const Main = () => {
     if ($s.profile.authenticated === false) {
         return <Login />
     }
+
+    /*
+     * Only mount Router when workspace state is ready
+     * This prevents preact-router from processing routes before workspace state is initialized
+     * If authenticated, wait for workspaces to be loaded
+     * If not authenticated, Router can mount immediately (Login component handles its own routing)
+     */
+    const workspacesReady = $s.workspaces !== undefined && $s.workspaces !== null
+    const shouldMountRouter = !$s.profile.authenticated || workspacesReady
+
     const handleRoute = async({url}: {url: string}) => {
+        // Guard against undefined or invalid url
+        if (!url || typeof url !== 'string') {
+            return
+        }
+
+        /*
+         * Early return if workspaces aren't loaded yet (prevents processing routes during initialization)
+         * This prevents preact-router from trying to process routes before workspace state is ready
+         */
+        if (!$s.workspaces || $s.workspaces.length === 0) {
+            // If we're not on login page, wait for workspaces to load
+            if (url !== '/login') {
+                return
+            }
+        }
+
         // Update URL in global state for reactive access
         $s.env.url = url
 
@@ -173,29 +224,47 @@ export const Main = () => {
 
         // Handle full workspace routes (multi-workspace mode)
         const match = url.match(/\/workspaces\/([^/]+)/)
-        if (match && (!$s.workspace || match[1] !== $s.workspace.config.workspace_id)) {
-            const result = await ws.get(`/api/workspaces/${match[1]}`) as {
-                config: unknown
-                error?: string
-                i18n: unknown
-                id: string
-            }
+        if (match && match[1]) {
+            const workspaceIdFromUrl = match[1]
 
-            if (result.error) {
-                notifier.notify({message: $t(i18n.workspace.error.not_found), type: 'error'})
-                // On error, redirect to appropriate translations
-                if (isSingleWorkspace()) {
-                    route('/translations', true)
-                } else if ($s.workspaces && $s.workspaces.length > 0) {
-                    const firstWorkspace = $s.workspaces[0]
-                    route(`/workspaces/${firstWorkspace.workspace_id}/translations`, true)
+            /*
+             * Validate workspaceIdFromUrl is not 'undefined' string (can happen if URL is malformed)
+             */
+            if (workspaceIdFromUrl === 'undefined' || workspaceIdFromUrl === 'null') {
+                logger.debug('[Main] Invalid workspace ID in URL:', workspaceIdFromUrl)
+                return
+            }
+            const currentWorkspaceId = $s.workspace?.config?.workspace_id
+            if (!$s.workspace || currentWorkspaceId !== workspaceIdFromUrl) {
+                const result = await ws.get(`/api/workspaces/${workspaceIdFromUrl}`) as {
+                    config: unknown
+                    error?: string
+                    i18n: unknown
+                    id: string
                 }
-            } else {
-                state.workspace_id = match[1]
-                $s.workspace = {
-                    config: result.config,
-                    i18n: result.i18n,
-                } as typeof $s.workspace
+
+                if (result.error) {
+                    notifier.notify({message: $t(i18n.workspace.error.not_found), type: 'error'})
+                    // On error, redirect to appropriate translations
+                    try {
+                        if (isSingleWorkspace()) {
+                            route('/translations', true)
+                        } else if ($s.workspaces && $s.workspaces.length > 0) {
+                            const firstWorkspace = $s.workspaces[0]
+                            if (firstWorkspace && firstWorkspace.workspace_id) {
+                                route(`/workspaces/${firstWorkspace.workspace_id}/translations`, true)
+                            }
+                        }
+                    } catch(error) {
+                        logger.debug('[Main] Routing error on workspace not found:', error)
+                    }
+                } else {
+                    state.workspace_id = workspaceIdFromUrl
+                    $s.workspace = {
+                        config: result.config,
+                        i18n: result.i18n,
+                    } as typeof $s.workspace
+                }
             }
         }
     }
@@ -211,7 +280,12 @@ export const Main = () => {
                                 const result = await api.get('/api/logout')
                                 $s.profile.authenticated = result.authenticated || false
                                 $s.profile.admin = result.admin || false
-                                route('/')
+                                try {
+                                    route('/')
+                                } catch(error) {
+                                    // Silently handle routing errors
+                                    logger.debug('[Main] Routing error on logout:', error)
+                                }
                             }}
                             settingsHref='/settings'
                             user={{
@@ -269,6 +343,9 @@ export const Main = () => {
                                     label={$t(i18n.menu.workspaces.label)}
                                     model={state.$workspace_id}
                                     onChange={async(workspace_id) => {
+                                        if (!workspace_id) {
+                                            return
+                                        }
                                         const workspaceResult = await ws.get(
                                             `/api/workspaces/${workspace_id}`,
                                         ) as {config: unknown; i18n: unknown; id: string}
@@ -278,16 +355,23 @@ export const Main = () => {
                                         } as typeof $s.workspace
                                         // Check if current route is valid for the new workspace
                                         const currentPath = getCurrentUrl()
+                                        if (!currentPath || typeof currentPath !== 'string') {
+                                            return
+                                        }
                                         const isOnSettings = currentPath.endsWith('/settings') || currentPath === '/config'
                                         const isOnTranslations = currentPath.endsWith('/translations')
 
                                         // Navigate to the appropriate route for the new workspace
-                                        if (isOnSettings) {
-                                            route(`/workspaces/${workspace_id}/settings`)
-                                        } else if (isOnTranslations) {
-                                            route(`/workspaces/${workspace_id}/translations`)
-                                        } else {
-                                            route(`/workspaces/${workspace_id}/translations`)
+                                        try {
+                                            if (isOnSettings) {
+                                                route(`/workspaces/${workspace_id}/settings`)
+                                            } else if (isOnTranslations) {
+                                                route(`/workspaces/${workspace_id}/translations`)
+                                            } else {
+                                                route(`/workspaces/${workspace_id}/translations`)
+                                            }
+                                        } catch(error) {
+                                            logger.debug('[Main] Routing error on workspace change:', error)
                                         }
                                     }}
                                     options={$s.workspaces.map((i) => ({id: i.workspace_id, name: i.workspace_id}))}
@@ -296,7 +380,7 @@ export const Main = () => {
 
                             {/* Translations menu item - first */}
                             <MenuItem
-                                active={$s.env.url.endsWith('/translations')}
+                                active={($s.env.url || '').endsWith('/translations')}
                                 collapsed={$s.panels.menu.collapsed}
                                 disabled={!$s.workspace}
                                 href={getTranslationsUrl()}
@@ -306,7 +390,7 @@ export const Main = () => {
                             />
                             {/* Workspace config menu item - second */}
                             <MenuItem
-                                active={$s.env.url.endsWith('/settings') || $s.env.url === '/config'}
+                                active={($s.env.url || '').endsWith('/settings') || $s.env.url === '/config'}
                                 collapsed={$s.panels.menu.collapsed}
                                 disabled={!$s.workspace}
                                 href={getConfigUrl()}
@@ -323,21 +407,23 @@ export const Main = () => {
               )}
         >
             <div class='view'>
-                <Router onChange={handleRoute}>
-                    {/* Root redirect - must be first to catch / */}
-                    <RootRedirect />
+                {shouldMountRouter ?
+                        <Router onChange={handleRoute}>
+                            {/* Root redirect - must be first to catch / */}
+                            <RootRedirect />
 
-                    {/* User settings - always at /settings */}
-                    <Settings />
+                            {/* User settings - always at /settings */}
+                            <Settings />
 
-                    {/* Simplified routes for single workspace mode */}
-                    <WorkspaceTranslations />
-                    <WorkspaceSettings />
+                            {/* Simplified routes for single workspace mode */}
+                            <WorkspaceTranslations />
+                            <WorkspaceSettings />
 
-                    {/* Full workspace routes for multi-workspace mode */}
-                    <WorkspaceSettings />
-                    <WorkspaceTranslations />
-                </Router>
+                            {/* Full workspace routes for multi-workspace mode */}
+                            <WorkspaceSettings />
+                            <WorkspaceTranslations />
+                        </Router> :
+                    null}
             </div>
         </AppLayout>
         <Notifications notifications={$s.notifications} />
