@@ -40,7 +40,7 @@
   "scripts": {
     "build": "NODE_ENV=production BUN_ENV=development bun service.ts build",
     "clean": "rm -rf dist;rm -rf node_modules",
-    "dev": "NODE_ENV=development BUN_ENV=development bun run --watch service.ts start",
+    "dev": "./scripts/dev.sh",
     "server": "NODE_ENV=production BUN_ENV=production bun service.ts start",
     "lint:css": "stylelint src/**/*.css",
     "lint:ts": "bun run lint:ts-syntax && bun run lint:ts-style && bun run lint:ts-types",

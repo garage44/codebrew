@@ -5,6 +5,225 @@ import * as sfu from './sfu/sfu.ts'
 export let localStream
 export let screenStream
 
+// Fake stream resources (cleaned up when stream stops)
+let fakeVideoCanvas: HTMLCanvasElement | null = null
+let fakeVideoContext: CanvasRenderingContext2D | null = null
+let fakeVideoAnimationFrame: number | null = null
+let fakeAudioContext: AudioContext | null = null
+let fakeAudioOscillator: OscillatorNode | null = null
+let fakeAudioGain: GainNode | null = null
+let fakeAudioAnalyser: AnalyserNode | null = null
+let fakeAudioDataArray: Uint8Array | null = null
+let fakeAudioSource: MediaStreamAudioSourceNode | null = null
+
+/**
+ * Creates a fake MediaStream with synthetic video and/or audio tracks.
+ * Used as a fallback when no real devices are available.
+ * @param options.video - Whether to create a fake video track
+ * @param options.audio - Whether to create a fake audio track
+ * @param options.width - Video width (default: 640)
+ * @param options.height - Video height (default: 480)
+ * @param options.microphoneStream - Optional real microphone stream to use for pattern oscillation
+ */
+function createFakeStream(options: {video?: boolean; audio?: boolean; width?: number; height?: number; microphoneStream?: MediaStream}): MediaStream {
+    const {video = false, audio = false, width = 640, height = 480, microphoneStream = null} = options
+    const stream = new MediaStream()
+
+    // Set up audio analysis if microphone stream is provided
+    let audioLevel = 0.1 // Default audio level (0-1)
+    if (microphoneStream && microphoneStream.getAudioTracks().length > 0) {
+        try {
+            fakeAudioContext = new AudioContext()
+            fakeAudioSource = fakeAudioContext.createMediaStreamSource(microphoneStream)
+            fakeAudioAnalyser = fakeAudioContext.createAnalyser()
+            fakeAudioAnalyser.fftSize = 256
+            fakeAudioDataArray = new Uint8Array(fakeAudioAnalyser.frequencyBinCount)
+            fakeAudioSource.connect(fakeAudioAnalyser)
+            logger.debug(`[media] Set up audio analysis for pattern oscillation`)
+        } catch (error) {
+            logger.warn(`[media] Failed to set up audio analysis: ${error}`)
+        }
+    }
+
+    // Create fake video track from Canvas
+    if (video) {
+        fakeVideoCanvas = document.createElement('canvas')
+        fakeVideoCanvas.width = width
+        fakeVideoCanvas.height = height
+        fakeVideoContext = fakeVideoCanvas.getContext('2d')
+
+        if (!fakeVideoContext) {
+            throw new Error('Failed to create canvas context for fake video')
+        }
+
+        let frame = 0
+        const drawFrame = () => {
+            if (!fakeVideoContext || !fakeVideoCanvas) return
+
+            // Get audio level if microphone is available
+            if (fakeAudioAnalyser && fakeAudioDataArray) {
+                fakeAudioAnalyser.getByteFrequencyData(fakeAudioDataArray)
+                // Calculate RMS (root mean square) for overall volume
+                let sum = 0
+                for (let i = 0; i < fakeAudioDataArray.length; i++) {
+                    sum += fakeAudioDataArray[i] * fakeAudioDataArray[i]
+                }
+                const rms = Math.sqrt(sum / fakeAudioDataArray.length) / 255
+                // Smooth the audio level with exponential averaging
+                audioLevel = Math.max(rms, audioLevel * 0.9)
+            }
+
+            const ctx = fakeVideoContext
+            const w = fakeVideoCanvas.width
+            const h = fakeVideoCanvas.height
+
+            // Clear canvas
+            ctx.fillStyle = '#1a1a1a'
+            ctx.fillRect(0, 0, w, h)
+
+            // Draw animated pattern with audio-driven oscillation
+            const time = frame * 0.05
+            const centerX = w / 2
+            const centerY = h / 2
+
+            // Audio-driven amplitude multiplier (0.5x to 3x based on audio level)
+            const audioAmplitude = 0.5 + audioLevel * 2.5
+
+            // Draw concentric circles with audio-driven oscillation
+            for (let i = 0; i < 5; i++) {
+                // Base radius with audio-driven pulse
+                const baseRadius = 50 + i * 40
+                const audioPulse = audioLevel * 30 * (1 + Math.sin(time * 2 + i))
+                const timeOscillation = Math.sin(time + i) * 20
+                const radius = baseRadius + audioPulse + timeOscillation
+
+                // Color shifts with audio level (more intense colors with louder audio)
+                const hue = (time * 10 + i * 60 + audioLevel * 30) % 360
+                const saturation = 50 + audioLevel * 50 // 50-100% saturation
+                const lightness = 40 + audioLevel * 20 // 40-60% lightness
+
+                ctx.strokeStyle = `hsl(${hue}, ${saturation}%, ${lightness}%)`
+                ctx.lineWidth = 2 + audioLevel * 4 // Thicker lines with more audio
+                ctx.beginPath()
+                ctx.arc(centerX, centerY, radius, 0, Math.PI * 2)
+                ctx.stroke()
+            }
+
+            // Draw audio visualization bars
+            if (fakeAudioAnalyser && fakeAudioDataArray) {
+                const barCount = 20
+                const barWidth = w / (barCount + 1)
+                const maxBarHeight = h * 0.3
+
+                for (let i = 0; i < barCount; i++) {
+                    const dataIndex = Math.floor((i / barCount) * fakeAudioDataArray.length)
+                    const barHeight = (fakeAudioDataArray[dataIndex] / 255) * maxBarHeight
+                    const x = (i + 1) * barWidth
+                    const y = h - barHeight
+
+                    ctx.fillStyle = `hsl(${(time * 10 + i * 18) % 360}, 70%, 50%)`
+                    ctx.fillRect(x - barWidth / 2, y, barWidth * 0.8, barHeight)
+                }
+            }
+
+            // Draw "No Camera" text
+            ctx.fillStyle = '#ffffff'
+            ctx.font = 'bold 32px sans-serif'
+            ctx.textAlign = 'center'
+            ctx.textBaseline = 'middle'
+            ctx.fillText('No Camera Available', centerX, centerY - 60)
+            ctx.font = '20px sans-serif'
+            const statusText = microphoneStream ? 'Using microphone input' : 'Using test pattern'
+            ctx.fillText(statusText, centerX, centerY + 20)
+
+            frame++
+            fakeVideoAnimationFrame = requestAnimationFrame(drawFrame)
+        }
+
+        drawFrame()
+
+        // Create video track from canvas stream
+        const videoTrack = fakeVideoCanvas.captureStream(30).getVideoTracks()[0]
+        if (videoTrack) {
+            // Clean up when track stops
+            videoTrack.addEventListener('ended', () => {
+                if (fakeVideoAnimationFrame !== null) {
+                    cancelAnimationFrame(fakeVideoAnimationFrame)
+                    fakeVideoAnimationFrame = null
+                }
+                if (fakeAudioSource) {
+                    fakeAudioSource.disconnect()
+                    fakeAudioSource = null
+                }
+                if (fakeAudioAnalyser) {
+                    fakeAudioAnalyser.disconnect()
+                    fakeAudioAnalyser = null
+                }
+                fakeAudioDataArray = null
+                fakeVideoCanvas = null
+                fakeVideoContext = null
+            })
+            stream.addTrack(videoTrack)
+        }
+    }
+
+    // Create fake audio track or use real microphone stream
+    if (audio) {
+        if (microphoneStream && microphoneStream.getAudioTracks().length > 0) {
+            // Use real microphone audio track
+            const audioTrack = microphoneStream.getAudioTracks()[0]
+            stream.addTrack(audioTrack.clone())
+            logger.debug(`[media] Using real microphone audio track for fake stream`)
+        } else {
+            // Create silent fake audio track
+            try {
+                if (!fakeAudioContext) {
+                    fakeAudioContext = new AudioContext()
+                }
+                fakeAudioOscillator = fakeAudioContext.createOscillator()
+                fakeAudioGain = fakeAudioContext.createGain()
+
+                // Set gain to 0 (silent) - we just need a track, not actual sound
+                fakeAudioGain.gain.value = 0
+                fakeAudioOscillator.connect(fakeAudioGain)
+
+                // Create a MediaStreamAudioDestinationNode to get a track
+                const destination = fakeAudioContext.createMediaStreamDestination()
+                fakeAudioGain.connect(destination)
+
+                // Start oscillator (silent)
+                fakeAudioOscillator.start()
+
+                const audioTrack = destination.stream.getAudioTracks()[0]
+                if (audioTrack) {
+                    // Clean up when track stops
+                    audioTrack.addEventListener('ended', () => {
+                        if (fakeAudioOscillator) {
+                            fakeAudioOscillator.stop()
+                            fakeAudioOscillator = null
+                        }
+                        if (fakeAudioGain) {
+                            fakeAudioGain.disconnect()
+                            fakeAudioGain = null
+                        }
+                        if (fakeAudioContext && !fakeAudioAnalyser) {
+                            // Only close if not using for audio analysis
+                            fakeAudioContext.close()
+                            fakeAudioContext = null
+                        }
+                    })
+                    stream.addTrack(audioTrack)
+                }
+            } catch (error) {
+                logger.warn(`[media] Failed to create fake audio track: ${error}`)
+            }
+        }
+    }
+
+    logger.info(`[media] Created fake MediaStream with video=${video}, audio=${audio}`)
+    return stream
+}
+
 export async function getUserMedia(presence) {
     logger.debug(`[media] getUserMedia called, channel.connected=${$s.sfu.channel.connected}`)
     $s.mediaReady = false
@@ -29,6 +248,11 @@ export async function getUserMedia(presence) {
     const validateDeviceExists = (deviceId: string, deviceType: 'mic' | 'cam') => {
         if (!deviceId) return false
         const availableDevices = $s.devices[deviceType].options
+        // Defensive check: ensure options is an array (may not be initialized yet)
+        if (!Array.isArray(availableDevices)) {
+            logger.warn(`[media] ${deviceType} device options not initialized yet, skipping validation`)
+            return false
+        }
         const exists = availableDevices.some((d) => d.id === deviceId)
         if (!exists) {
             logger.warn(`[media] selected ${deviceType} device ${deviceId} not found in available devices, clearing selection`)
@@ -184,9 +408,53 @@ export async function getUserMedia(presence) {
                     })
                 } catch (fallbackError) {
                     logger.error(`[media] getUserMedia fallback also failed: ${fallbackError}`)
-                    notifier.notify({level: 'error', message: `Failed to access media: ${fallbackError}`})
-                    $s.mediaReady = true
-                    return
+
+                    // Check if no devices are available - use fake stream as last resort
+                    const hasNoDevices = (!$s.devices.cam.options.length && selectedVideoDevice) ||
+                                        (!$s.devices.mic.options.length && selectedAudioDevice)
+
+                    if (hasNoDevices && (selectedVideoDevice || selectedAudioDevice)) {
+                        logger.info(`[media] No devices available, creating fake stream as fallback`)
+                        try {
+                            const width = selectedVideoDevice && typeof selectedVideoDevice === 'object' && selectedVideoDevice.width?.ideal || 640
+                            const height = selectedVideoDevice && typeof selectedVideoDevice === 'object' && selectedVideoDevice.height?.ideal || 480
+
+                            // Try to get microphone access if audio is enabled and video is fake
+                            // This allows the pattern to oscillate with microphone input
+                            let microphoneStream: MediaStream | null = null
+                            if (selectedVideoDevice && selectedAudioDevice) {
+                                // Video is fake, but try to get real microphone for pattern oscillation
+                                try {
+                                    microphoneStream = await navigator.mediaDevices.getUserMedia({audio: true, video: false})
+                                    logger.debug(`[media] Got microphone access for pattern oscillation`)
+                                } catch (micError) {
+                                    logger.debug(`[media] Could not get microphone access: ${micError}`)
+                                }
+                            }
+
+                            localStream = createFakeStream({
+                                video: !!selectedVideoDevice,
+                                audio: !!selectedAudioDevice,
+                                width,
+                                height,
+                                microphoneStream: microphoneStream || undefined,
+                            })
+
+                            notifier.notify({
+                                level: 'info',
+                                message: microphoneStream ? 'No camera available. Using test pattern with microphone input.' : 'No devices available. Using test pattern stream.',
+                            })
+                        } catch (fakeError) {
+                            logger.error(`[media] Failed to create fake stream: ${fakeError}`)
+                            notifier.notify({level: 'error', message: `Failed to access media: ${fallbackError}`})
+                            $s.mediaReady = true
+                            return
+                        }
+                    } else {
+                        notifier.notify({level: 'error', message: `Failed to access media: ${fallbackError}`})
+                        $s.mediaReady = true
+                        return
+                    }
                 }
             } else {
                 // Both disabled, can't fallback
@@ -196,10 +464,52 @@ export async function getUserMedia(presence) {
                 return
             }
         } else {
-            // Other errors (permission denied, etc.)
-            notifier.notify({level: 'error', message: String(error)})
-            $s.mediaReady = true
-            return
+            // Other errors (permission denied, etc.) - check if we should use fake stream
+            const hasNoDevices = (!$s.devices.cam.options.length && selectedVideoDevice) ||
+                                (!$s.devices.mic.options.length && selectedAudioDevice)
+
+            if (hasNoDevices && (selectedVideoDevice || selectedAudioDevice)) {
+                logger.info(`[media] No devices available (${error.name}), creating fake stream as fallback`)
+                try {
+                    const width = selectedVideoDevice && typeof selectedVideoDevice === 'object' && selectedVideoDevice.width?.ideal || 640
+                    const height = selectedVideoDevice && typeof selectedVideoDevice === 'object' && selectedVideoDevice.height?.ideal || 480
+
+                    // Try to get microphone access if audio is enabled and video is fake
+                    // This allows the pattern to oscillate with microphone input
+                    let microphoneStream: MediaStream | null = null
+                    if (selectedVideoDevice && selectedAudioDevice) {
+                        // Video is fake, but try to get real microphone for pattern oscillation
+                        try {
+                            microphoneStream = await navigator.mediaDevices.getUserMedia({audio: true, video: false})
+                            logger.debug(`[media] Got microphone access for pattern oscillation`)
+                        } catch (micError) {
+                            logger.debug(`[media] Could not get microphone access: ${micError}`)
+                        }
+                    }
+
+                    localStream = createFakeStream({
+                        video: !!selectedVideoDevice,
+                        audio: !!selectedAudioDevice,
+                        width,
+                        height,
+                        microphoneStream: microphoneStream || undefined,
+                    })
+
+                    notifier.notify({
+                        level: 'info',
+                        message: microphoneStream ? 'No camera available. Using test pattern with microphone input.' : 'No devices available. Using test pattern stream.',
+                    })
+                } catch (fakeError) {
+                    logger.error(`[media] Failed to create fake stream: ${fakeError}`)
+                    notifier.notify({level: 'error', message: String(error)})
+                    $s.mediaReady = true
+                    return
+                }
+            } else {
+                notifier.notify({level: 'error', message: String(error)})
+                $s.mediaReady = true
+                return
+            }
         }
     }
 
@@ -274,10 +584,41 @@ export async function queryDevices() {
 }
 
 export function removeLocalStream() {
-    localStream.getTracks().forEach(track => {
-        logger.debug(`stopping track ${track.id}`)
-        track.stop()
-    })
+    if (localStream) {
+        localStream.getTracks().forEach(track => {
+            logger.debug(`stopping track ${track.id}`)
+            track.stop()
+        })
+    }
+
+    // Clean up fake stream resources
+    if (fakeVideoAnimationFrame !== null) {
+        cancelAnimationFrame(fakeVideoAnimationFrame)
+        fakeVideoAnimationFrame = null
+    }
+    if (fakeAudioSource) {
+        fakeAudioSource.disconnect()
+        fakeAudioSource = null
+    }
+    if (fakeAudioAnalyser) {
+        fakeAudioAnalyser.disconnect()
+        fakeAudioAnalyser = null
+    }
+    fakeAudioDataArray = null
+    if (fakeAudioOscillator) {
+        fakeAudioOscillator.stop()
+        fakeAudioOscillator = null
+    }
+    if (fakeAudioGain) {
+        fakeAudioGain.disconnect()
+        fakeAudioGain = null
+    }
+    if (fakeAudioContext) {
+        fakeAudioContext.close()
+        fakeAudioContext = null
+    }
+    fakeVideoCanvas = null
+    fakeVideoContext = null
 
     localStream = null
 }

@@ -64,6 +64,8 @@ export const PanelContext = ({
             const startWidth = panel.offsetWidth
 
             const handleMouseMove = (e: MouseEvent) => {
+                // Disable transition immediately for smooth dragging
+                panel.style.transition = 'none'
                 const diff = startX - e.clientX // Reversed because we're resizing from the left edge
                 let newWidth = startWidth + diff
 
@@ -79,7 +81,9 @@ export const PanelContext = ({
 
             const handleMouseUp = () => {
                 setIsResizing(false)
+                // Re-enable transition after resizing is complete
                 if (panelRef.current) {
+                    panelRef.current.style.transition = ''
                     const finalWidth = panelRef.current.offsetWidth
                     onWidthChange(finalWidth)
                 }

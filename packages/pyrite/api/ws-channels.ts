@@ -83,7 +83,7 @@ export const registerChannelsWebSocket = (wsManager: WebSocketServerManager) => 
                 }
             }
 
-            logger.info(`[Channels API] Returning ${accessibleChannels.length} accessible channels for user ${userId}`)
+            logger.debug(`[Channels API] Returning ${accessibleChannels.length} accessible channels for user ${userId}`)
             return {
                 channels: accessibleChannels,
                 success: true,

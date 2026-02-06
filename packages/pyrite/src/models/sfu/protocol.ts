@@ -275,28 +275,43 @@ ServerConnection.prototype.send = function(m) {
  */
 ServerConnection.prototype.connect = async function(url) {
     let sc = this;
+    console.log('[SFU Protocol] connect() called with URL:', url);
+    console.log('[SFU Protocol] Current socket state:', sc.socket ? `exists (readyState: ${sc.socket.readyState})` : 'null');
+    
     if(sc.socket) {
+        console.log('[SFU Protocol] Closing existing socket before reconnecting');
         sc.socket.close(1000, 'Reconnecting');
         sc.socket = null;
     }
 
+    console.log('[SFU Protocol] Creating new WebSocket connection to:', url);
     sc.socket = new WebSocket(url);
+    console.log('[SFU Protocol] WebSocket created, initial readyState:', sc.socket.readyState);
 
     return await new Promise((resolve, reject) => {
         this.socket.onerror = function(e) {
+            console.error('[SFU Protocol] WebSocket error event:', e);
+            console.error('[SFU Protocol] WebSocket error - readyState:', sc.socket.readyState);
+            console.error('[SFU Protocol] WebSocket error - URL:', url);
             reject(e);
         };
         this.socket.onopen = function(e) {
+            console.log('[SFU Protocol] WebSocket opened successfully');
+            console.log('[SFU Protocol] Sending handshake message');
             sc.send({
                 type: 'handshake',
                 version: ["2"],
                 id: sc.id,
             });
-            if(sc.onconnected)
+            if(sc.onconnected) {
+                console.log('[SFU Protocol] Calling onconnected callback');
                 sc.onconnected.call(sc);
+            }
             resolve(sc);
         };
         this.socket.onclose = function(e) {
+            console.log('[SFU Protocol] WebSocket closed:', e.code, e.reason || 'no reason');
+            console.log('[SFU Protocol] Close was clean:', e.wasClean);
             sc.permissions = [];
             for(let id in sc.up) {
                 let c = sc.up[id];
@@ -941,8 +956,16 @@ ServerConnection.prototype.gotRemoteIce = async function(id, candidate) {
     let c = this.up[id];
     if(!c)
         c = this.down[id];
-    if(!c)
-        throw new Error('unknown stream');
+    if(!c) {
+        // Log detailed error information for debugging
+        console.warn(`[SFU Protocol] gotRemoteIce: unknown stream ${id}`);
+        console.warn(`[SFU Protocol] Available upstream streams:`, Object.keys(this.up));
+        console.warn(`[SFU Protocol] Available downstream streams:`, Object.keys(this.down));
+        console.warn(`[SFU Protocol] This might be a race condition or stream replacement issue`);
+        // Don't throw - this could be a race condition where ICE arrives before stream is registered
+        // or a stream replacement scenario where old ICE arrives for replaced stream
+        return;
+    }
     if(c.pc.remoteDescription)
         await c.pc.addIceCandidate(candidate).catch(console.warn);
     else

@@ -1,8 +1,9 @@
 import {Stream} from '../stream/stream'
-import {useMemo, useCallback, useEffect} from 'preact/hooks'
+import {useMemo, useCallback} from 'preact/hooks'
 import {$s} from '@/app'
-import {logger} from '@garage44/common/app'
 import {Icon} from '@garage44/common/components'
+import classnames from 'classnames'
+import {connection} from '@/models/sfu/sfu'
 
 interface VideoStripProps {
     streams?: Array<{[key: string]: unknown; id: string; username: string}>
@@ -15,49 +16,75 @@ interface VideoStripProps {
  * Optimized for right-side panel display.
  */
 export const VideoStrip = ({streams}: VideoStripProps) => {
+    // Helper to check if stream is a screen share
+    const isScreenShare = useCallback((streamId: string) => {
+        // Check if it's in upMedia.screenshare (upstream)
+        if ($s.upMedia.screenshare.includes(streamId)) return true
+        // Check downstream streams via connection
+        if (connection?.down?.[streamId]?.label === 'screenshare') return true
+        return false
+    }, [$s.upMedia.screenshare])
+
     const sortedStreams = useMemo(() => {
         const streamList = streams || $s.streams
+        // Sort: screen shares first, then by username
         const sorted = [...streamList].toSorted((a, b) => {
+            const aIsScreenShare = isScreenShare(a.id)
+            const bIsScreenShare = isScreenShare(b.id)
+            // Screen shares come first
+            if (aIsScreenShare && !bIsScreenShare) return -1
+            if (!aIsScreenShare && bIsScreenShare) return 1
+            // Then sort by username
             if (a.username < b.username) return -1
             if (a.username > b.username) return 1
             return 0
         })
-        logger.debug(`[VideoStrip] sorted streams: ${sorted.length} (from ${streamList.length} in $s.streams)`)
         return sorted
-    }, [streams, $s.streams])
+    }, [streams, $s.streams, $s.upMedia.screenshare])
 
     const handleStreamUpdate = useCallback((updatedStream: {[key: string]: unknown; id: string}) => {
-        logger.debug(`[VideoStrip] handleStreamUpdate: stream ${updatedStream.id}`)
         const streamIndex = $s.streams.findIndex((s) => s.id === updatedStream.id)
         if (streamIndex >= 0) {
-            logger.debug(`[VideoStrip] updating stream ${updatedStream.id} at index ${streamIndex}`)
             Object.assign($s.streams[streamIndex], updatedStream)
-        } else {
-            logger.warn(`[VideoStrip] stream ${updatedStream.id} not found in $s.streams`)
         }
     }, [])
 
-    // Log when streams change
-    useEffect(() => {
-        logger.debug(`[VideoStrip] streams changed: ${$s.streams.length} streams`)
-        $s.streams.forEach((s) => {
-            logger.debug(
-                `[VideoStrip] stream: ${s.id} (${s.direction}), hasAudio=${s.hasAudio}, ` +
-                `hasVideo=${s.hasVideo}, playing=${s.playing}`,
-            )
-        })
-    }, [$s.streams])
+
+    /*
+     * Show placeholder slots when no streams
+     * Show 3 placeholder slots
+     */
+    const placeholderCount = 3
 
     return (
         <div class='c-video-strip'>
             {sortedStreams.length > 0 ?
-                    sortedStreams.map((description, index) => <div class='video-strip-item' key={description.id || index}>
-                        <Stream modelValue={sortedStreams[index]} onUpdate={handleStreamUpdate} />
-                    </div>) :
-                <div class='video-strip-placeholder'>
-                    <Icon className='icon icon-l' name='webcam' />
-                    <p>No video streams</p>
-                </div>}
+                    sortedStreams.map((description, index) => {
+                        const isScreenShareStream = isScreenShare(description.id)
+                        const itemClass = classnames('video-strip-item', {
+                            'is-screenshare': isScreenShareStream,
+                        })
+                        return (
+                            <div
+                                class={itemClass}
+                                key={description.id || index}
+                            >
+                            <Stream
+                                modelValue={sortedStreams[index]}
+                                onUpdate={handleStreamUpdate}
+                            />
+                            </div>
+                        )
+                    }) :
+                    Array.from({length: placeholderCount}).map((_, index) => <div
+                        class='video-strip-placeholder'
+                        key={`placeholder-${index}`}
+                    >
+                            <div class='placeholder-content'>
+                                <Icon className='icon icon-l' name='webcam' />
+                                <p>Waiting for video</p>
+                            </div>
+                    </div>)}
         </div>
     )
 }

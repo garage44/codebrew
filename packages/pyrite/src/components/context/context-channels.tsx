@@ -16,11 +16,13 @@ const channelLink = (channelSlug: string) => {
 export default function ChannelsContext() {
     const intervalRef = useRef<number | null>(null)
 
-    // DeepSignal is reactive - no need for useMemo dependencies
-    const currentChannel = useMemo(() => {
-        if (!$s.chat.activeChannelSlug) return null
-        return $s.channels.find((c) => c.slug === $s.chat.activeChannelSlug)
-    }, [])
+    /*
+     * Compute currentChannel directly - DeepSignal is reactive, so accessing
+     * $s.chat.activeChannelSlug and $s.channels in render makes it reactive
+     */
+    const currentChannel = $s.chat.activeChannelSlug ?
+            $s.channels.find((c) => c.slug === $s.chat.activeChannelSlug) :
+        null
 
     const pollChannels = async() => {
         try {

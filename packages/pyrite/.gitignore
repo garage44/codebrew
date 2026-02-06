@@ -1,1 +1,7 @@
 pyrite.log
+
+# TLS certificates (development only)
+certs/*.pem
+certs/*.key
+certs/*.crt
+!certs/.gitkeep

@@ -81,6 +81,11 @@
         &.active {
             background: var(--surface-3);
             color: var(--surface-8);
+            font-weight: var(--font-weight-semibold, 600);
+            
+            /* Add visual indicator for active state */
+            border-left: 3px solid var(--primary-5);
+            padding-left: calc(var(--spacer-2) - 3px);
         }
 
         /* Bold font weight for channels with unread messages */

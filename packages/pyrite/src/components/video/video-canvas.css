@@ -1,0 +1,91 @@
+.c-video-canvas {
+    align-content: center;
+    align-items: center;
+    display: flex;
+    flex: 1;
+    flex-wrap: wrap;
+    gap: var(--stream-margin);
+    justify-content: center;
+    min-height: 0;
+    position: relative;
+    transition: all 0.3s ease;
+    width: 100%;
+
+    .video-canvas-item {
+        transition: transform 0.2s ease;
+
+        .c-stream {
+            animation: show 0.35s ease-in;
+            aspect-ratio: var(--aspect-ratio);
+            box-shadow: var(--shadow-m);
+            max-width: var(--stream-width);
+            width: var(--stream-width);
+        }
+
+        /* Screen share streams are larger and more prominent */
+        &.is-screenshare {
+            border: 3px solid var(--primary-5);
+            border-radius: var(--border-radius-d);
+            padding: var(--spacer-1);
+            z-index: 10;
+
+            .c-stream {
+                /* Screen share takes more space - adjust width calculation */
+                max-width: calc(var(--stream-width) * 1.2);
+                width: calc(var(--stream-width) * 1.2);
+            }
+        }
+    }
+
+    .video-canvas-placeholder {
+        align-items: center;
+        background: var(--surface-1);
+        border: 2px dashed var(--surface-4);
+        border-radius: var(--border-radius-xl);
+        display: flex;
+        height: 100%;
+        justify-content: center;
+        margin: var(--spacer-2);
+        width: calc(100% - var(--spacer-4));
+
+        .placeholder-content {
+            align-items: center;
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacer-2);
+            justify-content: center;
+            max-width: 400px;
+            text-align: center;
+
+            .icon {
+                color: var(--surface-4);
+                opacity: 0.6;
+            }
+
+            p {
+                color: var(--surface-6);
+                font-size: var(--font-l);
+                font-weight: 500;
+                margin: 0;
+            }
+
+            .placeholder-hint {
+                color: var(--surface-5);
+                font-size: var(--font-d);
+                margin-top: var(--spacer-1);
+            }
+        }
+    }
+}
+
+@keyframes show {
+    from {
+        opacity: 0;
+        transform: scale(0.9);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}

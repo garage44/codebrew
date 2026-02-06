@@ -37,15 +37,24 @@ export const Channel = ({channelSlug}: ChannelProps) => {
                 `[Channel] Credentials check: username=${$s.profile.username ? '***' : '(empty)'}, ` +
                 `password=${$s.profile.password ? '***' : '(empty)'}`,
             )
+            console.log(`[Channel] SFU connection state: connected=${$s.sfu.channel.connected}, channelSlug=${channelSlug}`)
+            console.log(`[Channel] About to call connectSFU()`)
 
             /*
              * connectSFU will read credentials from $s.profile
              * It will use empty strings if not available, which may cause authentication to fail
              * but that's expected if user hasn't logged in properly
              */
-            connectSFU().catch((error) => {
-                logger.error(`[Channel] Failed to connect to SFU for channel ${channelSlug}:`, error)
-            })
+            connectSFU()
+                .then(() => {
+                    console.log(`[Channel] connectSFU() completed successfully for channel ${channelSlug}`)
+                })
+                .catch((error) => {
+                    console.error(`[Channel] connectSFU() failed for channel ${channelSlug}:`, error)
+                    logger.error(`[Channel] Failed to connect to SFU for channel ${channelSlug}:`, error)
+                })
+        } else {
+            console.log(`[Channel] Skipping SFU connection: connected=${$s.sfu.channel.connected}, channelSlug=${channelSlug}`)
         }
     }, [channelSlug])
 

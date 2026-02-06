@@ -41,6 +41,12 @@ export const persistantState = mergeDeep({
             collapsed: false,
             width: 375,
         },
+        context: {
+            collapsed: false,
+            expanded: false,
+            width: 350,
+        },
+        conferenceMode: false,
     },
 }, commonPersistantState as Record<string, unknown>) as Partial<PyriteState>
 
@@ -128,5 +134,11 @@ export const volatileState = mergeDeep({
             collapsed: false,
             width: 375,
         },
+        context: {
+            collapsed: false,
+            expanded: false,
+            width: 350,
+        },
+        conferenceMode: false,
     },
 }, commonVolatileState) as Partial<PyriteState>

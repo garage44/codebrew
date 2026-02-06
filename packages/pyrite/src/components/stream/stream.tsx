@@ -68,90 +68,130 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
         }
 
         if (onUpdate) {
-            onUpdate({...modelValue, settings})
+            const updated = {
+                ...modelValue,
+                settings,
+            }
+            onUpdate(updated)
         }
     }
 
     const mountDownstream = async() => {
-        const glnStream = sfu.connection?.down[modelValue.id]
+        const glnStream = sfu.connection?.down[
+            modelValue.id
+        ]
 
         if (!glnStream) {
-            logger.debug(`[Stream] no sfu stream on mounting downstream stream ${modelValue.id}`)
+            const streamId = modelValue.id
+            const msg = '[Stream] no sfu stream on mounting downstream ' +
+                `stream ${streamId}`
+            logger.debug(msg)
             return
         }
 
-        logger.debug(`[Stream] mounting downstream stream ${modelValue.id}`)
         glnStreamRef.current = glnStream
 
-        // If stream already exists, mount it immediately
-        if (glnStream.stream && mediaRef.current) {
-            logger.debug(`[Stream] downstream stream ${modelValue.id} already has MediaStream, mounting immediately`)
-            setStream(glnStream.stream)
-            mediaRef.current.srcObject = glnStream.stream
-            await playStream()
-        } else {
-            logger.debug(`[Stream] downstream stream ${modelValue.id} waiting for MediaStream`)
-            // Stream will be set via onstatus handler when it becomes available
+        /*
+         * Set up media immediately (like original Galène setMedia)
+         * The stream will be set by protocol layer when tracks arrive
+         */
+        const setupMedia = () => {
+            if (!mediaRef.current) return
+
+            // Set srcObject if stream is available (like original Galène line 2089-2090)
+            if (glnStream.stream && mediaRef.current.srcObject !== glnStream.stream) {
+                setStream(glnStream.stream)
+                mediaRef.current.srcObject = glnStream.stream
+            }
         }
 
-        // Set up handlers for when tracks arrive
-        glnStream.ondowntrack = (track: MediaStreamTrack) => {
-            logger.debug(`[Stream] downstream ondowntrack/${glnStream.id}, track kind: ${track.kind}`)
-
-            // Ensure we have the stream set
-            if (glnStream.stream && !stream) {
-                setStream(glnStream.stream)
-                if (mediaRef.current && !mediaRef.current.srcObject) {
-                    mediaRef.current.srcObject = glnStream.stream
-                }
+        /*
+         * Set up handlers for when tracks arrive (like original Galène ondowntrack line 515-517)
+         * Original Galène sets this in gotDownStream and calls setMedia(c)
+         * We enhance the handler set by onDownStream (or set it if component mounts first)
+         */
+        const existingOndowntrack = glnStream.ondowntrack
+        glnStream.ondowntrack = (track: MediaStreamTrack, transceiver?: RTCRtpTransceiver, stream?: MediaStream) => {
+            // Call existing handler first if it exists (from onDownStream)
+            if (existingOndowntrack && existingOndowntrack !== glnStream.ondowntrack) {
+                existingOndowntrack.call(glnStream, track, transceiver, stream)
             }
 
             // Update stream state based on track kind
             if (track.kind === 'audio') {
-                logger.debug(`[Stream] downstream stream ${modelValue.id} - enabling audio controls`)
                 if (onUpdate) onUpdate({...modelValue, hasAudio: true})
             } else if (track.kind === 'video') {
-                logger.debug(`[Stream] downstream stream ${modelValue.id} - enabling video`)
                 if (onUpdate) onUpdate({...modelValue, hasVideo: true})
             }
+
+            // Setup media when tracks arrive (like original Galène calls setMedia in ondowntrack)
+            setupMedia()
         }
 
-        glnStream.onclose = () => {
-            logger.debug(`[Stream] downstream stream ${glnStream.id} closed`)
-            sfu.delMedia(glnStream.id)
-        }
+        // Setup media immediately if stream already exists
+        setupMedia()
 
-        glnStream.onstatus = async(status: string) => {
-            logger.debug(`[Stream] downstream stream ${modelValue.id} status: ${status}`)
+        /*
+         * Don't overwrite onclose or onstatus - they're set by onDownStream
+         * Original Galène sets handlers once in gotDownStream and doesn't overwrite them
+         *
+         * Instead, monitor ICE connection state directly for UI updates
+         */
+        const checkConnectionState = () => {
+            if (!mediaRef.current || !glnStream.pc) return
 
-            if (['connected', 'completed'].includes(status) && mediaRef.current) {
-                // Use glnStream.stream directly (it's already set by protocol layer)
-                const streamToMount = glnStream.stream || stream
+            const iceState = glnStream.pc.iceConnectionState
+            const isConnected = iceState === 'connected' || iceState === 'completed'
 
-                if (!streamToMount) {
-                    logger.warn(`[Stream] downstream stream ${modelValue.id} - no MediaStream available at status ${status}`)
-                    return
+            if (isConnected) {
+                setMediaFailed(false)
+
+                // Setup media if stream is available (like original Galène setMediaStatus)
+                if (glnStream.stream && mediaRef.current.srcObject !== glnStream.stream) {
+                    setStream(glnStream.stream)
+                    mediaRef.current.srcObject = glnStream.stream
                 }
 
-                logger.debug(`[Stream] downstream stream ${modelValue.id} - mounting MediaStream`)
-                setStream(streamToMount)
-                mediaRef.current.srcObject = streamToMount
+                // Play if we have a stream
+                if (glnStream.stream && mediaRef.current.srcObject) {
+                    playStream().catch((error) => {
+                        logger.error(`[Stream] failed to play stream: ${error}`)
+                        setMediaFailed(true)
+                    })
+                }
 
-                // Firefox doesn't have a working setSinkId
+                // Set audio sink if needed
                 if (audioEnabled && 'setSinkId' in (mediaRef.current as HTMLVideoElement) && $s.devices.audio.selected.id) {
-                    try {
-                        logger.debug(`[Stream] setting stream sink: ${$s.devices.audio.selected.id}`)
-                        const videoElement = mediaRef.current as HTMLVideoElement & {
-                            setSinkId: (id: string) => Promise<void>
-                        }
-                        await videoElement.setSinkId($s.devices.audio.selected.id)
-                    } catch(error) {
-                        logger.warn(`[Stream] failed to set stream sink: ${error}`)
+                    const videoElement = mediaRef.current as HTMLVideoElement & {
+                        setSinkId: (id: string) => Promise<void>
                     }
+                    videoElement.setSinkId($s.devices.audio.selected.id).catch(() => {
+                        // Ignore sink errors
+                    })
                 }
-
-                await playStream()
+            } else if (iceState === 'failed') {
+                setMediaFailed(true)
+            } else {
+                setMediaFailed(false)
             }
+        }
+
+        /*
+         * Monitor ICE connection state changes (don't overwrite onstatus)
+         * Use event listener instead of overwriting onstatus handler
+         */
+        if (glnStream.pc) {
+            const handleIceStateChange = () => checkConnectionState()
+            glnStream.pc.addEventListener('iceconnectionstatechange', handleIceStateChange)
+
+            // Store cleanup on the stream object for unmount
+            glnStream._iceStateCleanup = () => {
+                if (glnStream.pc) {
+                    glnStream.pc.removeEventListener('iceconnectionstatechange', handleIceStateChange)
+                }
+            }
+
+            checkConnectionState() // Check immediately
         }
     }
 
@@ -265,11 +305,11 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
         }
 
         try {
-            logger.debug(`[Stream] playing stream ${modelValue.id}`)
             await mediaRef.current.play()
             await loadSettings()
-            if (onUpdate) onUpdate({...modelValue, playing: true})
-            logger.debug(`[Stream] stream ${modelValue.id} playing successfully`)
+            if (onUpdate) {
+                onUpdate({...modelValue, playing: true})
+            }
         } catch(error) {
             logger.error(`[Stream] stream ${modelValue.id} terminated unexpectedly: ${error}`)
             if (glnStreamRef.current) {
@@ -339,6 +379,13 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
     useEffect(() => {
         return () => {
             logger.debug(`unmounting ${modelValue.direction} stream ${modelValue.id}`)
+
+            // Cleanup ICE state listener if it exists
+            if (glnStreamRef.current?._iceStateCleanup) {
+                glnStreamRef.current._iceStateCleanup()
+                delete glnStreamRef.current._iceStateCleanup
+            }
+
             if (mediaRef.current?.src) {
                 URL.revokeObjectURL(mediaRef.current.src)
             } else if (mediaRef.current) {

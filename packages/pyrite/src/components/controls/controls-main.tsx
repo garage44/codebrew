@@ -133,6 +133,31 @@ export function ControlsMain({path: _path}: ControlsMainProps) {
                 tip={$t('group.settings.name')}
                 variant='toggle'
             />
+
+            {/* Conference mode toggle */}
+            <Button
+                active={$s.panels.conferenceMode}
+                icon='webcam'
+                onClick={() => {
+                    $s.panels.conferenceMode = !$s.panels.conferenceMode
+                    store.save()
+                }}
+                tip={$s.panels.conferenceMode ? 'Exit conference mode' : 'Enter conference mode'}
+                variant='toggle'
+            />
+
+            {/* Expanded view toggle (only when not collapsed) */}
+            {!$s.panels.context.collapsed &&
+                <Button
+                    active={$s.panels.context.expanded}
+                    icon='fullscreen'
+                    onClick={() => {
+                        $s.panels.context.expanded = !$s.panels.context.expanded
+                        store.save()
+                    }}
+                    tip={$s.panels.context.expanded ? 'Collapse video view' : 'Expand video view'}
+                    variant='toggle'
+                />}
         </div>
 </nav>
     )

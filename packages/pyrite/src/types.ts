@@ -107,6 +107,10 @@ export interface PyriteState extends CommonState {
             collapsed: boolean
             width?: number
         }
+        conferenceMode?: boolean
+        context: CommonState['panels']['context'] & {
+            expanded?: boolean
+        }
     }
     permissions: {
         op: boolean

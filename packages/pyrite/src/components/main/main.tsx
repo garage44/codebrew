@@ -6,6 +6,7 @@ import {Login, Notifications, AppLayout, PanelMenu, UserMenu, IconLogo} from '@g
 import {useEffect} from 'preact/hooks'
 import {Link} from 'preact-router'
 import {emojiLookup} from '@/models/chat'
+import classnames from 'classnames'
 import ChannelsContext from '../context/context-channels'
 import {Channel} from '../channel/channel'
 import Settings from '../settings/settings'
@@ -200,7 +201,7 @@ export const Main = () => {
     }
 
     return (
-        <div class='c-conference-app app'>
+        <div class={classnames('c-conference-app app', {'c-conference-mode': $s.panels.conferenceMode})}>
             <AppLayout
                 context={$s.chat.activeChannelSlug ? <PanelContextSfu /> : null}
                 menu={(
