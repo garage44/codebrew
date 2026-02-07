@@ -9,7 +9,7 @@
     width: 100%;
 
     .video-strip-item {
-        aspect-ratio: 16 / 9;
+        aspect-ratio: 4 / 3;
         flex-shrink: 0;
         transition: transform 0.2s ease;
         width: 100%;
@@ -31,7 +31,7 @@
 
     .video-strip-placeholder {
         align-items: center;
-        aspect-ratio: 16 / 9;
+        aspect-ratio: 4 / 3;
         background: var(--surface-1);
         border: 2px dashed var(--surface-4);
         border-radius: var(--border-radius-d);

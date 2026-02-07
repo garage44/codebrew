@@ -40,9 +40,13 @@
     }
 
     video {
+        aspect-ratio: 4 / 3;
         border: none;
+        height: 100%;
+        object-fit: contain;
         opacity: 1;
         transition: opacity 0.3s;
+        width: 100%;
 
         &.loading {
             opacity: 0;

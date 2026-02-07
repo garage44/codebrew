@@ -26,7 +26,10 @@ let fakeAudioSource: MediaStreamAudioSourceNode | null = null
  * @param options.microphoneStream - Optional real microphone stream to use for pattern oscillation
  */
 function createFakeStream(options: {video?: boolean; audio?: boolean; width?: number; height?: number; microphoneStream?: MediaStream}): MediaStream {
-    const {video = false, audio = false, width = 640, height = 480, microphoneStream = null} = options
+    // Force 4:3 aspect ratio for fake stream (consistent across all browsers)
+    const {video = false, audio = false, microphoneStream = null} = options
+    const width = 640  // Always use 4:3 aspect ratio
+    const height = 480 // Always use 4:3 aspect ratio
     const stream = new MediaStream()
 
     // Set up audio analysis if microphone stream is provided
@@ -77,8 +80,9 @@ function createFakeStream(options: {video?: boolean; audio?: boolean; width?: nu
             const w = fakeVideoCanvas.width
             const h = fakeVideoCanvas.height
 
-            // Clear canvas
-            ctx.fillStyle = '#1a1a1a'
+            // Clear canvas with theme-matching dark blue background
+            // Matches --surface-1: oklch(0.16 0.020 230) ≈ #1e2332
+            ctx.fillStyle = '#1e2332' // Dark blue-grey matching theme surface-1
             ctx.fillRect(0, 0, w, h)
 
             // Draw animated pattern with audio-driven oscillation
@@ -86,30 +90,75 @@ function createFakeStream(options: {video?: boolean; audio?: boolean; width?: nu
             const centerX = w / 2
             const centerY = h / 2
 
+            // Scale circles based on canvas size to fit any aspect ratio
+            // Use the smaller dimension as reference to ensure circles fit
+            const minDimension = Math.min(w, h)
+            const scaleFactor = minDimension / 480 // Normalize to 480px reference
+            
+            // Maximum radius ensuring circles fit with padding
+            // Account for: stroke line width (max ~6px), gradient extension (10%), and padding
+            const maxLineWidth = 2.5 + 3.5 // Maximum line width (base + audio max)
+            // Use 35% of min dimension, leaving room for stroke (lineWidth/2) and gradient extension
+            const maxRadius = Math.min(w, h) * 0.35 - maxLineWidth / 2
+
             // Audio-driven amplitude multiplier (0.5x to 3x based on audio level)
             const audioAmplitude = 0.5 + audioLevel * 2.5
 
-            // Draw concentric circles with audio-driven oscillation
+            // Draw concentric circles with blue-tinted gradients
             for (let i = 0; i < 5; i++) {
-                // Base radius with audio-driven pulse
-                const baseRadius = 50 + i * 40
-                const audioPulse = audioLevel * 30 * (1 + Math.sin(time * 2 + i))
-                const timeOscillation = Math.sin(time + i) * 20
+                // Base radius scaled to canvas size, ensuring circles fit
+                const baseRadius = (50 + i * 40) * scaleFactor
+                const audioPulse = audioLevel * 30 * scaleFactor * (1 + Math.sin(time * 2 + i))
+                const timeOscillation = Math.sin(time + i) * 20 * scaleFactor
                 const radius = baseRadius + audioPulse + timeOscillation
+                
+                // Calculate line width first (needed for proper clamping)
+                const lineWidth = 2.5 + audioLevel * 3.5 // Thicker lines with more audio
+                
+                // Clamp radius accounting for stroke width (stroke extends lineWidth/2 beyond radius)
+                // Also account for gradient extension (10% beyond radius)
+                const maxEffectiveRadius = maxRadius - lineWidth / 2
+                const clampedRadius = Math.min(radius, maxEffectiveRadius)
 
-                // Color shifts with audio level (more intense colors with louder audio)
-                const hue = (time * 10 + i * 60 + audioLevel * 30) % 360
-                const saturation = 50 + audioLevel * 50 // 50-100% saturation
-                const lightness = 40 + audioLevel * 20 // 40-60% lightness
+                // Theme-matching blue color scheme (hue 230 matches --h-primary)
+                // Shift hue slightly per circle for subtle variation
+                const baseHue = 230 + i * 5 // Start at theme primary blue (230), subtle shift per circle
+                const hueVariation = Math.sin(time * 0.5 + i) * 10 // Subtle hue animation
+                const hue = (baseHue + hueVariation + audioLevel * 15) % 360
+                
+                // Saturation and lightness matching theme primary colors
+                // Theme uses chroma 0.06-0.08 and lightness 0.4-0.6 for primary colors
+                const saturation = 55 + audioLevel * 30 // 55-85% saturation (matches theme chroma)
+                const lightness = 50 + audioLevel * 20 // 50-70% lightness (matches theme lightness)
 
-                ctx.strokeStyle = `hsl(${hue}, ${saturation}%, ${lightness}%)`
-                ctx.lineWidth = 2 + audioLevel * 4 // Thicker lines with more audio
+                // Create radial gradient for each circle
+                // Gradient goes from brighter center to darker edges
+                // Ensure gradient outer edge doesn't exceed maxEffectiveRadius
+                const gradientOuterRadius = Math.min(clampedRadius * 1.1, maxEffectiveRadius)
+                const gradient = ctx.createRadialGradient(
+                    centerX, centerY, clampedRadius * 0.7, // Inner circle (gradient start)
+                    centerX, centerY, gradientOuterRadius    // Outer circle (gradient end, clamped)
+                )
+                
+                // Inner color (brighter, more saturated)
+                const innerHue = (hue + 10) % 360
+                gradient.addColorStop(0, `hsl(${innerHue}, ${saturation}%, ${lightness + 10}%)`)
+                
+                // Middle color (main color)
+                gradient.addColorStop(0.5, `hsl(${hue}, ${saturation}%, ${lightness}%)`)
+                
+                // Outer color (darker, less saturated)
+                const outerHue = (hue - 10 + 360) % 360
+                gradient.addColorStop(1, `hsl(${outerHue}, ${saturation * 0.6}%, ${lightness - 15}%)`)
+
+                ctx.strokeStyle = gradient
+                ctx.lineWidth = lineWidth
                 ctx.beginPath()
-                ctx.arc(centerX, centerY, radius, 0, Math.PI * 2)
+                ctx.arc(centerX, centerY, clampedRadius, 0, Math.PI * 2)
                 ctx.stroke()
             }
 
-            // Draw audio visualization bars
+            // Draw audio visualization bars with blue-tinted gradients
             if (fakeAudioAnalyser && fakeAudioDataArray) {
                 const barCount = 20
                 const barWidth = w / (barCount + 1)
@@ -121,7 +170,13 @@ function createFakeStream(options: {video?: boolean; audio?: boolean; width?: nu
                     const x = (i + 1) * barWidth
                     const y = h - barHeight
 
-                    ctx.fillStyle = `hsl(${(time * 10 + i * 18) % 360}, 70%, 50%)`
+                    // Theme-matching blue gradient for each bar
+                    const barGradient = ctx.createLinearGradient(x - barWidth / 2, y, x - barWidth / 2, h)
+                    const barHue = (230 + (i / barCount) * 20 + time * 5) % 360 // Theme primary blue range (230-250)
+                    barGradient.addColorStop(0, `hsl(${barHue}, 70%, 55%)`) // Top: brighter
+                    barGradient.addColorStop(1, `hsl(${barHue}, 55%, 40%)`) // Bottom: darker
+
+                    ctx.fillStyle = barGradient
                     ctx.fillRect(x - barWidth / 2, y, barWidth * 0.8, barHeight)
                 }
             }
