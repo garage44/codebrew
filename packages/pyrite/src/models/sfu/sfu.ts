@@ -164,13 +164,13 @@ export async function addUserMedia() {
             const checkReady = setInterval(() => {
                 if (connectionReady) {
                     clearInterval(checkReady)
-                    resolve(undefined)
+                    resolve()
                 }
             }, 100)
             // Timeout after 5 seconds
             setTimeout(() => {
                 clearInterval(checkReady)
-                resolve(undefined)
+                resolve()
             }, 5000)
         })
 
@@ -232,7 +232,7 @@ export async function addUserMedia() {
             logger.debug(`[sfu] upstream stream ${glnStream.id} status: ${status}`)
             if (status === 'connected') {
                 logger.debug(`[sfu] upstream stream ${glnStream.id} connected successfully`)
-                resolve(undefined)
+                resolve()
             }
         }
     })
@@ -314,18 +314,20 @@ export async function connect(username?: string, password?: string) {
      * Original Galène only modifies for forceRelay setting, we trust server config otherwise
      */
     connection.onpeerconnection = () => {
-        // Like original Galène onPeerConnection: return null unless modifying
-        // Original Galène only modifies for forceRelay setting, otherwise uses server config
+        /*
+         * Like original Galène onPeerConnection: return null unless modifying
+         * Original Galène only modifies for forceRelay setting, otherwise uses server config
+         */
         const serverConfig = connection.rtcConfiguration
-        const isLocalhost = typeof location !== 'undefined' && 
+        const isLocalhost = typeof location !== 'undefined' &&
             (location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.hostname === '[::1]')
-        
+
         logger.debug(`[SFU] onpeerconnection called: serverConfig=${!!serverConfig}, isLocalhost=${isLocalhost}`)
 
         if (serverConfig) {
             // Server provided configuration - check if it has STUN servers
             const iceServers = serverConfig.iceServers || []
-            
+
             // Log what server sent for debugging
             if (isLocalhost) {
                 logger.debug(`[SFU] Server RTC config: ${iceServers.length} ICE servers`)
@@ -334,7 +336,7 @@ export async function connect(username?: string, password?: string) {
                     logger.debug(`[SFU]   Server ${i}: ${urls.join(', ')}`)
                 })
             }
-            
+
             // Check for STUN servers more thoroughly
             let hasStun = false
             for (const server of iceServers) {
@@ -372,8 +374,10 @@ export async function connect(username?: string, password?: string) {
             return serverConfig
         }
 
-        // If no server config yet, provide STUN fallback for localhost
-        // Original Galène returns null here, but browsers on localhost often need STUN
+        /*
+         * If no server config yet, provide STUN fallback for localhost
+         * Original Galène returns null here, but browsers on localhost often need STUN
+         */
         if (isLocalhost) {
             logger.warn('[SFU] No RTC configuration from server on localhost, using STUN fallback')
             const fallbackConfig = {
@@ -394,14 +398,16 @@ export async function connect(username?: string, password?: string) {
      * Connect through Pyrite WebSocket proxy at /sfu
      * The proxy handles routing to Galene backend
      */
-    // Construct WebSocket URL - use location.host which includes port if non-standard
-    // For default HTTPS (443), browsers omit the port in location.host
+    /*
+     * Construct WebSocket URL - use location.host which includes port if non-standard
+     * For default HTTPS (443), browsers omit the port in location.host
+     */
     const protocol = location.protocol === 'https:' ? 'wss' : 'ws'
     // location.host already includes port if present, or omits it for default ports
     const url = `${protocol}://${location.host}/sfu`
     logger.info(`[SFU] Connecting to Galene through proxy: ${url}`)
     logger.debug(`[SFU] Protocol: ${location.protocol}, Host: ${location.host}, Hostname: ${location.hostname}, Port: ${location.port || 'default'}`)
-    
+
     console.log('[SFU] About to call connection.connect() with URL:', url)
     console.log('[SFU] Connection object:', connection ? 'exists' : 'null')
     console.log('[SFU] Connection type:', typeof connection)
@@ -466,7 +472,10 @@ export function delLocalMedia() {
 }
 
 export function delMedia(id) {
-    logger.debug(`[sfu] delMedia: removing stream ${id}`)
+    // Log stack trace to understand what's calling delMedia (helps debug Firefox canvas stream issues)
+    const stack = new Error().stack
+    const caller = stack ? stack.split('\n')[2] : 'unknown'
+    logger.debug(`[sfu] delMedia: removing stream ${id}, called from: ${caller}`)
 
     // Clear retry count for this stream
     streamRetryCounts.delete(id)
@@ -912,9 +921,11 @@ function processExistingDownstreamStreams() {
             continue
         }
 
-        // Check if stream already has handlers set (indicates it was processed via ondownstream callback)
-        // This prevents overwriting handlers that components may have set up
-        // Note: onDownStream sets onclose/onerror/onstatus, so if they exist, the stream was already processed
+        /*
+         * Check if stream already has handlers set (indicates it was processed via ondownstream callback)
+         * This prevents overwriting handlers that components may have set up
+         * Note: onDownStream sets onclose/onerror/onstatus, so if they exist, the stream was already processed
+         */
         if (stream.onclose || stream.onerror || stream.onstatus) {
             logger.debug(`[SFU] Stream ${streamId} already has handlers set (processed via ondownstream), skipping`)
             continue
@@ -955,6 +966,23 @@ function onClose(code, reason) {
     // Clean up all upstream media
     if (connection && connection.up) {
         delUpMediaKind(null)
+    }
+
+    /*
+     * Clean up all downstream streams from state (like original Galène gotClose)
+     * When connection closes, all streams are closed via Stream.close() which calls onclose handlers
+     * We also clean up here as a safety net in case onclose handlers don't fire properly
+     * delMedia is idempotent (checks if stream exists), so double cleanup is safe
+     */
+    const downstreamStreamIds = [...$s.streams]
+        .filter((s) => s.direction === 'down')
+        .map((s) => s.id)
+
+    if (downstreamStreamIds.length > 0) {
+        logger.debug(`[onClose] Cleaning up ${downstreamStreamIds.length} downstream streams from state`)
+        downstreamStreamIds.forEach((id) => {
+            delMedia(id)
+        })
     }
 
     if (code !== 1000) {
@@ -1023,12 +1051,55 @@ function onDownStream(c) {
         logger.debug(`[sfu] onDownStream: stream ${c.id} already exists in $s.streams (replacement)`)
     }
 
-    // Set handlers once (like original Galène gotDownStream)
-    // Component should not overwrite these - they handle cleanup
+    /*
+     * Set handlers once (like original Galène gotDownStream)
+     * Component should not overwrite these - they handle cleanup
+     * Set onclose handler (like original Galène gotDownStream line 507-510)
+     * Original Galène only removes media if !replace
+     * IMPORTANT: Only remove from state when stream is actually closed, not replaced
+     * Component rendering is state-driven - when stream is removed from $s.streams, component unmounts
+     */
+    const existingOnclose = c.onclose
     c.onclose = (replace) => {
+        // Call existing handler first if it exists (from component - shouldn't happen)
+        if (existingOnclose && existingOnclose !== c.onclose) {
+            existingOnclose.call(c, replace)
+        }
+
+        // Log detailed information about why stream is closing (helps debug Firefox canvas stream issues)
+        const iceState = c.pc ? c.pc.iceConnectionState : 'no pc'
+        const hasStream = !!c.stream
+        const trackCount = c.stream ? c.stream.getTracks().length : 0
+        // Check if a new stream with same ID exists (replacement scenario)
+        const replacementExists = connection && connection.down && connection.down[c.id] && connection.down[c.id] !== c
+        // Log at info level to ensure it's visible (critical for debugging Firefox canvas stream issues)
+        logger.info(`[sfu] onDownStream: stream ${c.id} onclose called, replace=${replace}, ICE=${iceState}, hasStream=${hasStream}, tracks=${trackCount}, replacementExists=${replacementExists}`)
+
+        // Also log stack trace to see what triggered the close
+        const stack = new Error().stack
+        if (stack) {
+            const caller = stack.split('\n').slice(1, 4).join(' -> ')
+            logger.debug(`[sfu] onDownStream: stream ${c.id} onclose call stack: ${caller}`)
+        }
+
+        // Only remove from state if not a replacement (like original Galène gotDownStream line 507-510)
         if (!replace) {
+            /*
+             * Check if this is actually a replacement (new stream with same ID exists)
+             * This can happen if gotOffer with replace=true creates new stream before old one closes
+             */
+            if (replacementExists) {
+                logger.debug(`[sfu] onDownStream: stream ${c.id} closed but replacement exists - treating as replacement`)
+                // Don't remove - the replacement will use the same state entry
+                return
+            }
+
+            // Stream is really closing (not replaced)
+            logger.debug(`[sfu] onDownStream: stream ${c.id} closed (not replaced), removing from state`)
             streamRetryCounts.delete(c.id)
             delMedia(c.id)
+        } else {
+            logger.debug(`[sfu] onDownStream: stream ${c.id} closed (replaced), keeping in state - new stream will use same id`)
         }
     }
 
@@ -1043,20 +1114,65 @@ function onDownStream(c) {
         }
     }
 
-    // Set ondowntrack handler (like original Galène gotDownStream line 515-517)
-    // Original Galène calls setMedia(c) when tracks arrive
-    // Component will enhance this handler, but we set a base one here to handle early track arrival
-    if (!c.ondowntrack) {
-        c.ondowntrack = () => {
-            // Base handler - component will enhance this
-            // This ensures handler exists even if tracks arrive before component mounts
+    /*
+     * Set ondowntrack handler (like original Galène gotDownStream line 515-517)
+     * Original Galène calls setMedia(c) when tracks arrive
+     * We need to ensure this handler is set up properly and triggers component updates
+     * Store the existing handler if component has already set one
+     */
+    const existingOndowntrack = c.ondowntrack
+    c.ondowntrack = (track: MediaStreamTrack, transceiver?: RTCRtpTransceiver, stream?: MediaStream) => {
+        // Call existing handler first if it exists (from component)
+        if (existingOndowntrack && existingOndowntrack !== c.ondowntrack) {
+            existingOndowntrack.call(c, track, transceiver, stream)
         }
+
+        /*
+         * Ensure stream is assigned (important for Firefox canvas streams)
+         * The protocol layer sets c.stream, but Firefox might handle this differently
+         */
+        if (stream && !c.stream) {
+            logger.debug(`[sfu] onDownStream: assigning stream to c.stream for ${c.id} (Firefox canvas stream?)`)
+            c.stream = stream
+        } else if (stream && c.stream !== stream) {
+            // Stream changed (replacement) - ensure all tracks are in the stream
+            const existingTracks = c.stream.getTracks()
+            const newTracks = stream.getTracks()
+            const missingTracks = newTracks.filter((t) => !existingTracks.includes(t))
+            if (missingTracks.length > 0) {
+                logger.debug(`[sfu] onDownStream: adding ${missingTracks.length} tracks to existing stream for ${c.id}`)
+                missingTracks.forEach((t) => c.stream!.addTrack(t))
+            }
+        }
+
+        // Update stream state when tracks arrive (like original Galène setMedia)
+        const streamState = $s.streams.find((s) => s.id === c.id)
+        if (streamState) {
+            if (track.kind === 'audio') {
+                streamState.hasAudio = true
+            } else if (track.kind === 'video') {
+                streamState.hasVideo = true
+            }
+            // Trigger reactivity by reassigning
+            $s.streams = [...$s.streams]
+        }
+
+        logger.debug(`[sfu] onDownStream: track ${track.kind} arrived for stream ${c.id}, stream assigned: ${!!c.stream}, track readyState: ${track.readyState}`)
     }
 
-    // Set onstatus handler (like original Galène gotDownStream line 521-523)
-    // Original Galène calls setMediaStatus(c) which checks ICE state and plays media
-    // We can't call setMediaStatus here (component handles UI), but we handle retries
+    /*
+     * Set onstatus handler (like original Galène gotDownStream line 521-523)
+     * Original Galène calls setMediaStatus(c) which checks ICE state and plays media
+     * We can't call setMediaStatus here (component handles UI), but we handle retries
+     * Store existing handler if component has already set one
+     */
+    const existingOnstatus = c.onstatus
     c.onstatus = (status: string) => {
+        // Call existing handler first if it exists (from component)
+        if (existingOnstatus && existingOnstatus !== c.onstatus) {
+            existingOnstatus.call(c, status)
+        }
+
         // Handle ICE failures with retry logic (like original Galène protocol.js line 795-800)
         if (status === 'failed') {
             const retryCount = streamRetryCounts.get(c.id) || 0
@@ -1076,9 +1192,10 @@ function onDownStream(c) {
             }
         } else if (status === 'connected' || status === 'completed') {
             streamRetryCounts.delete(c.id)
+            // Log successful connection for debugging
+            logger.debug(`[sfu] onDownStream: stream ${c.id} ICE status: ${status}`)
         }
     }
-
 }
 
 async function onFileTransfer(f) {
@@ -1158,16 +1275,8 @@ async function onJoined(kind, group, permissions, status, data, message) {
                 connectionReady = true
                 // Log RTC config for debugging (like original Galène would have)
                 const iceServers = connection.rtcConfiguration.iceServers || []
-                const hasStun = iceServers.some((s) => 
-                    (Array.isArray(s.urls) ? s.urls : [s.urls]).some((u) => 
-                        typeof u === 'string' && u.includes('stun:')
-                    )
-                )
-                const hasTurn = iceServers.some((s) => 
-                    (Array.isArray(s.urls) ? s.urls : [s.urls]).some((u) => 
-                        typeof u === 'string' && (u.includes('turn:') || u.includes('turns:'))
-                    )
-                )
+                const hasStun = iceServers.some((s) => (Array.isArray(s.urls) ? s.urls : [s.urls]).some((u) => typeof u === 'string' && u.includes('stun:')))
+                const hasTurn = iceServers.some((s) => (Array.isArray(s.urls) ? s.urls : [s.urls]).some((u) => typeof u === 'string' && (u.includes('turn:') || u.includes('turns:'))))
                 logger.debug(`[SFU] Connection ready, RTC configuration received: ${iceServers.length} ICE servers (STUN: ${hasStun}, TURN: ${hasTurn})`)
                 // Process any pending downstream streams
                 processPendingDownstreamStreams()

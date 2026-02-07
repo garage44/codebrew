@@ -1,7 +1,7 @@
 import classnames from 'classnames'
 import {getAvatarUrl} from '@garage44/common/lib/avatar'
 import {Link, route} from 'preact-router'
-import {useEffect, useMemo, useRef} from 'preact/hooks'
+import {useEffect} from 'preact/hooks'
 import {$s} from '@/app'
 import {$t, ws, logger} from '@garage44/common/app'
 import {loadGlobalUsers} from '@/models/chat'
@@ -14,8 +14,6 @@ const channelLink = (channelSlug: string) => {
 }
 
 export default function ChannelsContext() {
-    const intervalRef = useRef<number | null>(null)
-
     /*
      * Compute currentChannel directly - DeepSignal is reactive, so accessing
      * $s.chat.activeChannelSlug and $s.channels in render makes it reactive
@@ -24,7 +22,7 @@ export default function ChannelsContext() {
             $s.channels.find((c) => c.slug === $s.chat.activeChannelSlug) :
         null
 
-    const pollChannels = async() => {
+    const loadChannels = async() => {
         try {
             const response = await ws.get('/channels')
             if (response.success) {
@@ -33,7 +31,7 @@ export default function ChannelsContext() {
                 await loadGlobalUsers()
             }
         } catch(error) {
-            logger.error('[ChannelsContext] Error polling channels:', error)
+            logger.error('[ChannelsContext] Error loading channels:', error)
         }
     }
 
@@ -77,16 +75,9 @@ export default function ChannelsContext() {
         }
     }, [])
 
-    // Setup polling
+    // Load channels on initial mount - WebSocket subscriptions handle updates
     useEffect(() => {
-        intervalRef.current = setInterval(pollChannels, 3000) as unknown as number
-        pollChannels()
-
-        return () => {
-            if (intervalRef.current !== null) {
-                clearInterval(intervalRef.current)
-            }
-        }
+        loadChannels()
     }, [])
 
     return (

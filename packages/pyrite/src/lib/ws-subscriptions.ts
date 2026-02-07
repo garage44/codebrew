@@ -6,6 +6,8 @@
 import {$s} from '@/app'
 import {events, logger, ws} from '@garage44/common/app'
 import {effect} from '@preact/signals'
+import {loadGlobalUsers} from '@/models/chat'
+import type {Channel} from '../types'
 
 // Flag to prevent infinite loops in reactive deduplication
 let isDeduplicating = false
@@ -74,6 +76,7 @@ export const initWebSocketSubscriptions = () => {
     initChatSubscriptions()
     initPresenceSubscriptions()
     initGroupSubscriptions()
+    initChannelSubscriptions()
 
     logger.info('WebSocket subscriptions initialized')
 }
@@ -578,6 +581,119 @@ const initGroupSubscriptions = () => {
                         $s.permissions.present = (action === 'present')
                     }
                     break
+            }
+        })
+    })
+}
+
+/**
+ * Channel WebSocket subscriptions
+ * Listen for channel create/update/delete broadcasts from backend
+ */
+const initChannelSubscriptions = () => {
+    events.on('app:init', () => {
+        // Channel created (broadcast from backend)
+        ws.on('/channels/created', (data) => {
+            const {channel, timestamp} = data
+
+            if (!channel) {
+                logger.warn('[Channel WS] Invalid channel data in created event:', data)
+                return
+            }
+
+            logger.debug(`[Channel WS] Channel created: ${channel.name} (${channel.slug})`)
+
+            // Check if channel already exists (avoid duplicates)
+            const existingIndex = $s.channels.findIndex((c) => c.id === channel.id)
+            if (existingIndex === -1) {
+                // Add new channel to array
+                $s.channels.push(channel as Channel)
+                logger.debug(`[Channel WS] Added channel to list, total: ${$s.channels.length}`)
+            } else {
+                // Channel already exists, update it instead
+                logger.debug(`[Channel WS] Channel already exists, updating instead`)
+                $s.channels[existingIndex] = channel as Channel
+            }
+
+            // Load users after channel update
+            loadGlobalUsers().catch((error) => {
+                logger.warn('[Channel WS] Error loading users after channel created:', error)
+            })
+        })
+
+        // Channel updated (broadcast from backend)
+        ws.on('/channels/:channelId/updated', (data) => {
+            const {channel, timestamp} = data
+            const channelId = data.channelId // Extracted from broadcast
+
+            if (!channel || !channelId) {
+                logger.warn('[Channel WS] Invalid channel data in updated event:', data)
+                return
+            }
+
+            logger.debug(`[Channel WS] Channel updated: ${channel.name} (${channel.slug})`)
+
+            // Find channel by ID and update it
+            const channelIndex = $s.channels.findIndex((c) => c.id === channelId)
+            if (channelIndex !== -1) {
+                const oldChannel = $s.channels[channelIndex]
+                const oldSlug = oldChannel.slug
+
+                // Update channel properties
+                $s.channels[channelIndex] = channel as Channel
+
+                // If slug changed and this was the active channel, update activeChannelSlug
+                if (oldSlug !== channel.slug && $s.chat.activeChannelSlug === oldSlug) {
+                    logger.debug(`[Channel WS] Active channel slug changed: ${oldSlug} -> ${channel.slug}`)
+                    $s.chat.activeChannelSlug = channel.slug
+                }
+
+                logger.debug(`[Channel WS] Updated channel in list`)
+            } else {
+                // Channel not found, add it (might have been created before initial load)
+                logger.debug(`[Channel WS] Channel not found in list, adding it`)
+                $s.channels.push(channel as Channel)
+            }
+
+            // Load users after channel update
+            loadGlobalUsers().catch((error) => {
+                logger.warn('[Channel WS] Error loading users after channel updated:', error)
+            })
+        })
+
+        // Channel deleted (broadcast from backend)
+        ws.on('/channels/:channelId/deleted', (data) => {
+            const {channelId, timestamp} = data
+
+            if (!channelId) {
+                logger.warn('[Channel WS] Invalid channelId in deleted event:', data)
+                return
+            }
+
+            logger.debug(`[Channel WS] Channel deleted: ${channelId}`)
+
+            // Find channel by ID and remove it
+            const channelIndex = $s.channels.findIndex((c) => c.id === channelId)
+            if (channelIndex !== -1) {
+                const deletedChannel = $s.channels[channelIndex]
+
+                // If deleted channel was active, switch to default channel or first available
+                if ($s.chat.activeChannelSlug === deletedChannel.slug) {
+                    logger.debug(`[Channel WS] Active channel deleted, switching to default`)
+                    // Find default channel (is_default is 1) or first channel
+                    const defaultChannel = $s.channels.find((c) => c.is_default === 1) || $s.channels[0]
+                    if (defaultChannel) {
+                        $s.chat.activeChannelSlug = defaultChannel.slug
+                    } else {
+                        $s.chat.activeChannelSlug = null
+                    }
+                }
+
+                // Remove channel from array
+                $s.channels.splice(channelIndex, 1)
+                logger.debug(`[Channel WS] Removed channel from list, total: ${$s.channels.length}`)
+            } else {
+                logger.debug(`[Channel WS] Channel not found in list (already deleted or not loaded)`)
             }
         })
     })

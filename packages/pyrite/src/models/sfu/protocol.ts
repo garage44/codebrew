@@ -277,7 +277,7 @@ ServerConnection.prototype.connect = async function(url) {
     let sc = this;
     console.log('[SFU Protocol] connect() called with URL:', url);
     console.log('[SFU Protocol] Current socket state:', sc.socket ? `exists (readyState: ${sc.socket.readyState})` : 'null');
-    
+
     if(sc.socket) {
         console.log('[SFU Protocol] Closing existing socket before reconnecting');
         sc.socket.close(1000, 'Reconnecting');
@@ -928,6 +928,17 @@ ServerConnection.prototype.gotClose = function(id) {
         console.warn('unknown down stream', id);
         return;
     }
+    // Log why stream is being closed (helps debug Firefox canvas stream issues)
+    const iceState = c.pc ? c.pc.iceConnectionState : 'no pc'
+    const hasStream = !!c.stream
+    const trackCount = c.stream ? c.stream.getTracks().length : 0
+    console.log(`[SFU Protocol] gotClose: server requested close for stream ${id}, ICE=${iceState}, hasStream=${hasStream}, tracks=${trackCount}`);
+    // Log stack trace to see what triggered gotClose
+    const stack = new Error().stack
+    if (stack) {
+        const caller = stack.split('\n').slice(1, 4).join(' -> ')
+        console.log(`[SFU Protocol] gotClose call stack: ${caller}`)
+    }
     c.close();
 };
 
@@ -1207,8 +1218,11 @@ Stream.prototype.close = function(replace) {
         c.sc.onuser.call(c.sc, userid, "change");
     c.sc = null;
 
-    if(c.onclose)
+    if(c.onclose) {
+        // Log before calling onclose to help debug Firefox canvas stream issues
+        console.log(`[SFU Protocol] Stream.close calling onclose for stream ${c.id}, replace=${replace}, ICE=${c.pc ? c.pc.iceConnectionState : 'no pc'}`);
         c.onclose.call(c, replace);
+    }
 };
 
 /**

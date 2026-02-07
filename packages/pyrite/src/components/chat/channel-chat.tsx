@@ -34,12 +34,13 @@ export default function ChannelChat({channel, channelSlug}: ChannelChatProps) {
      */
     const currentChannel = channel || $s.channels.find((c) => c.slug === channelSlug)
 
-    // Only log when channel is found to avoid spam
+    // Only log when channelSlug changes (route change), not when currentChannel object reference changes
     useEffect(() => {
-        if (currentChannel) {
-            logger.debug(`[ChannelChat] Looking for channel ${channelSlug}, found:`, currentChannel)
+        const foundChannel = channel || $s.channels.find((c) => c.slug === channelSlug)
+        if (foundChannel) {
+            logger.debug(`[ChannelChat] Looking for channel ${channelSlug}, found:`, foundChannel)
         }
-    }, [currentChannel, channelSlug])
+    }, [channelSlug]) // Only depend on channelSlug to avoid log spam
 
     // Get channel key - needed for accessing messages (slug is the key now)
     const channelKey = channelSlug

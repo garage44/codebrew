@@ -31,6 +31,7 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
     const mediaRef = useRef<HTMLVideoElement>(null)
     const [bar, setBar] = useState({active: false})
     const [mediaFailed, setMediaFailed] = useState(false)
+    const [autoplayBlocked, setAutoplayBlocked] = useState(false)
     const [muted, setMuted] = useState(false)
     const [pip, setPip] = useState({active: false, enabled: false})
     const [stats, setStats] = useState({visible: false})
@@ -77,31 +78,50 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
     }
 
     const mountDownstream = async() => {
+        // Always check if stream exists in connection.down - component re-renders when it appears
+        // This ensures we only mount when the stream is actually available (state-driven)
         const glnStream = sfu.connection?.down[
             modelValue.id
         ]
 
         if (!glnStream) {
-            const streamId = modelValue.id
-            const msg = '[Stream] no sfu stream on mounting downstream ' +
-                `stream ${streamId}`
-            logger.debug(msg)
+            // Stream not yet available - component will re-render when stream appears in connection.down
+            // This is state-driven: when onDownStream adds stream to connection.down, component re-renders
+            logger.debug(`[Stream] Stream ${modelValue.id} not yet in connection.down, waiting for state update`)
             return
         }
 
+        // Stream is available - mount it
         glnStreamRef.current = glnStream
 
         /*
-         * Set up media immediately (like original Galène setMedia)
-         * The stream will be set by protocol layer when tracks arrive
+         * Set up media immediately (like original Galène setMedia line 2053-2111)
+         * Original Galène calls setMedia(c) immediately in gotDownStream (line 528)
+         * This ensures the media element exists even if tracks haven't arrived yet
          */
         const setupMedia = () => {
-            if (!mediaRef.current) return
+            if (!mediaRef.current) {
+                logger.debug(`[Stream] setupMedia: mediaRef.current is null for stream ${modelValue.id}`)
+                return
+            }
 
             // Set srcObject if stream is available (like original Galène line 2089-2090)
             if (glnStream.stream && mediaRef.current.srcObject !== glnStream.stream) {
+                logger.debug(`[Stream] Setting srcObject for stream ${modelValue.id}, tracks: ${glnStream.stream.getTracks().length}`)
                 setStream(glnStream.stream)
                 mediaRef.current.srcObject = glnStream.stream
+
+                // For Firefox canvas streams, ensure tracks are active
+                const tracks = glnStream.stream.getTracks()
+                tracks.forEach((track) => {
+                    if (track.readyState === 'live') {
+                        logger.debug(`[Stream] Track ${track.kind} is live for stream ${modelValue.id}`)
+                    } else {
+                        logger.debug(`[Stream] Track ${track.kind} state: ${track.readyState} for stream ${modelValue.id}`)
+                    }
+                })
+            } else if (!glnStream.stream) {
+                logger.debug(`[Stream] Stream ${modelValue.id} has no MediaStream yet (tracks may not have arrived)`)
             }
         }
 
@@ -109,6 +129,11 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
          * Set up handlers for when tracks arrive (like original Galène ondowntrack line 515-517)
          * Original Galène sets this in gotDownStream and calls setMedia(c)
          * We enhance the handler set by onDownStream (or set it if component mounts first)
+         *
+         * IMPORTANT: The handler from onDownStream already updates state, so we just need to
+         * ensure media is set up when tracks arrive
+         *
+         * Firefox canvas streams: Ensure stream is properly assigned and tracks are active
          */
         const existingOndowntrack = glnStream.ondowntrack
         glnStream.ondowntrack = (track: MediaStreamTrack, transceiver?: RTCRtpTransceiver, stream?: MediaStream) => {
@@ -117,7 +142,22 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
                 existingOndowntrack.call(glnStream, track, transceiver, stream)
             }
 
-            // Update stream state based on track kind
+            // Ensure stream is assigned (critical for Firefox canvas streams)
+            if (stream && !glnStream.stream) {
+                logger.debug(`[Stream] Assigning stream from ondowntrack for ${modelValue.id} (Firefox canvas stream?)`)
+                glnStream.stream = stream
+            } else if (stream && glnStream.stream !== stream) {
+                // Stream changed - ensure all tracks are present
+                const existingTracks = glnStream.stream.getTracks()
+                const newTracks = stream.getTracks()
+                const missingTracks = newTracks.filter((t) => !existingTracks.includes(t))
+                if (missingTracks.length > 0) {
+                    logger.debug(`[Stream] Adding ${missingTracks.length} tracks to stream ${modelValue.id}`)
+                    missingTracks.forEach((t) => glnStream.stream!.addTrack(t))
+                }
+            }
+
+            // Update stream state based on track kind (component-level update)
             if (track.kind === 'audio') {
                 if (onUpdate) onUpdate({...modelValue, hasAudio: true})
             } else if (track.kind === 'video') {
@@ -125,11 +165,56 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
             }
 
             // Setup media when tracks arrive (like original Galène calls setMedia in ondowntrack)
+            // This is critical - ensure media element is set up immediately when tracks arrive
             setupMedia()
+
+            // If stream is already available and ICE is connected, try to play immediately
+            // Firefox canvas streams may need immediate playback setup
+            if (glnStream.stream && glnStream.pc) {
+                const iceState = glnStream.pc.iceConnectionState
+                if ((iceState === 'connected' || iceState === 'completed') && mediaRef.current) {
+                    // Use requestAnimationFrame for Firefox canvas streams
+                    requestAnimationFrame(() => {
+                        if (mediaRef.current && glnStream.stream) {
+                            playStream().catch((error) => {
+                                logger.debug(`[Stream] play failed (will retry on ICE state change): ${error}`)
+                            })
+                        }
+                    })
+                }
+            }
         }
 
-        // Setup media immediately if stream already exists
+        // Setup media immediately if stream already exists (like original Galène setMedia line 2089-2090)
+        // This ensures the media element is ready even if tracks haven't arrived yet
         setupMedia()
+
+        /*
+         * Set onnegotiationcompleted handler (like original Galène gotDownStream line 518-520)
+         * Original Galène calls resetMedia(c) to reset frozen frames after negotiation
+         */
+        const existingOnnegotiationcompleted = glnStream.onnegotiationcompleted
+        glnStream.onnegotiationcompleted = () => {
+            // Call existing handler first if it exists
+            if (existingOnnegotiationcompleted) {
+                existingOnnegotiationcompleted.call(glnStream)
+            }
+
+            // Reset media to clear frozen frames (like original Galène resetMedia)
+            if (mediaRef.current && glnStream.stream) {
+                // Reset srcObject to clear frozen frames
+                const currentSrc = mediaRef.current.srcObject
+                if (currentSrc === glnStream.stream) {
+                    mediaRef.current.srcObject = null
+                    // Use requestAnimationFrame to ensure reset happens
+                    requestAnimationFrame(() => {
+                        if (mediaRef.current && glnStream.stream) {
+                            mediaRef.current.srcObject = glnStream.stream
+                        }
+                    })
+                }
+            }
+        }
 
         /*
          * Don't overwrite onclose or onstatus - they're set by onDownStream
@@ -152,11 +237,26 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
                     mediaRef.current.srcObject = glnStream.stream
                 }
 
-                // Play if we have a stream
+                // Play if we have a stream (like original Galène setMediaStatus line 2346-2352)
+                // Use requestAnimationFrame to ensure stream is ready (helps with Firefox streams)
                 if (glnStream.stream && mediaRef.current.srcObject) {
-                    playStream().catch((error) => {
-                        logger.error(`[Stream] failed to play stream: ${error}`)
-                        setMediaFailed(true)
+                    requestAnimationFrame(() => {
+                        if (mediaRef.current && glnStream.stream && mediaRef.current.srcObject) {
+                            // Check if media is already playing or paused (not ended)
+                            const isPlaying = !mediaRef.current.paused && mediaRef.current.readyState >= 2
+                            if (!isPlaying) {
+                                playStream().catch((error) => {
+                                    const errorMessage = error instanceof Error ? error.message : String(error)
+                                    // Don't log autoplay errors as debug - they're expected
+                                    if (!errorMessage.includes('user didn\'t interact') &&
+                                        !errorMessage.includes('autoplay') &&
+                                        !errorMessage.includes('user interaction')) {
+                                        logger.debug(`[Stream] play failed (will retry): ${error}`)
+                                    }
+                                    // Don't set failed immediately - might be a temporary issue
+                                })
+                            }
+                        }
                     })
                 }
 
@@ -179,19 +279,97 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
         /*
          * Monitor ICE connection state changes (don't overwrite onstatus)
          * Use event listener instead of overwriting onstatus handler
+         * Also listen for track events to ensure we catch tracks that arrive after mount
          */
         if (glnStream.pc) {
-            const handleIceStateChange = () => checkConnectionState()
+            const handleIceStateChange = () => {
+                checkConnectionState()
+                // Also check if tracks have arrived when ICE connects
+                if (glnStream.pc && (glnStream.pc.iceConnectionState === 'connected' || glnStream.pc.iceConnectionState === 'completed')) {
+                    if (glnStream.stream && !mediaRef.current?.srcObject) {
+                        logger.debug(`[Stream] ICE connected but media not set, setting up now for stream ${modelValue.id}`)
+                        setupMedia()
+                    }
+                }
+            }
             glnStream.pc.addEventListener('iceconnectionstatechange', handleIceStateChange)
+
+            // Also listen for track events to catch tracks that arrive late
+            const handleTrack = (event: RTCTrackEvent) => {
+                logger.debug(`[Stream] Track event received for stream ${modelValue.id}: ${event.track.kind}`)
+                if (event.streams && event.streams.length > 0) {
+                    // Ensure stream is set up
+                    if (!glnStream.stream && event.streams[0]) {
+                        glnStream.stream = event.streams[0]
+                    }
+                    setupMedia()
+                    // If ICE is already connected, try to play
+                    if (glnStream.pc && (glnStream.pc.iceConnectionState === 'connected' || glnStream.pc.iceConnectionState === 'completed')) {
+                        requestAnimationFrame(() => {
+                            if (mediaRef.current && glnStream.stream) {
+                                playStream().catch((error) => {
+                                    logger.debug(`[Stream] play failed after track event: ${error}`)
+                                })
+                            }
+                        })
+                    }
+                }
+            }
+            glnStream.pc.addEventListener('track', handleTrack)
 
             // Store cleanup on the stream object for unmount
             glnStream._iceStateCleanup = () => {
                 if (glnStream.pc) {
                     glnStream.pc.removeEventListener('iceconnectionstatechange', handleIceStateChange)
+                    glnStream.pc.removeEventListener('track', handleTrack)
                 }
             }
 
             checkConnectionState() // Check immediately
+
+            // Also check if tracks are already available (helps with Firefox streams that arrive early)
+            // Firefox may assign tracks to the stream before ondowntrack fires, especially for canvas streams
+            if (glnStream.pc.getReceivers) {
+                try {
+                    const receivers = glnStream.pc.getReceivers()
+                    if (receivers.length > 0) {
+                        logger.debug(`[Stream] Found ${receivers.length} existing receivers for stream ${modelValue.id}`)
+                        // Check if we need to create a stream from existing tracks
+                        const tracks = receivers.map((r) => r.track).filter((t) => t && t.readyState === 'live')
+                        if (tracks.length > 0) {
+                            // If stream doesn't exist yet, create it from tracks (Firefox canvas streams)
+                            if (!glnStream.stream) {
+                                const existingStream = new MediaStream(tracks)
+                                glnStream.stream = existingStream
+                                logger.debug(`[Stream] Created MediaStream from ${tracks.length} existing tracks for stream ${modelValue.id}`)
+                            } else {
+                                // Stream exists but might not have all tracks - check and update
+                                const existingTracks = glnStream.stream.getTracks()
+                                const missingTracks = tracks.filter((t) => !existingTracks.includes(t))
+                                if (missingTracks.length > 0) {
+                                    logger.debug(`[Stream] Adding ${missingTracks.length} missing tracks to stream ${modelValue.id}`)
+                                    missingTracks.forEach((track) => glnStream.stream!.addTrack(track))
+                                }
+                            }
+                            setupMedia()
+                            // If ICE is already connected, try to play
+                            if (glnStream.pc && (glnStream.pc.iceConnectionState === 'connected' || glnStream.pc.iceConnectionState === 'completed')) {
+                                requestAnimationFrame(() => {
+                                    if (mediaRef.current && glnStream.stream) {
+                                        playStream().catch((error) => {
+                                            logger.debug(`[Stream] play failed after creating stream from receivers: ${error}`)
+                                        })
+                                    }
+                                })
+                            }
+                        } else {
+                            logger.debug(`[Stream] Found ${receivers.length} receivers but no live tracks yet for stream ${modelValue.id}`)
+                        }
+                    }
+                } catch (error) {
+                    logger.debug(`[Stream] Error checking receivers: ${error}`)
+                }
+            }
         }
     }
 
@@ -288,7 +466,7 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
                 }
                 await playStream()
             } else {
-                throw new Error('invalid Stream source type')
+                throw new TypeError('invalid Stream source type')
             }
         }
 
@@ -310,12 +488,55 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
             if (onUpdate) {
                 onUpdate({...modelValue, playing: true})
             }
+            setMediaFailed(false)
+            setAutoplayBlocked(false) // Clear autoplay blocked state on successful play
         } catch(error) {
-            logger.error(`[Stream] stream ${modelValue.id} terminated unexpectedly: ${error}`)
-            if (glnStreamRef.current) {
-                sfu.delMedia(glnStreamRef.current.id)
+            // Don't remove stream on play() failure - it might be temporary (autoplay policy, Firefox canvas stream timing, etc.)
+            // Like original Galène setMediaStatus line 2348-2351, we just log and mark as failed, but don't remove
+            const errorMessage = error instanceof Error ? error.message : String(error)
+            logger.debug(`[Stream] stream ${modelValue.id} play() failed: ${errorMessage}`)
+
+            // Check if this is a fatal error (stream ended, track ended) vs temporary (autoplay, not ready)
+            const isFatal = errorMessage.includes('ended') || errorMessage.includes('terminated') ||
+                           (mediaRef.current.srcObject && (mediaRef.current.srcObject as MediaStream).getTracks().every(t => t.readyState === 'ended'))
+
+            if (isFatal) {
+                logger.warn(`[Stream] stream ${modelValue.id} has fatal error, will be cleaned up by onclose handler`)
+                setMediaFailed(true)
+                // Don't call delMedia here - let onclose handler clean it up when stream actually closes
+            } else {
+                // Temporary error - just mark as failed, stream will retry on next ICE state change or track event
+                const isAutoplayError = errorMessage.includes('user didn\'t interact') ||
+                                       errorMessage.includes('autoplay') ||
+                                       errorMessage.includes('user interaction')
+
+                if (isAutoplayError) {
+                    logger.debug(`[Stream] stream ${modelValue.id} play() blocked by autoplay policy, will retry on user interaction`)
+                    setMediaFailed(true)
+                    setAutoplayBlocked(true)
+                    // Set up one-time user interaction listener to retry playback
+                    const retryOnInteraction = () => {
+                        if (mediaRef.current && glnStreamRef.current?.stream && mediaRef.current.srcObject) {
+                            logger.debug(`[Stream] User interaction detected, retrying play() for stream ${modelValue.id}`)
+                            playStream().catch(() => {
+                                // Ignore errors on retry - will retry again on next interaction or ICE change
+                            })
+                        }
+                        // Remove listeners after first interaction
+                        document.removeEventListener('click', retryOnInteraction, true)
+                        document.removeEventListener('touchstart', retryOnInteraction, true)
+                        document.removeEventListener('keydown', retryOnInteraction, true)
+                    }
+                    // Listen for user interaction (click, touch, keydown) to retry playback
+                    document.addEventListener('click', retryOnInteraction, {once: true, capture: true})
+                    document.addEventListener('touchstart', retryOnInteraction, {once: true, capture: true})
+                    document.addEventListener('keydown', retryOnInteraction, {once: true, capture: true})
+                } else {
+                    logger.debug(`[Stream] stream ${modelValue.id} play() failed temporarily, will retry`)
+                    setMediaFailed(true)
+                    // Don't remove - this might be Firefox canvas stream timing issue
+                }
             }
-            setMediaFailed(true)
         }
     }
 
@@ -437,7 +658,7 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
         return () => {
             mediaRef.current?.removeEventListener('loadedmetadata', handleLoadedMetadata)
         }
-    }, [modelValue.id, modelValue.direction])
+    }, [modelValue.id, modelValue.direction, sfu.connection?.down?.[modelValue.id]])
 
     return (
         <div
@@ -456,7 +677,15 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
                 muted={modelValue.direction === 'up'}
                 onClick={(e) => {
                     e.stopPropagation()
-                    toggleEnlarge()
+                    // If autoplay is blocked and stream isn't playing, try to play on click
+                    if (autoplayBlocked && !modelValue.playing && mediaRef.current && mediaRef.current.srcObject) {
+                        playStream().catch(() => {
+                            // Ignore errors - user will see the message
+                        })
+                    } else {
+                        // Otherwise, toggle enlarge as normal
+                        toggleEnlarge()
+                    }
                 }}
                 playsinline={true}
                 ref={mediaRef}
@@ -464,7 +693,17 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
 
             {!modelValue.playing &&
                 <div class='loading-container'>
-                    <Icon className='spinner' name='spinner' />
+                    {autoplayBlocked ? (
+                        <div class='autoplay-message'>
+                            <Icon className='icon icon-l' name='webcam' />
+                            <p>Click to start video</p>
+                            <p class='autoplay-hint'>Browser requires user interaction to play media</p>
+                        </div>
+                    ) : (
+                        <>
+                            <Icon className='spinner' name='spinner' />
+                        </>
+                    )}
                 </div>}
 
             {modelValue.playing && !modelValue.hasVideo &&
