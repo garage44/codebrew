@@ -5,15 +5,53 @@ import {PanelContext} from '@garage44/common/components'
 import {$s} from '@/app'
 import {store} from '@garage44/common/app'
 import {DeviceSettings} from './device-settings'
-import {useEffect, useMemo} from 'preact/hooks'
+import {useEffect, useMemo, useRef} from 'preact/hooks'
 
 export function PanelContextSfu() {
+    const canvasRef = useRef<HTMLDivElement>(null)
+
     // Toggle between VideoStrip and VideoCanvas based on panel width
     // Use VideoStrip when panel width is <= 300px (narrow/collapsed state)
     // Use VideoCanvas when panel width is > 300px (widened state)
     // Higher threshold gives more space before canvas view sets in
     const currentWidth = useMemo(() => $s.panels.context.width || 350, [$s.panels.context.width])
     const showCanvasLayout = useMemo(() => !$s.panels.context.collapsed && currentWidth > 300, [$s.panels.context.collapsed, currentWidth])
+
+    // Fullscreen handler
+    const handleFullscreen = async () => {
+        if (!canvasRef.current) return
+
+        // Only allow fullscreen when canvas layout is visible
+        if (!showCanvasLayout && !document.fullscreenElement) {
+            return
+        }
+
+        try {
+            if (document.fullscreenElement) {
+                // Exit fullscreen
+                await document.exitFullscreen()
+                $s.panels.context.expanded = false
+            } else {
+                // Enter fullscreen - use the canvas container
+                await canvasRef.current.requestFullscreen()
+                $s.panels.context.expanded = true
+            }
+            store.save()
+        } catch (error) {
+            console.error('Fullscreen error:', error)
+        }
+    }
+
+    // Listen for fullscreen changes to update state
+    useEffect(() => {
+        const handleFullscreenChange = () => {
+            $s.panels.context.expanded = !!document.fullscreenElement
+            store.save()
+        }
+
+        document.addEventListener('fullscreenchange', handleFullscreenChange)
+        return () => document.removeEventListener('fullscreenchange', handleFullscreenChange)
+    }, [])
 
     // Calculate available space: viewport width - menu width - chat min-width (350px)
     const calculateAvailableWidth = () => {
@@ -86,13 +124,15 @@ export function PanelContextSfu() {
             // Synchronize collapse state: both panels collapse together
             $s.panels.context.collapsed = collapsed
             store.save()
-        }} />
+        }} onFullscreen={handleFullscreen} />
         {$s.env.url.includes('/devices') ? (
             <DeviceSettings key='devices' />
         ) : (
-            <>
+                <>
                 <VideoStrip key='video-strip' className={showCanvasLayout ? 'hidden' : ''} />
-                <VideoCanvas key='video-canvas' className={!showCanvasLayout ? 'hidden' : ''} />
+                <div ref={canvasRef} class='canvas-fullscreen-container'>
+                    <VideoCanvas key='video-canvas' className={!showCanvasLayout ? 'hidden' : ''} />
+                </div>
             </>
         )}
 </PanelContext>

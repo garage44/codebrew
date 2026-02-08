@@ -10,10 +10,11 @@ import * as sfu from '@/models/sfu/sfu'
 
 interface ControlsMainProps {
     onCollapseChange?: (collapsed: boolean) => void
+    onFullscreen?: () => void
     path?: string
 }
 
-export function ControlsMain({onCollapseChange, path: _path}: ControlsMainProps) {
+export function ControlsMain({onCollapseChange, onFullscreen, path: _path}: ControlsMainProps) {
     // DeepSignal is reactive - accessing $s properties makes components reactive automatically
     const currentGroupData = useMemo(() => currentGroup(), [])
 
@@ -145,16 +146,21 @@ export function ControlsMain({onCollapseChange, path: _path}: ControlsMainProps)
                 variant='toggle'
             />
 
-            {/* Expanded view toggle (only when not collapsed) */}
+            {/* Fullscreen toggle (only when not collapsed) */}
             {!$s.panels.context.collapsed &&
                 <Button
                     active={$s.panels.context.expanded}
                     icon='fullscreen'
                     onClick={() => {
-                        $s.panels.context.expanded = !$s.panels.context.expanded
-                        store.save()
+                        if (onFullscreen) {
+                            onFullscreen()
+                        } else {
+                            // Fallback: toggle expanded state if handler not provided
+                            $s.panels.context.expanded = !$s.panels.context.expanded
+                            store.save()
+                        }
                     }}
-                    tip={$s.panels.context.expanded ? 'Collapse video view' : 'Expand video view'}
+                    tip={$s.panels.context.expanded ? 'Exit fullscreen' : 'Expand video view'}
                     variant='toggle'
                 />}
         </div>
