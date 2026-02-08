@@ -280,7 +280,7 @@ function createFakeStream(options: {video?: boolean; audio?: boolean; width?: nu
 }
 
 export async function getUserMedia(presence) {
-    logger.debug(`[media] getUserMedia called, channel.connected=${$s.sfu.channel.connected}`)
+    logger.info(`[media] getUserMedia called, channel.connected=${$s.sfu.channel.connected}`)
     $s.mediaReady = false
 
     // Cleanup the old networked stream first:
@@ -358,6 +358,8 @@ export async function getUserMedia(presence) {
     }
 
     // Apply presence settings (enable/disable)
+    // Note: presence parameter is actually $s.devices, so presence.cam.enabled === $s.devices.cam.enabled
+    // We use $s.devices.cam.enabled as the source of truth for button state
     if (presence) {
         if (!presence.cam.enabled) {
             selectedVideoDevice = false
@@ -582,8 +584,20 @@ export async function getUserMedia(presence) {
         logger.debug(`[media] group not connected, skipping addUserMedia`)
     }
 
+    // Ensure device enabled state matches what we actually got
+    // If video was requested and we got it, keep cam.enabled = true
+    if (selectedVideoDevice && localStream.getVideoTracks().length > 0) {
+        $s.devices.cam.enabled = true
+        logger.info(`[media] Video track obtained, setting cam.enabled=true`)
+    }
+    // If audio was requested and we got it, keep mic.enabled = true
+    if (selectedAudioDevice && localStream.getAudioTracks().length > 0) {
+        $s.devices.mic.enabled = true
+        logger.info(`[media] Audio track obtained, setting mic.enabled=true`)
+    }
+
     $s.mediaReady = true
-    logger.debug(`[media] getUserMedia complete, mediaReady=true`)
+    logger.info(`[media] getUserMedia complete, mediaReady=true, cam.enabled=${$s.devices.cam.enabled}, mic.enabled=${$s.devices.mic.enabled}`)
     return localStream
 }
 

@@ -79,9 +79,12 @@ export function ControlsMain({onCollapseChange, path: _path}: ControlsMainProps)
 
             {isChannelConnected && currentChannelSlug &&
                 <Button
-                    active={$s.sfu.channels[currentChannelSlug]?.video || false}
+                    active={$s.devices.cam.enabled}
                     icon='webcam'
-                    onClick={() => {
+                    onClick={(event) => {
+                        console.log('[ControlsMain] VIDEO BUTTON CLICKED', event)
+                        logger.info('[ControlsMain] ===== VIDEO BUTTON CLICKED =====')
+                        
                         if (!currentChannelSlug) {
                             logger.warn('[ControlsMain] No active channel, cannot toggle camera')
                             return
@@ -92,29 +95,36 @@ export function ControlsMain({onCollapseChange, path: _path}: ControlsMainProps)
                             $s.sfu.channels[currentChannelSlug] = {audio: false, connected: false, video: false}
                         }
 
-                        // Toggle video state
-                        const newVideoState = !$s.sfu.channels[currentChannelSlug].video
+                        // Toggle video state based on device state (source of truth)
+                        const newVideoState = !$s.devices.cam.enabled
+                        $s.devices.cam.enabled = newVideoState
                         $s.sfu.channels[currentChannelSlug].video = newVideoState
 
-                        // Update device state to match channel state
-                        $s.devices.cam.enabled = newVideoState
-
-                        logger.debug(`[ControlsMain] toggleCamera: channel=${currentChannelSlug}, video=${newVideoState}`)
+                        logger.info(`[ControlsMain] toggleCamera: channel=${currentChannelSlug}, video=${newVideoState}`)
+                        console.log('[ControlsMain] About to call getUserMedia with devices:', $s.devices)
 
                         if (newVideoState) {
                             // Camera enabled - get new media
-                            logger.debug('[ControlsMain] requesting camera media')
+                            logger.info('[ControlsMain] requesting camera media - calling getUserMedia')
                             media.getUserMedia($s.devices)
+                                .then(() => {
+                                    logger.info('[ControlsMain] camera media obtained successfully')
+                                    console.log('[ControlsMain] getUserMedia SUCCESS')
+                                })
+                                .catch((error) => {
+                                    logger.error(`[ControlsMain] failed to get camera media: ${error}`)
+                                    console.error('[ControlsMain] getUserMedia ERROR:', error)
+                                })
                         } else {
                             // Camera disabled - remove existing camera stream
-                            logger.debug('[ControlsMain] removing camera stream')
+                            logger.info('[ControlsMain] removing camera stream')
                             sfu.delUpMediaKind('camera')
                         }
 
                         // Save state
                         store.save()
                     }}
-                    tip={$s.sfu.channels[currentChannelSlug]?.video ? $t('group.action.cam_off') : $t('group.action.cam_on')}
+                    tip={$s.devices.cam.enabled ? $t('group.action.cam_off') : $t('group.action.cam_on')}
                     variant='toggle'
                 />}
             <Button
@@ -132,18 +142,6 @@ export function ControlsMain({onCollapseChange, path: _path}: ControlsMainProps)
                     }
                 }}
                 tip={$t('group.settings.name')}
-                variant='toggle'
-            />
-
-            {/* Conference mode toggle */}
-            <Button
-                active={$s.panels.conferenceMode}
-                icon='webcam'
-                onClick={() => {
-                    $s.panels.conferenceMode = !$s.panels.conferenceMode
-                    store.save()
-                }}
-                tip={$s.panels.conferenceMode ? 'Exit conference mode' : 'Enter conference mode'}
                 variant='toggle'
             />
 

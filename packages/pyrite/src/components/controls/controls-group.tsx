@@ -33,20 +33,40 @@ export const GroupControls = () => {
 
     const unreadCount = useMemo(() => unreadMessages(), [$s.chat.channels])
 
-    const toggleCam = () => {
+    const toggleCam = (event?: MouseEvent) => {
+        console.log('[GroupControls] toggleCam CLICKED', event)
+        logger.info('[GroupControls] ===== VIDEO BUTTON CLICKED =====')
+        
         const newState = !$s.devices.cam.enabled
         $s.devices.cam.enabled = newState
-        logger.debug(`[GroupControls] toggleCam: ${newState ? 'enabling' : 'disabling'} camera`)
-        logger.debug(`[GroupControls] cam.enabled=${newState}, mic.enabled=${$s.devices.mic.enabled}`)
+        logger.info(`[GroupControls] toggleCam: ${newState ? 'enabling' : 'disabling'} camera`)
+        logger.info(`[GroupControls] cam.enabled=${newState}, mic.enabled=${$s.devices.mic.enabled}, mediaReady=${$s.mediaReady}`)
+
+        // Sync channel state if channel is connected
+        const currentChannelSlug = $s.chat.activeChannelSlug
+        logger.info(`[GroupControls] currentChannelSlug=${currentChannelSlug}, connected=${$s.sfu.channel.connected}`)
+        
+        if (currentChannelSlug && $s.sfu.channels[currentChannelSlug]) {
+            $s.sfu.channels[currentChannelSlug].video = newState
+        }
 
         if (!newState) {
             // Camera disabled - remove existing camera stream
-            logger.debug('[GroupControls] removing camera stream')
+            logger.info('[GroupControls] removing camera stream')
             sfu.delUpMediaKind('camera')
         } else {
             // Camera enabled - get new media
-            logger.debug('[GroupControls] requesting camera media')
+            logger.info('[GroupControls] requesting camera media - calling getUserMedia')
+            console.log('[GroupControls] About to call getUserMedia with devices:', $s.devices)
             media.getUserMedia($s.devices)
+                .then(() => {
+                    logger.info('[GroupControls] camera media obtained successfully')
+                    console.log('[GroupControls] getUserMedia SUCCESS')
+                })
+                .catch((error) => {
+                    logger.error(`[GroupControls] failed to get camera media: ${error}`)
+                    console.error('[GroupControls] getUserMedia ERROR:', error)
+                })
         }
     }
 
@@ -158,9 +178,12 @@ export const GroupControls = () => {
 
                     <Button
                         active={$s.devices.cam.enabled}
-                        disabled={!$s.mediaReady}
                         icon='Webcam'
-                        onClick={toggleCam}
+                        onClick={(event) => {
+                            console.log('[GroupControls] Button onClick wrapper called', event)
+                            console.log('[GroupControls] toggleCam function:', toggleCam)
+                            toggleCam(event)
+                        }}
                         tip={$s.devices.cam.enabled ? $t('group.action.cam_off') : $t('group.action.cam_on')}
                         variant='toggle'
                     />

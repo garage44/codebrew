@@ -18,7 +18,12 @@
 }
 
 /* Fix tooltip z-index - ensure tooltips appear above panel (z-index: 100001) */
+/* Tooltips need to be above panel context which has z-index: 100001 */
+
+.c-panel-context-conference [data-tippy-root] {
+    z-index: 1000000 !important;
+}
 
 .c-panel-context-conference .tippy-box {
-    z-index: 100002 !important;
+    z-index: 1000000 !important;
 }

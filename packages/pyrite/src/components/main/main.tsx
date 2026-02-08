@@ -17,6 +17,9 @@ import {PanelContextSfu} from '../panel-context-sfu'
 export const Main = () => {
     useEffect(() => {
         (async() => {
+            // Store previous user ID to detect changes (for debug_user switching)
+            const previousUserId = $s.profile.id
+
             const context = await api.get('/api/context')
             mergeDeep($s.admin, context)
 
@@ -39,6 +42,49 @@ export const Main = () => {
             }
 
             if (context.authenticated) {
+                // Detect user change (debug_user switching) - disconnect old connections before reconnecting
+                const currentUserId = context.id || $s.profile.id
+                const userChanged = previousUserId && currentUserId && String(previousUserId) !== String(currentUserId)
+
+                if (userChanged) {
+                    logger.info(`[Main] User changed from ${previousUserId} to ${currentUserId}, resetting connections`)
+                    
+                    // Close old WebSocket connection to clean up presence for old user
+                    ws.close()
+                    
+                    // Disconnect from SFU and reset connection state
+                    const {removeLocalStream} = await import('@/models/media')
+                    
+                    // Close SFU connection if connected
+                    if ($s.sfu.channel.connected) {
+                        logger.info('[Main] Disconnecting from SFU due to user change')
+                        const sfuModule = await import('@/models/sfu/sfu')
+                        if (sfuModule.connection && sfuModule.connection.socket) {
+                            sfuModule.connection.close()
+                        }
+                        // Reset SFU connection state
+                        $s.sfu.channel.connected = false
+                        $s.sfu.channel.name = ''
+                    }
+                    
+                    // Remove local media streams
+                    removeLocalStream()
+                    
+                    // Clear streams
+                    $s.streams = []
+                    $s.users = []
+                    
+                    // Reset device states - video/mic should be off after user switch
+                    // User must explicitly enable them via button
+                    $s.devices.cam.enabled = false
+                    $s.devices.mic.enabled = false
+                    
+                    // Small delay to ensure cleanup completes
+                    await new Promise((resolve) => setTimeout(resolve, 200))
+                    
+                    logger.info(`[Main] Reset complete, video/mic disabled - user must enable via button`)
+                }
+
                 ws.connect()
 
                 // Set theme color
@@ -66,6 +112,7 @@ export const Main = () => {
                 /*
                  * Load current user info to populate $s.profile
                  * IMPORTANT: Preserve existing credentials (username/password) that were set during login
+                 * This ensures profile.id is always up-to-date, especially after debug_user switches
                  */
                 try {
                     const userData = await api.get('/api/users/me')
@@ -74,6 +121,7 @@ export const Main = () => {
                         const existingUsername = $s.profile.username || ''
                         const existingPassword = $s.profile.password || ''
 
+                        // Always update profile.id to ensure it matches current session (critical for "You" detection)
                         $s.profile.id = userData.id
                         // Only set username if not already set (preserve login credentials)
                         if (!existingUsername && userData.username) {

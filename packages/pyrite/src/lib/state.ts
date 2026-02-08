@@ -20,7 +20,6 @@ export const persistantState = mergeDeep({
             selected: {id: null, name: ''},
         },
         cam: {
-            enabled: true,
             options: [],
             resolution: {id: 'default', name: ''},
             selected: {id: null, name: ''},
@@ -86,6 +85,11 @@ export const volatileState = mergeDeep({
         autofocus: true,
     },
     mediaReady: false,
+    devices: {
+        cam: {
+            enabled: false,
+        },
+    },
     notifications: [],
     permissions: {
         op: false,

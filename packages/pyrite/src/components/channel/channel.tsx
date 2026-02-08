@@ -30,6 +30,8 @@ export const Channel = ({channelSlug}: ChannelProps) => {
          * Connect to SFU for video conferencing if not already connected
          * Channel slug directly matches Galene group name (1:1 mapping)
          * Wait for credentials to be available before connecting
+         * 
+         * NOTE: Video/mic will NOT start automatically - user must click the button
          */
         if (!$s.sfu.channel.connected && channelSlug) {
             logger.info(`[Channel] Preparing to connect to SFU for channel: ${channelSlug}`)

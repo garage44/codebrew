@@ -84,15 +84,22 @@ export function Button({
             if (tip) {
                 tippyInstanceRef.current.setContent(tip)
                 tippyInstanceRef.current.enable()
+                // Update zIndex in case it changed
+                tippyInstanceRef.current.setProps({zIndex: 1000000})
             } else {
                 tippyInstanceRef.current.disable()
             }
         } else if (tip) {
             // Initialize tippy if tip is available
+            // Use appendTo: document.body to ensure tooltips render outside panel containers
+            // This prevents tooltips from being clipped by overflow:hidden on panels
+            // Set zIndex to ensure tooltips appear above panels (panel z-index: 100001)
             tippyInstanceRef.current = tippy(domElement, {
                 allowHTML: true,
                 arrow: true,
+                appendTo: () => document.body,
                 content: tip,
+                zIndex: 1000000,
             })
         }
 
@@ -105,9 +112,16 @@ export function Button({
     }, [tip]) // Include tip in dependencies to handle both initialization and updates
 
     const handleClick = (event: MouseEvent) => {
+        // Store onClick reference at call time to prevent issues with re-renders
+        const currentOnClick = onClick
+        
         if (disabled) {
+            console.log('[Button] Click ignored - button is disabled')
             return
         }
+
+        console.log('[Button] handleClick called, onClick exists:', !!currentOnClick, 'onClick type:', typeof currentOnClick, 'context:', !!context)
+        console.log('[Button] onClick function:', currentOnClick?.toString().substring(0, 100))
 
         // Handle context menu
         if (context && !contextTriggered) {
@@ -119,9 +133,18 @@ export function Button({
             context.submit(contextText)
         }
 
-        // Regular click handler
-        if (onClick) {
-            onClick(event)
+        // Regular click handler - use stored reference
+        if (currentOnClick) {
+            console.log('[Button] Calling onClick handler NOW')
+            try {
+                const result = currentOnClick(event)
+                console.log('[Button] onClick handler returned:', result)
+            } catch (error) {
+                console.error('[Button] onClick handler threw error:', error)
+                throw error
+            }
+        } else {
+            console.warn('[Button] No onClick handler provided')
         }
     }
 
