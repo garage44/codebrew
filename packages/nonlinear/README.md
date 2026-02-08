@@ -80,9 +80,8 @@ GARAGE44_NO_SECURITY=1 bun run dev
 GARAGE44_NO_SECURITY=admin bun run dev
 ```
 
-You can also override per-session using:
-- Cookie: `GARAGE44_DEBUG_USER=username`
-- Query parameter: `?debug_user=username`
+You can also override per-session using the URL query parameter: `?debug_user=username`
+Each new browser session cycles through users: admin, alice, bob, charlie, etc.
 
 This automatically authenticates requests and WebSocket connections without requiring login.
 

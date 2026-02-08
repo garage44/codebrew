@@ -31,6 +31,46 @@ const state: PresenceState = {
 export const registerPresenceWebSocket = (wsManager: WebSocketServerManager) => {
     const api = wsManager.api
 
+    /*
+     * Clean up presence when a WebSocket connection closes.
+     * This ensures users who disconnect (or switch via debug_user) don't remain "online".
+     */
+    wsManager.on('connection:close', ({userid}: {userid: string}) => {
+        /*
+         * Check if this user is still connected via another WebSocket
+         * (multiple tabs/windows with same user)
+         */
+        const user = state.users.get(userid)
+        if (!user) return
+
+        // Remove user from all groups
+        for (const [groupId, members] of state.groups.entries()) {
+            if (members.has(userid)) {
+                members.delete(userid)
+                if (members.size === 0) {
+                    state.groups.delete(groupId)
+                }
+
+                // Broadcast leave to all clients
+                wsManager.broadcast(`/presence/${groupId}/leave`, {
+                    groupId,
+                    timestamp: Date.now(),
+                    userId: userid,
+                })
+            }
+        }
+
+        // Remove from user state
+        state.users.delete(userid)
+
+        // Broadcast offline status
+        wsManager.broadcast('/users/presence', {
+            status: 'offline',
+            timestamp: Date.now(),
+            userid,
+        })
+    })
+
     /**
      * User joins a group
      * POST /api/presence/:groupId/join

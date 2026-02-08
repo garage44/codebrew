@@ -135,24 +135,28 @@ const initChatSubscriptions = () => {
 
                 // Ensure user is in global users map for avatar lookup
                 if (userId && username) {
+                    // Normalize userId to prevent duplicates
+                    const normalizedUserId = String(userId).trim()
+                    if (!normalizedUserId) return
+
                     const users = ($s.chat.users || {}) as Record<string, {avatar: string; status?: 'online' | 'offline' | 'busy'; username: string}>
                     if (!$s.chat.users) {
                         $s.chat.users = {}
                     }
                     // Get avatar from channel members if available, or use placeholder
                     const channel = channels[channelKey]
-                    const memberAvatar = channel?.members?.[userId]?.avatar
+                    const memberAvatar = channel?.members?.[normalizedUserId]?.avatar
 
-                    if (!users[userId]) {
-                        users[userId] = {
+                    if (!users[normalizedUserId]) {
+                        users[normalizedUserId] = {
                             avatar: memberAvatar || 'placeholder-1.png',
                             username,
                         }
                     } else {
                         // Update username/avatar if they changed
-                        users[userId].username = username
+                        users[normalizedUserId].username = username
                         if (memberAvatar) {
-                            users[userId].avatar = memberAvatar
+                            users[normalizedUserId].avatar = memberAvatar
                         }
                     }
                 }
@@ -243,10 +247,12 @@ const initPresenceSubscriptions = () => {
 
             // Update presence status in chat.users
             if ($s.chat.users && userId) {
-                const normalizedUserId = String(userId)
-                const users = $s.chat.users as Record<string, {avatar: string; status?: 'online' | 'offline' | 'busy'; username: string}>
-                if (users[normalizedUserId]) {
-                    users[normalizedUserId].status = 'online'
+                const normalizedUserId = String(userId).trim()
+                if (normalizedUserId) {
+                    const users = $s.chat.users as Record<string, {avatar: string; status?: 'online' | 'offline' | 'busy'; username: string}>
+                    if (users[normalizedUserId]) {
+                        users[normalizedUserId].status = 'online'
+                    }
                 }
             }
 
@@ -315,13 +321,15 @@ const initPresenceSubscriptions = () => {
 
             // Update presence status in chat.users (check if user is still in any group)
             if ($s.chat.users && userId) {
-                const normalizedUserId = String(userId)
-                const users = $s.chat.users as Record<string, {avatar: string; status?: 'online' | 'offline' | 'busy'; username: string}>
-                // Note: We don't set offline here because user might be in another group
-                // The presence API will handle this
-                // Access users for type checking
-                if (users[normalizedUserId]) {
-                    // User exists, but we don't update status here
+                const normalizedUserId = String(userId).trim()
+                if (normalizedUserId) {
+                    const users = $s.chat.users as Record<string, {avatar: string; status?: 'online' | 'offline' | 'busy'; username: string}>
+                    // Note: We don't set offline here because user might be in another group
+                    // The presence API will handle this
+                    // Access users for type checking
+                    if (users[normalizedUserId]) {
+                        // User exists, but we don't update status here
+                    }
                 }
             }
 
@@ -358,12 +366,14 @@ const initPresenceSubscriptions = () => {
 
             // Update presence status in chat.users
             if ($s.chat.users && userId) {
-                const normalizedUserId = String(userId)
-                const users = $s.chat.users as Record<string, {avatar: string; status?: 'online' | 'offline' | 'busy'; username: string}>
-                if (users[normalizedUserId]) {
-                    // Update status if provided in the status object
-                    if (status && typeof status === 'object' && 'status' in status) {
-                        users[normalizedUserId].status = status.status as 'online' | 'offline' | 'busy'
+                const normalizedUserId = String(userId).trim()
+                if (normalizedUserId) {
+                    const users = $s.chat.users as Record<string, {avatar: string; status?: 'online' | 'offline' | 'busy'; username: string}>
+                    if (users[normalizedUserId]) {
+                        // Update status if provided in the status object
+                        if (status && typeof status === 'object' && 'status' in status) {
+                            users[normalizedUserId].status = status.status as 'online' | 'offline' | 'busy'
+                        }
                     }
                 }
             }
@@ -383,13 +393,42 @@ const initPresenceSubscriptions = () => {
             const {status, userid, timestamp} = data
 
             if ($s.chat.users && userid) {
-                const normalizedUserId = String(userid)
-                const users = $s.chat.users as Record<string, {avatar: string; status?: 'online' | 'offline' | 'busy'; username: string}>
-                if (users[normalizedUserId]) {
-                    users[normalizedUserId].status = status as 'online' | 'offline' | 'busy'
+                const normalizedUserId = String(userid).trim()
+                if (normalizedUserId) {
+                    const users = $s.chat.users as Record<string, {avatar: string; status?: 'online' | 'offline' | 'busy'; username: string}>
+                    if (users[normalizedUserId]) {
+                        users[normalizedUserId].status = status as 'online' | 'offline' | 'busy'
+                    }
                 }
             }
         })
+
+        // Auto-announce presence when connected
+        // Use a small delay to ensure profile is populated from /api/context
+        setTimeout(() => {
+            announcePresence()
+        }, 500)
+    })
+}
+
+/**
+ * Announce presence to the backend
+ * Called automatically when WebSocket connects
+ */
+const announcePresence = () => {
+    if (!$s.profile.id || !$s.profile.username) {
+        logger.debug('[Presence] Skipping announce: no profile data')
+        return
+    }
+
+    // Announce presence on the global lobby so all users are tracked
+    ws.post('/api/presence/lobby/join', {
+        userId: $s.profile.id,
+        username: $s.profile.username,
+    }).then(() => {
+        logger.debug(`[Presence] Announced presence for ${$s.profile.username}`)
+    }).catch((error) => {
+        logger.warn('[Presence] Error announcing presence:', error)
     })
 }
 

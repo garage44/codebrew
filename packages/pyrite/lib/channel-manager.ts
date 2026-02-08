@@ -289,10 +289,15 @@ export class ChannelManager {
     }
 
     /**
-     * Check if user can access channel (is member)
+     * Check if user can access channel
+     * Channels are public by default - all authenticated users can access them
+     * Membership is still tracked for role/permission purposes
      */
     canAccessChannel(channelId: number, userId: string): boolean {
-        return this.isMember(channelId, userId)
+        // All authenticated users can access channels (public by default)
+        // Membership is still tracked for roles/permissions within channels
+        if (!userId) return false
+        return true
     }
 
     /**

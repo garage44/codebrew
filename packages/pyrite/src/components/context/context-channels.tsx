@@ -142,14 +142,35 @@ export default function ChannelsContext() {
                         // Get all chat users from global users map and deduplicate by ID
                         const chatUsers = $s.chat.users ? Object.entries($s.chat.users) : []
 
-                        // Deduplicate by converting IDs to strings and using a Set
+                        // Normalize and deduplicate by ID (trim whitespace to catch edge cases)
                         const seenIds = new Set<string>()
-                        const uniqueUsers = chatUsers.filter(([userId, _userInfo]) => {
-                            const idStr = String(userId)
+                        const seenUsernames = new Set<string>()
+                        const uniqueUsers = chatUsers.filter(([userId, userInfo]) => {
+                            // Normalize ID
+                            const idStr = String(userId).trim()
+                            if (!idStr) return false
+
+                            // Extract username for fallback deduplication
+                            const user = typeof userInfo === 'object' && userInfo !== null &&
+                                'username' in userInfo ?
+                                userInfo as {username?: string} :
+                                {username: ''}
+                            const username = String(user.username || '').trim().toLowerCase()
+
+                            // Check ID first (primary deduplication)
                             if (seenIds.has(idStr)) {
                                 return false
                             }
+
+                            // Fallback: if same username already seen, skip (prevents duplicates from different ID formats)
+                            if (username && seenUsernames.has(username)) {
+                                return false
+                            }
+
                             seenIds.add(idStr)
+                            if (username) {
+                                seenUsernames.add(username)
+                            }
                             return true
                         })
 

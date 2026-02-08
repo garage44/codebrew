@@ -321,11 +321,18 @@ class WebSocketServerManager extends EventEmitter {
     }
 
     // Handle WebSocket connection close
-    close(ws: WebSocketConnection) {
+    close(ws: WebSocketConnection & {data?: {session?: {userid?: string}}}) {
         logger.debug(`[WS] connection closed: ${this.endpoint}`)
         try {
             devContext.addWs({endpoint: this.endpoint, ts: Date.now(), type: 'close'})
         } catch {}
+
+        // Emit close event with session data for cleanup (e.g., presence)
+        const userid = ws.data?.session?.userid
+        if (userid) {
+            this.emit('connection:close', {userid})
+        }
+
         this.connections.delete(ws)
         this.cleanupSubscriptions(ws)
         // Clean up any other dead connections while we're at it
