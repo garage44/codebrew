@@ -10,15 +10,17 @@ import {useEffect, useMemo, useRef} from 'preact/hooks'
 export function PanelContextSfu() {
     const canvasRef = useRef<HTMLDivElement>(null)
 
-    // Toggle between VideoStrip and VideoCanvas based on panel width
-    // Use VideoStrip when panel width is <= 300px (narrow/collapsed state)
-    // Use VideoCanvas when panel width is > 300px (widened state)
-    // Higher threshold gives more space before canvas view sets in
-    const currentWidth = useMemo(() => $s.panels.context.width || 350, [$s.panels.context.width])
-    const showCanvasLayout = useMemo(() => !$s.panels.context.collapsed && currentWidth > 300, [$s.panels.context.collapsed, currentWidth])
+    /*
+     * Toggle between VideoStrip and VideoCanvas based on panel width
+     * Use VideoStrip when panel width is <= 300px (narrow/collapsed state)
+     * Use VideoCanvas when panel width is > 300px (widened state)
+     * Higher threshold gives more space before canvas view sets in
+     */
+    const currentWidth = useMemo(() => $s.panels.context.width || 350, [])
+    const showCanvasLayout = useMemo(() => !$s.panels.context.collapsed && currentWidth > 300, [currentWidth])
 
     // Fullscreen handler
-    const handleFullscreen = async () => {
+    const handleFullscreen = async() => {
         if (!canvasRef.current) return
 
         // Only allow fullscreen when canvas layout is visible
@@ -37,7 +39,7 @@ export function PanelContextSfu() {
                 $s.panels.context.expanded = true
             }
             store.save()
-        } catch (error) {
+        } catch(error) {
             console.error('Fullscreen error:', error)
         }
     }
@@ -81,60 +83,64 @@ export function PanelContextSfu() {
 
         window.addEventListener('resize', handleResize)
         return () => window.removeEventListener('resize', handleResize)
-    }, [$s.panels.context.collapsed, $s.panels.menu.collapsed, $s.panels.menu.width])
+    }, [])
 
     // Calculate maximum width based on available space
     const maxWidth = calculateAvailableWidth()
 
     return (
-<PanelContext
-    className='c-panel-context-conference'
-    collapsed={$s.panels.context.collapsed}
-    defaultWidth={350}
-    maxWidth={maxWidth}
-    minWidth={160}
-    onWidthChange={(width) => {
-        // Only allow width changes when not collapsed
-        if (!$s.panels.context.collapsed) {
-            // Clamp width to maxWidth to prevent exceeding available space
-            const clampedWidth = Math.min(width, maxWidth)
-            $s.panels.context.width = clampedWidth
-        }
-    }}
-    onWidthChangeEnd={(width) => {
-        // Save to store only when dragging ends (mouse up)
-        // This prevents excessive localStorage writes during smooth dragging
-        if (!$s.panels.context.collapsed) {
-            store.save()
-        }
-    }}
-    width={$s.panels.context.width}
->
-        <ControlsMain key='controls' onCollapseChange={(collapsed) => {
-            if (!collapsed) {
+        <PanelContext
+            className='c-panel-context-conference'
+            collapsed={$s.panels.context.collapsed}
+            defaultWidth={350}
+            maxWidth={maxWidth}
+            minWidth={160}
+            onWidthChange={(width) => {
+                // Only allow width changes when not collapsed
+                if (!$s.panels.context.collapsed) {
+                    // Clamp width to maxWidth to prevent exceeding available space
+                    const clampedWidth = Math.min(width, maxWidth)
+                    $s.panels.context.width = clampedWidth
+                }
+            }}
+            onWidthChangeEnd={(_width) => {
                 /*
-                 * Expanding: Set width to fill available space (100% minus menu and chat min-width)
-                 * Always recalculate to ensure we use current viewport size, not stale localStorage value
+                 * Save to store only when dragging ends (mouse up)
+                 * This prevents excessive localStorage writes during smooth dragging
                  */
-                const availableWidth = calculateAvailableWidth()
-                $s.panels.context.width = availableWidth
-                // Save immediately to update localStorage with correct value
-                store.save()
-            }
-            // Synchronize collapse state: both panels collapse together
-            $s.panels.context.collapsed = collapsed
-            store.save()
-        }} onFullscreen={handleFullscreen} />
-        {$s.env.url.includes('/devices') ? (
-            <DeviceSettings key='devices' />
-        ) : (
+                if (!$s.panels.context.collapsed) {
+                    store.save()
+                }
+            }}
+            width={$s.panels.context.width}
+        >
+            <ControlsMain
+                key='controls'
+                onCollapseChange={(collapsed) => {
+                    if (!collapsed) {
+                        /*
+                         * Expanding: Set width to fill available space (100% minus menu and chat min-width)
+                         * Always recalculate to ensure we use current viewport size, not stale localStorage value
+                         */
+                        const availableWidth = calculateAvailableWidth()
+                        $s.panels.context.width = availableWidth
+                        // Save immediately to update localStorage with correct value
+                        store.save()
+                    }
+                    // Synchronize collapse state: both panels collapse together
+                    $s.panels.context.collapsed = collapsed
+                    store.save()
+                }}
+                onFullscreen={handleFullscreen}
+            />
+            {$s.env.url.includes('/devices') ?
+                <DeviceSettings key='devices' /> :
                 <>
-                <VideoStrip key='video-strip' className={showCanvasLayout ? 'hidden' : ''} />
-                <div ref={canvasRef} class='canvas-fullscreen-container'>
-                    <VideoCanvas key='video-canvas' className={!showCanvasLayout ? 'hidden' : ''} />
-                </div>
-            </>
-        )}
-</PanelContext>
+                    <VideoStrip className={showCanvasLayout ? 'hidden' : ''} key='video-strip' />
+                    <div class='canvas-fullscreen-container' ref={canvasRef}>
+                        <VideoCanvas className={showCanvasLayout ? '' : 'hidden'} key='video-canvas' />
+                    </div>
+                </>}
+        </PanelContext>
     )
 }

@@ -99,12 +99,13 @@
 
     /* Small screen styles - overlay when expanded, stay in flow when collapsed */
     @media (max-width: 1024px) {
+
         &:not(.collapsed) {
+            box-shadow: -4px 0 12px oklch(0 0 0 / 0.15);
             position: fixed;
             right: 0;
             top: 0;
             z-index: 1001;
-            box-shadow: -4px 0 12px oklch(0 0 0 / 0.15);
         }
 
         &.collapsed {
@@ -115,6 +116,7 @@
 
     /* Hide collapse toggle on mobile - mobile controls handle this */
     @media (max-width: 768px) {
+
         .c-button.variant-toggle {
             display: none;
         }

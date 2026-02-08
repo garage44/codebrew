@@ -5,7 +5,7 @@ import {useState, useEffect, useRef} from 'preact/hooks'
 import {signal, type Signal} from '@preact/signals'
 import {effect} from '@preact/signals'
 import {$s} from '@/app'
-import {$t} from '@garage44/common/app'
+import {$t, store} from '@garage44/common/app'
 import {getUserMedia, queryDevices, localStream} from '@/models/media'
 import * as sfu from '@/models/sfu/sfu'
 
@@ -71,7 +71,7 @@ export default function TabDevices() {
     }, [])
 
     const remountStream = async() => {
-        const newStream = await getUserMedia($s.sfu.profile)
+        const newStream = await getUserMedia($s.devices)
         if (newStream) {
             setStream(newStream)
             setStreamId(newStream.id)
@@ -160,6 +160,7 @@ export default function TabDevices() {
                             undefined
                         if (selectedOption) {
                             $s.devices.cam.selected = selectedOption
+                            store.save()
                         }
                     }}
                     options={Array.isArray($s.devices.cam.options) ?
@@ -192,6 +193,7 @@ export default function TabDevices() {
                         undefined
                     if (selectedOption) {
                         $s.devices.mic.selected = selectedOption
+                        store.save()
                     }
                 }}
                 options={Array.isArray($s.devices.mic.options) ?
@@ -217,6 +219,7 @@ export default function TabDevices() {
                                 undefined
                             if (selectedOption) {
                                 $s.devices.audio.selected = selectedOption
+                                store.save()
                             }
                         }}
                         options={Array.isArray($s.devices.audio.options) ?

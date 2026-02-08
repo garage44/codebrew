@@ -36,7 +36,7 @@ export const GroupControls = () => {
     const toggleCam = (event?: MouseEvent) => {
         console.log('[GroupControls] toggleCam CLICKED', event)
         logger.info('[GroupControls] ===== VIDEO BUTTON CLICKED =====')
-        
+
         const newState = !$s.devices.cam.enabled
         $s.devices.cam.enabled = newState
         logger.info(`[GroupControls] toggleCam: ${newState ? 'enabling' : 'disabling'} camera`)
@@ -45,7 +45,7 @@ export const GroupControls = () => {
         // Sync channel state if channel is connected
         const currentChannelSlug = $s.chat.activeChannelSlug
         logger.info(`[GroupControls] currentChannelSlug=${currentChannelSlug}, connected=${$s.sfu.channel.connected}`)
-        
+
         if (currentChannelSlug && $s.sfu.channels[currentChannelSlug]) {
             $s.sfu.channels[currentChannelSlug].video = newState
         }

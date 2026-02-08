@@ -48,13 +48,13 @@ export const Main = () => {
 
                 if (userChanged) {
                     logger.info(`[Main] User changed from ${previousUserId} to ${currentUserId}, resetting connections`)
-                    
+
                     // Close old WebSocket connection to clean up presence for old user
                     ws.close()
-                    
+
                     // Disconnect from SFU and reset connection state
                     const {removeLocalStream} = await import('@/models/media')
-                    
+
                     // Close SFU connection if connected
                     if ($s.sfu.channel.connected) {
                         logger.info('[Main] Disconnecting from SFU due to user change')
@@ -66,22 +66,22 @@ export const Main = () => {
                         $s.sfu.channel.connected = false
                         $s.sfu.channel.name = ''
                     }
-                    
+
                     // Remove local media streams
                     removeLocalStream()
-                    
+
                     // Clear streams
                     $s.streams = []
                     $s.users = []
-                    
+
                     // Reset device states - video/mic should be off after user switch
                     // User must explicitly enable them via button
                     $s.devices.cam.enabled = false
                     $s.devices.mic.enabled = false
-                    
+
                     // Small delay to ensure cleanup completes
                     await new Promise((resolve) => setTimeout(resolve, 200))
-                    
+
                     logger.info(`[Main] Reset complete, video/mic disabled - user must enable via button`)
                 }
 

@@ -29,6 +29,7 @@
         }
 
         /* Screen share streams are larger and more prominent */
+
         &.is-screenshare {
             border: 3px solid var(--primary-5);
             border-radius: var(--border-radius-d);
@@ -87,6 +88,7 @@
 }
 
 @keyframes show {
+
     from {
         opacity: 0;
         transform: scale(0.9);

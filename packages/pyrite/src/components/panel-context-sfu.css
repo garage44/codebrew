@@ -29,6 +29,7 @@
 }
 
 /* Fullscreen container for canvas view */
+
 .canvas-fullscreen-container {
     display: flex;
     flex: 1;

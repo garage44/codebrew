@@ -11,8 +11,8 @@
 
     .navigational-controls {
         display: flex;
-        flex-direction: column;
         flex: 1;
+        flex-direction: column;
         gap: var(--spacer-1);
         justify-content: flex-start;
         margin-left: calc(-1 * var(--spacer-1));
@@ -28,6 +28,7 @@
     }
 
     /* Remove left margin from buttons - they should align to the left edge */
+
     .c-button.variant-toggle {
         margin-left: 0;
         margin-right: 0;

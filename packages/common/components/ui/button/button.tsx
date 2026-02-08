@@ -114,14 +114,14 @@ export function Button({
     const handleClick = (event: MouseEvent) => {
         // Store onClick reference at call time to prevent issues with re-renders
         const currentOnClick = onClick
-        
+
         if (disabled) {
             console.log('[Button] Click ignored - button is disabled')
             return
         }
 
         console.log('[Button] handleClick called, onClick exists:', !!currentOnClick, 'onClick type:', typeof currentOnClick, 'context:', !!context)
-        console.log('[Button] onClick function:', currentOnClick?.toString().substring(0, 100))
+        console.log('[Button] onClick function:', currentOnClick?.toString().slice(0, 100))
 
         // Handle context menu
         if (context && !contextTriggered) {
