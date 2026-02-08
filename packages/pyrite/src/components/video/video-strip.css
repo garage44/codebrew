@@ -1,12 +1,13 @@
 .c-video-strip {
+    box-sizing: border-box;
     display: flex;
     flex: 1;
     flex-direction: column;
     gap: var(--spacer-1);
     min-width: 0;
+    overflow-x: hidden;
     overflow-y: auto;
     transition: all 0.3s ease;
-    width: 100%;
 
     .video-strip-item {
         aspect-ratio: 4 / 3;

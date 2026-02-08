@@ -9,10 +9,11 @@ import * as media from '@/models/media'
 import * as sfu from '@/models/sfu/sfu'
 
 interface ControlsMainProps {
+    onCollapseChange?: (collapsed: boolean) => void
     path?: string
 }
 
-export function ControlsMain({path: _path}: ControlsMainProps) {
+export function ControlsMain({onCollapseChange, path: _path}: ControlsMainProps) {
     // DeepSignal is reactive - accessing $s properties makes components reactive automatically
     const currentGroupData = useMemo(() => currentGroup(), [])
 
@@ -159,6 +160,17 @@ export function ControlsMain({path: _path}: ControlsMainProps) {
                     variant='toggle'
                 />}
         </div>
+
+        {/* Collapse button at the bottom */}
+        {onCollapseChange &&
+            <Button
+                icon={$s.panels.context.collapsed ? 'chevron_left' : 'chevron_right'}
+                onClick={() => onCollapseChange(!$s.panels.context.collapsed)}
+                size='s'
+                tip={$s.panels.context.collapsed ? 'Expand panel' : 'Collapse panel'}
+                type='info'
+                variant='toggle'
+            />}
 </nav>
     )
 }

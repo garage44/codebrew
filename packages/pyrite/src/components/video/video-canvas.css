@@ -1,15 +1,17 @@
 .c-video-canvas {
     align-content: center;
     align-items: center;
+    box-sizing: border-box;
     display: flex;
     flex: 1;
     flex-wrap: wrap;
     gap: var(--stream-margin);
     justify-content: center;
     min-height: 0;
+    min-width: 0;
+    overflow: hidden;
     position: relative;
     transition: all 0.3s ease;
-    width: 100%;
 
     .video-canvas-item {
         transition: transform 0.2s ease;
@@ -42,10 +44,12 @@
         background: var(--surface-1);
         border: 2px dashed var(--surface-4);
         border-radius: var(--border-radius-xl);
+        box-sizing: border-box;
         display: flex;
-        height: 100%;
+        height: calc(100% - var(--spacer-4));
         justify-content: center;
         margin: var(--spacer-2);
+        max-width: 100%;
         width: calc(100% - var(--spacer-4));
 
         .placeholder-content {
