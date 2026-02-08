@@ -53,6 +53,12 @@ export default function TabDevices() {
             }
         }
 
+        // Initial sync - read current values immediately
+        updateCamId()
+        updateMicId()
+        updateAudioId()
+
+        // Watch for changes
         const unsubscribeCam = effect(() => {
             updateCamId()
         })
@@ -106,6 +112,12 @@ export default function TabDevices() {
     useEffect(() => {
         const init = async() => {
             await queryDevices()
+            // After queryDevices completes, ensure signals are synced with restored state
+            const micSelected = $s.devices.mic.selected
+            const micId = typeof micSelected === 'object' && micSelected !== null && 'id' in micSelected ? String(micSelected.id || '') : ''
+            if (micIdSignalRef.current.value !== micId) {
+                micIdSignalRef.current.value = micId
+            }
             setSoundAudio(new Sound({file: '/audio/power-on.ogg', playing: false}))
 
             /*

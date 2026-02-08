@@ -1,5 +1,5 @@
 import {$s} from '@/app'
-import {logger, notifier, $t} from '@garage44/common/app'
+import {logger, notifier, $t, store} from '@garage44/common/app'
 import * as sfu from './sfu/sfu.ts'
 
 export let localStream
@@ -682,6 +682,19 @@ export async function getUserMedia(presence) {
 export async function queryDevices() {
     logger.info('querying for devices')
     
+    // Save current selections BEFORE clearing options (for restoration after enumeration)
+    const savedMicSelection = $s.devices.mic.selected && $s.devices.mic.selected.id !== null && $s.devices.mic.selected.id !== ''
+        ? {id: String($s.devices.mic.selected.id), name: String($s.devices.mic.selected.name || '')}
+        : null
+    const savedCamSelection = $s.devices.cam.selected && $s.devices.cam.selected.id !== null && $s.devices.cam.selected.id !== '' && $s.devices.cam.selected.id !== '__fake_stream__'
+        ? {id: String($s.devices.cam.selected.id), name: String($s.devices.cam.selected.name || '')}
+        : null
+    const savedAudioSelection = !$s.env.isFirefox && $s.devices.audio.selected && $s.devices.audio.selected.id !== null && $s.devices.audio.selected.id !== ''
+        ? {id: String($s.devices.audio.selected.id), name: String($s.devices.audio.selected.name || '')}
+        : null
+    
+    logger.debug(`[media] Preserved selections before enumeration: mic=${savedMicSelection?.id || 'none'}, cam=${savedCamSelection?.id || 'none'}, audio=${savedAudioSelection?.id || 'none'}`)
+    
     // Initialize options arrays
     $s.devices.mic.options = []
     $s.devices.cam.options = []
@@ -758,9 +771,10 @@ export async function queryDevices() {
             $s.devices.cam.options.push({id: device.deviceId ? device.deviceId : name, name})
             labelnr.cam++
         } else if (device.kind === 'audioinput') {
-            // Skip devices without deviceId (invalid devices)
-            if (!device.deviceId) {
-                logger.warn(`[media] Skipping microphone device without deviceId`)
+            // Chrome: Skip devices with empty deviceId (happens before permissions are granted)
+            // After permissions, Chrome provides actual device IDs
+            if (!device.deviceId || device.deviceId.trim() === '') {
+                logger.debug(`[media] Skipping microphone device with empty deviceId (permissions may not be granted yet)`)
                 continue
             }
             // Provide fallback name if label is empty (happens when permissions not granted)
@@ -786,6 +800,138 @@ export async function queryDevices() {
     const audioCount = $s.devices.audio.options.length
     
     logger.info(`[media] Device list updated: ${camCount} cameras, ${micCount} microphones, ${audioCount} audio outputs`)
+    
+    // Restore saved device selections from persistent state
+    // Match saved device IDs with newly populated options to restore full device objects
+    // This ensures that device selections persist across page reloads and device enumeration
+    let deviceRestored = false
+    
+    // Restore microphone selection using the preserved selection from before options were cleared
+    // Chrome may have different device ID formats or require special handling
+    const savedMicId = savedMicSelection ? String(savedMicSelection.id) : null
+    const savedMicName = savedMicSelection && savedMicSelection.name ? String(savedMicSelection.name).trim() : null
+    
+    logger.info(`[media] Restoring microphone: savedId="${savedMicId}", savedName="${savedMicName || 'none'}", optionsCount=${$s.devices.mic.options.length}`)
+    if ($s.devices.mic.options.length > 0) {
+        logger.info(`[media] Available microphone options:`, $s.devices.mic.options.map(opt => `"${opt.name}" (${opt.id})`).join(', '))
+    } else {
+        logger.warn(`[media] No microphone options available for restoration`)
+    }
+    
+    if (savedMicId && savedMicId !== 'null' && savedMicId !== 'undefined') {
+        // Try exact match first
+        let matchingMic = Array.isArray($s.devices.mic.options) && $s.devices.mic.options.length > 0
+            ? $s.devices.mic.options.find((opt) => {
+                const optId = String(opt.id || '').trim()
+                const savedId = String(savedMicId).trim()
+                return optId === savedId && optId !== ''
+            })
+            : undefined
+        
+        if (matchingMic) {
+            logger.info(`[media] Found microphone by exact ID match: ${matchingMic.name} (${matchingMic.id})`)
+        }
+        
+        // Chrome: If exact match fails, try matching by name (device IDs can change in Chrome)
+        if (!matchingMic && savedMicName && savedMicName !== '' && $s.devices.mic.options.length > 0) {
+            logger.info(`[media] Exact ID match failed, trying name match: "${savedMicName}"`)
+            // Try exact name match first
+            matchingMic = $s.devices.mic.options.find((opt) => {
+                const optName = String(opt.name || '').trim()
+                return optName === savedMicName && optName !== ''
+            })
+            
+            // If exact name match fails, try partial match (Chrome might add prefixes/suffixes)
+            if (!matchingMic) {
+                logger.debug(`[media] Exact name match failed, trying partial match`)
+                matchingMic = $s.devices.mic.options.find((opt) => {
+                    const optName = String(opt.name || '').trim().toLowerCase()
+                    const savedName = savedMicName.toLowerCase()
+                    // Check if saved name is contained in option name or vice versa
+                    return optName.includes(savedName) || savedName.includes(optName)
+                })
+            }
+            
+            if (matchingMic) {
+                logger.info(`[media] Found microphone by name match: ${matchingMic.name} (${matchingMic.id})`)
+            } else {
+                logger.warn(`[media] Name match also failed for "${savedMicName}"`)
+            }
+        }
+        
+        if (matchingMic) {
+            // Restore full device object with updated name
+            $s.devices.mic.selected = matchingMic
+            deviceRestored = true
+            logger.info(`[media] ✅ Restored saved microphone selection: ${matchingMic.name} (${matchingMic.id})`)
+        } else {
+            // Saved device not found - log detailed info for debugging
+            logger.warn(`[media] ⚠️ Saved microphone device not found: id="${savedMicId}", name="${savedMicName}"`)
+            logger.warn(`[media] Available device IDs:`, $s.devices.mic.options.map(opt => `"${opt.id}"`).join(', '))
+            logger.warn(`[media] Available device names:`, $s.devices.mic.options.map(opt => `"${opt.name}"`).join(', '))
+            
+            // Only set default if we have options AND the saved selection is clearly invalid
+            // Don't overwrite a valid saved selection that just doesn't match (might be timing issue)
+            // But if we have no saved ID or it's clearly invalid, set default
+            if ((!savedMicId || savedMicId === 'null' || savedMicId === 'undefined') && $s.devices.mic.options.length > 0) {
+                $s.devices.mic.selected = $s.devices.mic.options[0]
+                deviceRestored = true
+                logger.info(`[media] Invalid saved ID, set default microphone: ${$s.devices.mic.options[0].name} (${$s.devices.mic.options[0].id})`)
+            } else {
+                // Keep the saved selection even if not found - might be a timing issue
+                // The UI will show it as selected even if not in current options
+                logger.info(`[media] Keeping saved selection (device may appear later or IDs changed): ${savedMicName || savedMicId}`)
+            }
+        }
+    } else {
+        // No saved selection - only set default if truly no selection exists
+        if (!savedMicId || savedMicId === 'null' || savedMicId === 'undefined' || savedMicId === '') {
+            if (Array.isArray($s.devices.mic.options) && $s.devices.mic.options.length > 0) {
+                $s.devices.mic.selected = $s.devices.mic.options[0]
+                deviceRestored = true
+                logger.info(`[media] No saved microphone selection, set default: ${$s.devices.mic.options[0].name} (${$s.devices.mic.options[0].id})`)
+            } else {
+                // No devices available - ensure selection is cleared
+                $s.devices.mic.selected = {id: null, name: ''}
+                logger.debug(`[media] No microphone devices available`)
+            }
+        }
+    }
+    
+    // Restore camera selection using preserved selection
+    if (savedCamSelection) {
+        const matchingCam = $s.devices.cam.options.find((opt) => String(opt.id) === savedCamSelection.id)
+        if (matchingCam) {
+            // Restore full device object with updated name
+            $s.devices.cam.selected = matchingCam
+            deviceRestored = true
+            logger.debug(`[media] Restored saved camera selection: ${matchingCam.name} (${matchingCam.id})`)
+        } else {
+            // Saved device no longer exists - clear selection
+            logger.debug(`[media] Saved camera device (${savedCamSelection.id}) no longer available, clearing selection`)
+            $s.devices.cam.selected = {id: null, name: ''}
+        }
+    }
+    
+    // Restore audio output selection using preserved selection
+    if (!$s.env.isFirefox && savedAudioSelection) {
+        const matchingAudio = $s.devices.audio.options.find((opt) => String(opt.id) === savedAudioSelection.id)
+        if (matchingAudio) {
+            // Restore full device object with updated name
+            $s.devices.audio.selected = matchingAudio
+            deviceRestored = true
+            logger.debug(`[media] Restored saved audio output selection: ${matchingAudio.name} (${matchingAudio.id})`)
+        } else {
+            // Saved device no longer exists - clear selection
+            logger.debug(`[media] Saved audio output device (${savedAudioSelection.id}) no longer available, clearing selection`)
+            $s.devices.audio.selected = {id: null, name: ''}
+        }
+    }
+    
+    // Save restored device selections to ensure they persist
+    if (deviceRestored) {
+        store.save()
+    }
     
     // Warn if no microphone devices found (likely permissions issue)
     if (micCount === 0 && devices.length > 0) {
@@ -848,9 +994,20 @@ export function setDefaultDevice(useFirstAvailable = true) {
     for (const key of Object.keys($s.devices)) {
         if (key === 'audio' && $s.env.isFirefox) continue
 
+        // Only set default if device is invalid or null
+        // Don't overwrite valid restored selections
+        // For mic specifically, be more careful - don't overwrite if there's a saved selection
         if (invalidDevices[key] || $s.devices[key].selected.id === null) {
+            // Special handling for microphone: if there's a saved ID but device not found,
+            // don't automatically overwrite it (might be a timing issue)
+            if (key === 'mic' && $s.devices.mic.selected.id !== null && $s.devices.mic.selected.id !== '') {
+                logger.debug(`[media] Skipping default device for mic - has saved selection: ${$s.devices.mic.selected.id}`)
+                continue
+            }
+            
             if (useFirstAvailable && $s.devices[key].options.length) {
                 $s.devices[key].selected = $s.devices[key].options[0]
+                logger.debug(`[media] Set default ${key} device: ${$s.devices[key].options[0].name}`)
             } else {
                 $s.devices[key].selected = emptyOption
             }

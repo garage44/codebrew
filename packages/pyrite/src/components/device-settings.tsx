@@ -47,6 +47,7 @@ export function DeviceSettings() {
             const id = typeof selected === 'object' && selected !== null && 'id' in selected ? String(selected.id || '') : ''
             if (micIdSignalRef.current.value !== id) {
                 micIdSignalRef.current.value = id
+                logger.debug(`[DeviceSettings] Updated mic signal to: ${id}`)
             }
         }
         const updateAudioId = () => {
@@ -57,6 +58,12 @@ export function DeviceSettings() {
             }
         }
 
+        // Initial sync - read current values immediately
+        updateCamId()
+        updateMicId()
+        updateAudioId()
+
+        // Watch for changes
         const unsubscribeCam = effect(() => {
             updateCamId()
         })
@@ -139,6 +146,14 @@ export function DeviceSettings() {
         const init = async() => {
             try {
                 await queryDevices()
+                // After queryDevices completes, ensure signals are synced with restored state
+                // This handles the case where restoration happened during queryDevices
+                const micSelected = $s.devices.mic.selected
+                const micId = typeof micSelected === 'object' && micSelected !== null && 'id' in micSelected ? String(micSelected.id || '') : ''
+                if (micIdSignalRef.current.value !== micId) {
+                    micIdSignalRef.current.value = micId
+                    logger.debug(`[DeviceSettings] Synced mic signal after queryDevices: ${micId}`)
+                }
             } catch (error) {
                 logger.error(`[DeviceSettings] Failed to query devices: ${error}`)
                 // Continue anyway - fake stream option will be available
