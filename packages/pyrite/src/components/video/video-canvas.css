@@ -13,6 +13,10 @@
     position: relative;
     transition: all 0.3s ease;
 
+    &.hidden {
+        display: none;
+    }
+
     .video-canvas-item {
         transition: transform 0.2s ease;
 

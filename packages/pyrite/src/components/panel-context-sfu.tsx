@@ -87,7 +87,14 @@ export function PanelContextSfu() {
             $s.panels.context.collapsed = collapsed
             store.save()
         }} />
-        {$s.env.url.includes('/devices') ? <DeviceSettings key='devices' /> : showCanvasLayout ? <VideoCanvas key='video-canvas' /> : <VideoStrip key='video-strip' />}
+        {$s.env.url.includes('/devices') ? (
+            <DeviceSettings key='devices' />
+        ) : (
+            <>
+                <VideoStrip key='video-strip' className={showCanvasLayout ? 'hidden' : ''} />
+                <VideoCanvas key='video-canvas' className={!showCanvasLayout ? 'hidden' : ''} />
+            </>
+        )}
 </PanelContext>
     )
 }

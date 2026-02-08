@@ -7,6 +7,7 @@ import classnames from 'classnames'
 import {connection} from '@/models/sfu/sfu'
 
 interface VideoCanvasProps {
+    className?: string
     streams?: Array<{[key: string]: unknown; id: string; username: string}>
 }
 
@@ -16,7 +17,7 @@ interface VideoCanvasProps {
  * Displays video streams in a grid layout optimized for expanded panel display.
  * Similar to Group component but designed for panel context.
  */
-export const VideoCanvas = ({streams}: VideoCanvasProps) => {
+export const VideoCanvas = ({className, streams}: VideoCanvasProps) => {
     const viewRef = useRef<HTMLDivElement>(null)
     const resizeObserverRef = useRef<ResizeObserver | null>(null)
 
@@ -124,7 +125,7 @@ export const VideoCanvas = ({streams}: VideoCanvasProps) => {
     }, [calcLayout])
 
     return (
-        <div class='c-video-canvas' ref={viewRef}>
+        <div class={classnames('c-video-canvas', className)} ref={viewRef}>
             {sortedStreams.map((description, index) => {
                 const isScreenShareStream = isScreenShare(description.id)
                 return <div
@@ -132,6 +133,7 @@ export const VideoCanvas = ({streams}: VideoCanvasProps) => {
                     key={description.id || index}
                 >
                     <Stream
+                        key={description.id}
                         modelValue={sortedStreams[index]}
                         onUpdate={handleStreamUpdate}
                     />

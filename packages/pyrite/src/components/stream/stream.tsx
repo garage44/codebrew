@@ -106,7 +106,8 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
             }
 
             // Set srcObject if stream is available (like original Galène line 2089-2090)
-            if (glnStream.stream && mediaRef.current.srcObject !== glnStream.stream) {
+            // Also handle remount case: if srcObject is null but stream exists, set it up
+            if (glnStream.stream && (mediaRef.current.srcObject !== glnStream.stream || !mediaRef.current.srcObject)) {
                 logger.debug(`[Stream] Setting srcObject for stream ${modelValue.id}, tracks: ${glnStream.stream.getTracks().length}`)
                 setStream(glnStream.stream)
                 mediaRef.current.srcObject = glnStream.stream
@@ -120,6 +121,23 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
                         logger.debug(`[Stream] Track ${track.kind} state: ${track.readyState} for stream ${modelValue.id}`)
                     }
                 })
+
+                // If ICE is already connected, try to play immediately (handles remount case)
+                if (glnStream.pc && (glnStream.pc.iceConnectionState === 'connected' || glnStream.pc.iceConnectionState === 'completed')) {
+                    requestAnimationFrame(() => {
+                        if (mediaRef.current && glnStream.stream && mediaRef.current.srcObject) {
+                            playStream().catch((error) => {
+                                const errorMessage = error instanceof Error ? error.message : String(error)
+                                // Don't log autoplay errors - they're expected
+                                if (!errorMessage.includes('user didn\'t interact') &&
+                                    !errorMessage.includes('autoplay') &&
+                                    !errorMessage.includes('user interaction')) {
+                                    logger.debug(`[Stream] play failed after setupMedia (will retry): ${error}`)
+                                }
+                            })
+                        }
+                    })
+                }
             } else if (!glnStream.stream) {
                 logger.debug(`[Stream] Stream ${modelValue.id} has no MediaStream yet (tracks may not have arrived)`)
             }

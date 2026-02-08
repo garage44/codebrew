@@ -6,6 +6,7 @@ import classnames from 'classnames'
 import {connection} from '@/models/sfu/sfu'
 
 interface VideoStripProps {
+    className?: string
     streams?: Array<{[key: string]: unknown; id: string; username: string}>
 }
 
@@ -15,7 +16,7 @@ interface VideoStripProps {
  * Displays video streams in a single vertical column layout.
  * Optimized for right-side panel display.
  */
-export const VideoStrip = ({streams}: VideoStripProps) => {
+export const VideoStrip = ({className, streams}: VideoStripProps) => {
     // Helper to check if stream is a screen share
     const isScreenShare = useCallback((streamId: string) => {
         // Check if it's in upMedia.screenshare (upstream)
@@ -57,7 +58,7 @@ export const VideoStrip = ({streams}: VideoStripProps) => {
     const placeholderCount = 3
 
     return (
-        <div class='c-video-strip'>
+        <div class={classnames('c-video-strip', className)}>
             {sortedStreams.length > 0 ?
                     sortedStreams.map((description, index) => {
                         const isScreenShareStream = isScreenShare(description.id)
@@ -70,6 +71,7 @@ export const VideoStrip = ({streams}: VideoStripProps) => {
                                 key={description.id || index}
                             >
                             <Stream
+                                key={description.id}
                                 modelValue={sortedStreams[index]}
                                 onUpdate={handleStreamUpdate}
                             />

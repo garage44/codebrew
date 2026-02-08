@@ -9,6 +9,10 @@
     overflow-y: auto;
     transition: all 0.3s ease;
 
+    &.hidden {
+        display: none;
+    }
+
     .video-strip-item {
         aspect-ratio: 4 / 3;
         flex-shrink: 0;
