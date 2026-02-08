@@ -725,46 +725,46 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
                             streamId={stream.id}
                         />}
 
-                    {audioEnabled && modelValue.direction === 'down' &&
-                        <div class='volume-slider'>
-                            <FieldSlider
-                                IconComponent={Icon}
-                                onChange={handleVolumeChange}
-                                value={{locked: modelValue.volume?.locked ?? null, value: modelValue.volume?.value || 100}}
-                            />
-                        </div>}
-
                     <div class={classnames('user', {'has-audio': audioEnabled})}>
                         {modelValue.username}
                     </div>
                 </div>}
 
             <div class={classnames('stream-options', {active: bar.active})}>
+                    {audioEnabled && modelValue.direction === 'down' &&
+                    <div class='volume-slider'>
+                        <FieldSlider
+                            IconComponent={Icon}
+                            onChange={handleVolumeChange}
+                            value={{locked: modelValue.volume?.locked ?? null, value: modelValue.volume?.value ?? 100}}
+                        />
+                    </div>}
+
                 {pip.enabled &&
                     <Button
-                        icon='Pip'
+                        icon='pip'
                         onClick={setPipMode}
                         size='s'
                         tip={$t('stream.pip')}
-                        variant='menu'
+                        variant='toggle'
                     />}
 
                 <Button
-                    icon='Fullscreen'
+                    icon='fullscreen'
                     onClick={setFullscreen}
                     size='s'
                     tip={$t('stream.fullscreen')}
-                    variant='menu'
+                    variant='toggle'
                 />
 
                 {hasSettings &&
                     <Button
                         active={stats.visible}
-                        icon='Info'
+                        icon='info'
                         onClick={toggleStats}
                         size='s'
                         tip={$t('stream.info')}
-                        variant='menu'
+                        variant='toggle'
                     />}
             </div>
         </div>

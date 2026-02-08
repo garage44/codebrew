@@ -94,7 +94,7 @@ function createFakeStream(options: {video?: boolean; audio?: boolean; width?: nu
             // Use the smaller dimension as reference to ensure circles fit
             const minDimension = Math.min(w, h)
             const scaleFactor = minDimension / 480 // Normalize to 480px reference
-            
+
             // Maximum radius ensuring circles fit with padding
             // Account for: stroke line width (max ~6px), gradient extension (10%), and padding
             const maxLineWidth = 2.5 + 3.5 // Maximum line width (base + audio max)
@@ -111,10 +111,10 @@ function createFakeStream(options: {video?: boolean; audio?: boolean; width?: nu
                 const audioPulse = audioLevel * 30 * scaleFactor * (1 + Math.sin(time * 2 + i))
                 const timeOscillation = Math.sin(time + i) * 20 * scaleFactor
                 const radius = baseRadius + audioPulse + timeOscillation
-                
+
                 // Calculate line width first (needed for proper clamping)
                 const lineWidth = 2.5 + audioLevel * 3.5 // Thicker lines with more audio
-                
+
                 // Clamp radius accounting for stroke width (stroke extends lineWidth/2 beyond radius)
                 // Also account for gradient extension (10% beyond radius)
                 const maxEffectiveRadius = maxRadius - lineWidth / 2
@@ -125,7 +125,7 @@ function createFakeStream(options: {video?: boolean; audio?: boolean; width?: nu
                 const baseHue = 230 + i * 5 // Start at theme primary blue (230), subtle shift per circle
                 const hueVariation = Math.sin(time * 0.5 + i) * 10 // Subtle hue animation
                 const hue = (baseHue + hueVariation + audioLevel * 15) % 360
-                
+
                 // Saturation and lightness matching theme primary colors
                 // Theme uses chroma 0.06-0.08 and lightness 0.4-0.6 for primary colors
                 const saturation = 55 + audioLevel * 30 // 55-85% saturation (matches theme chroma)
@@ -139,14 +139,14 @@ function createFakeStream(options: {video?: boolean; audio?: boolean; width?: nu
                     centerX, centerY, clampedRadius * 0.7, // Inner circle (gradient start)
                     centerX, centerY, gradientOuterRadius    // Outer circle (gradient end, clamped)
                 )
-                
+
                 // Inner color (brighter, more saturated)
                 const innerHue = (hue + 10) % 360
                 gradient.addColorStop(0, `hsl(${innerHue}, ${saturation}%, ${lightness + 10}%)`)
-                
+
                 // Middle color (main color)
                 gradient.addColorStop(0.5, `hsl(${hue}, ${saturation}%, ${lightness}%)`)
-                
+
                 // Outer color (darker, less saturated)
                 const outerHue = (hue - 10 + 360) % 360
                 gradient.addColorStop(1, `hsl(${outerHue}, ${saturation * 0.6}%, ${lightness - 15}%)`)

@@ -144,13 +144,15 @@
             border: none;
             height: var(--spacer-6);
             margin: 0;
+            margin-inline-end: var(--spacer-1);
             width: 8px;
         }
 
         .volume-slider {
+            margin: 0;
 
             .track {
-                background: none;
+                background: var(--surface-2);
             }
         }
 
@@ -172,9 +174,11 @@
     }
 
     .stream-options {
+        align-items: center;
         background: var(--bg-tertiary);
         bottom: 0;
         display: flex;
+        gap: var(--spacer-1);
         position: absolute;
         right: 0;
         transform: translateY(var(--spacer-6));
@@ -183,6 +187,11 @@
         button {
             color: var(--bg-primary);
             cursor: pointer;
+        }
+
+        .volume-slider {
+            height: var(--spacer-6);
+            margin: 0;
         }
 
         &.active {
