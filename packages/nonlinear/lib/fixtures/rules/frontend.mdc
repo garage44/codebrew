@@ -711,35 +711,11 @@ const BadList = () => {
 - Check signal updates in browser console
 - Validate translation data flow in real-time
 
-## Code Style and ESLint Compliance
+## Code Style
 
-**🚨 CRITICAL: See `@linting.mdc` for complete linting requirements.**
+**See `@linting.mdc` for linting workflow and TypeScript fix strategy.**
 
-**All code must pass ESLint checks before committing.**
-
-### Before Committing
-
-Always run lint checks and fix any errors before committing:
-
-```bash
-# Check TypeScript/TSX files
-bun run lint:ts
-
-# Check CSS files (if CSS was modified)
-bun run lint:css
-```
-
-**Auto-fixing:**
-- Many formatting issues can be auto-fixed: `bun run lint:ts --fix`
-- Always verify auto-fixes don't break functionality
-- Fix any remaining errors manually according to ESLint output
-
-**ESLint configuration:**
-- Rules are defined in `eslint.config.js` at the workspace root
-- Follow ESLint error messages to fix code style issues
-- Do not commit code with linting errors
-
-**For detailed linting rules and workflow, see `@linting.mdc`.**
+Linting is handled automatically by hooks - no manual linting needed during development.
 
 ## Common Anti-patterns
 
@@ -761,7 +737,6 @@ bun run lint:css
 - Create utility CSS classes - create components instead
 - Pass non-signal values to Field model props
 - Forget to pass validation prop to Field components
-- Commit code without running lint checks
 
 ✅ **Do:**
 - Define deepSignal state OUTSIDE components for shared state, or use useRef for per-instance state
@@ -781,4 +756,3 @@ bun run lint:css
 - Use modern CSS nesting in component CSS files
 - Extract reusable patterns as components, not utility classes
 - Keep useEffect dependencies minimal and stable
-- Always run `bun run lint:ts` and `bun run lint:css` before committing

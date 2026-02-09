@@ -34,32 +34,11 @@ packages/
 └── common/            # Shared backend utilities
 ```
 
-## Code Style and ESLint Compliance
+## Code Style
 
-**🚨 CRITICAL: See `@linting.mdc` for complete linting requirements.**
+**See `@linting.mdc` for linting workflow and TypeScript fix strategy.**
 
-**All code must pass ESLint checks before committing.**
-
-### Before Committing
-
-Always run lint checks and fix any errors before committing:
-
-```bash
-# Check TypeScript files
-bun run lint:ts
-```
-
-**Auto-fixing:**
-- Many formatting issues can be auto-fixed: `bun run lint:ts --fix`
-- Always verify auto-fixes don't break functionality
-- Fix any remaining errors manually according to ESLint output
-
-**ESLint configuration:**
-- Rules are defined in `eslint.config.js` at the workspace root
-- Follow ESLint error messages to fix code style issues
-- Do not commit code with linting errors
-
-**For detailed linting rules and workflow, see `@linting.mdc`.**
+Linting is handled automatically by hooks - no manual linting needed during development.
 
 ## Common Anti-patterns
 
@@ -69,7 +48,6 @@ bun run lint:ts
 - Store sensitive API keys in workspace files
 - Skip input validation on user-provided paths
 - Ignore WebSocket connection cleanup
-- Commit code without running lint checks
 
 ✅ **Do:**
 - Use Bun.serve() and native Web APIs (Request/Response)
@@ -78,4 +56,3 @@ bun run lint:ts
 - Validate and sanitize all file paths and user inputs
 - Use the websocket protocol
 - Use structured logging with relevant context
-- Always run `bun run lint:ts` before committing
