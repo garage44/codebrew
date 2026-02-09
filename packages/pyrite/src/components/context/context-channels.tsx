@@ -52,8 +52,16 @@ export default function ChannelsContext() {
         }
 
         if ($s.chat.activeChannelSlug) {
-            // Update the channel route when the user sets the active channel
-            route(`/channels/${$s.chat.activeChannelSlug}`, true)
+            // Check if current path already includes /devices
+            const hasDevicesSuffix = currentPath.includes('/devices')
+            const targetRoute = hasDevicesSuffix ?
+                `/channels/${$s.chat.activeChannelSlug}/devices` :
+                `/channels/${$s.chat.activeChannelSlug}`
+
+            // Only redirect if the route would actually change
+            if (currentPath !== targetRoute) {
+                route(targetRoute, true)
+            }
         } else if (currentPath === '/' || currentPath.startsWith('/channels/')) {
             /*
              * Only redirect to home if we're already on home or a channel route

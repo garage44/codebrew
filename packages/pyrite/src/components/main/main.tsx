@@ -82,7 +82,11 @@ export const Main = () => {
                     $s.devices.mic.enabled = false
 
                     // Small delay to ensure cleanup completes
-                    await new Promise((resolve) => setTimeout(resolve, 200))
+                    await new Promise<void>((resolve) => {
+                        setTimeout(() => {
+                            resolve()
+                        }, 200)
+                    })
 
                     logger.info('[Main] Reset complete, video/mic disabled - user must enable via button')
                 }
@@ -237,6 +241,11 @@ export const Main = () => {
         route('/')
     }
 
+    const handleRoute = ({url}: {url: string}) => {
+        // Update URL in global state for reactive access
+        $s.env.url = url
+    }
+
     if ($s.admin.authenticated === null) {
         return null
     }
@@ -285,7 +294,7 @@ export const Main = () => {
                     />
                   )}
             >
-                <Router>
+                <Router onChange={handleRoute}>
                     <Route component={Channel} path='/channels/:channelSlug/devices' />
                     <Route component={Channel} path='/channels/:channelSlug' />
                     <Route component={UsersFormWrapper} path='/settings/users/new' />
