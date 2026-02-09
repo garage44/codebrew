@@ -77,11 +77,13 @@
   "lint-staged": {
     "*.{ts,tsx}": [
       "oxlint --fix",
-      "eslint --fix"
+      "eslint --fix --no-color"
     ],
     "*.css": [
-      "stylelint --fix"
-    ]
+      "stylelint --fix --no-color"
+    ],
+    "verbose": false,
+    "concurrent": false
   },
   "dependencies": {
     "sqlite-vec": "^0.1.7-alpha.2"

@@ -45,7 +45,14 @@ Create a conventional commit, commit changes, and push to current branch.
 
 5. **Stage all changes**: `git add -A`
 
-6. **Commit**: Prevent Co-authored-by trailer by using `/usr/bin/git` directly (bypasses Cursor's wrapper):
+6. **Run linting check**: Run custom lint-staged script to check and auto-fix staged files:
+   ```bash
+   ./scripts/lint-staged.sh
+   ```
+   This runs oxlint, eslint, and stylelint on staged files and auto-fixes issues.
+   If linting fails, fix the errors before proceeding.
+
+7. **Commit**: Prevent Co-authored-by trailer by using `/usr/bin/git` directly (bypasses Cursor's wrapper):
    
    Create commit message file:
    ```bash
@@ -68,13 +75,14 @@ Create a conventional commit, commit changes, and push to current branch.
    
    **IMPORTANT**: Use `/usr/bin/git` instead of `git` to bypass Cursor's wrapper that adds Co-authored-by trailers.
 
-7. **Push**: `git push` (or `git push origin $(git branch --show-current)` if needed)
+8. **Push**: `git push` (or `git push origin $(git branch --show-current)` if needed)
 
 ## Notes
 
-- **Lefthook will run automatically**: The pre-commit hook runs `lint-staged` which auto-fixes linting issues
+- **Linting check runs before commit**: The custom `lint-staged.sh` script runs linters and auto-fixes issues
 - **Commitlint validates**: The commit-msg hook validates the commit message format
-- **If hooks fail**: Fix the issues (linting errors will be auto-fixed, but you may need to re-stage and commit)
+- **If linting fails**: Fix the errors shown by the lint-staged script, then re-stage and commit
+- **Lefthook pre-commit hook**: Disabled for sandbox environments (uses custom script instead)
 
 ## Examples
 
@@ -117,7 +125,8 @@ Updates bun to 1.2.0 and preact to 10.26.5.
 4. Analyze changes to determine type and scope
 5. Write commit message following conventional commit format
 6. Stage all: `git add -A`
-7. Commit (prevent Co-authored-by trailer by using full git path):
+7. Run linting check: `./scripts/lint-staged.sh` (fix any errors before proceeding)
+8. Commit (prevent Co-authored-by trailer by using full git path):
    
    With body:
    ```bash
@@ -133,4 +142,4 @@ Updates bun to 1.2.0 and preact to 10.26.5.
    ```bash
    /usr/bin/git commit -m "type(scope): subject"
    ```
-8. Push: `git push`
+9. Push: `git push`
