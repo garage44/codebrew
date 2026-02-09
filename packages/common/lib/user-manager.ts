@@ -107,9 +107,9 @@ export class UserManager {
         if (!this.db) throw new Error('Database not initialized')
 
         const defaultUsers = [
-            {displayName: 'Alice', email: 'alice@localhost', username: 'alice'},
-            {displayName: 'Bob', email: 'bob@localhost', username: 'bob'},
-            {displayName: 'Charlie', email: 'charlie@localhost', username: 'charlie'},
+            {avatar: 'placeholder-5.png', displayName: 'Alice', email: 'alice@localhost', username: 'alice'},
+            {avatar: 'placeholder-6.png', displayName: 'Bob', email: 'bob@localhost', username: 'bob'},
+            {avatar: 'placeholder-7.png', displayName: 'Charlie', email: 'charlie@localhost', username: 'charlie'},
         ]
 
         for (const userData of defaultUsers) {
@@ -130,7 +130,7 @@ export class UserManager {
                     admin: false,
                 },
                 profile: {
-                    avatar: 'placeholder-1.png',
+                    avatar: userData.avatar,
                     displayName: userData.displayName,
                 },
                 username: userData.username,
