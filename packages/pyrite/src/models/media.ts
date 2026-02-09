@@ -65,7 +65,7 @@ function createFakeStream(options: {video?: boolean; audio?: boolean; width?: nu
 
             // Get audio level if microphone is available
             if (fakeAudioAnalyser && fakeAudioDataArray) {
-                fakeAudioAnalyser.getByteFrequencyData(fakeAudioDataArray)
+                fakeAudioAnalyser.getByteFrequencyData(fakeAudioDataArray as Uint8Array<ArrayBuffer>)
                 // Calculate RMS (root mean square) for overall volume
                 let sum = 0
                 for (let i = 0; i < fakeAudioDataArray.length; i++) {

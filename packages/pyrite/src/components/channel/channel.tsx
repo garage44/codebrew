@@ -38,7 +38,7 @@ export const Channel = ({channelSlug}: ChannelProps) => {
                 `password=${$s.profile.password ? '***' : '(empty)'}`,
             )
             console.log(`[Channel] SFU connection state: connected=${$s.sfu.channel.connected}, channelSlug=${channelSlug}`)
-            console.log(`[Channel] About to call connectSFU()`)
+            console.log('[Channel] About to call connectSFU()')
 
             /*
              * connectSFU will read credentials from $s.profile

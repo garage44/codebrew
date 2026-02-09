@@ -502,7 +502,7 @@ function createBunWebSocketHandler(managers: Map<string, WebSocketServerManager>
             const endpoint = ws.data?.endpoint
             const manager = managers.get(endpoint)
             if (manager) {
-                manager.close(ws)
+                manager.close(ws as WebSocketConnection & {data?: {session?: {userid?: string}}})
             }
         },
         message: (

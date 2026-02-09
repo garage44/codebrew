@@ -154,7 +154,7 @@ export default function ChannelsContext() {
                             const user = typeof userInfo === 'object' && userInfo !== null &&
                                 'username' in userInfo ?
                                 userInfo as {username?: string} :
-                                {username: ''}
+                                    {username: ''}
                             const username = String(user.username || '').trim().toLowerCase()
 
                             // Check ID first (primary deduplication)

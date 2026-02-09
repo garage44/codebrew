@@ -160,7 +160,7 @@ export async function addUserMedia() {
     if (!connectionReady) {
         logger.warn('[SFU] addUserMedia: connection not ready yet, waiting...')
         // Wait for connection to be ready
-        await new Promise((resolve) => {
+        await new Promise<void>((resolve) => {
             const checkReady = setInterval(() => {
                 if (connectionReady) {
                     clearInterval(checkReady)
@@ -227,15 +227,15 @@ export async function addUserMedia() {
     logger.debug(`[sfu] streamState: hasAudio=${streamState.hasAudio}, hasVideo=${streamState.hasVideo}, id=${streamState.id}`)
     logger.debug('[sfu] waiting for negotiation to complete (stream will be added to $s.streams)')
 
-    return new Promise((resolve) => {
-        localGlnStream.onstatus = (status) => {
-            logger.debug(`[sfu] upstream stream ${glnStream.id} status: ${status}`)
-            if (status === 'connected') {
-                logger.debug(`[sfu] upstream stream ${glnStream.id} connected successfully`)
-                resolve()
+        return new Promise<void>((resolve) => {
+            localGlnStream.onstatus = (status) => {
+                logger.debug(`[sfu] upstream stream ${glnStream.id} status: ${status}`)
+                if (status === 'connected') {
+                    logger.debug(`[sfu] upstream stream ${glnStream.id} connected successfully`)
+                    resolve()
+                }
             }
-        }
-    })
+        })
 }
 
 export async function connect(username?: string, password?: string) {

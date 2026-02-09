@@ -106,26 +106,26 @@ export function DeviceSettings() {
                     },
                 })
             }
-        } catch (error) {
+        } catch(error) {
             logger.error(`[DeviceSettings] Failed to remount stream: ${error}`)
         }
     }
 
     const testSoundAudio = async() => {
         if (!soundAudio) return
-        
+
         // Stop if already playing
         if (soundAudio.description.playing) {
             soundAudio.stop()
             setPlaying(false)
             return
         }
-        
+
         try {
             const sinkId = $s.devices.audio.selected.id || null
             await soundAudio.play({sink: sinkId})
             setPlaying(true)
-            
+
             // Update playing state when sound ends
             const checkPlaying = () => {
                 if (soundAudio && soundAudio.description.playing) {
@@ -135,7 +135,7 @@ export function DeviceSettings() {
                 }
             }
             checkPlaying()
-        } catch (error) {
+        } catch(error) {
             logger.error(`[DeviceSettings] Failed to play test sound: ${error}`)
             setPlaying(false)
         }
@@ -146,15 +146,18 @@ export function DeviceSettings() {
         const init = async() => {
             try {
                 await queryDevices()
-                // After queryDevices completes, ensure signals are synced with restored state
-                // This handles the case where restoration happened during queryDevices
+
+                /*
+                 * After queryDevices completes, ensure signals are synced with restored state
+                 * This handles the case where restoration happened during queryDevices
+                 */
                 const micSelected = $s.devices.mic.selected
                 const micId = typeof micSelected === 'object' && micSelected !== null && 'id' in micSelected ? String(micSelected.id || '') : ''
                 if (micIdSignalRef.current.value !== micId) {
                     micIdSignalRef.current.value = micId
                     logger.debug(`[DeviceSettings] Synced mic signal after queryDevices: ${micId}`)
                 }
-            } catch (error) {
+            } catch(error) {
                 logger.error(`[DeviceSettings] Failed to query devices: ${error}`)
                 // Continue anyway - fake stream option will be available
             }
@@ -284,10 +287,10 @@ export function DeviceSettings() {
                             <Icon className='icon-d' name={soundAudio?.description.playing ? 'pause' : 'play'} />
                         </button>
                         <p class='c-device-settings__help'>
-                            Click play to test which audio output device (speaker/headphones) plays sound. 
-                            {!Array.isArray($s.devices.audio.options) || $s.devices.audio.options.length === 0 
-                                ? ' Audio output device selection is not available in this browser.' 
-                                : ''}
+                            Click play to test which audio output device (speaker/headphones) plays sound.
+                            {!Array.isArray($s.devices.audio.options) || $s.devices.audio.options.length === 0 ?
+                                ' Audio output device selection is not available in this browser.' :
+                                ''}
                         </p>
                     </div>}
             </div>

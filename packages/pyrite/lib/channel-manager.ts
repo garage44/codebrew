@@ -294,8 +294,10 @@ export class ChannelManager {
      * Membership is still tracked for role/permission purposes
      */
     canAccessChannel(channelId: number, userId: string): boolean {
-        // All authenticated users can access channels (public by default)
-        // Membership is still tracked for roles/permissions within channels
+        /*
+         * All authenticated users can access channels (public by default)
+         * Membership is still tracked for roles/permissions within channels
+         */
         if (!userId) return false
         return true
     }

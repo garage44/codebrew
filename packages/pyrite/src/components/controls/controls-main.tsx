@@ -85,7 +85,7 @@ export function ControlsMain({onCollapseChange, onFullscreen, path: _path}: Cont
                     onClick={(event) => {
                         console.log('[ControlsMain] VIDEO BUTTON CLICKED', event)
                         logger.info('[ControlsMain] ===== VIDEO BUTTON CLICKED =====')
-                        
+
                         if (!currentChannelSlug) {
                             logger.warn('[ControlsMain] No active channel, cannot toggle camera')
                             return

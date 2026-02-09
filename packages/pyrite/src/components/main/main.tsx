@@ -74,15 +74,17 @@ export const Main = () => {
                     $s.streams = []
                     $s.users = []
 
-                    // Reset device states - video/mic should be off after user switch
-                    // User must explicitly enable them via button
+                    /*
+                     * Reset device states - video/mic should be off after user switch
+                     * User must explicitly enable them via button
+                     */
                     $s.devices.cam.enabled = false
                     $s.devices.mic.enabled = false
 
                     // Small delay to ensure cleanup completes
                     await new Promise((resolve) => setTimeout(resolve, 200))
 
-                    logger.info(`[Main] Reset complete, video/mic disabled - user must enable via button`)
+                    logger.info('[Main] Reset complete, video/mic disabled - user must enable via button')
                 }
 
                 ws.connect()

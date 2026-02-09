@@ -247,7 +247,9 @@ export async function loadGlobalUsers() {
         }
 
         // Replace the entire users map atomically to prevent race conditions
-        $s.chat.users = usersMap
+        // DeepSignal handles Record -> DeepSignalObject conversion at runtime
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        $s.chat.users = usersMap as any
     } catch (error) {
         logger.error('[Chat] Error loading global users:', error)
     }

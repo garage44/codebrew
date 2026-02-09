@@ -96,26 +96,30 @@ async function proxySFUWebSocket(request: Request, server: Server) {
     logger.debug(`[SFU Proxy] SFU base URL: ${config.sfu.url}`)
     logger.debug(`[SFU Proxy] Converted SFU URL: ${sfuUrl}`)
     logger.debug(`[SFU Proxy] Target WebSocket URL: ${targetUrl}`)
-    
-    // Verify Galène is accessible before attempting WebSocket connection
-    // This helps diagnose connection issues early
+
+    /*
+     * Verify Galène is accessible before attempting WebSocket connection
+     * This helps diagnose connection issues early
+     */
     try {
         const healthCheckUrl = config.sfu.url.replace('/ws', '').replace('ws://', 'http://').replace('wss://', 'https://')
         const healthResponse = await fetch(`${healthCheckUrl}/stats.json`, {signal: AbortSignal.timeout(2000)})
-        if (!healthResponse.ok) {
-            logger.warn(`[SFU Proxy] Galène health check failed: ${healthResponse.status} ${healthResponse.statusText}`)
+        if (healthResponse.ok) {
+            logger.debug('[SFU Proxy] Galène health check passed')
         } else {
-            logger.debug(`[SFU Proxy] Galène health check passed`)
+            logger.warn(`[SFU Proxy] Galène health check failed: ${healthResponse.status} ${healthResponse.statusText}`)
         }
-    } catch (healthError) {
+    } catch(healthError) {
         logger.warn(`[SFU Proxy] Galène health check error (non-fatal): ${healthError instanceof Error ? healthError.message : String(healthError)}`)
         // Continue anyway - WebSocket might still work even if HTTP health check fails
     }
 
     try {
-        // Create WebSocket connection to upstream server (Galène)
-        // Note: For server-side WebSocket clients in Bun, we use the WebSocket API
-        // If connecting to WSS upstream, certificate validation may be needed
+        /*
+         * Create WebSocket connection to upstream server (Galène)
+         * Note: For server-side WebSocket clients in Bun, we use the WebSocket API
+         * If connecting to WSS upstream, certificate validation may be needed
+         */
         logger.debug(`[SFU Proxy] Creating upstream WebSocket connection to ${targetUrl}`)
         const upstream = new WebSocket(targetUrl)
 
@@ -140,22 +144,22 @@ async function proxySFUWebSocket(request: Request, server: Server) {
             upstream.onerror = (error: Event) => {
                 clearTimeout(timeout)
                 logger.error(`[SFU Proxy] Upstream WebSocket error for ${targetUrl}`)
-                logger.error(`[SFU Proxy] Error event:`, error)
+                logger.error('[SFU Proxy] Error event:', error)
                 logger.error(`[SFU Proxy] Error type: ${error.type}`)
                 logger.error(`[SFU Proxy] Upstream connection state: ${upstream.readyState} (0=CONNECTING, 1=OPEN, 2=CLOSING, 3=CLOSED)`)
-                
+
                 // Log additional error details if available
                 if ('message' in error) {
                     logger.error(`[SFU Proxy] Error message: ${(error as {message?: string}).message}`)
                 }
                 if ('error' in error) {
-                    logger.error(`[SFU Proxy] Error object:`, (error as {error?: unknown}).error)
+                    logger.error('[SFU Proxy] Error object:', (error as {error?: unknown}).error)
                 }
 
                 // Try to get more error details
                 if (upstream.readyState === WebSocket.CLOSED || upstream.readyState === WebSocket.CLOSING) {
                     logger.error(`[SFU Proxy] Connection closed immediately, check if Galene is running on ${targetUrl}`)
-                    logger.error(`[SFU Proxy] If using HTTPS for Pyrite, ensure Galene is accessible and the connection URL is correct`)
+                    logger.error('[SFU Proxy] If using HTTPS for Pyrite, ensure Galene is accessible and the connection URL is correct')
                 }
 
                 reject(new Error(`Failed to connect to ${targetUrl}. Check if Galene is running and accessible. Connection state: ${upstream.readyState}`))
