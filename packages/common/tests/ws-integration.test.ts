@@ -97,7 +97,9 @@ describe('WebSocket Integration - Broadcasting', () => {
         server.wsManager.broadcast('/test', {message: 'broadcast'})
 
         // Wait for messages
-        await new Promise((resolve) => setTimeout(resolve, 100))
+        await new Promise((resolve) => {
+            setTimeout(resolve, 100)
+        })
 
         // Both clients should receive the broadcast
         expect(client1.messages.length).toBeGreaterThan(0)
@@ -119,7 +121,9 @@ describe('WebSocket Integration - Broadcasting', () => {
 
         // Close one connection
         client1.disconnect()
-        await new Promise((resolve) => setTimeout(resolve, 100))
+        await new Promise((resolve) => {
+            setTimeout(resolve, 100)
+        })
 
         // Broadcast should not crash
         expect(() => {
@@ -127,7 +131,9 @@ describe('WebSocket Integration - Broadcasting', () => {
         }).not.toThrow()
 
         // Only live client should receive message
-        await new Promise((resolve) => setTimeout(resolve, 100))
+        await new Promise((resolve) => {
+            setTimeout(resolve, 100)
+        })
         expect(client2.messages.length).toBeGreaterThan(0)
 
         client2.disconnect()
@@ -175,7 +181,9 @@ describe('WebSocket Integration - Error Propagation', () => {
             ws.send('invalid json')
         }
 
-        await new Promise((resolve) => setTimeout(resolve, 100))
+        await new Promise((resolve) => {
+            setTimeout(resolve, 100)
+        })
 
         // Test missing route
         const noRouteResponse = await client.client.get('/api/nonexistent')

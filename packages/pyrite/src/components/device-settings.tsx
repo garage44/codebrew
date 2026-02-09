@@ -27,7 +27,6 @@ export function DeviceSettings() {
     const [stream, setStream] = useState<MediaStream | null>(null)
     const [streamId, setStreamId] = useState<string | null>(null)
     const [soundAudio, setSoundAudio] = useState<Sound | null>(null)
-    const [playing, setPlaying] = useState(false)
 
     // Create writable signals for device IDs that sync with DeepSignal
     const camIdSignalRef = useRef<ReturnType<typeof signal<string>>>(signal(''))
@@ -117,27 +116,22 @@ export function DeviceSettings() {
         // Stop if already playing
         if (soundAudio.description.playing) {
             soundAudio.stop()
-            setPlaying(false)
             return
         }
 
         try {
             const sinkId = $s.devices.audio.selected.id || null
             await soundAudio.play({sink: sinkId})
-            setPlaying(true)
 
             // Update playing state when sound ends
             const checkPlaying = () => {
                 if (soundAudio && soundAudio.description.playing) {
                     requestAnimationFrame(checkPlaying)
-                } else {
-                    setPlaying(false)
                 }
             }
             checkPlaying()
         } catch(error) {
             logger.error(`[DeviceSettings] Failed to play test sound: ${error}`)
-            setPlaying(false)
         }
     }
 
@@ -152,7 +146,9 @@ export function DeviceSettings() {
                  * This handles the case where restoration happened during queryDevices
                  */
                 const micSelected = $s.devices.mic.selected
-                const micId = typeof micSelected === 'object' && micSelected !== null && 'id' in micSelected ? String(micSelected.id || '') : ''
+                const micId = typeof micSelected === 'object' && micSelected !== null && 'id' in micSelected ?
+                        String(micSelected.id || '') :
+                    ''
                 if (micIdSignalRef.current.value !== micId) {
                     micIdSignalRef.current.value = micId
                     logger.debug(`[DeviceSettings] Synced mic signal after queryDevices: ${micId}`)

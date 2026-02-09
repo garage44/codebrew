@@ -36,7 +36,7 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
     const [pip, setPip] = useState({active: false, enabled: false})
     const [stats, setStats] = useState({visible: false})
     const [stream, setStream] = useState<MediaStream | null>(null)
-    const glnStreamRef = useRef<{[key: string]: unknown; stream?: MediaStream; _iceStateCleanup?: () => void} | null>(null)
+    const glnStreamRef = useRef<{[key: string]: unknown; _iceStateCleanup?: () => void; stream?: MediaStream} | null>(null)
 
     // Computed values
     const audioEnabled = useMemo(() => {
@@ -113,8 +113,10 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
              * Set srcObject if stream is available (like original Galène line 2089-2090)
              * Also handle remount case: if srcObject is null but stream exists, set it up
              */
-            if (glnStream.stream && (mediaRef.current.srcObject !== glnStream.stream || !mediaRef.current.srcObject)) {
-                logger.debug(`[Stream] Setting srcObject for stream ${modelValue.id}, tracks: ${glnStream.stream.getTracks().length}`)
+            const needsUpdate = mediaRef.current.srcObject !== glnStream.stream || !mediaRef.current.srcObject
+            if (glnStream.stream && needsUpdate) {
+                const trackCount = glnStream.stream.getTracks().length
+                logger.debug(`[Stream] Setting srcObject for stream ${modelValue.id}, tracks: ${trackCount}`)
                 setStream(glnStream.stream)
                 mediaRef.current.srcObject = glnStream.stream
 
@@ -129,7 +131,9 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
                 })
 
                 // If ICE is already connected, try to play immediately (handles remount case)
-                if (glnStream.pc && (glnStream.pc.iceConnectionState === 'connected' || glnStream.pc.iceConnectionState === 'completed')) {
+                const iceConnected = glnStream.pc?.iceConnectionState === 'connected' ||
+                    glnStream.pc?.iceConnectionState === 'completed'
+                if (glnStream.pc && iceConnected) {
                     requestAnimationFrame(() => {
                         if (mediaRef.current && glnStream.stream && mediaRef.current.srcObject) {
                             playStream().catch((error) => {
@@ -317,7 +321,9 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
             const handleIceStateChange = () => {
                 checkConnectionState()
                 // Also check if tracks have arrived when ICE connects
-                if (glnStream.pc && (glnStream.pc.iceConnectionState === 'connected' || glnStream.pc.iceConnectionState === 'completed')) {
+                const iceConnected = glnStream.pc?.iceConnectionState === 'connected' ||
+                    glnStream.pc?.iceConnectionState === 'completed'
+                if (glnStream.pc && iceConnected) {
                     if (glnStream.stream && !mediaRef.current?.srcObject) {
                         logger.debug(`[Stream] ICE connected but media not set, setting up now for stream ${modelValue.id}`)
                         setupMedia()
@@ -336,7 +342,9 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
                     }
                     setupMedia()
                     // If ICE is already connected, try to play
-                    if (glnStream.pc && (glnStream.pc.iceConnectionState === 'connected' || glnStream.pc.iceConnectionState === 'completed')) {
+                    const iceConnected = glnStream.pc?.iceConnectionState === 'connected' ||
+                        glnStream.pc?.iceConnectionState === 'completed'
+                    if (glnStream.pc && iceConnected) {
                         requestAnimationFrame(() => {
                             if (mediaRef.current && glnStream.stream) {
                                 playStream().catch((error) => {
@@ -357,7 +365,8 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
                 }
             }
 
-            checkConnectionState() // Check immediately
+            // Check immediately
+            checkConnectionState()
 
             /*
              * Also check if tracks are already available (helps with Firefox streams that arrive early)
@@ -375,19 +384,25 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
                             if (!glnStream.stream) {
                                 const existingStream = new MediaStream(tracks)
                                 glnStream.stream = existingStream
-                                logger.debug(`[Stream] Created MediaStream from ${tracks.length} existing tracks for stream ${modelValue.id}`)
+                                const trackCount = tracks.length
+                                const logMsg = `[Stream] Created MediaStream from ${trackCount} existing tracks ` +
+                                    `for stream ${modelValue.id}`
+                                logger.debug(logMsg)
                             } else {
                                 // Stream exists but might not have all tracks - check and update
                                 const existingTracks = glnStream.stream.getTracks()
                                 const missingTracks = tracks.filter((t) => !existingTracks.includes(t))
                                 if (missingTracks.length > 0) {
-                                    logger.debug(`[Stream] Adding ${missingTracks.length} missing tracks to stream ${modelValue.id}`)
+                                    const missingCount = missingTracks.length
+                                    logger.debug(`[Stream] Adding ${missingCount} missing tracks to stream ${modelValue.id}`)
                                     missingTracks.forEach((track) => glnStream.stream!.addTrack(track))
                                 }
                             }
                             setupMedia()
                             // If ICE is already connected, try to play
-                            if (glnStream.pc && (glnStream.pc.iceConnectionState === 'connected' || glnStream.pc.iceConnectionState === 'completed')) {
+                            const iceConnected = glnStream.pc?.iceConnectionState === 'connected' ||
+                                glnStream.pc?.iceConnectionState === 'completed'
+                            if (glnStream.pc && iceConnected) {
                                 requestAnimationFrame(() => {
                                     if (mediaRef.current && glnStream.stream) {
                                         playStream().catch((error) => {
@@ -397,7 +412,10 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
                                 })
                             }
                         } else {
-                            logger.debug(`[Stream] Found ${receivers.length} receivers but no live tracks yet for stream ${modelValue.id}`)
+                            const receiverCount = receivers.length
+                            const logMsg = `[Stream] Found ${receiverCount} receivers but no live tracks yet ` +
+                                `for stream ${modelValue.id}`
+                            logger.debug(logMsg)
                         }
                     }
                 } catch(error) {
@@ -523,7 +541,8 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
                 onUpdate({...modelValue, playing: true})
             }
             setMediaFailed(false)
-            setAutoplayBlocked(false) // Clear autoplay blocked state on successful play
+            // Clear autoplay blocked state on successful play
+            setAutoplayBlocked(false)
         } catch(error) {
             /*
              * Don't remove stream on play() failure - it might be temporary (autoplay policy, Firefox canvas stream timing, etc.)
@@ -533,8 +552,9 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
             logger.debug(`[Stream] stream ${modelValue.id} play() failed: ${errorMessage}`)
 
             // Check if this is a fatal error (stream ended, track ended) vs temporary (autoplay, not ready)
-            const isFatal = errorMessage.includes('ended') || errorMessage.includes('terminated') ||
-                (mediaRef.current.srcObject && (mediaRef.current.srcObject as MediaStream).getTracks().every((t) => t.readyState === 'ended'))
+            const streamEnded = mediaRef.current.srcObject &&
+                (mediaRef.current.srcObject as MediaStream).getTracks().every((t) => t.readyState === 'ended')
+            const isFatal = errorMessage.includes('ended') || errorMessage.includes('terminated') || streamEnded
 
             if (isFatal) {
                 logger.warn(`[Stream] stream ${modelValue.id} has fatal error, will be cleaned up by onclose handler`)
@@ -547,7 +567,9 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
                     errorMessage.includes('user interaction')
 
                 if (isAutoplayError) {
-                    logger.debug(`[Stream] stream ${modelValue.id} play() blocked by autoplay policy, will retry on user interaction`)
+                    const logMsg = `[Stream] stream ${modelValue.id} play() blocked by autoplay policy, ` +
+                        'will retry on user interaction'
+                    logger.debug(logMsg)
                     setMediaFailed(true)
                     setAutoplayBlocked(true)
                     // Set up one-time user interaction listener to retry playback

@@ -1,7 +1,6 @@
 import {Stream} from '../stream/stream'
 import {useMemo, useCallback, useEffect, useRef} from 'preact/hooks'
 import {$s} from '@/app'
-import {logger} from '@garage44/common/app'
 import {IconLogo} from '@garage44/common/components'
 import classnames from 'classnames'
 import {connection} from '@/models/sfu/sfu'

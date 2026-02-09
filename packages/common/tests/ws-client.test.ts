@@ -32,7 +32,9 @@ describe('WebSocket Client - Message Validation', () => {
         }
 
         // Wait for error
-        await new Promise((resolve) => setTimeout(resolve, 100))
+        await new Promise((resolve) => {
+            setTimeout(resolve, 100)
+        })
 
         expect(client.errors.length).toBeGreaterThan(0)
         expect(client.errors[0].message).toContain('Invalid JSON')
@@ -53,7 +55,9 @@ describe('WebSocket Client - Message Validation', () => {
             ws.send(JSON.stringify(null))
         }
 
-        await new Promise((resolve) => setTimeout(resolve, 100))
+        await new Promise((resolve) => {
+            setTimeout(resolve, 100)
+        })
 
         expect(client.errors.length).toBeGreaterThan(0)
         expect(client.errors[0].message).toContain('Invalid message format')
@@ -75,7 +79,9 @@ describe('WebSocket Client - Message Validation', () => {
         }
 
         // Should not crash, message should be ignored or handled gracefully
-        await new Promise((resolve) => setTimeout(resolve, 100))
+        await new Promise((resolve) => {
+            setTimeout(resolve, 100)
+        })
 
         // Client should still be connected
         expect(client.client.isConnected()).toBe(true)
@@ -160,7 +166,9 @@ describe('WebSocket Client - Reconnection', () => {
         server.stop()
 
         // Wait for reconnection attempt
-        await new Promise((resolve) => setTimeout(resolve, 200))
+        await new Promise((resolve) => {
+            setTimeout(resolve, 200)
+        })
 
         /*
          * Client should attempt to reconnect (we can't easily test full reconnection without server)

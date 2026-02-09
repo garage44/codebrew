@@ -114,7 +114,9 @@ export default function TabDevices() {
             await queryDevices()
             // After queryDevices completes, ensure signals are synced with restored state
             const micSelected = $s.devices.mic.selected
-            const micId = typeof micSelected === 'object' && micSelected !== null && 'id' in micSelected ? String(micSelected.id || '') : ''
+            const micId = typeof micSelected === 'object' && micSelected !== null && 'id' in micSelected ?
+                    String(micSelected.id || '') :
+                ''
             if (micIdSignalRef.current.value !== micId) {
                 micIdSignalRef.current.value = micId
             }

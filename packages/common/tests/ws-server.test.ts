@@ -121,7 +121,9 @@ describe('WebSocket Server - Broadcast Robustness', () => {
         client1.disconnect()
 
         // Wait a bit for connection to close
-        await new Promise((resolve) => setTimeout(resolve, 100))
+        await new Promise((resolve) => {
+            setTimeout(resolve, 100)
+        })
 
         // Broadcast should not crash
         expect(() => {
@@ -144,7 +146,9 @@ describe('WebSocket Server - Broadcast Robustness', () => {
 
         // Close one connection
         client1.disconnect()
-        await new Promise((resolve) => setTimeout(resolve, 100))
+        await new Promise((resolve) => {
+            setTimeout(resolve, 100)
+        })
 
         // Broadcast should clean up dead connection
         server.wsManager.broadcast('/test', {message: 'test'})
