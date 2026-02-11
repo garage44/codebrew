@@ -33,7 +33,7 @@ export const VideoCanvas = ({className, streams}: VideoCanvasProps) => {
         return false
     }, [])
 
-    // Computed: sortedStreams - screen shares first, then by username
+    // Computed: sortedStreams - must depend on $s.streams so new streams after channel switch trigger re-render
     const sortedStreams = useMemo(() => {
         const streamList = streams || $s.streams
         return [...streamList].toSorted((a, b) => {

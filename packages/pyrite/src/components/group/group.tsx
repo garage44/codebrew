@@ -14,7 +14,7 @@ export const Group = () => {
     const aspectRatio = 4 / 3
     const margin = 16
 
-    // Computed: sortedStreams
+    // Computed: sortedStreams - must depend on $s.streams so new streams after channel switch trigger re-render
     const sortedStreams = useMemo(() => {
         return [...$s.streams].toSorted((a, b) => {
             if (a.username < b.username) return -1
@@ -99,7 +99,6 @@ export const Group = () => {
                         level: 'error',
                         message: 'This group requires authentication. Please log in first.',
                     })
-                    return
                 }
             } catch(err) {
                 // Connection failed - could be auth error or network error

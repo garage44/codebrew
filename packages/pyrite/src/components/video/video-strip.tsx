@@ -26,10 +26,11 @@ export const VideoStrip = ({className, streams}: VideoStripProps) => {
         return false
     }, [])
 
+    // Must depend on $s.streams so new streams after channel switch trigger re-render
     const sortedStreams = useMemo(() => {
         const streamList = streams || $s.streams
         // Sort: screen shares first, then by username
-        const sorted = [...streamList].toSorted((a, b) => {
+        return [...streamList].toSorted((a, b) => {
             const aIsScreenShare = isScreenShare(a.id)
             const bIsScreenShare = isScreenShare(b.id)
             // Screen shares come first
@@ -40,8 +41,7 @@ export const VideoStrip = ({className, streams}: VideoStripProps) => {
             if (a.username > b.username) return 1
             return 0
         })
-        return sorted
-    }, [streams, $s.upMedia.screenshare])
+    }, [streams, isScreenShare])
 
     const handleStreamUpdate = useCallback((updatedStream: {[key: string]: unknown; id: string}) => {
         const streamIndex = $s.streams.findIndex((s) => s.id === updatedStream.id)
