@@ -1,5 +1,5 @@
 import {Stream} from '../stream/stream'
-import {useMemo, useCallback, useEffect, useRef} from 'preact/hooks'
+import {useCallback, useEffect, useRef} from 'preact/hooks'
 import {$s} from '@/app'
 import {IconLogo} from '@garage44/common/components'
 import classnames from 'classnames'
@@ -33,27 +33,19 @@ export const VideoCanvas = ({className, streams}: VideoCanvasProps) => {
         return false
     }, [])
 
-    // Computed: sortedStreams - must depend on $s.streams so new streams after channel switch trigger re-render
-    const sortedStreams = useMemo(() => {
-        const streamList = streams || $s.streams
-        return [...streamList].toSorted((a, b) => {
-            const aIsScreenShare = isScreenShare(a.id)
-            const bIsScreenShare = isScreenShare(b.id)
-            // Screen shares come first
-            if (aIsScreenShare && !bIsScreenShare) return -1
-            if (!aIsScreenShare && bIsScreenShare) return 1
-            // Then sort by username
-            if (a.username < b.username) return -1
-            if (a.username > b.username) return 1
-            return 0
-        })
-    }, [streams, isScreenShare])
-
-    // Computed: streamsCount and streamsPlayingCount
+    // Inline (no useMemo) - ensures we always read latest $s.streams when it changes (channel switch)
     const streamsCount = $s.streams.length
-    const streamsPlayingCount = useMemo(() => {
-        return $s.streams.filter((s) => s.playing).length
-    }, [])
+    const streamList = streams || $s.streams
+    const sortedStreams = [...streamList].toSorted((a, b) => {
+        const aIsScreenShare = isScreenShare(a.id)
+        const bIsScreenShare = isScreenShare(b.id)
+        if (aIsScreenShare && !bIsScreenShare) return -1
+        if (!aIsScreenShare && bIsScreenShare) return 1
+        if (a.username < b.username) return -1
+        if (a.username > b.username) return 1
+        return 0
+    })
+    const streamsPlayingCount = $s.streams.filter((s) => s.playing).length
 
     /**
      * Optimal space algorithm from Anton Dosov:

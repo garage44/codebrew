@@ -1,5 +1,5 @@
 import {Stream} from '../stream/stream'
-import {useMemo, useCallback} from 'preact/hooks'
+import {useCallback} from 'preact/hooks'
 import {$s} from '@/app'
 import {Icon} from '@garage44/common/components'
 import classnames from 'classnames'
@@ -26,22 +26,17 @@ export const VideoStrip = ({className, streams}: VideoStripProps) => {
         return false
     }, [])
 
-    // Must depend on $s.streams so new streams after channel switch trigger re-render
-    const sortedStreams = useMemo(() => {
-        const streamList = streams || $s.streams
-        // Sort: screen shares first, then by username
-        return [...streamList].toSorted((a, b) => {
-            const aIsScreenShare = isScreenShare(a.id)
-            const bIsScreenShare = isScreenShare(b.id)
-            // Screen shares come first
-            if (aIsScreenShare && !bIsScreenShare) return -1
-            if (!aIsScreenShare && bIsScreenShare) return 1
-            // Then sort by username
-            if (a.username < b.username) return -1
-            if (a.username > b.username) return 1
-            return 0
-        })
-    }, [streams, isScreenShare])
+    // Inline (no useMemo) - ensures we always read latest $s.streams when it changes (channel switch)
+    const streamList = streams || $s.streams
+    const sortedStreams = [...streamList].toSorted((a, b) => {
+        const aIsScreenShare = isScreenShare(a.id)
+        const bIsScreenShare = isScreenShare(b.id)
+        if (aIsScreenShare && !bIsScreenShare) return -1
+        if (!aIsScreenShare && bIsScreenShare) return 1
+        if (a.username < b.username) return -1
+        if (a.username > b.username) return 1
+        return 0
+    })
 
     const handleStreamUpdate = useCallback((updatedStream: {[key: string]: unknown; id: string}) => {
         const streamIndex = $s.streams.findIndex((s) => s.id === updatedStream.id)

@@ -1,6 +1,6 @@
 import {IconLogo} from '@garage44/common/components'
 import {Stream} from '../stream/stream'
-import {useEffect, useRef, useMemo, useCallback} from 'preact/hooks'
+import {useEffect, useRef, useCallback} from 'preact/hooks'
 import {$s} from '@/app'
 import {notifier} from '@garage44/common/app'
 import {connect} from '@/models/sfu/sfu'
@@ -14,20 +14,14 @@ export const Group = () => {
     const aspectRatio = 4 / 3
     const margin = 16
 
-    // Computed: sortedStreams - must depend on $s.streams so new streams after channel switch trigger re-render
-    const sortedStreams = useMemo(() => {
-        return [...$s.streams].toSorted((a, b) => {
-            if (a.username < b.username) return -1
-            if (a.username > b.username) return 1
-            return 0
-        })
-    }, [])
-
-    // Computed: streamsCount and streamsPlayingCount
+    // Inline (no useMemo) - ensures we always read latest $s.streams when it changes (channel switch)
     const streamsCount = $s.streams.length
-    const streamsPlayingCount = useMemo(() => {
-        return $s.streams.filter((s) => s.playing).length
-    }, [])
+    const sortedStreams = [...$s.streams].toSorted((a, b) => {
+        if (a.username < b.username) return -1
+        if (a.username > b.username) return 1
+        return 0
+    })
+    const streamsPlayingCount = $s.streams.filter((s) => s.playing).length
 
     /**
      * Optimal space algorithm from Anton Dosov:
