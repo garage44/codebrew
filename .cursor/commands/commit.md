@@ -38,7 +38,7 @@ Create a conventional commit, commit changes, and push to current branch.
 
    <footer>
    ```
-   
+
    - Subject: Imperative mood, lowercase, no period (e.g., "add user authentication")
    - Body: Explain what and why (optional but recommended for significant changes)
    - Footer: Breaking changes, issue references (optional)
@@ -53,7 +53,7 @@ Create a conventional commit, commit changes, and push to current branch.
    If linting fails, fix the errors before proceeding.
 
 7. **Commit**: Prevent Co-authored-by trailer by using `/usr/bin/git` directly (bypasses Cursor's wrapper):
-   
+
    Create commit message file:
    ```bash
    COMMIT_MSG_FILE=$(mktemp)
@@ -61,19 +61,19 @@ Create a conventional commit, commit changes, and push to current branch.
    echo "" >> "$COMMIT_MSG_FILE"
    echo "<body>" >> "$COMMIT_MSG_FILE"
    ```
-   
+
    Then commit using full path to git with `--no-verify` to skip hooks:
    ```bash
    /usr/bin/git commit --no-verify -F "$COMMIT_MSG_FILE"
    rm "$COMMIT_MSG_FILE"
    ```
-   
+
    Or for single-line messages:
    ```bash
    /usr/bin/git commit --no-verify -m "<message>"
    ```
-   
-   **IMPORTANT**: 
+
+   **IMPORTANT**:
    - Use `/usr/bin/git` instead of `git` to bypass Cursor's wrapper that adds Co-authored-by trailers.
    - Always use `--no-verify` to skip git hooks (lint-staged runs manually before commit, hooks may fail in sandbox environments).
 
@@ -129,7 +129,7 @@ Updates bun to 1.2.0 and preact to 10.26.5.
 6. Stage all: `git add -A`
 7. Run linting check: `./scripts/lint-staged.sh` (fix any errors before proceeding)
 8. Commit (prevent Co-authored-by trailer by using full git path, skip hooks with --no-verify):
-   
+
    With body:
    ```bash
    COMMIT_MSG_FILE=$(mktemp)
@@ -139,7 +139,7 @@ Updates bun to 1.2.0 and preact to 10.26.5.
    /usr/bin/git commit --no-verify -F "$COMMIT_MSG_FILE"
    rm "$COMMIT_MSG_FILE"
    ```
-   
+
    Without body:
    ```bash
    /usr/bin/git commit --no-verify -m "type(scope): subject"

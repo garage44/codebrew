@@ -31,7 +31,7 @@ export const VideoCanvas = ({className, streams}: VideoCanvasProps) => {
         // Check downstream streams via connection
         if (connection?.down?.[streamId]?.label === 'screenshare') return true
         return false
-    }, [$s.upMedia.screenshare])
+    }, [])
 
     // Computed: sortedStreams - screen shares first, then by username
     const sortedStreams = useMemo(() => {
@@ -47,13 +47,13 @@ export const VideoCanvas = ({className, streams}: VideoCanvasProps) => {
             if (a.username > b.username) return 1
             return 0
         })
-    }, [streams, $s.streams, isScreenShare])
+    }, [streams, isScreenShare])
 
     // Computed: streamsCount and streamsPlayingCount
     const streamsCount = $s.streams.length
     const streamsPlayingCount = useMemo(() => {
         return $s.streams.filter((s) => s.playing).length
-    }, [$s.streams])
+    }, [])
 
     /**
      * Optimal space algorithm from Anton Dosov:
@@ -88,7 +88,7 @@ export const VideoCanvas = ({className, streams}: VideoCanvasProps) => {
         }
 
         viewRef.current.style.setProperty('--stream-width', `${layout.width}px`)
-    }, [$s.streams.length, aspectRatio])
+    }, [aspectRatio])
 
     // Watch streamsCount and streamsPlayingCount
     useEffect(() => {
@@ -99,6 +99,7 @@ export const VideoCanvas = ({className, streams}: VideoCanvasProps) => {
         const streamIndex = $s.streams.findIndex((s) => s.id === updatedStream.id)
         if (streamIndex !== -1) {
             Object.assign($s.streams[streamIndex], updatedStream)
+            $s.streams = [...$s.streams]
         }
     }, [])
 

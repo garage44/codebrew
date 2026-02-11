@@ -24,7 +24,7 @@ export const VideoStrip = ({className, streams}: VideoStripProps) => {
         // Check downstream streams via connection
         if (connection?.down?.[streamId]?.label === 'screenshare') return true
         return false
-    }, [$s.upMedia.screenshare])
+    }, [])
 
     const sortedStreams = useMemo(() => {
         const streamList = streams || $s.streams
@@ -41,12 +41,13 @@ export const VideoStrip = ({className, streams}: VideoStripProps) => {
             return 0
         })
         return sorted
-    }, [streams, $s.streams, $s.upMedia.screenshare])
+    }, [streams, $s.upMedia.screenshare])
 
     const handleStreamUpdate = useCallback((updatedStream: {[key: string]: unknown; id: string}) => {
         const streamIndex = $s.streams.findIndex((s) => s.id === updatedStream.id)
         if (streamIndex >= 0) {
             Object.assign($s.streams[streamIndex], updatedStream)
+            $s.streams = [...$s.streams]
         }
     }, [])
 

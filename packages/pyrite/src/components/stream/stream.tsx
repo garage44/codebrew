@@ -1,5 +1,6 @@
 import classnames from 'classnames'
-import {useEffect, useRef, useState, useMemo} from 'preact/hooks'
+import {useEffect, useRef, useMemo} from 'preact/hooks'
+import {deepSignal} from 'deepsignal'
 import {Button, FieldSlider, SoundMeter, Icon, IconLogo} from '@garage44/common/components'
 import {Reports} from './reports'
 import {$s} from '@/app'
@@ -29,19 +30,24 @@ interface StreamProps {
 export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => {
     const rootRef = useRef<HTMLDivElement>(null)
     const mediaRef = useRef<HTMLVideoElement>(null)
-    const [bar, setBar] = useState({active: false})
-    const [mediaFailed, setMediaFailed] = useState(false)
-    const [autoplayBlocked, setAutoplayBlocked] = useState(false)
-    const [muted, setMuted] = useState(false)
-    const [pip, setPip] = useState({active: false, enabled: false})
-    const [stats, setStats] = useState({visible: false})
-    const [stream, setStream] = useState<MediaStream | null>(null)
     const glnStreamRef = useRef<{[key: string]: unknown; _iceStateCleanup?: () => void; stream?: MediaStream} | null>(null)
+
+    // Per-instance component state using DeepSignal (useRef to prevent recreation on each render)
+    const stateRef = useRef(deepSignal({
+        autoplayBlocked: false,
+        bar: {active: false},
+        mediaFailed: false,
+        muted: false,
+        pip: {active: false, enabled: false},
+        stats: {visible: false},
+        stream: null as MediaStream | null,
+    }))
+    const state = stateRef.current
 
     // Computed values
     const audioEnabled = useMemo(() => {
-        return !!(modelValue.hasAudio && stream && stream.getAudioTracks().length)
-    }, [modelValue.hasAudio, stream])
+        return !!(modelValue.hasAudio && state.stream && state.stream.getAudioTracks().length)
+    }, [modelValue.hasAudio, state.stream])
 
 
     const hasSettings = useMemo(() => {
@@ -54,16 +60,16 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
 
     // Methods
     const loadSettings = async() => {
-        if (!stream) return
+        if (!state.stream) return
         logger.debug('loading stream settings')
         const settings = {audio: {}, video: {}}
 
-        const audioTracks = stream.getAudioTracks()
+        const audioTracks = state.stream.getAudioTracks()
         if (audioTracks.length) {
             settings.audio = audioTracks[0].getSettings()
         }
 
-        const videoTracks = stream.getVideoTracks()
+        const videoTracks = state.stream.getVideoTracks()
         if (videoTracks.length) {
             settings.video = videoTracks[0].getSettings()
         }
@@ -117,7 +123,7 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
             if (glnStream.stream && needsUpdate) {
                 const trackCount = glnStream.stream.getTracks().length
                 logger.debug(`[Stream] Setting srcObject for stream ${modelValue.id}, tracks: ${trackCount}`)
-                setStream(glnStream.stream)
+                state.stream = glnStream.stream
                 mediaRef.current.srcObject = glnStream.stream
 
                 // For Firefox canvas streams, ensure tracks are active
@@ -263,11 +269,11 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
             const isConnected = iceState === 'connected' || iceState === 'completed'
 
             if (isConnected) {
-                setMediaFailed(false)
+                state.mediaFailed = false
 
                 // Setup media if stream is available (like original Galène setMediaStatus)
                 if (glnStream.stream && mediaRef.current.srcObject !== glnStream.stream) {
-                    setStream(glnStream.stream)
+                    state.stream = glnStream.stream
                     mediaRef.current.srcObject = glnStream.stream
                 }
 
@@ -306,9 +312,9 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
                     })
                 }
             } else if (iceState === 'failed') {
-                setMediaFailed(true)
+                state.mediaFailed = true
             } else {
-                setMediaFailed(false)
+                state.mediaFailed = false
             }
         }
 
@@ -427,32 +433,51 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
 
     const mountUpstream = async() => {
         // Mute local streams, so people don't hear themselves talk.
-        if (!muted) {
+        if (!state.muted) {
             toggleMuteVolume()
         }
         logger.debug(`[Stream] mounting upstream stream ${modelValue.id}`)
 
         if (!modelValue.src) {
-            // Local media stream from a device.
-            const glnStream = sfu.connection?.up[modelValue.id]
+            /*
+             * Local media stream from a device.
+             * Retry a few times - stream may not be in connection.up yet (first-load timing)
+             */
+            let glnStream = sfu.connection?.up[modelValue.id]
+            const maxRetries = 5
+            const retryDelayMs = 50
+
+            for (let attempt = 0; (!glnStream || !glnStream.stream) && attempt < maxRetries; attempt++) {
+                if (attempt > 0) {
+                    logger.debug(`[Stream] Upstream ${modelValue.id} not ready, retry ${attempt}/${maxRetries}`)
+                    await new Promise((r) => setTimeout(r, retryDelayMs))
+                }
+                glnStream = sfu.connection?.up[modelValue.id]
+            }
 
             if (!glnStream) {
-                logger.warn(`[Stream] upstream stream ${modelValue.id} not found in connection.up`)
+                logger.warn(`[Stream] upstream stream ${modelValue.id} not found in connection.up after ${maxRetries} retries`)
+                logger.debug(`[Stream] Available streams in connection.up: ${Object.keys(sfu.connection?.up || {}).join(', ')}`)
                 return
             }
 
             if (!glnStream.stream) {
-                logger.warn(`[Stream] upstream stream ${modelValue.id} has no MediaStream assigned`)
+                logger.warn(`[Stream] upstream stream ${modelValue.id} has no MediaStream assigned after ${maxRetries} retries`)
                 return
             }
 
             logger.debug(`[Stream] upstream stream ${modelValue.id} - mounting MediaStream`)
+            const tracks = glnStream.stream.getTracks()
+            logger.debug(`[Stream] Stream tracks: ${tracks.map((t) => `${t.kind}:${t.readyState}`).join(', ')}`)
             glnStreamRef.current = glnStream
-            setStream(glnStream.stream)
+            state.stream = glnStream.stream
 
             if (mediaRef.current) {
+                logger.debug(`[Stream] Setting srcObject and playing stream ${modelValue.id}`)
                 mediaRef.current.srcObject = glnStream.stream
+                logger.debug(`[Stream] srcObject set, calling playStream() for ${modelValue.id}`)
                 await playStream()
+                logger.debug(`[Stream] playStream() completed for ${modelValue.id}`)
             } else {
                 logger.warn(`[Stream] upstream stream ${modelValue.id} - mediaRef.current is null`)
             }
@@ -475,7 +500,7 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
                 }
 
                 if (capturedStream) {
-                    setStream(capturedStream)
+                    state.stream = capturedStream
                 }
 
                 const glnStream = sfu.connection?.up[modelValue.id]
@@ -512,7 +537,7 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
                 }
             } else if (modelValue.src instanceof MediaStream) {
                 // Local MediaStream (not part of Galene); e.g. Webcam test
-                setStream(modelValue.src)
+                state.stream = modelValue.src
                 if (mediaRef.current) {
                     mediaRef.current.srcObject = modelValue.src
                 }
@@ -525,7 +550,7 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
         // A local stream that's not networked (e.g. cam preview in settings)
         if (!glnStreamRef.current) return
 
-        glnStreamRef.current.stream = stream
+        glnStreamRef.current.stream = state.stream
     }
 
     const playStream = async() => {
@@ -534,15 +559,27 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
             return
         }
 
+        const hasSrcObject = !!mediaRef.current.srcObject
+        const paused = mediaRef.current.paused
+        const readyState = mediaRef.current.readyState
+        logger.debug(
+            `[Stream] playStream() ${modelValue.id}, srcObject=${hasSrcObject}, paused=${paused}, readyState=${readyState}`,
+        )
+
         try {
-            await mediaRef.current.play()
+            const el = mediaRef.current
+            if (el.readyState < 1 && el.srcObject) {
+                await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+            }
+            await el.play()
+            logger.info(`[Stream] play() succeeded for stream ${modelValue.id}`)
             await loadSettings()
             if (onUpdate) {
                 onUpdate({...modelValue, playing: true})
             }
-            setMediaFailed(false)
+            state.mediaFailed = false
             // Clear autoplay blocked state on successful play
-            setAutoplayBlocked(false)
+            state.autoplayBlocked = false
         } catch(error) {
             /*
              * Don't remove stream on play() failure - it might be temporary (autoplay policy, Firefox canvas stream timing, etc.)
@@ -558,7 +595,7 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
 
             if (isFatal) {
                 logger.warn(`[Stream] stream ${modelValue.id} has fatal error, will be cleaned up by onclose handler`)
-                setMediaFailed(true)
+                state.mediaFailed = true
                 // Don't call delMedia here - let onclose handler clean it up when stream actually closes
             } else {
                 // Temporary error - just mark as failed, stream will retry on next ICE state change or track event
@@ -570,8 +607,8 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
                     const logMsg = `[Stream] stream ${modelValue.id} play() blocked by autoplay policy, ` +
                         'will retry on user interaction'
                     logger.debug(logMsg)
-                    setMediaFailed(true)
-                    setAutoplayBlocked(true)
+                    state.mediaFailed = true
+                    state.autoplayBlocked = true
                     // Set up one-time user interaction listener to retry playback
                     const retryOnInteraction = () => {
                         if (mediaRef.current && glnStreamRef.current?.stream && mediaRef.current.srcObject) {
@@ -591,7 +628,7 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
                     document.addEventListener('keydown', retryOnInteraction, {capture: true, once: true})
                 } else {
                     logger.debug(`[Stream] stream ${modelValue.id} play() failed temporarily, will retry`)
-                    setMediaFailed(true)
+                    state.mediaFailed = true
                     // Don't remove - this might be Firefox canvas stream timing issue
                 }
             }
@@ -603,7 +640,7 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
     }
 
     const setPipMode = () => {
-        if (pip.active) {
+        if (state.pip.active) {
             document.exitPictureInPicture()
         } else {
             mediaRef.current?.requestPictureInPicture()
@@ -620,18 +657,18 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
     }
 
     const toggleMuteVolume = () => {
-        setMuted(!muted)
+        state.muted = !state.muted
         if (mediaRef.current) {
-            mediaRef.current.muted = !muted
+            mediaRef.current.muted = !state.muted
         }
     }
 
     const toggleStats = () => {
-        setStats({visible: !stats.visible})
+        state.stats.visible = !state.stats.visible
     }
 
     const toggleStreamBar = (active: boolean) => () => {
-        setBar({active})
+        state.bar.active = active
     }
 
     const handleVolumeChange = (sliderValue: {locked?: boolean | null; value: number}) => {
@@ -682,8 +719,12 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
 
         // Firefox doesn't support this API (yet).
         if ('requestPictureInPicture' in (mediaRef.current as HTMLVideoElement)) {
-            const enterPip = () => setPip({...pip, active: true})
-            const leavePip = () => setPip({...pip, active: false})
+            const enterPip = () => {
+                state.pip.active = true
+            }
+            const leavePip = () => {
+                state.pip.active = false
+            }
 
             mediaRef.current.addEventListener('enterpictureinpicture', enterPip)
             mediaRef.current.addEventListener('leavepictureinpicture', leavePip)
@@ -694,6 +735,10 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
             }
         }
     }, [])
+
+    const upMediaCount = modelValue.direction === 'up' ?
+        $s.upMedia.camera.length + $s.upMedia.screenshare.length :
+        0
 
     useEffect(() => {
         if (!mediaRef.current) return
@@ -708,7 +753,7 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
 
         mediaRef.current.addEventListener('loadedmetadata', handleLoadedMetadata)
 
-        setMuted(mediaRef.current.muted)
+        state.muted = mediaRef.current.muted
 
         if (modelValue.direction === 'up') mountUpstream()
         else mountDownstream()
@@ -716,7 +761,7 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
         return () => {
             mediaRef.current?.removeEventListener('loadedmetadata', handleLoadedMetadata)
         }
-    }, [modelValue.id, modelValue.direction, sfu.connection?.down?.[modelValue.id]])
+    }, [modelValue.id, modelValue.direction, sfu.connection?.down?.[modelValue.id], upMediaCount])
 
     return (
         <div
@@ -731,12 +776,12 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
         >
             <video
                 autoplay={true}
-                class={classnames('media', {'media-failed': mediaFailed, mirror: modelValue.mirror})}
+                class={classnames('media', {'media-failed': state.mediaFailed, mirror: modelValue.mirror})}
                 muted={modelValue.direction === 'up'}
                 onClick={(e) => {
                     e.stopPropagation()
                     // If autoplay is blocked and stream isn't playing, try to play on click
-                    if (autoplayBlocked && !modelValue.playing && mediaRef.current && mediaRef.current.srcObject) {
+                    if (state.autoplayBlocked && !modelValue.playing && mediaRef.current && mediaRef.current.srcObject) {
                         playStream().catch(() => {
                             // Ignore errors - user will see the message
                         })
@@ -751,7 +796,7 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
 
             {!modelValue.playing &&
                 <div class='loading-container'>
-                    {autoplayBlocked ?
+                    {state.autoplayBlocked ?
                         <div class='autoplay-message'>
                             <Icon className='icon icon-l' name='webcam' />
                             <p>Click to start video</p>
@@ -769,16 +814,16 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
                     </svg>
                 </div>}
 
-            {stats.visible && <Reports description={modelValue} onClick={toggleStats} />}
+            {state.stats.visible && <Reports description={modelValue} onClick={toggleStats} />}
 
             {controls && modelValue.playing &&
                 <div class='user-info'>
-                    {audioEnabled && stream &&
+                    {audioEnabled && state.stream &&
                         <SoundMeter
                             class='soundmeter'
                             orientation='vertical'
-                            stream={stream}
-                            streamId={stream.id}
+                            stream={state.stream}
+                            streamId={state.stream.id}
                         />}
 
                     <div class={classnames('user', {'has-audio': audioEnabled})}>
@@ -786,7 +831,7 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
                     </div>
                 </div>}
 
-            <div class={classnames('stream-options', {active: bar.active})}>
+            <div class={classnames('stream-options', {active: state.bar.active})}>
                     {audioEnabled && modelValue.direction === 'down' &&
                         <div class='volume-slider'>
                         <FieldSlider
@@ -796,7 +841,7 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
                         />
                         </div>}
 
-                {pip.enabled &&
+                {state.pip.enabled &&
                     <Button
                         icon='pip'
                         onClick={setPipMode}
@@ -815,7 +860,7 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
 
                 {hasSettings &&
                     <Button
-                        active={stats.visible}
+                        active={state.stats.visible}
                         icon='info'
                         onClick={toggleStats}
                         size='s'

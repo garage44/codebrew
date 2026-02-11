@@ -25,10 +25,10 @@ Examples:
    ```bash
    # TypeScript syntax (oxlint)
    bun run lint:ts-syntax
-   
+
    # TypeScript style (eslint)
    bun run lint:ts-style
-   
+
    # TypeScript types
    bun run lint:ts-types
    ```

@@ -21,13 +21,13 @@ export const Group = () => {
             if (a.username > b.username) return 1
             return 0
         })
-    }, [$s.streams])
+    }, [])
 
     // Computed: streamsCount and streamsPlayingCount
     const streamsCount = $s.streams.length
     const streamsPlayingCount = useMemo(() => {
         return $s.streams.filter((s) => s.playing).length
-    }, [$s.streams])
+    }, [])
 
     /**
      * Optimal space algorithm from Anton Dosov:
@@ -64,7 +64,7 @@ export const Group = () => {
         }
 
         viewRef.current.style.setProperty('--stream-width', `${layout.width}px`)
-    }, [$s.streams.length, aspectRatio])
+    }, [aspectRatio])
 
     // Watch streamsCount and streamsPlayingCount
     useEffect(() => {
@@ -119,6 +119,7 @@ export const Group = () => {
         const streamIndex = $s.streams.findIndex((s) => s.id === updatedStream.id)
         if (streamIndex !== -1) {
             Object.assign($s.streams[streamIndex], updatedStream)
+            $s.streams = [...$s.streams]
         }
     }, [])
 

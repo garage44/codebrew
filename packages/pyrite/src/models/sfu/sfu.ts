@@ -27,7 +27,7 @@ import {$s, store} from '@/app'
 import {events} from '@garage44/common/app'
 import {logger} from '@garage44/common/lib/logger'
 import {formatBytes} from '@garage44/common/lib/utils'
-import {localStream, getUserMedia, removeLocalStream} from '@/models/media'
+import {getUserMedia, localStream, removeLocalStream} from '@/models/media'
 import {currentGroup} from '@/models/group'
 
 /*
@@ -227,20 +227,21 @@ export async function addUserMedia() {
     logger.debug(`[sfu] streamState: hasAudio=${streamState.hasAudio}, hasVideo=${streamState.hasVideo}, id=${streamState.id}`)
     logger.debug('[sfu] waiting for negotiation to complete (stream will be added to $s.streams)')
 
-        return new Promise<void>((resolve) => {
-            localGlnStream.onstatus = (status) => {
-                logger.debug(`[sfu] upstream stream ${glnStream.id} status: ${status}`)
-                if (status === 'connected') {
-                    logger.debug(`[sfu] upstream stream ${glnStream.id} connected successfully`)
-                    resolve()
-                }
+    return new Promise<void>((resolve) => {
+        localGlnStream.onstatus = (status) => {
+            logger.debug(`[sfu] upstream stream ${glnStream.id} status: ${status}`)
+            if (status === 'connected') {
+                logger.debug(`[sfu] upstream stream ${glnStream.id} connected successfully`)
+                resolve()
             }
-        })
+        }
+    })
 }
 
 export async function connect(username?: string, password?: string) {
     if (connection && connection.socket) {
         connection.close()
+        await new Promise((r) => setTimeout(r, 150))
     }
 
     // Reset connection state
@@ -350,23 +351,22 @@ export async function connect(username?: string, password?: string) {
                 if (hasStun) break
             }
 
-            // For localhost, ALWAYS ensure STUN is present (browsers require it)
-            if (isLocalhost && !hasStun) {
-                logger.warn(`[SFU] Server RTC config missing STUN servers on localhost (${iceServers.length} servers), adding STUN fallback`)
+            if (!hasStun || iceServers.length === 0) {
+                logger.warn(
+                    `[SFU] Server RTC config missing STUN (${iceServers.length} servers), adding STUN fallback`,
+                )
                 const modifiedConfig = {
                     ...serverConfig,
                     iceServers: [
                         {urls: 'stun:stun.l.google.com:19302'},
-                        ...iceServers, // Add STUN first, then existing servers
+                        ...iceServers,
                     ],
                 }
-                logger.debug(`[SFU] Modified RTC config now has ${modifiedConfig.iceServers.length} ICE servers (added STUN)`)
+                logger.debug(`[SFU] Modified RTC config now has ${modifiedConfig.iceServers.length} ICE servers`)
                 return modifiedConfig
             }
 
-            if (iceServers.length === 0) {
-                logger.warn('[SFU] Server RTC config has no ICE servers - this may cause connection issues')
-            } else if (isLocalhost && hasStun) {
+            if (isLocalhost && hasStun) {
                 logger.debug(`[SFU] Server RTC config OK: ${iceServers.length} ICE servers, STUN present`)
             }
 
@@ -963,26 +963,19 @@ function onClose(code, reason) {
         }
     }
 
-    // Clean up all upstream media
+    // Clean up all upstream media (connection may already be replaced - use delUpMediaKind for current)
     if (connection && connection.up) {
         delUpMediaKind(null)
     }
 
     /*
-     * Clean up all downstream streams from state (like original Galène gotClose)
-     * When connection closes, all streams are closed via Stream.close() which calls onclose handlers
-     * We also clean up here as a safety net in case onclose handlers don't fire properly
-     * delMedia is idempotent (checks if stream exists), so double cleanup is safe
+     * Clear all streams from state when connection closes
+     * When connect() replaces connection for channel switch, upstream entries would otherwise
+     * remain in $s.streams and Stream components would look up connection.up (now empty)
      */
-    const downstreamStreamIds = [...$s.streams]
-        .filter((s) => s.direction === 'down')
-        .map((s) => s.id)
-
-    if (downstreamStreamIds.length > 0) {
-        logger.debug(`[onClose] Cleaning up ${downstreamStreamIds.length} downstream streams from state`)
-        downstreamStreamIds.forEach((id) => {
-            delMedia(id)
-        })
+    if ($s.streams.length > 0) {
+        logger.debug(`[onClose] Clearing ${$s.streams.length} streams from state`)
+        $s.streams = []
     }
 
     if (code !== 1000) {
@@ -1270,32 +1263,42 @@ async function onJoined(kind, group, permissions, status, data, message) {
             // Set channel as connected
             sfuChannels[group].connected = true
 
-            // Mark connection as ready after RTC config is received
-            if (connection && connection.rtcConfiguration) {
-                connectionReady = true
-                // Log RTC config for debugging (like original Galène would have)
+            /*
+             * Mark connection as ready - proceed even if rtcConfiguration is null
+             * (onpeerconnection provides fallback)
+             */
+            connectionReady = true
+            if (connection?.rtcConfiguration) {
                 const iceServers = connection.rtcConfiguration.iceServers || []
-                const hasStun = iceServers.some((s) => (Array.isArray(s.urls) ? s.urls : [s.urls]).some((u) => typeof u === 'string' && u.includes('stun:')))
-                const hasTurn = iceServers.some((s) => (Array.isArray(s.urls) ? s.urls : [s.urls]).some((u) => typeof u === 'string' && (u.includes('turn:') || u.includes('turns:'))))
-                logger.debug(`[SFU] Connection ready, RTC configuration received: ${iceServers.length} ICE servers (STUN: ${hasStun}, TURN: ${hasTurn})`)
-                // Process any pending downstream streams
-                processPendingDownstreamStreams()
-                // Process any existing streams that may have been created before onJoined
-                processExistingDownstreamStreams()
+                const hasStun = iceServers.some((s) => {
+                    const urls = Array.isArray(s.urls) ? s.urls : [s.urls]
+                    return urls.some((u) => typeof u === 'string' && u.includes('stun:'))
+                })
+                const hasTurn = iceServers.some((s) => {
+                    const urls = Array.isArray(s.urls) ? s.urls : [s.urls]
+                    return urls.some((u) => typeof u === 'string' && (u.includes('turn:') || u.includes('turns:')))
+                })
+                logger.debug(`[SFU] Connection ready, RTC: ${iceServers.length} ICE servers (STUN: ${hasStun}, TURN: ${hasTurn})`)
             } else {
-                logger.warn('[SFU] Join successful but RTC configuration not yet available - server may not be sending it')
-                // Wait a bit and check again (original Galène doesn't do this, but helps with timing)
-                setTimeout(() => {
-                    if (connection && connection.rtcConfiguration) {
-                        connectionReady = true
-                        logger.debug('[SFU] Connection ready (delayed), RTC configuration received')
-                        processPendingDownstreamStreams()
-                        // Process any existing streams that may have been created before onJoined
-                        processExistingDownstreamStreams()
-                    } else {
-                        logger.error('[SFU] RTC configuration still not available after delay - this may cause ICE failures')
-                    }
-                }, 100)
+                logger.debug('[SFU] Connection ready, RTC from server: none (onpeerconnection fallback)')
+            }
+            // Process any pending downstream streams
+            processPendingDownstreamStreams()
+            // Process any existing streams that may have been created before onJoined
+            processExistingDownstreamStreams()
+            // Re-add user media when switching channels with camera on - must run after connectionReady
+            logger.debug(
+                `[SFU] Join complete: localStream=${!!localStream}, cam.enabled=${$s.devices.cam.enabled}`,
+            )
+            if (localStream) {
+                logger.info('[SFU] Re-adding user media after channel join')
+                addUserMedia().catch((err) => logger.error('[SFU] Failed to re-add user media:', err))
+            } else if ($s.devices.cam.enabled) {
+                // Camera was on but localStream was cleared (e.g. during connection close) - restore it
+                logger.info('[SFU] Camera enabled but no localStream - calling getUserMedia to restore')
+                getUserMedia($s.devices).catch((err) => {
+                    logger.error('[SFU] Failed to restore user media after channel switch:', err)
+                })
             }
 
             if (promiseConnect) {
