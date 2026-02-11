@@ -74,7 +74,7 @@ export function AvatarUpload({
 }: AvatarUploadProps = {}) {
     const fileInputRef = useRef<HTMLInputElement>(null)
     const [uploading, setUploading] = useState(false)
-    const [preview, setPreview] = useState<string | null>(null)
+    const [avatarVersion, setAvatarVersion] = useState(0)
 
     // Load current user info on mount if profile is not set
     useEffect(() => {
@@ -86,6 +86,8 @@ export function AvatarUpload({
                     logger.debug('[AvatarUpload] Received user from API:', user)
                     if (user?.id && state) {
                         setProfile(state, user)
+                        // Update avatar version to show new avatar
+                        setAvatarVersion(Date.now())
                     } else {
                         logger.warn('[AvatarUpload] User response missing id:', user)
                         notifier.notify({
@@ -106,7 +108,7 @@ export function AvatarUpload({
         })()
     }, [])
 
-    const handleFileSelect = (e: Event) => {
+    const handleFileSelect = async (e: Event) => {
         const input = e.target as HTMLInputElement
         const file = input.files?.[0]
         if (!file) return
@@ -119,6 +121,8 @@ export function AvatarUpload({
                 message: 'Invalid file type. Please select a JPEG, PNG, or WebP image.',
                 type: 'error',
             })
+            // Reset file input
+            input.value = ''
             return
         }
 
@@ -130,20 +134,20 @@ export function AvatarUpload({
                 message: 'File too large. Maximum size is 2MB.',
                 type: 'error',
             })
+            // Reset file input
+            input.value = ''
             return
         }
 
-        // Create preview
-        const reader = new FileReader()
-        reader.onload = (e) => {
-            setPreview(e.target?.result as string)
-        }
-        reader.readAsDataURL(file)
+        // Auto-upload the file
+        await handleUpload(file)
     }
 
-    const handleUpload = async () => {
+    const handleUpload = async (file?: File) => {
         const fileInput = fileInputRef.current
-        if (!fileInput?.files?.length) {
+        const fileToUpload = file || fileInput?.files?.[0]
+        
+        if (!fileToUpload) {
             notifier.notify({
                 level: 'error',
                 message: 'Please select an image file.',
@@ -162,13 +166,12 @@ export function AvatarUpload({
             return
         }
 
-        const file = fileInput.files[0]
         setUploading(true)
 
         try {
             // Create FormData
             const formData = new FormData()
-            formData.append('avatar', file)
+            formData.append('avatar', fileToUpload)
 
             // Upload via fetch (multipart/form-data)
             const response = await fetch(`/api/users/${userId}/avatar`, {
@@ -203,6 +206,9 @@ export function AvatarUpload({
                     setProfile(state, userData)
                 }
 
+                // Force component re-render and cache-bust the image
+                setAvatarVersion(Date.now())
+
                 logger.info(`[AvatarUpload] Updated avatar to: ${finalAvatar}`)
             } else {
                 logger.warn('[AvatarUpload] Failed to reload user data from API, using result.avatar')
@@ -210,11 +216,15 @@ export function AvatarUpload({
                 if (state) {
                     setAvatar(state, result.avatar, userId)
                 }
+
+                // Force component re-render and cache-bust the image
+                setAvatarVersion(Date.now())
             }
 
-            // Clear preview and file input
-            setPreview(null)
-            fileInput.value = ''
+            // Clear file input
+            if (fileInput) {
+                fileInput.value = ''
+            }
 
             notifier.notify({
                 level: 'success',
@@ -236,7 +246,9 @@ export function AvatarUpload({
     // Get current avatar for display
     const currentAvatar = state ? getAvatar(state) : 'placeholder-1.png'
     const userId = state ? getUserId(state) : null
-    const currentAvatarUrl = getAvatarUrl(currentAvatar, userId || undefined)
+    const baseAvatarUrl = getAvatarUrl(currentAvatar, userId || undefined)
+    // Add cache-busting query parameter to force image reload
+    const currentAvatarUrl = `${baseAvatarUrl}${baseAvatarUrl.includes('?') ? '&' : '?'}v=${avatarVersion}`
 
     return (
         <div class="c-avatar-upload">
@@ -244,11 +256,7 @@ export function AvatarUpload({
 
             <div class="avatar-preview-section">
                 <div class="avatar-preview">
-                    {preview ? (
-                        <img src={preview} alt="Preview" class="avatar-preview-img" />
-                    ) : (
-                        <img src={currentAvatarUrl} alt="Current avatar" class="avatar-preview-img" key={currentAvatar} />
-                    )}
+                    <img src={currentAvatarUrl} alt="Current avatar" class="avatar-preview-img" key={`${currentAvatar}-${avatarVersion}`} />
                 </div>
 
                 <div class="avatar-actions">
@@ -273,45 +281,18 @@ export function AvatarUpload({
                         disabled={uploading}
                         class="btn btn-secondary"
                     >
-                        <Icon name="upload" type="info" />
-                        {preview ? 'Change' : 'Choose Image'}
+                        {uploading ? (
+                            <>
+                                <Icon name="loading" type="info" />
+                                Uploading...
+                            </>
+                        ) : (
+                            <>
+                                <Icon name="upload" type="info" />
+                                Change Picture
+                            </>
+                        )}
                     </button>
-
-                    {preview && (
-                        <>
-                            <button
-                                type="button"
-                                onClick={handleUpload}
-                                disabled={uploading}
-                                class="btn btn-primary"
-                            >
-                                {uploading ? (
-                                    <>
-                                        <Icon name="loading" type="info" />
-                                        Uploading...
-                                    </>
-                                ) : (
-                                    <>
-                                        <Icon name="save" type="info" />
-                                        Upload
-                                    </>
-                                )}
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setPreview(null)
-                                    if (fileInputRef.current) {
-                                        fileInputRef.current.value = ''
-                                    }
-                                }}
-                                disabled={uploading}
-                                class="btn btn-secondary"
-                            >
-                                Cancel
-                            </button>
-                        </>
-                    )}
                 </div>
             </div>
 

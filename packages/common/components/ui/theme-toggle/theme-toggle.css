@@ -1,21 +1,28 @@
 .c-theme-toggle {
-    display: flex;
     align-items: center;
-    justify-content: center;
+    display: flex;
+    flex-direction: row;
+    gap: var(--spacer-2);
+    justify-content: flex-start;
 
     .c-icon {
         background: var(--surface-3);
         border: 1px solid var(--surface-4);
-        border-radius: 50%;
+        border-radius: var(--border-radius-d);
         cursor: pointer;
-        padding: var(--spacer-1) !important;
-        transition: all 0.3s ease;
+        padding: var(--spacer-1) var(--spacer-2) !important;
+        transition: all 0.2s ease;
         min-width: calc(var(--spacer-2) + var(--spacer-1) * 2);
         min-height: calc(var(--spacer-2) + var(--spacer-1) * 2);
 
         &:hover {
             background: var(--surface-4);
-            transform: scale(1.05);
+            border-color: var(--surface-5);
+            transform: translateY(-1px);
+        }
+
+        &:active {
+            transform: translateY(0);
         }
     }
 }

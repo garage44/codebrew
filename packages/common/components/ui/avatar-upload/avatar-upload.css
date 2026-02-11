@@ -37,6 +37,50 @@
     gap: var(--spacer-1);
 }
 
+.btn {
+    align-items: center;
+    border: none;
+    border-radius: var(--border-radius-d);
+    cursor: pointer;
+    display: inline-flex;
+    font-size: var(--font-d);
+    font-weight: 500;
+    gap: var(--spacer-1);
+    padding: var(--spacer-1) var(--spacer-2);
+    transition: all 0.15s ease;
+
+    &:disabled {
+        cursor: not-allowed;
+        opacity: 0.5;
+    }
+
+    &.btn-primary {
+        background: var(--primary-6);
+        color: var(--primary-9);
+
+        &:hover:not(:disabled) {
+            background: var(--primary-7);
+        }
+
+        &:active:not(:disabled) {
+            background: var(--primary-5);
+        }
+    }
+
+    &.btn-secondary {
+        background: var(--surface-3);
+        color: var(--surface-8);
+
+        &:hover:not(:disabled) {
+            background: var(--surface-4);
+        }
+
+        &:active:not(:disabled) {
+            background: var(--surface-5);
+        }
+    }
+}
+
 .avatar-file-input {
     height: 0;
     opacity: 0;
