@@ -277,20 +277,41 @@ A **Codebrew template** provides a shell into which application packages can be 
 
 ### App Plugin Interface
 
+The plugin describes **what** an app contributes (routes, menu, backend). View-specific concerns like the context panel stay on the route, not the app.
+
 ```typescript
-// packages/common/lib/codebrew-app-interface.ts (proposed)
+// packages/common/lib/codebrew-registry.ts (proposed)
+
+interface CodebrewRoute {
+  path: string
+  component: ComponentType
+  context?: ComponentType   // View-specific: when this route is active, render in context slot. Can return null.
+  default?: boolean
+}
+
 interface CodebrewAppPlugin {
   id: 'pyrite' | 'nonlinear' | 'expressio'
   name: string
   icon: string
   defaultRoute: string
-  routes: Array<{ path: string; component: ComponentType; default?: boolean }>
-  menuItems: Array<{ href: string; icon: string; text: string }>
-  contextPanel?: (props: { onClose: () => void }) => JSX.Element
+
+  // Navigation
+  menuItems?: Array<{ href: string; icon: string; text: string }>  // Static items (Expressio, Nonlinear)
+  menuComponent?: ComponentType  // Or: custom component for dynamic menus (e.g. Pyrite channels)
+
+  // Content
+  routes: CodebrewRoute[]
+
+  // Backend
   apiRoutes?: (router: Router) => void
   wsRoutes?: (wsManager: WebSocketServerManager) => void
 }
 ```
+
+**Design notes**:
+- **Context is per-route, not per-app**: The context panel is a view concern. `/board` shows TicketForm when a lane is selected; `/channels/:slug` shows chat. Placing `context` on the route keeps the plugin focused on app structure, not view internals.
+- **Context component**: Reads app state (e.g. `$s.selectedLane`), returns content or `null`. No props needed.
+- **Menu**: `menuItems` for static nav; `menuComponent` for dynamic (e.g. channel list). Use one or the other.
 
 ### Codebrew Shell Structure
 
@@ -321,6 +342,38 @@ registerExpressio()
 ```
 
 Each package exports an optional `codebrew.ts` (or `codebrew/index.ts`) that registers its plugin. Standalone mode: package runs its own service.ts. Codebrew mode: package only registers; Codebrew runs the service.
+
+### Example: Route with Context
+
+```typescript
+// nonlinear/codebrew.ts
+registerApp({
+  id: 'nonlinear',
+  name: 'Nonlinear',
+  icon: 'view_kanban',
+  defaultRoute: '/nonlinear/board',
+  menuItems: [
+    { href: '/nonlinear/docs', icon: 'description', text: 'Documentation' },
+    { href: '/nonlinear/board', icon: 'view_kanban', text: 'Development' },
+  ],
+  routes: [
+    { path: '/nonlinear/docs', component: Docs },
+    { path: '/nonlinear/board', component: Board, context: BoardContextPanel, default: true },
+    { path: '/nonlinear/tickets/:id', component: TicketDetail },
+    { path: '/nonlinear/settings', component: Settings },
+  ],
+  apiRoutes: registerRepositoriesApi,
+  wsRoutes: registerTicketsWs,
+})
+
+// BoardContextPanel is view-specific: shows TicketForm when lane selected
+const BoardContextPanel = () => {
+  if (!$s.selectedLane) return null
+  return <PanelContext><TicketForm initialStatus={$s.selectedLane} onClose={...} /></PanelContext>
+}
+```
+
+The Codebrew shell renders the active route's `context` component in the AppLayout context slot when that route matches.
 
 ## User Management Alignment
 
@@ -486,10 +539,11 @@ Each package exports an optional `codebrew.ts` (or `codebrew/index.ts`) that reg
 - **createAppMenu** (P2): Enables config-driven menu construction for standalone apps and Codebrew
 
 **5.5 Codebrew Template & Plugin System**
-- **CodebrewAppPlugin interface**: Define in common; each package implements for Codebrew mode
-- **Plugin registry**: `registerApp(plugin)`, `getApps()` for Codebrew shell
-- **Package export**: Each app exports `codebrew.ts` or `codebrew/index.ts` with registration; optional for standalone
-- **Codebrew shell**: Single service.ts, app.ts, Main component that composes registered apps
+- **CodebrewAppPlugin interface**: Define in common; `routes` with optional `context` per route (view-specific)
+- **CodebrewRoute**: `path`, `component`, `context?`, `default?`—context stays on the route, not the app
+- **Plugin registry**: `registerApp(plugin)`, `getApps()`, `getApp(id)` for Codebrew shell
+- **Menu**: `menuItems` for static nav; `menuComponent` for dynamic (e.g. Pyrite channels)
+- **Package export**: Each app exports `codebrew.ts` with registration; optional for standalone
 
 **5.6 User Management & Database Alignment**
 - **Config users**: Align Pyrite config to Expressio/Nonlinear schema (`username` not `name`)
