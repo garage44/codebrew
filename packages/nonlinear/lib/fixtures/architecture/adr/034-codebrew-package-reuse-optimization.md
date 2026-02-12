@@ -8,7 +8,7 @@
 - **Tags**: [architecture, package-reuse, codebrew, expressio, pyrite, nonlinear, monorepo]
 - **Impact Areas**: [expressio, pyrite, nonlinear, common]
 - **Decision Type**: architecture_pattern
-- **Related Decisions**: [ADR-001, ADR-004, ADR-007, ADR-015, ADR-021, ADR-024]
+- **Related Decisions**: [ADR-001, ADR-004, ADR-007, ADR-012, ADR-015, ADR-016, ADR-021, ADR-024]
 - **Supersedes**: []
 - **Superseded By**: []
 ---
@@ -167,6 +167,108 @@ export function createAppBootstrap(options: {
 
 **Status**: `common/lib/profile.ts` provides `adminContext`, `deniedContext`, `userContext`, `createComplexAuthContext`. Packages pass different context functions to createFinalHandler. Some inconsistency in user schema (Expressio/Nonlinear use `username`, Pyrite uses `name` in defaults).
 
+## Analysis: Component, Menu, and Layout Reuse
+
+### Component Reuse (Current State)
+
+**Shared in common** (good reuse):
+- `AppLayout`, `PanelMenu`, `PanelContext`, `MenuGroup`, `MenuItem`, `UserMenu`
+- `Login`, `Notifications`, `Progress`, `Button`, `Icon`, `FieldSelect`, etc.
+- Settings sub-components: `UsersManagement`, `UsersList`, `UsersForm`, `ChannelsList`, `ChannelsForm`, `ProfileSettings`, `AvatarUpload`
+
+**Package-specific** (appropriate):
+- Pyrite: `ChannelsContext`, `ContextChannels`, `ContextGroups`, `ContextUsers`, `PanelContextSfu`, `Channel`, `ChannelChat`
+- Nonlinear: `TicketForm`, `TicketDetail`, `Board`, `Docs`, `MentionAutocomplete`
+- Expressio: `WorkspaceTranslations`, `WorkspaceSettings`, `TranslationGroup`, `TranslationResult`
+
+**Tight coupling issue**: Common components (`AppLayout`, `UserMenu`, `ThemeToggle`, `Login`, `profile.tsx`, `avatar-upload`) import from `@/app` (store, $t, api, notifier). This works because each app bundles common with its own app entry—but for Codebrew, a unified app needs to provide a single store that all sub-apps share. The `@/app` resolution is bundler-context-dependent.
+
+### Menu Structure (Duplication & Variation)
+
+**Expressio menu pattern**:
+```tsx
+<PanelMenu navigation={(
+  <MenuGroup collapsed={...}>
+    {multiWorkspace && <FieldSelect model={workspace_id} ... />}
+    <MenuItem href={translationsUrl} icon='translate' text={$t(i18n.menu.workspace.translations)} />
+    <MenuItem href={configUrl} icon='workspace' text={$t(i18n.menu.workspace.config)} />
+  </MenuGroup>
+)} footer={enolaUsage} actions={<UserMenu ... />} />
+```
+
+**Nonlinear menu pattern**:
+```tsx
+<PanelMenu navigation={(
+  <MenuGroup collapsed={...}>
+    <MenuItem href='/docs' icon='description' text='Documentation' />
+    <MenuItem href='/board' icon='view_kanban' text='Development' />
+  </MenuGroup>
+)} footer={anthropicUsage} actions={authenticated ? <UserMenu ... /> : <a href='/login'>Login</a>} />
+```
+
+**Pyrite menu pattern** (different):
+```tsx
+<PanelMenu navigation={<ChannelsContext />} actions={<UserMenu ... />} />
+// No footer; uses LogoIcon instead of logoSrc; ChannelsContext is dynamic channel list
+```
+
+**Observations**:
+- Expressio + Nonlinear: Same structure (MenuGroup + MenuItems), different items and footers
+- Pyrite: Different navigation model (dynamic channels vs static nav items)
+- PanelMenu props repeated: `actions`, `collapsed`, `footer`, `LinkComponent`, `logo*`, `navigation`, `onCollapseChange`—same structure, different content
+- ~40 lines of PanelMenu + UserMenu setup duplicated per app with minor variations
+
+**Codebrew menu opportunity**: Top-level app switcher (Pyrite | Nonlinear | Expressio) + nested MenuGroups per active app. Requires `createAppMenu(config)` factory or `AppMenu` component that accepts menu items as config.
+
+### Layout Reuse (Current State)
+
+**Strong reuse**:
+- All apps use `AppLayout` with `menu`, `context`, `children` props
+- Same `store.state.panels.menu` and `store.state.panels.context` structure (from common/lib/state.ts)
+- Panel collapse/expand, mobile toggle, backdrop—all handled by AppLayout
+- CSS Grid layout (`.c-app-layout`) shared
+
+**Layout variations**:
+- Expressio: No context panel (or minimal)
+- Nonlinear: Context panel for TicketForm when lane selected
+- Pyrite: Context panel for chat (`PanelContextSfu`), uses `.c-conference-app` wrapper class
+
+**AppLayout coupling**: Reads `store.state.env.layout`, `store.state.panels.*` directly. For Codebrew, sub-apps would share one store—panels state would need to be namespaced (e.g. `panels.pyrite.menu`) or use a single unified panel state with app-aware routing.
+
+**Main component structure** (duplicated~60 lines each):
+```tsx
+// All three follow this pattern:
+<AppLayout
+  menu={<PanelMenu {...commonProps} navigation={...} actions={...} footer={...} />}
+  context={condition ? <PanelContext>...</PanelContext> : null}
+>
+  <div class='view'>
+    <Router>...</Router>
+  </div>
+</AppLayout>
+<Notifications notifications={$s.notifications} />
+```
+
+### Recommendations: Component/Menu/Layout
+
+| Area | Recommendation | Priority |
+|------|----------------|----------|
+| **createAppMenu** | Factory accepting `{ logo, items, footer, userMenuProps }` → returns PanelMenu JSX | P2 |
+| **AppLayout store injection** | Consider `panels`, `onPanelChange` props to reduce @/app coupling | P3 |
+| **Codebrew menu** | Create `CodebrewAppSwitcher` + nested `MenuGroup` per app | P2 |
+| **Settings shell** | Common `SettingsLayout` with tab routing—apps provide tab config | P3 |
+| **Main layout wrapper** | `createMainLayout({ menuConfig, routes, contextRenderer })` | P3 |
+
+### Store State for Codebrew
+
+Current `persistentState`/`volatileState` in common includes:
+- `panels`: { menu: { collapsed, width }, context: { collapsed, width } }
+- `profile`: { admin, authenticated, avatar, displayName, id, username }
+- `env`: { layout, url, ... }
+- `theme`, `notifications`, `language_ui`
+
+For Codebrew: Either (a) extend with `activeApp: 'pyrite' | 'nonlinear' | 'expressio'` and single panel state, or (b) namespace: `panelsByApp: { pyrite: {...}, nonlinear: {...}, expressio: {...} }`. Option (a) simpler—one panel at a time when switching apps.
+
 ## Rationale
 
 **Primary Reasoning**:
@@ -254,6 +356,13 @@ export function createAppBootstrap(options: {
 - Auth middleware validates once; sub-apps trust session
 - Requires ADR-015 (Unified Auth) alignment
 
+**5.4 Codebrew Menu & Layout**
+- **App switcher**: Top-level MenuGroup with MenuItems for Pyrite, Nonlinear, Expressio
+- **Nested navigation**: When app selected, show that app's MenuGroup (Translations/Config, Docs/Board, or Channels)
+- **Layout**: Single AppLayout; context panel shows app-specific content (chat, ticket form, etc.)
+- **Store**: `$s.activeApp` drives which menu items and routes are active
+- **createAppMenu** (P2): Enables config-driven menu construction for standalone apps and Codebrew
+
 ### Implementation Order Diagram
 
 ```mermaid
@@ -323,6 +432,10 @@ graph TB
 | App bootstrap | ~90% duplicated (Expr/Pyrite) | createAppBootstrap factory | P1 |
 | Config init | Similar pattern 3x | createConfigManager | P2 |
 | Session | 3 separate cookies | Unified for Codebrew | P2 |
+| **Menu structure** | PanelMenu + UserMenu ~40 lines duplicated 3x | createAppMenu factory | P2 |
+| **Layout/main** | AppLayout + main div + Notifications repeated | createMainLayout wrapper | P3 |
+| **AppLayout coupling** | Imports store from @/app | Consider props injection | P3 |
+| **Codebrew menu** | N/A—needs app switcher | CodebrewAppSwitcher + nested MenuGroups | P2 |
 | i18n config | Pyrite uses .expressio.json | Consider .codebrew.json or generic | P3 |
 | User schema | Expressio/Nonlinear vs Pyrite differ | Align on common schema | P3 |
 
@@ -418,7 +531,9 @@ graph TB
 - **ADR-001**: Monorepo Structure—defines package boundaries
 - **ADR-004**: Preact + WebSocket—frontend/real-time patterns
 - **ADR-007**: Bun.serve—server bootstrap pattern
+- **ADR-012**: Design System Consolidation—AppLayout, shared components
 - **ADR-015**: Unified Authentication—shared session for Codebrew
+- **ADR-016**: Three-Column Layout—PanelMenu, PanelContext, AppLayout pattern
 - **ADR-021**: Nonlinear—application package structure
 - **ADR-024**: Malkovich Migration—mentions expressio, pyrite, nonlinear as apps
 
@@ -431,3 +546,7 @@ graph TB
 - **Common middleware**: `packages/common/lib/middleware.ts`
 - **Pyrite-Expressio integration**: `packages/pyrite/src/app.ts` (createTypedI18n from expressio)
 - **Deploy workspace**: `packages/nonlinear/lib/deploy/workspace.ts` (isApplicationPackage)
+- **Layout/menu components**: `packages/common/components/ui/app-layout/`, `panel-menu/`, `menu-group/`, `menu-item/`
+- **AppLayout @/app coupling**: `packages/common/components/ui/app-layout/app-layout.tsx` (store, $t imports)
+- **Main components**: `packages/expressio/src/components/main/main.tsx`, `packages/pyrite/src/components/main/main.tsx`, `packages/nonlinear/src/components/main/main.tsx`
+- **Shared state**: `packages/common/lib/state.ts` (panels, profile, env)
