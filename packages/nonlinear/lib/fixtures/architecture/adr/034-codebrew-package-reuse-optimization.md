@@ -269,6 +269,128 @@ Current `persistentState`/`volatileState` in common includes:
 
 For Codebrew: Either (a) extend with `activeApp: 'pyrite' | 'nonlinear' | 'expressio'` and single panel state, or (b) namespace: `panelsByApp: { pyrite: {...}, nonlinear: {...}, expressio: {...} }`. Option (a) simpler—one panel at a time when switching apps.
 
+## Codebrew Template: Pluggable Application Architecture
+
+### Template Concept
+
+A **Codebrew template** provides a shell into which application packages can be plugged with minimal wiring. Each app (Pyrite, Nonlinear, Expressio) implements a standard interface; Codebrew composes them.
+
+### App Plugin Interface
+
+```typescript
+// packages/common/lib/codebrew-app-interface.ts (proposed)
+interface CodebrewAppPlugin {
+  id: 'pyrite' | 'nonlinear' | 'expressio'
+  name: string
+  icon: string
+  defaultRoute: string
+  routes: Array<{ path: string; component: ComponentType; default?: boolean }>
+  menuItems: Array<{ href: string; icon: string; text: string }>
+  contextPanel?: (props: { onClose: () => void }) => JSX.Element
+  apiRoutes?: (router: Router) => void
+  wsRoutes?: (wsManager: WebSocketServerManager) => void
+}
+```
+
+### Codebrew Shell Structure
+
+```
+packages/codebrew/
+├── service.ts           # Single entry: initDatabase, service.init, composed middleware
+├── src/
+│   ├── app.ts           # Unified app entry: store.load, App.init with CodebrewMain
+│   └── components/
+│       └── main/
+│           └── main.tsx # CodebrewMain: app switcher, route composition, shared layout
+├── lib/
+│   ├── plugins.ts       # Registry: registerApp(plugin), getApps()
+│   └── config.ts        # codebrew config (extends common patterns)
+```
+
+### Plugging in an Application
+
+```typescript
+// In codebrew/lib/plugins.ts
+import { registerPyrite } from '@garage44/pyrite/codebrew'
+import { registerNonlinear } from '@garage44/nonlinear/codebrew'
+import { registerExpressio } from '@garage44/expressio/codebrew'
+
+registerPyrite()
+registerNonlinear()
+registerExpressio()
+```
+
+Each package exports an optional `codebrew.ts` (or `codebrew/index.ts`) that registers its plugin. Standalone mode: package runs its own service.ts. Codebrew mode: package only registers; Codebrew runs the service.
+
+## User Management Alignment
+
+### Current State
+
+| Aspect | Common | Expressio | Pyrite | Nonlinear |
+|--------|--------|-----------|--------|-----------|
+| **users table** | `createUsersTable()` in common | Uses common | Uses common | Uses common |
+| **UserManager** | Single instance from common/service | Shared | Shared | Shared |
+| **Config users schema** | N/A | `{ username, password: {key, type}, permissions, profile }` | `{ name, admin, password }` ❌ | `{ username, password, permissions, profile }` |
+| **Default admin** | UserManager.createDefaultAdmin() hardcoded | DB-driven | DB-driven | DB-driven |
+| **Avatar storage** | `~/.{appName}/avatars/` | expressio | pyrite | nonlinear |
+| **/api/users/me** | createFinalHandler (common) | common | common | common |
+| **/api/login** | createFinalHandler (common) | common | common | common |
+| **Users API** | N/A | avatar upload only | full CRUD + avatar | minimal |
+
+### Alignment Recommendations
+
+| Change | Benefit | Effort |
+|--------|---------|--------|
+| **Unify config.users schema** | Pyrite uses `name`; align to `username` across all apps | Low |
+| **UserManager from config** | Optional: seed users from config.users on first run (UserManager currently ignores config) | Medium |
+| **Shared avatar path for Codebrew** | `~/.codebrew/avatars/` when running as Codebrew | Low |
+| **Extract common Users API** | GET /api/users, GET /api/users/me, POST /api/login—already in middleware; add optional CRUD in common | Medium |
+
+## Common Tables Alignment
+
+### Current Table Usage
+
+| Table | Created by | Used by |
+|-------|------------|---------|
+| **users** | common/database.ts | All (UserManager) |
+| **channels** | pyrite | pyrite |
+| **channel_members** | pyrite | pyrite |
+| **messages** | pyrite | pyrite |
+| **repositories** | nonlinear | nonlinear |
+| **tickets** | nonlinear | nonlinear |
+| **comments** | nonlinear | nonlinear |
+| **agents** | nonlinear | nonlinear |
+| **documentation** | nonlinear | nonlinear |
+| **etc.** | package-specific | package-specific |
+
+### Codebrew Database Strategy
+
+**Option A: Single database** (`~/.codebrew.db`)
+- One `users` table (shared)
+- All package tables in same DB: `channels`, `tickets`, `repositories`, etc.
+- Simpler deployment; single file
+- **Risk**: Table name collisions (unlikely—packages use distinct names)
+
+**Option B: Separate DBs per app**
+- `~/.codebrew.db` for users only
+- `~/.codebrew-pyrite.db`, `~/.codebrew-nonlinear.db`, etc. for app data
+- Stronger isolation
+- **Cost**: Multiple connections, more complex init
+
+**Recommendation**: Option A for Codebrew. Users table is shared; app tables coexist. `initDatabase(undefined, 'codebrew')` creates `~/.codebrew.db`; run package-specific table creation in sequence during Codebrew startup.
+
+## Package Alignment Summary
+
+| Area | Current | Target |
+|------|---------|--------|
+| **Config users** | Pyrite: `{name, admin, password}`; others: UserManager schema | All: `{username, password, permissions, profile}` |
+| **Avatar path** | Per-app: `~/.expressio/avatars/` etc. | Codebrew: `~/.codebrew/avatars/` |
+| **Session cookie** | expressio-session, pyrite-session, nonlinear-session | Codebrew: codebrew-session |
+| **Database path** | Per-app: `~/.expressio.db` etc. | Codebrew: `~/.codebrew.db` |
+| **Users API surface** | Expressio: avatar; Pyrite: full CRUD; Nonlinear: via context | Common: /api/users/me, /api/login; optional common CRUD |
+| **Auth flow** | Same (UserManager, createFinalHandler) | No change |
+| **Profile context** | adminContext, userContext, deniedContext—slightly different per app | Unify for Codebrew; apps can still override |
+
 ## Rationale
 
 **Primary Reasoning**:
@@ -363,6 +485,18 @@ For Codebrew: Either (a) extend with `activeApp: 'pyrite' | 'nonlinear' | 'expre
 - **Store**: `$s.activeApp` drives which menu items and routes are active
 - **createAppMenu** (P2): Enables config-driven menu construction for standalone apps and Codebrew
 
+**5.5 Codebrew Template & Plugin System**
+- **CodebrewAppPlugin interface**: Define in common; each package implements for Codebrew mode
+- **Plugin registry**: `registerApp(plugin)`, `getApps()` for Codebrew shell
+- **Package export**: Each app exports `codebrew.ts` or `codebrew/index.ts` with registration; optional for standalone
+- **Codebrew shell**: Single service.ts, app.ts, Main component that composes registered apps
+
+**5.6 User Management & Database Alignment**
+- **Config users**: Align Pyrite config to Expressio/Nonlinear schema (`username` not `name`)
+- **Database**: Single `~/.codebrew.db` with users table + all app tables
+- **Avatar path**: `~/.codebrew/avatars/` when running as Codebrew
+- **Init order**: initDatabase('codebrew') → createUsersTable → init package-specific tables (channels, tickets, etc.)
+
 ### Implementation Order Diagram
 
 ```mermaid
@@ -374,6 +508,9 @@ graph TD
     P5 --> P5a[5.1 Create Package]
     P5a --> P5b[5.2 Routing]
     P5b --> P5c[5.3 Shared Session]
+    P5c --> P5d[5.4 Menu & Layout]
+    P5d --> P5e[5.5 Template & Plugins]
+    P5e --> P5f[5.6 User Mgmt & DB]
 ```
 
 ## Codebrew Architecture (Proposed)
@@ -436,6 +573,10 @@ graph TB
 | **Layout/main** | AppLayout + main div + Notifications repeated | createMainLayout wrapper | P3 |
 | **AppLayout coupling** | Imports store from @/app | Consider props injection | P3 |
 | **Codebrew menu** | N/A—needs app switcher | CodebrewAppSwitcher + nested MenuGroups | P2 |
+| **Codebrew template** | N/A | App plugin interface, registry, shell structure | P2 |
+| **Config users schema** | Pyrite uses `{name, admin, password}` | Unify to `{username, password, permissions, profile}` | P2 |
+| **Common tables** | users in common; app tables per package | Single DB for Codebrew (~/.codebrew.db) | P2 |
+| **Users API** | Expressio: avatar; Pyrite: full CRUD; Nonlinear: minimal | Extract common /api/users/me, /api/login; optional CRUD | P3 |
 | i18n config | Pyrite uses .expressio.json | Consider .codebrew.json or generic | P3 |
 | User schema | Expressio/Nonlinear vs Pyrite differ | Align on common schema | P3 |
 
@@ -550,3 +691,6 @@ graph TB
 - **AppLayout @/app coupling**: `packages/common/components/ui/app-layout/app-layout.tsx` (store, $t imports)
 - **Main components**: `packages/expressio/src/components/main/main.tsx`, `packages/pyrite/src/components/main/main.tsx`, `packages/nonlinear/src/components/main/main.tsx`
 - **Shared state**: `packages/common/lib/state.ts` (panels, profile, env)
+- **User management**: `packages/common/lib/user-manager.ts`, `packages/common/service.ts` (userManager)
+- **Database**: `packages/common/lib/database.ts` (createUsersTable, initDatabase)
+- **Config users**: `packages/expressio/lib/config.ts`, `packages/pyrite/lib/config.ts`, `packages/nonlinear/lib/config.ts`
