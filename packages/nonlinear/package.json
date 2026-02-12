@@ -37,7 +37,7 @@
     "stylelint-order": "catalog:dev"
   },
   "exports": {
-    ".": "./index.ts"
+    ".": "./index.ts","./codebrew":"./codebrew.ts"
   },
   "files": [
     "api/*",

@@ -1,6 +1,6 @@
 {
   "name": "@garage44/pyrite",
-  "description": "Pyrite - Video conferencing powered by Galène SFU",
+  "description": "Pyrite - Video conferencing powered by Gal\u00e8ne SFU",
   "version": "2.0.0",
   "author": "Garage44",
   "main": "service.ts",
@@ -57,5 +57,9 @@
     "oxlint": "catalog:dev",
     "stylelint": "catalog:dev",
     "stylelint-order": "catalog:dev"
+  },
+  "exports": {
+    ".": "./service.ts",
+    "./codebrew": "./codebrew.ts"
   }
 }

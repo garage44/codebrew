@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html dir="auto" lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta http-equiv="ScreenOrientation" content="autoRotate:disabled">
+        <meta name="viewport" content='width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0'/>
+        <link rel="stylesheet" href="/public/app.<%= settings.buildId %>.css">
+        <link rel="stylesheet" href="/public/components.<%= settings.buildId %>.css">
+        <% if (settings.enableBunchy !== false) { %>
+        <script src="/public/bunchy.<%= settings.buildId %>.js" type="module"></script>
+        <% } %>
+        <script src="/public/app.<%= settings.buildId %>.js" type="module"></script>
+    </head>
+    <body>
+    </body>
+</html>

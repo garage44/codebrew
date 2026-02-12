@@ -1,0 +1,12 @@
+.c-codebrew-welcome {
+    padding: var(--spacer-4);
+
+    h1 {
+        font-size: var(--font-c);
+        margin-bottom: var(--spacer-2);
+    }
+
+    p {
+        color: var(--text-muted);
+    }
+}

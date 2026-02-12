@@ -33,7 +33,7 @@
     "stylelint-order": "catalog:dev"
   },
   "exports": {
-    ".": "./index.ts",
+    ".": "./index.ts","./codebrew":"./codebrew.ts",
     "./lib/i18n": "./lib/i18n.ts",
     "./src/lib/state": "./src/lib/state.ts",
     "./src/types": "./src/types.ts"
