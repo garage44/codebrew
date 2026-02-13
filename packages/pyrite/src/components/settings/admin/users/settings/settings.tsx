@@ -22,7 +22,9 @@ export default function Settings({tabId = 'misc', userId}: SettingsProps) {
         }
     }
 
-    if (!$s.admin.user) {return null}
+    if (!$s.admin.user) {
+        return null
+    }
 
     return (
         <div class='c-admin-user content'>

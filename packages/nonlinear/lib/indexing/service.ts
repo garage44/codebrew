@@ -69,7 +69,7 @@ class IndexingService {
         this.processJobs()
 
         // Then poll for new jobs
-        this.pollTimer = setInterval(() => {
+        this.pollTimer = setInterval((): void => {
             this.processJobs()
         }, this.pollInterval)
 
@@ -137,10 +137,10 @@ class IndexingService {
             this.processing = true
 
             // Process jobs concurrently
-            await Promise.all(pendingJobs.map((job) => this.processJob(job)))
+            await Promise.all(pendingJobs.map((job): Promise<void> => this.processJob(job)))
 
             this.processing = false
-        } catch(error) {
+        } catch(error: unknown) {
             if (this.logger) {
                 this.logger.error('[IndexingService] Error processing jobs:', error)
             }
@@ -200,7 +200,7 @@ class IndexingService {
             if (this.logger) {
                 this.logger.info(`[IndexingService] Completed job ${job.id} (${job.type})`)
             }
-        } catch(error) {
+        } catch(error: unknown) {
             const errorMsg = error instanceof Error ? error.message : String(error)
             if (this.logger) {
                 this.logger.error(`[IndexingService] Failed job ${job.id}:`, errorMsg)
@@ -252,7 +252,7 @@ if (import.meta.main) {
     const service = new IndexingService();
 
     // Initialize and start
-    (async() => {
+    (async(): Promise<void> => {
         await initConfig(config)
         initDatabase()
 
@@ -264,13 +264,13 @@ if (import.meta.main) {
         service.setLogger(loggerInstance)
 
         // Handle graceful shutdown (after logger is initialized)
-        process.on('SIGINT', () => {
+        process.on('SIGINT', (): void => {
             loggerInstance.info('[IndexingService] Received SIGINT, shutting down...')
             service.stop()
             process.exit(0)
         })
 
-        process.on('SIGTERM', () => {
+        process.on('SIGTERM', (): void => {
             loggerInstance.info('[IndexingService] Received SIGTERM, shutting down...')
             service.stop()
             process.exit(0)
@@ -280,7 +280,7 @@ if (import.meta.main) {
 
         // Keep process alive and log status periodically
         /* Log status every minute */
-        setInterval(() => {
+        setInterval((): void => {
             const status = service.getStatus()
             loggerInstance.info(
                 `[IndexingService] Status: ${status.pendingJobs} pending, ` +

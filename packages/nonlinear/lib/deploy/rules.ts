@@ -14,11 +14,13 @@ export async function rules(): Promise<void> {
     try {
         const stats = await stat(nonlinearRulesPath)
         if (!stats.isDirectory()) {
+            // eslint-disable-next-line no-console
             console.error(`❌ ${nonlinearRulesPath} is not a directory`)
             process.exit(1)
         }
-    } catch{
-        console.error(`❌ Nonlinear rules directory not found: ${nonlinearRulesPath}`)
+    } catch(error: unknown) {
+        // eslint-disable-next-line no-console
+        console.error(`❌ Nonlinear rules directory not found: ${nonlinearRulesPath}`, error)
         process.exit(1)
     }
 
@@ -26,7 +28,8 @@ export async function rules(): Promise<void> {
     const cursorDir = join(workspaceRoot, '.cursor')
     try {
         await mkdir(cursorDir, {recursive: true})
-    } catch(error) {
+    } catch(error: unknown) {
+        // eslint-disable-next-line no-console
         console.error('❌ Failed to create .cursor directory:', error)
         process.exit(1)
     }
@@ -41,18 +44,23 @@ export async function rules(): Promise<void> {
         try {
             await rm(cursorRulesPath, {force: true, recursive: true})
             if (stats.isSymbolicLink()) {
+                // eslint-disable-next-line no-console
                 console.log('ℹ️  Removed existing symlink')
             } else if (stats.isDirectory()) {
+                // eslint-disable-next-line no-console
                 console.log('ℹ️  Removed existing directory')
             } else {
+                // eslint-disable-next-line no-console
                 console.log('ℹ️  Removed existing file')
             }
-        } catch(error) {
+        } catch(error: unknown) {
+            // eslint-disable-next-line no-console
             console.error('❌ Failed to remove existing file/directory/symlink:', error)
             process.exit(1)
         }
-    } catch {
+    } catch{
         // Doesn't exist, we'll create it
+        // Ignore error
     }
 
     /*
@@ -67,17 +75,22 @@ export async function rules(): Promise<void> {
         try {
             const linkStats = await lstat(cursorRulesPath)
             if (!linkStats.isSymbolicLink()) {
+                // eslint-disable-next-line no-console
                 console.error('❌ Created symlink but verification failed: not a symlink')
                 process.exit(1)
             }
             const target = await readlink(cursorRulesPath)
+            // eslint-disable-next-line no-console
             console.log(`✅ Created symlink: ${cursorRulesPath} → ${target}`)
+            // eslint-disable-next-line no-console
             console.log(`   (points to: ${nonlinearRulesPath})`)
-        } catch(error) {
+        } catch(error: unknown) {
+            // eslint-disable-next-line no-console
             console.error('❌ Failed to verify symlink:', error)
             process.exit(1)
         }
-    } catch(error) {
+    } catch(error: unknown) {
+        // eslint-disable-next-line no-console
         console.error('❌ Failed to create symlink:', error)
         process.exit(1)
     }

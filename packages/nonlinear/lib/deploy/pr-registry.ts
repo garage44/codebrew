@@ -33,7 +33,8 @@ export async function loadPRRegistry(): Promise<PRRegistry> {
     try {
         const content = readFileSync(REGISTRY_PATH, 'utf8')
         return JSON.parse(content)
-    } catch(error) {
+    } catch(error: unknown) {
+        // eslint-disable-next-line no-console
         console.error('[pr-registry] Failed to load registry:', error)
         return {}
     }
@@ -42,7 +43,8 @@ export async function loadPRRegistry(): Promise<PRRegistry> {
 export async function savePRRegistry(registry: PRRegistry): Promise<void> {
     try {
         writeFileSync(REGISTRY_PATH, JSON.stringify(registry, null, 2), 'utf8')
-    } catch(error) {
+    } catch(error: unknown) {
+        // eslint-disable-next-line no-console
         console.error('[pr-registry] Failed to save registry:', error)
         throw error
     }
@@ -82,5 +84,5 @@ export async function getPRDeployment(prNumber: number): Promise<PRDeployment | 
 
 export async function listActivePRDeployments(): Promise<PRDeployment[]> {
     const registry = await loadPRRegistry()
-    return Object.values(registry).filter((d) => d.status === 'running')
+    return Object.values(registry).filter((d): boolean => d.status === 'running')
 }

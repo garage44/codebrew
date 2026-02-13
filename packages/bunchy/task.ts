@@ -6,7 +6,7 @@ import {performance} from 'node:perf_hooks'
 export class Task {
     title: string
 
-    execute: (...args: any[]) => any
+    execute: (...args: unknown[]) => unknown
 
     prefix: {error: string; ok: string}
 
@@ -18,7 +18,7 @@ export class Task {
 
     size?: string
 
-    constructor(title, execute) {
+    constructor(title: string, execute: (...args: unknown[]) => unknown) {
         this.title = title
 
         this.execute = execute
@@ -28,25 +28,26 @@ export class Task {
         }
     }
 
-    log(...args: any[]) {
-        logger.info(...(args as [any, ...any[]]))
+    log(...args: unknown[]): void {
+        logger.info(...(args.map((arg: unknown): string => String(arg)) as [string, ...string[]]))
     }
 
-    async start(...args) {
+    async start(...args: unknown[]): Promise<unknown> {
         this.startTime = performance.now()
         const logStart = `${this.prefix.ok}${pc.gray('task started')}`
         this.log(logStart)
-        let result
+        let result: unknown = null
 
         try {
             result = await this.execute(...args)
-            if (result && result.size) {
-                if (result.size < 1024) {
-                    this.size = `${result.size}B`
-                } else if (result.size < 1024 ** 2) {
-                    this.size = `${Number(result.size / 1024).toFixed(2)}KiB`
+            if (result && typeof result === 'object' && 'size' in result && typeof (result as {size: number}).size === 'number') {
+                const resultSize = (result as {size: number}).size
+                if (resultSize < 1024) {
+                    this.size = `${resultSize}B`
+                } else if (resultSize < 1024 ** 2) {
+                    this.size = `${Number(resultSize / 1024).toFixed(2)}KiB`
                 } else {
-                    this.size = `${Number(result.size / 1024 ** 2).toFixed(2)}MiB`
+                    this.size = `${Number(resultSize / 1024 ** 2).toFixed(2)}MiB`
                 }
             }
         } catch(error) {

@@ -33,7 +33,7 @@ function parseArgs(args: string[]): Record<string, unknown> {
                 // --key value format
                 params[paramKey] = parseValue(value)
                 // Skip next arg as it's the value
-                i++
+                i += 1
             } else {
                 // --flag (boolean)
                 params[key] = true
@@ -43,7 +43,7 @@ function parseArgs(args: string[]): Record<string, unknown> {
             params.value = arg
         }
 
-        i++
+        i += 1
     }
 
     return params
@@ -97,7 +97,7 @@ function validateParams(params: Record<string, unknown>, tool: Tool): {errors: s
 
     // Check parameter types
     for (const [key, value] of Object.entries(params)) {
-        const paramDef = tool.parameters.find((p) => p.name === key)
+        const paramDef = tool.parameters.find((p): boolean => p.name === key)
         if (paramDef) {
             const expectedType = paramDef.type
             const actualType = typeof value
@@ -110,6 +110,7 @@ function validateParams(params: Record<string, unknown>, tool: Tool): {errors: s
             }
         } else {
             // Unknown parameter - warn but don't error
+            // eslint-disable-next-line no-console
             console.warn(`⚠️  Unknown parameter: ${key}`)
         }
     }
@@ -165,7 +166,7 @@ export async function executeToolCommand(
     try {
         const result = await tool.execute(params, toolContext)
         return result
-    } catch(error) {
+    } catch(error: unknown) {
         return {
             error: error instanceof Error ? error.message : String(error),
             success: false,

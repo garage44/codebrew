@@ -40,8 +40,10 @@ Access the documentation via the nonlinear package or visit the deployed instanc
 
     try {
         await writeFile(agentsPath, content, 'utf8')
+        // eslint-disable-next-line no-console
         console.log(`✅ Created AGENTS.md at ${agentsPath}`)
     } catch(error) {
+        // eslint-disable-next-line no-console
         console.error('❌ Failed to create AGENTS.md:', error)
         process.exit(1)
     }

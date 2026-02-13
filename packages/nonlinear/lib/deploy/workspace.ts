@@ -77,8 +77,9 @@ export function extractWorkspacePackages(workspaceRoot: string): string[] {
                             packages.push(entry)
                         }
                     }
-                } catch(error) {
+                } catch(error: unknown) {
                     // Directory doesn't exist or can't be read
+                    // eslint-disable-next-line no-console
                     console.warn(`[workspace] Failed to read packages directory ${packagesDir}:`, error)
                 }
             } else {

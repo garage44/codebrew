@@ -46,7 +46,7 @@ export async function queueIndexingJob(job: IndexingJobInput): Promise<string> {
 
         logger.debug(`[IndexingQueue] Queued job ${jobId} (${job.type})`)
         return jobId
-    } catch(error) {
+    } catch(error: unknown) {
         logger.error('[IndexingQueue] Failed to queue job:', error)
         throw error
     }
@@ -56,16 +56,13 @@ export async function queueIndexingJob(job: IndexingJobInput): Promise<string> {
  * Queue multiple code files for indexing
  */
 export async function queueCodeFiles(repositoryId: string, filePaths: string[]): Promise<string[]> {
-    const jobIds: string[] = []
-
-    for (const filePath of filePaths) {
-        const jobId = await queueIndexingJob({
+    const jobPromises = filePaths.map(async(filePath): Promise<string> => queueIndexingJob({
             filePath,
             repositoryId,
             type: 'code',
-        })
-        jobIds.push(jobId)
-    }
+        }))
+
+    const jobIds = await Promise.all(jobPromises)
 
     logger.info(`[IndexingQueue] Queued ${jobIds.length} code files for indexing`)
     return jobIds
@@ -87,10 +84,10 @@ export function getIndexingStatus(repositoryId: string): {
     `).all(repositoryId) as {status: string}[]
 
     return {
-        completed: jobs.filter((j) => j.status === 'completed').length,
-        failed: jobs.filter((j) => j.status === 'failed').length,
-        pending: jobs.filter((j) => j.status === 'pending').length,
-        processing: jobs.filter((j) => j.status === 'processing').length,
+        completed: jobs.filter((j): boolean => j.status === 'completed').length,
+        failed: jobs.filter((j): boolean => j.status === 'failed').length,
+        pending: jobs.filter((j): boolean => j.status === 'pending').length,
+        processing: jobs.filter((j): boolean => j.status === 'processing').length,
         total: jobs.length,
     }
 }

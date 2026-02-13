@@ -1,4 +1,5 @@
-import type {ComponentChildren} from 'preact'
+import type {h} from 'preact';
+import type { ComponentChildren} from 'preact'
 
 interface ComponentDemoProps {
     children: ComponentChildren
@@ -6,7 +7,7 @@ interface ComponentDemoProps {
     title: string
 }
 
-export const ComponentDemo = ({children, component, title}: ComponentDemoProps) => {
+export const ComponentDemo = ({children, component, title}: ComponentDemoProps): ReturnType<typeof h> => {
     // Create slug from title for anchor links
     const id = title.toLowerCase().replaceAll(/\s+/g, '-')
 

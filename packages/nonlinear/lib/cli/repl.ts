@@ -116,16 +116,18 @@ export class REPL {
     start(): void {
         // Show welcome message
         if (this.options.welcomeMessage) {
+            // eslint-disable-next-line no-console
             console.log(this.options.welcomeMessage)
         }
 
         // Show help message
         if (this.options.helpMessage) {
+            // eslint-disable-next-line no-console
             console.log(this.options.helpMessage)
         }
 
         // Set up event handlers
-        this.rl.on('line', async(input) => {
+        this.rl.on('line', async(input: string): Promise<void> => {
             const trimmed = input.trim()
 
             // Handle empty input
@@ -142,6 +144,7 @@ export class REPL {
 
             if (trimmed === 'help' || trimmed === 'h') {
                 if (this.options.helpMessage) {
+                    // eslint-disable-next-line no-console
                     console.log(this.options.helpMessage)
                 }
                 this.rl.prompt()
@@ -149,6 +152,7 @@ export class REPL {
             }
 
             if (trimmed === 'clear' || trimmed === 'cls') {
+                // eslint-disable-next-line no-console
                 console.clear()
                 this.rl.prompt()
                 return
@@ -160,8 +164,9 @@ export class REPL {
             // Process input
             try {
                 await this.options.onInput(trimmed)
-            } catch(error) {
+            } catch(error: unknown) {
                 const errorMsg = error instanceof Error ? error.message : String(error)
+                // eslint-disable-next-line no-console
                 console.error(`\n❌ Error: ${errorMsg}\n`)
             }
 
@@ -170,14 +175,15 @@ export class REPL {
         })
 
         // Handle Ctrl+C
-        this.rl.on('SIGINT', async() => {
+        this.rl.on('SIGINT', async(): Promise<void> => {
             const pc = await import('picocolors')
+            // eslint-disable-next-line no-console
             console.log(`\n\n${pc.gray('Exiting...')}`)
             await this.exit()
         })
 
         // Save history on process exit
-        process.on('exit', () => {
+        process.on('exit', (): void => {
             // Sync save (process is exiting)
             try {
                 const currentHistory = (this.rl as {history?: string[]}).history || []
@@ -218,6 +224,7 @@ export class REPL {
      * Write line (for agent responses)
      */
     writeline(message: string): void {
+        // eslint-disable-next-line no-console
         console.log(message)
     }
 }

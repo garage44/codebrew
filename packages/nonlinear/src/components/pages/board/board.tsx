@@ -103,7 +103,7 @@ const handleTicketDragOver = (e: DragEvent, ticketId: string, _ticketIndex: numb
         if (dropPosition === 'above') {
             parent.insertBefore(indicator, targetElement)
         } else {
-            const nextSibling = targetElement.nextSibling
+            const {nextSibling} = targetElement
             if (nextSibling) {
                 parent.insertBefore(indicator, nextSibling)
             } else {
@@ -148,9 +148,9 @@ export const Board = () => {
         // Sort by priority: higher priority first, null priorities at the end
         return [...laneTickets].toSorted((a, b) => {
             // Handle null priorities - put them at the end
-            if (a.priority === null && b.priority === null) return 0
-            if (a.priority === null) return 1
-            if (b.priority === null) return -1
+            if (a.priority === null && b.priority === null) {return 0}
+            if (a.priority === null) {return 1}
+            if (b.priority === null) {return -1}
             // Higher priority first (descending order)
             return b.priority - a.priority
         })
@@ -166,7 +166,7 @@ export const Board = () => {
         const targetIndex = laneTickets.findIndex((t) => t.id === targetTicketId)
         const draggedTicket = $s.tickets.find((t) => t.id === draggedTicketId)
 
-        if (targetIndex === -1 || !draggedTicket) return draggedTicket?.priority ?? 5
+        if (targetIndex === -1 || !draggedTicket) {return draggedTicket?.priority ?? 5}
 
         const targetTicket = laneTickets[targetIndex]
         const targetPriority = targetTicket.priority ?? 0
@@ -218,7 +218,7 @@ export const Board = () => {
         }
 
         const draggedTicket = $s.tickets.find((t) => t.id === ticketId)
-        if (!draggedTicket) return
+        if (!draggedTicket) {return}
 
         const isSameLane = draggedTicket.status === targetStatus
         const dropPosition = dragState.dropPosition ?? 'below'
@@ -240,7 +240,7 @@ export const Board = () => {
 
             // Optimistic update
             const ticketIndex = $s.tickets.findIndex((t) => t.id === ticketId)
-            if (ticketIndex >= 0) {
+            if (ticketIndex !== -1) {
                 const updatedTickets = [...$s.tickets] as typeof $s.tickets
                 updatedTickets[ticketIndex] = {
                     ...updatedTickets[ticketIndex],
@@ -264,6 +264,7 @@ export const Board = () => {
             if (result.tickets) {
                 $s.tickets = result.tickets as typeof $s.tickets
             }
+            // eslint-disable-next-line no-console
             console.error('Failed to update ticket:', error)
             dragState.dropTargetTicketId = null
             dragState.dropPosition = null
@@ -286,10 +287,10 @@ export const Board = () => {
         }
 
         const ticketId = e.dataTransfer?.getData('text/plain')
-        if (!ticketId) return
+        if (!ticketId) {return}
 
         const draggedTicket = $s.tickets.find((t) => t.id === ticketId)
-        if (!draggedTicket) return
+        if (!draggedTicket) {return}
 
         // Only handle lane drops if not dropping on a specific ticket
         if (draggedTicket.status === targetStatus) {
@@ -300,7 +301,7 @@ export const Board = () => {
         try {
             // Update ticket status optimistically for immediate UI feedback
             const ticketIndex = $s.tickets.findIndex((t) => t.id === ticketId)
-            if (ticketIndex >= 0) {
+            if (ticketIndex !== -1) {
                 // Create new array for DeepSignal reactivity
                 const updatedTickets = [...$s.tickets] as typeof $s.tickets
                 updatedTickets[ticketIndex] = {
@@ -321,6 +322,7 @@ export const Board = () => {
             if (result.tickets) {
                 $s.tickets = result.tickets as typeof $s.tickets
             }
+            // eslint-disable-next-line no-console
             console.error('Failed to update ticket status:', error)
         }
     }

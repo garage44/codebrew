@@ -3,10 +3,8 @@
  */
 
 import {logger} from '../../service.ts'
-import {db} from '../database.ts'
+import {db, type Documentation, type Ticket} from '../database.ts'
 import {generateEmbedding} from './embeddings.ts'
-import type {Documentation} from '../database.ts'
-import type {Ticket} from '../database.ts'
 
 export interface DocFilters {
     tags?: string[]
@@ -62,7 +60,7 @@ export async function unifiedVectorSearch(
         WHERE embedding MATCH ?
     `
 
-    const params: any[] = [embeddingJson]
+    const params: unknown[] = [embeddingJson]
 
     // Filter by content type
     if (contentType !== 'both') {
@@ -102,7 +100,7 @@ export async function unifiedVectorSearch(
             distance: number
             metadata: string
         }[]
-    } catch(error) {
+    } catch(error: unknown) {
         // Vec0 table might not exist (sqlite-vec not loaded)
         logger.warn('[Search] Vector search failed, vec0 table may not exist:', error)
         return {docs: [], tickets: []}
@@ -124,19 +122,28 @@ export async function unifiedVectorSearch(
                     const docLabels = db.prepare(`
                         SELECT label FROM documentation_labels WHERE doc_id = ?
                     `).all(doc.id) as {label: string}[]
-                    const docTags = new Set(docLabels.map((l) => l.label))
-                    const hasMatchingTag = filters.tags.some((tag) => docTags.has(tag))
-                    if (!hasMatchingTag) {continue}
+                    const docTags = new Set(docLabels.map((l): string => l.label))
+                    const hasMatchingTag = filters.tags.some((tag): boolean => docTags.has(tag))
+                    if (hasMatchingTag) {
+                        docResults.push({
+                            chunk: {
+                                index: result.chunk_index!,
+                                score,
+                                text: result.chunk_text,
+                            },
+                            doc,
+                        })
+                    }
+                } else {
+                    docResults.push({
+                        chunk: {
+                            index: result.chunk_index!,
+                            score,
+                            text: result.chunk_text,
+                        },
+                        doc,
+                    })
                 }
-
-                docResults.push({
-                    chunk: {
-                        index: result.chunk_index!,
-                        score,
-                        text: result.chunk_text,
-                    },
-                    doc,
-                })
             }
         } else if (result.content_type === 'ticket') {
             const ticket = db.prepare('SELECT * FROM tickets WHERE id = ?').get(result.content_id) as Ticket | undefined
@@ -146,15 +153,20 @@ export async function unifiedVectorSearch(
                     const ticketLabels = db.prepare(`
                         SELECT label FROM ticket_labels WHERE ticket_id = ?
                     `).all(ticket.id) as {label: string}[]
-                    const ticketTags = new Set(ticketLabels.map((l) => l.label))
-                    const hasMatchingTag = filters.tags.some((tag) => ticketTags.has(tag))
-                    if (!hasMatchingTag) {continue}
+                    const ticketTags = new Set(ticketLabels.map((l): string => l.label))
+                    const hasMatchingTag = filters.tags.some((tag): boolean => ticketTags.has(tag))
+                    if (hasMatchingTag) {
+                        ticketResults.push({
+                            score,
+                            ticket,
+                        })
+                    }
+                } else {
+                    ticketResults.push({
+                        score,
+                        ticket,
+                    })
                 }
-
-                ticketResults.push({
-                    score,
-                    ticket,
-                })
             }
         }
     }
@@ -171,7 +183,7 @@ export async function unifiedVectorSearch(
 export async function searchDocs(
     query: string,
     filters?: DocFilters,
-    limit: number = 10,
+    limit = 10,
 ): Promise<SearchResult[]> {
     const result = await unifiedVectorSearch(query, {
         contentType: 'doc',
@@ -187,7 +199,7 @@ export async function searchDocs(
 export async function searchTickets(
     query: string,
     filters?: DocFilters,
-    limit: number = 10,
+    limit = 10,
 ): Promise<TicketSearchResult[]> {
     const result = await unifiedVectorSearch(query, {
         contentType: 'ticket',

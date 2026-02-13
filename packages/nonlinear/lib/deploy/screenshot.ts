@@ -87,7 +87,7 @@ const SCREENSHOTS: ScreenshotConfig[] = [
 ]
 
 async function waitForServer(maxAttempts = 30): Promise<boolean> {
-    for (let i = 0; i < maxAttempts; i++) {
+    for (let i = 0; i < maxAttempts; i += 1) {
         try {
             const response = await fetch('http://localhost:3030')
             if (response.ok || response.status === 404) {
@@ -95,6 +95,7 @@ async function waitForServer(maxAttempts = 30): Promise<boolean> {
             }
         } catch{}
 
+        // eslint-disable-next-line no-console
         console.log(`Waiting for server... (${i + 1}/${maxAttempts})`)
         await new Promise((resolve) => setTimeout(resolve, 2000))
     }
@@ -112,18 +113,22 @@ async function takeScreenshot(browser: Browser, config: ScreenshotConfig): Promi
         // Enable console logging for debugging
         page.on('console', (msg) => {
             if (msg.type() === 'error') {
+                // eslint-disable-next-line no-console
                 console.log(`Browser console error: ${msg.text()}`)
             }
         })
 
         if (config.actions) {
+            // eslint-disable-next-line no-console
             console.log(`  📝 Executing custom actions for ${config.name}`)
             await config.actions(page)
         } else {
+            // eslint-disable-next-line no-console
             console.log(`  🌐 Navigating to ${config.url}`)
             await page.goto(config.url)
 
             if (config.waitForSelector) {
+                // eslint-disable-next-line no-console
                 console.log(`  ⏳ Waiting for selector: ${config.waitForSelector}`)
                 await page.waitForSelector(config.waitForSelector, {timeout: 10_000})
             }
@@ -131,6 +136,7 @@ async function takeScreenshot(browser: Browser, config: ScreenshotConfig): Promi
 
         // Additional delay if specified
         if (config.delay) {
+            // eslint-disable-next-line no-console
             console.log(`  ⏰ Waiting ${config.delay}ms for animations`)
             await page.waitForTimeout(config.delay)
         }
@@ -143,13 +149,16 @@ async function takeScreenshot(browser: Browser, config: ScreenshotConfig): Promi
             type: 'png',
         })
 
+        // eslint-disable-next-line no-console
         console.log(`✅ Screenshot saved: ${config.name}`)
     } catch(error) {
+        // eslint-disable-next-line no-console
         console.error(`❌ Failed to take screenshot ${config.name}:`, error.message)
 
         // Log current URL for debugging
         try {
             const currentUrl = page.url()
+            // eslint-disable-next-line no-console
             console.log(`  📍 Current URL: ${currentUrl}`)
         } catch{
             // Ignore if page is closed
@@ -162,6 +171,7 @@ async function takeScreenshot(browser: Browser, config: ScreenshotConfig): Promi
 }
 
 export async function takeScreenshots(): Promise<void> {
+    // eslint-disable-next-line no-console
     console.log('📸 Starting screenshot capture...\n')
 
     // Ensure .github directory exists
@@ -172,6 +182,7 @@ export async function takeScreenshots(): Promise<void> {
 
     try {
     // Start the server
+        // eslint-disable-next-line no-console
         console.log('🚀 Starting Expressio server...')
         serverProcess = Bun.spawn(['bun', 'run', 'dev'], {
             cwd: 'packages/expressio',
@@ -185,9 +196,11 @@ export async function takeScreenshots(): Promise<void> {
             throw new Error('Server failed to start within timeout period')
         }
 
+        // eslint-disable-next-line no-console
         console.log('✅ Server is ready\n')
 
         // Launch browser
+        // eslint-disable-next-line no-console
         console.log('🌐 Launching browser...')
         browser = await chromium.launch({
             args: [
@@ -203,23 +216,28 @@ export async function takeScreenshots(): Promise<void> {
 
         // Take screenshots
         for (const config of SCREENSHOTS) {
+            // eslint-disable-next-line no-console
             console.log(`📸 Taking screenshot: ${config.name}`)
             await takeScreenshot(browser, config)
         }
 
+        // eslint-disable-next-line no-console
         console.log('\n🎉 All screenshots captured successfully!')
     } catch(error) {
+        // eslint-disable-next-line no-console
         console.error('❌ Screenshot capture failed:', error.message)
         throw error
     } finally {
     // Cleanup
         if (browser) {
             await browser.close()
+            // eslint-disable-next-line no-console
             console.log('🌐 Browser closed')
         }
 
         if (serverProcess) {
             serverProcess.kill()
+            // eslint-disable-next-line no-console
             console.log('🛑 Server stopped')
         }
     }

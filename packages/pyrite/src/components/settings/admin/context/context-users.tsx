@@ -18,8 +18,12 @@ export default function ContextUsers({path: _path, userId}: ContextUsersProps) {
     const orderedUsers = useMemo(() => {
         const users = $s.admin.users.filter((g) => g.admin).concat($s.admin.users.filter((g) => !g.admin))
         return users.toSorted((a, b) => {
-            if (a.name < b.name) {return -1}
-            if (a.name > b.name) {return 1}
+            if (a.name < b.name) {
+                return -1
+            }
+            if (a.name > b.name) {
+                return 1
+            }
             return 0
         })
     }, [])
@@ -56,7 +60,9 @@ export default function ContextUsers({path: _path, userId}: ContextUsersProps) {
     }
 
     const saveUserAction = async (): Promise<void> => {
-        if (!$s.admin.user) {return}
+        if (!$s.admin.user) {
+            return
+        }
         await saveUser(String($s.admin.user.id), $s.admin.user)
         // Select the next unsaved user, when this user was unsaved to allow rapid user creation.
         if ($s.admin.user._unsaved) {
@@ -70,7 +76,9 @@ export default function ContextUsers({path: _path, userId}: ContextUsersProps) {
     }
 
     const toggleMarkDelete = async () => {
-        if (!$s.admin.user) {return}
+        if (!$s.admin.user) {
+            return
+        }
         $s.admin.user._delete = !$s.admin.user._delete
         for (const user of $s.admin.users) {
             if (user.name == $s.admin.user.name) {

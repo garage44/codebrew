@@ -61,7 +61,7 @@ export async function applyFileModifications(
                  * await fs.remove(backupPath)
                  */
             }
-        } catch(error) {
+        } catch(error: unknown) {
             const errorMsg = error instanceof Error ? error.message : String(error)
             logger.error(`[FileEditor] Failed to modify ${mod.path}: ${errorMsg}`)
             results.push({
@@ -89,16 +89,12 @@ export function validateModifications(modifications: FileModification[]): {
         // Basic validation
         if (!mod.path || !mod.changes) {
             invalid.push(mod)
-            continue
-        }
-
-        // Check for path traversal attempts
-        if (mod.path.includes('..') || mod.path.startsWith('/')) {
+        } else if (mod.path.includes('..') || mod.path.startsWith('/')) {
+            // Check for path traversal attempts
             invalid.push(mod)
-            continue
+        } else {
+            valid.push(mod)
         }
-
-        valid.push(mod)
     }
 
     return {invalid, valid}

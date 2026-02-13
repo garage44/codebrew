@@ -2,8 +2,7 @@ import {create$t, init as i18nInit} from './lib/i18n'
 import {Api} from './lib/api'
 import type {CommonState} from './types'
 import {EventEmitter} from 'node:events'
-import {Notifier} from './lib/notifier'
-import type {Notification} from './lib/notifier'
+import {Notifier, type Notification} from './lib/notifier'
 import {Store} from './lib/store'
 import env from './lib/env'
 import {logger} from './lib/logger'
@@ -28,7 +27,7 @@ const events = new EventEmitter()
 function getWebSocketUrl(path: string): string {
     const protocol = globalThis?.location?.protocol === 'https:' ? 'wss:' : 'ws:'
     const hostname = globalThis?.location?.hostname || 'localhost'
-    const port = (globalThis as any)?.location?.port
+    const port = (globalThis.location as {port?: string})?.port
 
     /*
      * Only include port if it's explicitly set and not the default (80 for HTTP, 443 for HTTPS)
@@ -46,9 +45,13 @@ interface InitOptions {
 
 
 class App {
-    async init(Main, renderFn, hFn, translations, options: InitOptions = {}) {
-        const g = globalThis as any
-        const isHMRUpdate = g.__HMR_UPDATING__ === true
+    // eslint-disable-next-line max-statements, class-methods-use-this
+    async init(Main: unknown, renderFn: (vnode: unknown, container: HTMLElement) => void, hFn: (component: unknown, props: Record<string, unknown>) => unknown, translations: unknown, options: InitOptions = {}): Promise<void> {
+        const globalState = globalThis as unknown as {
+            __HMR_UPDATING__?: boolean
+            __HMR_MAIN_COMPONENT__?: unknown
+        }
+        const isHMRUpdate = globalState.__HMR_UPDATING__ === true
 
         if (isHMRUpdate) {
             /*
@@ -56,7 +59,7 @@ class App {
              * Note: data-hmr-updating attribute is already set by bunchy/client.ts before script loads
              */
             store.state.hmr_updating = true
-            g.__HMR_UPDATING__ = false
+            globalState.__HMR_UPDATING__ = false
 
             /*
              * Re-initialize application services (env, i18n, notifier)
@@ -67,7 +70,7 @@ class App {
             notifier.init(store.state.notifications as Notification[])
 
             // Update Main component reference
-            g.__HMR_MAIN_COMPONENT__ = Main
+            globalState.__HMR_MAIN_COMPONENT__ = Main
 
             // Preserve scroll position before re-render
             const viewElement = document.querySelector('.view')
@@ -80,8 +83,9 @@ class App {
              */
             try {
                 const currentUrl = store.state.env?.url || globalThis.location?.pathname || '/'
-                if ('currentRoute' in store.state && (store.state as any).currentRoute !== currentUrl) {
-                    (store.state as any).currentRoute = currentUrl
+                const stateRecord = store.state as Record<string, unknown>
+                if ('currentRoute' in store.state && stateRecord.currentRoute !== currentUrl) {
+                    stateRecord.currentRoute = currentUrl
                 }
             } catch {
                 // If env.url access fails (shouldn't happen, but be safe), use window.location
@@ -171,7 +175,7 @@ class App {
         notifier.init(store.state.notifications as Notification[])
 
         // Store Main component reference for HMR re-rendering
-        g.__HMR_MAIN_COMPONENT__ = Main
+        globalState.__HMR_MAIN_COMPONENT__ = Main
 
         try {
             renderFn(hFn(Main, {}), document.body)

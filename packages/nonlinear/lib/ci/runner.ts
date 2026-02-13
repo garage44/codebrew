@@ -61,7 +61,7 @@ export class CIRunner {
             let lastError: string | null = null
 
             while (attempt < this.maxAttempts) {
-                attempt++
+                attempt += 1
 
                 // Run tests
                 logger.info(`[CI] Running tests (attempt ${attempt}/${this.maxAttempts})`)
@@ -121,7 +121,7 @@ export class CIRunner {
                 output,
                 success: false,
             }
-        } catch(error) {
+        } catch(error: unknown) {
             const errorMsg = error instanceof Error ? error.message : String(error)
             logger.error(`[CI] Error during CI run: ${errorMsg}`)
             this.completeRun(runId, 'failed', `Error: ${errorMsg}`, fixesApplied)
@@ -259,7 +259,7 @@ Generate a command to fix this issue.`
             }
             logger.warn(`[CI] Fix command failed: ${fixOutput}`)
             return null
-        } catch(error) {
+        } catch(error: unknown) {
             logger.error(`[CI] Error attempting fix: ${error}`)
             return null
         }

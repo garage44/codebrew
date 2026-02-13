@@ -13,7 +13,7 @@ export interface Chunk {
  * Chunk markdown content by headings
  * Preserves heading context in each chunk
  */
-export function chunkMarkdown(content: string, maxChunkSize: number = 1000, chunkOverlap: number = 200): Chunk[] {
+export function chunkMarkdown(content: string, maxChunkSize = 1000, chunkOverlap = 200): Chunk[] {
     const chunks: Chunk[] = []
 
     // Split by headings (##, ###, ####)
@@ -24,7 +24,7 @@ export function chunkMarkdown(content: string, maxChunkSize: number = 1000, chun
     let currentHeading: string | undefined
     let chunkIndex = 0
 
-    for (let i = 0; i < lines.length; i++) {
+    for (let i = 0; i < lines.length; i += 1) {
         const line = lines[i]
         const headingMatch = line.match(headingRegex)
 
@@ -36,9 +36,10 @@ export function chunkMarkdown(content: string, maxChunkSize: number = 1000, chun
             if (currentChunk.length > 0) {
                 const chunkText = currentChunk.join('\n').trim()
                 if (chunkText.length > 0) {
+                    chunkIndex += 1
                     chunks.push({
                         heading: currentHeading,
-                        index: chunkIndex++,
+                        index: chunkIndex,
                         text: chunkText,
                     })
                 }
@@ -56,9 +57,10 @@ export function chunkMarkdown(content: string, maxChunkSize: number = 1000, chun
                 // Split current chunk
                 const textToChunk = currentChunk.slice(0, -1).join('\n').trim()
                 if (textToChunk.length > 0) {
+                    chunkIndex += 1
                     chunks.push({
                         heading: currentHeading,
-                        index: chunkIndex++,
+                        index: chunkIndex,
                         text: textToChunk,
                     })
                 }
@@ -77,9 +79,10 @@ export function chunkMarkdown(content: string, maxChunkSize: number = 1000, chun
     if (currentChunk.length > 0) {
         const chunkText = currentChunk.join('\n').trim()
         if (chunkText.length > 0) {
+            chunkIndex += 1
             chunks.push({
                 heading: currentHeading,
-                index: chunkIndex++,
+                index: chunkIndex,
                 text: chunkText,
             })
         }

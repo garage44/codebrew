@@ -71,7 +71,7 @@ export async function indexCodeFile(
 
         // 5. Generate embeddings (default: local provider)
         const chunksWithEmbeddings = await Promise.all(
-            chunks.map(async(chunk) => {
+            chunks.map(async(chunk): Promise<CodeChunk & {embedding: number[]}> => {
                 const embedding = await generateEmbedding(chunk.text)
                 return {
                     ...chunk,
@@ -159,10 +159,10 @@ export async function searchCode(
         params.push(options?.limit || 10)
 
         // 3. Search against STORED embeddings
-        const results = db.prepare(sql).all(...(params as any)) as CodeSearchResult[]
+        const results = db.prepare(sql).all(...(params as unknown[])) as CodeSearchResult[]
 
         return results
-    } catch(error) {
+    } catch(error: unknown) {
         logger.error('[CodeEmbeddings] Failed to search code:', error)
         return []
     }
@@ -174,7 +174,7 @@ export async function searchCode(
 export async function findSimilarCode(
     code: string,
     repositoryId: string,
-    limit: number = 5,
+    limit = 5,
 ): Promise<CodeSearchResult[]> {
     // Generate embedding for the code snippet
     const codeEmbedding = await generateEmbedding(code)

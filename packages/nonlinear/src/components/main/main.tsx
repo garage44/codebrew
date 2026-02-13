@@ -32,8 +32,8 @@ export const Main = () => {
 
             $s.profile.admin = context.admin || false
             $s.profile.authenticated = isAuthenticated || false
-            if (context.id) $s.profile.id = context.id
-            if (context.username) $s.profile.username = context.username
+            if (context.id) {$s.profile.id = context.id}
+            if (context.username) {$s.profile.username = context.username}
             if (context.profile) {
                 $s.profile.avatar = context.profile.avatar || 'placeholder-1.png'
                 $s.profile.displayName = context.profile.displayName || context.username || 'User'
@@ -58,7 +58,7 @@ export const Main = () => {
                 if (usageResult.usage) {
                     $s.anthropic.usage = {
                         count: usageResult.usage.count || 0,
-                        limit: usageResult.usage.limit || 1000000,
+                        limit: usageResult.usage.limit || 1_000_000,
                         loading: false,
                     }
                 }
@@ -89,7 +89,7 @@ export const Main = () => {
                     for (const [agentId, state] of Object.entries(bootstrapState.agents)) {
                         logger.debug(
                             `[Bootstrap] Agent ${agentId}: status=${state.status}, ` +
-                                `stats=${JSON.stringify(state.stats)}, statsExists=${!!state.stats}`,
+                                `stats=${JSON.stringify(state.stats)}, statsExists=${Boolean(state.stats)}`,
                         )
                     }
                 }
@@ -155,7 +155,7 @@ export const Main = () => {
                                     status: bootstrapAgent.status,
                                 })
 
-                                // serviceOnline is derived from status
+                                // ServiceOnline is derived from status
                                 agentCopy.serviceOnline = agentCopy.status !== 'offline'
 
                                 if (process.env.NODE_ENV === 'development') {
@@ -186,7 +186,7 @@ export const Main = () => {
                     if (data.type === 'ticket:created' || data.type === 'ticket:updated') {
                         // Update ticket in state - create new array for DeepSignal reactivity
                         const index = $s.tickets.findIndex((t) => t.id === data.ticket.id)
-                        if (index >= 0) {
+                        if (index !== -1) {
                             const updatedTickets = [...$s.tickets]
                             updatedTickets[index] = data.ticket
                             $s.tickets = updatedTickets
@@ -201,7 +201,7 @@ export const Main = () => {
                 ws.on('/repositories', (data) => {
                     if (data.type === 'repository:created' || data.type === 'repository:updated') {
                         const index = $s.repositories.findIndex((r) => r.id === data.repository.id)
-                        if (index >= 0) {
+                        if (index !== -1) {
                             $s.repositories[index] = data.repository
                         } else {
                             $s.repositories = [...$s.repositories, data.repository]
@@ -214,6 +214,7 @@ export const Main = () => {
                 // Listen for agent state updates (watched state pattern)
                 ws.on('/agents/state', ({agents: agentStates, timestamp}) => {
                     if (process.env.NODE_ENV === 'development') {
+                        // eslint-disable-next-line no-console
                         console.log('[Frontend] Received /agents/state broadcast:', {agentStates, timestamp})
                     }
 
@@ -231,7 +232,7 @@ export const Main = () => {
                                 status: state.status,
                             })
 
-                            // serviceOnline is derived from status
+                            // ServiceOnline is derived from status
                             agentCopy.serviceOnline = agentCopy.status !== 'offline'
 
                             return agentCopy
@@ -257,7 +258,7 @@ export const Main = () => {
 
                 ws.on('/agents', (data) => {
                     if (data.type === 'agent:created' || data.type === 'agent:updated') {
-                        const agent = data.agent
+                        const {agent} = data
                         const index = $s.agents.findIndex((a) => a.id === agent.id)
                         const transformedAgent = {
                             avatar: agent.avatar || 'placeholder-2.png',
@@ -275,7 +276,7 @@ export const Main = () => {
                             type: agent.type,
                             username: agent.name,
                         }
-                        if (index >= 0) {
+                        if (index !== -1) {
                             const updatedAgents = [...$s.agents]
                             updatedAgents[index] = transformedAgent
                             $s.agents = updatedAgents
@@ -286,7 +287,7 @@ export const Main = () => {
                         $s.agents = $s.agents.filter((a) => a.id !== data.agentId)
                     } else if (data.type === 'agent:status') {
                         const index = $s.agents.findIndex((a) => a.id === data.agentId)
-                        if (index >= 0) {
+                        if (index !== -1) {
                             const updatedAgents = [...$s.agents]
                             updatedAgents[index] = {
                                 ...updatedAgents[index],
@@ -303,7 +304,7 @@ export const Main = () => {
                     if (data.type === 'usage:updated' && data.usage) {
                         $s.anthropic.usage = {
                             count: data.usage.count || 0,
-                            limit: data.usage.limit || 1000000,
+                            limit: data.usage.limit || 1_000_000,
                             loading: false,
                         }
                     }

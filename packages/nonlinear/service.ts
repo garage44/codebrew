@@ -22,7 +22,7 @@ export const serviceDir = fileURLToPath(new URL('.', import.meta.url))
 
 const runtime = createRuntime(serviceDir, path.join(serviceDir, 'package.json'))
 
-function welcomeBanner() {
+function welcomeBanner(): string {
     return createWelcomeBanner('Nonlinear', 'AI-Powered Automated Project Management', runtime.version)
 }
 
@@ -48,7 +48,7 @@ if (BUN_ENV === 'development') {
 
 void cli.usage('Usage: $0 [task]')
     .detectLocale(false)
-    .command('start', 'Start the Nonlinear service', (yargs) => {
+    .command('start', 'Start the Nonlinear service', (yargs): typeof yargs => { // eslint-disable-line @typescript-eslint/no-floating-promises
         // oxlint-disable-next-line no-console
         console.log(welcomeBanner())
         return yargs
@@ -69,7 +69,7 @@ void cli.usage('Usage: $0 [task]')
                 describe: 'autostart agents (true to start all enabled, or comma-separated agent IDs)',
                 type: 'string',
             })
-    }, async(argv) => {
+    }, async(argv): Promise<void> => { // eslint-disable-line @typescript-eslint/no-floating-promises
         await initConfig(config)
 
         // Initialize database
@@ -131,7 +131,7 @@ void cli.usage('Usage: $0 [task]')
 
         // Start Bun server
         const server = Bun.serve({
-            fetch: (req, server) => handleRequest(req, server),
+            fetch: (req: Request, server: unknown): Response | Promise<Response> => handleRequest(req, server),
             hostname: argv.host,
             port: argv.port,
             websocket: enhancedWebSocketHandler,
@@ -154,12 +154,12 @@ void cli.usage('Usage: $0 [task]')
                 autostartValue = false
             } else {
                 // Comma-separated list of agent IDs
-                autostartValue = argv.autostart.split(',').map((id) => id.trim()).filter((id) => id.length > 0)
+                autostartValue = argv.autostart.split(',').map((id): string => id.trim()).filter((id): boolean => id.length > 0)
             }
         }
         await autostartAgents(wsManager, autostartValue)
     })
-    .command('deploy-pr', 'Deploy a PR branch manually (for Cursor agent)', (yargs) => yargs
+    .command('deploy-pr', 'Deploy a PR branch manually (for Cursor agent)', (yargs): typeof yargs => yargs
         .option('number', {
             demandOption: true,
             describe: 'PR number to deploy',
@@ -178,7 +178,7 @@ void cli.usage('Usage: $0 [task]')
             default: 'local',
             describe: 'Author name',
             type: 'string',
-        }), async(argv) => {
+        }), async(argv): Promise<void> => {
         const {deployPR} = await import('./lib/deploy/pr-deploy')
 
         const pr = {
@@ -202,96 +202,106 @@ void cli.usage('Usage: $0 [task]')
 
             if (existsSync(repoDir)) {
                 const allPackages = extractWorkspacePackages(repoDir)
-                const appPackages = allPackages.filter((pkg) => isApplicationPackage(pkg))
+                const appPackages = allPackages.filter((pkg): boolean => isApplicationPackage(pkg))
                 packagesToShow = [...appPackages, 'nonlinear']
             } else {
                 packagesToShow = ['expressio', 'pyrite', 'nonlinear']
             }
 
+            // eslint-disable-next-line no-console
             console.log('URLs:')
             for (const packageName of packagesToShow) {
                 const port = result.deployment.ports[packageName as keyof typeof result.deployment.ports] ||
                     result.deployment.ports.nonlinear
+                // eslint-disable-next-line no-console
                 console.log(
                     `  ${packageName}: https://pr-${argv.number}-${packageName}.garage44.org (port ${port})`,
                 )
             }
 
+            // eslint-disable-next-line no-console
             console.log('\nNote: Deployment is publicly accessible (no token required)')
         } else {
+            // eslint-disable-next-line no-console
             console.error(`\n❌ Deployment failed: ${result.message}`)
             process.exit(1)
         }
     })
-    .command('list-pr-deployments', 'List all active PR deployments', async() => {
+    .command('list-pr-deployments', 'List all active PR deployments', async(): Promise<void> => {
         const {listPRDeployments} = await import('./lib/deploy/pr-cleanup')
         await listPRDeployments()
     })
-    .command('cleanup-pr', 'Cleanup a specific PR deployment', (yargs) => yargs.option('number', {
+    .command('cleanup-pr', 'Cleanup a specific PR deployment', (yargs): typeof yargs => yargs.option('number', {
         demandOption: true,
         describe: 'PR number to cleanup',
         type: 'number',
-    }), async(argv) => {
+    }), async(argv): Promise<void> => {
         const {cleanupPRDeployment} = await import('./lib/deploy/pr-cleanup')
         const result = await cleanupPRDeployment(argv.number)
+        // eslint-disable-next-line no-console
         console.log(result.message)
         process.exit(result.success ? 0 : 1)
     })
-    .command('cleanup-stale-prs', 'Cleanup stale PR deployments', (yargs) => yargs.option('max-age-days', {
+    .command('cleanup-stale-prs', 'Cleanup stale PR deployments', (yargs): typeof yargs => yargs.option('max-age-days', {
         default: 7,
         describe: 'Maximum age in days',
         type: 'number',
-    }), async(argv) => {
+    }), async(argv): Promise<void> => {
         const {cleanupStaleDeployments} = await import('./lib/deploy/pr-cleanup')
         const result = await cleanupStaleDeployments(argv.maxAgeDays)
+        // eslint-disable-next-line no-console
         console.log(result.message)
     })
-    .command('regenerate-pr-nginx', 'Regenerate nginx configs for an existing PR deployment', (yargs) => yargs.option('number', {
+    .command('regenerate-pr-nginx', 'Regenerate nginx configs for an existing PR deployment', (yargs): typeof yargs => yargs.option('number', {
         demandOption: true,
         describe: 'PR number to regenerate nginx configs for',
         type: 'number',
-    }), async(argv) => {
+    }), async(argv): Promise<void> => {
         const {regeneratePRNginx} = await import('./lib/deploy/pr-deploy')
         const result = await regeneratePRNginx(argv.number)
+        // eslint-disable-next-line no-console
         console.log(result.message)
         process.exit(result.success ? 0 : 1)
     })
-    .command('generate-systemd', 'Generate systemd service files', (yargs) => yargs
+    .command('generate-systemd', 'Generate systemd service files', (yargs): typeof yargs => yargs
         .option('domain', {
             demandOption: true,
             describe: 'Domain name (e.g., garage44.org)',
             type: 'string',
-        }), async(argv) => {
+        }), async(argv): Promise<void> => {
         const {generateSystemd} = await import('./lib/deploy/deploy/systemd')
         const output = await generateSystemd(argv.domain)
+        // eslint-disable-next-line no-console
         console.log(output)
     })
-    .command('generate-nginx', 'Generate nginx configuration', (yargs) => yargs
+    .command('generate-nginx', 'Generate nginx configuration', (yargs): typeof yargs => yargs
         .option('domain', {
             demandOption: true,
             describe: 'Domain name (e.g., garage44.org)',
             type: 'string',
-        }), async(argv) => {
+        }), async(argv): Promise<void> => {
         const {generateNginx} = await import('./lib/deploy/deploy/nginx')
         const output = generateNginx(argv.domain)
+        // eslint-disable-next-line no-console
         console.log(output)
     })
-    .command('publish', 'Publish all workspace packages to npm', async() => {
+    .command('publish', 'Publish all workspace packages to npm', async(): Promise<void> => {
         const {publish} = await import('./lib/deploy/publish')
         await publish()
     })
-    .command('init', 'Initialize Cursor rules and AGENTS.md', async() => {
+    .command('init', 'Initialize Cursor rules and AGENTS.md', async(): Promise<void> => {
         const {init} = await import('./lib/deploy/init')
         const {rules} = await import('./lib/deploy/rules')
         await init()
         await rules()
+        // eslint-disable-next-line no-console
         console.log('\n✅ Cursor setup complete!')
     })
-    .command('rules', 'Create symlink from .cursor/rules to nonlinear/lib/fixtures/rules', async() => {
+    .command('rules', 'Create symlink from .cursor/rules to nonlinear/lib/fixtures/rules', async(): Promise<void> => {
         const {rules} = await import('./lib/deploy/rules')
         await rules()
     })
-    .command('indexing', 'Start the indexing service (processes indexing jobs)', async() => {
+    .command('indexing', 'Start the indexing service (processes indexing jobs)', async(): Promise<void> => {
         await initConfig(config)
         initDatabase()
 
@@ -304,13 +314,13 @@ void cli.usage('Usage: $0 [task]')
         service.setLogger(loggerInstance)
 
         // Handle graceful shutdown
-        process.on('SIGINT', () => {
+        process.on('SIGINT', (): void => {
             loggerInstance.info('[IndexingService] Received SIGINT, shutting down...')
             service.stop()
             process.exit(0)
         })
 
-        process.on('SIGTERM', () => {
+        process.on('SIGTERM', (): void => {
             loggerInstance.info('[IndexingService] Received SIGTERM, shutting down...')
             service.stop()
             process.exit(0)
@@ -322,7 +332,7 @@ void cli.usage('Usage: $0 [task]')
          * Keep process alive and log status periodically
          * Log status every minute
          */
-        setInterval(() => {
+        setInterval((): void => {
             const status = service.getStatus()
             loggerInstance.info(
                 `[IndexingService] Status: ${status.pendingJobs} pending, ` +
@@ -330,7 +340,7 @@ void cli.usage('Usage: $0 [task]')
             )
         }, 60_000)
     })
-    .command('agent', 'Run an agent interactively', (yargs) => yargs
+    .command('agent', 'Run an agent interactively', (yargs): typeof yargs => yargs
         .option('ticket-id', {
             alias: 't',
             describe: 'Ticket ID to work on',
@@ -347,7 +357,7 @@ void cli.usage('Usage: $0 [task]')
             default: true,
             describe: 'Run in interactive mode with real-time reasoning',
             type: 'boolean',
-        }), async(argv) => {
+        }), async(argv): Promise<void> => {
         await initConfig(config)
         await initDatabase()
 
@@ -363,6 +373,7 @@ void cli.usage('Usage: $0 [task]')
         const agent = getAgent(agentType)
 
         if (!agent) {
+            // eslint-disable-next-line no-console
             console.error(`❌ Agent type not found: ${agentType}`)
             process.exit(1)
         }
@@ -373,18 +384,19 @@ void cli.usage('Usage: $0 [task]')
         }
 
         if (argv.interactive) {
+            // eslint-disable-next-line no-console
             console.log(`\n🚀 Starting ${agentType} agent interactively...\n`)
 
             await runAgentInteractive({
                 agent,
                 context,
-                onReasoning: (message) => {
+                onReasoning: (message): void => {
                     process.stdout.write(formatReasoningMessage(message))
                 },
-                onToolExecution: (toolName, params) => {
+                onToolExecution: (toolName: string, params: unknown): void => {
                     process.stdout.write(formatToolExecution(toolName, params))
                 },
-                onToolResult: (toolName, result) => {
+                onToolResult: (toolName: string, result: {success: boolean; error?: unknown}): void => {
                     process.stdout.write(formatToolResult(toolName, result.success, result.error))
                 },
             })
@@ -392,14 +404,16 @@ void cli.usage('Usage: $0 [task]')
             // Non-interactive mode
             const result = await agent.process(context)
             if (result.success) {
+                // eslint-disable-next-line no-console
                 console.log(`✅ Agent completed: ${result.message}`)
             } else {
+                // eslint-disable-next-line no-console
                 console.error(`❌ Agent failed: ${result.error || result.message}`)
                 process.exit(1)
             }
         }
     })
-    .command('agent:service', 'Run an agent as background service', (yargs) => yargs.option('agent-id', {
+    .command('agent:service', 'Run an agent as background service', (yargs): typeof yargs => yargs.option('agent-id', {
         alias: 'a',
         demandOption: true,
         describe: 'Agent ID from database',
@@ -417,13 +431,13 @@ void cli.usage('Usage: $0 [task]')
         service.setLogger(loggerInstance)
 
         // Handle graceful shutdown
-        process.on('SIGINT', () => {
+        process.on('SIGINT', (): void => {
             loggerInstance.info(`[AgentService] Received SIGINT, shutting down agent ${argv.agentId}...`)
             service.stop()
             process.exit(0)
         })
 
-        process.on('SIGTERM', () => {
+        process.on('SIGTERM', (): void => {
             loggerInstance.info(`[AgentService] Received SIGTERM, shutting down agent ${argv.agentId}...`)
             service.stop()
             process.exit(0)
@@ -432,13 +446,13 @@ void cli.usage('Usage: $0 [task]')
         service.start()
 
         // Keep process alive and log status periodically
-        setInterval(() => {
+        setInterval((): void => {
             // Log status every minute
             const status = service.getStatus()
             loggerInstance.info(`[AgentService] Status: ${JSON.stringify(status)}`)
         }, 60_000)
     })
-    .command('agent:run', 'Run an agent interactively in foreground', (yargs) => yargs
+    .command('agent:run', 'Run an agent interactively in foreground', (yargs): typeof yargs => yargs
         .option('agent-id', {
             alias: 'a',
             demandOption: true,
@@ -470,6 +484,7 @@ void cli.usage('Usage: $0 [task]')
         const agent = getAgentById(argv.agentId)
 
         if (!agent) {
+            // eslint-disable-next-line no-console
             console.error(`❌ Agent not found: ${argv.agentId}`)
             process.exit(1)
         }
@@ -494,7 +509,7 @@ void cli.usage('Usage: $0 [task]')
             await runAgent(argv.agentId, context)
         }
     })
-    .command('agent:list', 'List all available agents', async() => {
+    .command('agent:list', 'List all available agents', async(): Promise<void> => {
         await initConfig(config)
         await initDatabase()
 
@@ -506,15 +521,19 @@ void cli.usage('Usage: $0 [task]')
             type: string
         }[]
 
+        // eslint-disable-next-line no-console
         console.log('\n📋 Available Agents:\n')
         for (const agent of agents) {
             const status = agent.enabled ? '✅ Enabled' : '❌ Disabled'
+            // eslint-disable-next-line no-console
             console.log(`  ${agent.name} (${agent.type})`)
+            // eslint-disable-next-line no-console
             console.log(`    ID: ${agent.id}`)
+            // eslint-disable-next-line no-console
             console.log(`    Status: ${status}\n`)
         }
     })
-    .command('agent:trigger', 'Trigger an agent to process work', (yargs) => yargs
+    .command('agent:trigger', 'Trigger an agent to process work', (yargs): typeof yargs => yargs
         .option('agent-id', {
             alias: 'a',
             demandOption: true,
@@ -548,11 +567,13 @@ void cli.usage('Usage: $0 [task]')
         } | undefined
 
         if (!agent) {
+            // eslint-disable-next-line no-console
             console.error(`❌ Agent not found: ${argv.agentId}`)
             process.exit(1)
         }
 
         if (!agent.enabled) {
+            // eslint-disable-next-line no-console
             console.error(`❌ Agent is disabled: ${agent.name}`)
             process.exit(1)
         }
@@ -561,6 +582,7 @@ void cli.usage('Usage: $0 [task]')
         const agentInstance = getAgent(agent.type)
 
         if (!agentInstance) {
+            // eslint-disable-next-line no-console
             console.error(`❌ Agent instance not found: ${agent.type}`)
             process.exit(1)
         }
@@ -579,29 +601,33 @@ void cli.usage('Usage: $0 [task]')
                 runAgentInteractive,
             } = await import('./lib/cli/interactive.ts')
 
+            // eslint-disable-next-line no-console
             console.log(`\n🚀 Starting ${agent.name} (${agent.type}) agent interactively...\n`)
 
             await runAgentInteractive({
                 agent: agentInstance,
                 context,
-                onReasoning: (message) => {
+                onReasoning: (message): void => {
                     process.stdout.write(formatReasoningMessage(message))
                 },
-                onToolExecution: (toolName, params) => {
+                onToolExecution: (toolName: string, params: unknown): void => {
                     process.stdout.write(formatToolExecution(toolName, params))
                 },
-                onToolResult: (toolName, result) => {
+                onToolResult: (toolName: string, result: {success: boolean; error?: unknown}): void => {
                     process.stdout.write(formatToolResult(toolName, result.success, result.error))
                 },
             })
         } else {
             // Non-interactive mode
+            // eslint-disable-next-line no-console
             console.log(`\n🚀 Triggering agent: ${agent.name} (${agent.type})\n`)
             const result = await agentInstance.process(context)
 
             if (result.success) {
+                // eslint-disable-next-line no-console
                 console.log(`✅ Agent completed: ${result.message}`)
             } else {
+                // eslint-disable-next-line no-console
                 console.error(`❌ Agent failed: ${result.error || result.message}`)
                 process.exit(1)
             }

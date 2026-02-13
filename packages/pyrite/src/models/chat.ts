@@ -376,7 +376,7 @@ export async function sendMessage(message: string): Promise<void> {
             let cmd = ''
             let rest = ''
             const space = message.indexOf(' ')
-            if (space < 0) {
+            if (space === -1) {
                 cmd = message.slice(1)
                 rest = ''
             } else {

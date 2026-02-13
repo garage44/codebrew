@@ -49,7 +49,7 @@ class AgentStateTracker {
      */
     private createDeepProxy<T extends Record<string, unknown>>(obj: T, onChange: () => void): T {
         return new Proxy(obj, {
-            deleteProperty: (target, prop) => {
+            deleteProperty: (target, prop): boolean => {
                 if (typeof prop === 'string' && prop in target && !this.batchUpdateInProgress) {
                     delete target[prop]
                     this.pendingChanges = true
@@ -57,7 +57,7 @@ class AgentStateTracker {
                 }
                 return true
             },
-            get: (target, prop) => {
+            get: (target, prop): unknown => {
                 if (typeof prop === 'symbol') {
                     return target[prop as keyof typeof target]
                 }
@@ -68,7 +68,7 @@ class AgentStateTracker {
                 }
                 return value
             },
-            set: (target, prop, value) => {
+            set: (target, prop, value): boolean => {
                 if (typeof prop === 'symbol') {
                     return true
                 }
@@ -112,7 +112,7 @@ class AgentStateTracker {
         }
 
         // Schedule the completion of this operation after the grouping time
-        this.operationTimeout = setTimeout(() => {
+        this.operationTimeout = setTimeout((): void => {
             if (this.pendingChanges) {
                 onChange()
                 this.pendingChanges = false
@@ -151,7 +151,7 @@ class AgentStateTracker {
         }
 
         // Wrap state in proxy to watch for changes
-        this._state = this.createDeepProxy(this._state, () => {
+        this._state = this.createDeepProxy(this._state, (): void => {
             this.broadcastAgentState()
         })
 
@@ -242,11 +242,11 @@ class AgentStateTracker {
         }
 
         /* Create a clean copy of state enriched with status and stats */
-        const {getAgentStatus} = require('../agent/status.ts')
-        const {getTaskStats} = require('../agent/tasks.ts')
+        const {getAgentStatus} = require('../agent/status.ts') as {getAgentStatus: (agentId: string): {status?: 'idle' | 'working' | 'error' | 'offline'} | undefined}
+        const {getTaskStats} = require('../agent/tasks.ts') as {getTaskStats: (agentId: string): {completed: number; failed: number; pending: number; processing: number}}
 
         const cleanState: AgentStateData = {}
-        for (const [agentId, state] of Object.entries(this._state)) {
+        for (const [agentId, state] of Object.entries(this._state) as [string, AgentState][]) {
             const agentStatus = getAgentStatus(agentId)
             const {serviceOnline} = state
 

@@ -2,20 +2,20 @@ import {Logger} from './lib/logger.ts'
 import type {LoggerConfig} from './types.ts'
 import {UserManager} from './lib/user-manager.ts'
 import {WebSocketServerManager} from './lib/ws-server.ts'
+import type {Database} from 'bun:sqlite'
 import figlet from 'figlet'
 import fs from 'fs-extra'
 import path from 'node:path'
 import pc from 'picocolors'
 
-function serviceLogger(logger_config: LoggerConfig) {
+function serviceLogger(logger_config: LoggerConfig): InstanceType<typeof Logger> {
     return new Logger(logger_config)
 }
 
-function loggerTransports(logger_config: LoggerConfig, type: 'cli' | 'service') {
+function loggerTransports(logger_config: LoggerConfig, type: 'cli' | 'service'): InstanceType<typeof Logger> {
     if (type === 'cli') {
         // CLI mode: console only, no timestamps, colors enabled
         return new Logger({
-            file: undefined,
             level: logger_config.level || 'info',
         })
     }
@@ -51,45 +51,72 @@ interface StaticFileServerOptions {
  * Creates a static file server handler for Bun.serve
  * Handles serving files from public directory with optional fallbacks and SPA routing
  */
-function createStaticFileHandler(options: StaticFileServerOptions) {
+async function tryPublicFile(baseDir: string, pathname: string, logger: unknown): Promise<Response | null> {
+    const publicPath = path.join(baseDir, 'public', pathname)
+    const publicFile = Bun.file(publicPath)
+    if (await publicFile.exists()) {
+        (logger as {debug?: (msg: string) => void})?.debug?.(`[Static] Serving from public: ${publicPath}`)
+        return new Response(publicFile)
+    }
+    return null
+}
+
+async function tryFallbackDirs(baseDir: string, pathname: string, fallbackDirs: string[], logger: unknown): Promise<Response | null> {
+    const checks = fallbackDirs.map(async(fallbackDir: string): Promise<Response | null> => {
+        const fallbackPath = path.join(baseDir, fallbackDir, pathname)
+        const fallbackFile = Bun.file(fallbackPath)
+        if (await fallbackFile.exists()) {
+            (logger as {debug?: (msg: string) => void})?.debug?.(`[Static] Serving from ${fallbackDir}: ${fallbackPath}`)
+            return new Response(fallbackFile)
+        }
+        return null
+    })
+    const results = await Promise.all(checks)
+    for (const result of results) {
+        if (result) {
+            return result
+        }
+    }
+    return null
+}
+
+async function trySpaFallback(baseDir: string, pathname: string, spaFallback: boolean): Promise<Response | null> {
+    if (spaFallback && !pathname.startsWith('/api') && !pathname.includes('.')) {
+        const indexPath = path.join(baseDir, 'public', 'index.html')
+        const indexFile = Bun.file(indexPath)
+        if (await indexFile.exists()) {
+            return new Response(indexFile, {
+                headers: {'Content-Type': 'text/html'},
+            })
+        }
+    }
+    return null
+}
+
+function createStaticFileHandler(options: StaticFileServerOptions): (request: Request, pathname: string) => Promise<Response | null> {
     const {baseDir, fallbackDirs = [], logger, spaFallback = true} = options
 
+    // eslint-disable-next-line max-statements
     return async(request: Request, pathname: string): Promise<Response | null> => {
         // Default to index.html for root
-        if (pathname === '/') {
-            pathname = '/index.html'
-        }
+        const normalizedPathname = pathname === '/' ? '/index.html' : pathname
 
         // Try public directory first (built files)
-        const publicPath = path.join(baseDir, 'public', pathname)
-        const publicFile = Bun.file(publicPath)
-
-        if (await publicFile.exists()) {
-            (logger as any)?.debug(`[Static] Serving from public: ${publicPath}`)
-            return new Response(publicFile)
+        const publicResponse = await tryPublicFile(baseDir, normalizedPathname, logger)
+        if (publicResponse) {
+            return publicResponse
         }
 
         // Try fallback directories (e.g., src for development)
-        for (const fallbackDir of fallbackDirs) {
-            const fallbackPath = path.join(baseDir, fallbackDir, pathname)
-            const fallbackFile = Bun.file(fallbackPath)
-
-            if (await fallbackFile.exists()) {
-                (logger as any)?.debug(`[Static] Serving from ${fallbackDir}: ${fallbackPath}`)
-                return new Response(fallbackFile)
-            }
+        const fallbackResponse = await tryFallbackDirs(baseDir, normalizedPathname, fallbackDirs, logger)
+        if (fallbackResponse) {
+            return fallbackResponse
         }
 
         // SPA fallback - serve index.html for unmatched routes (except API calls)
-        if (spaFallback && !pathname.startsWith('/api') && !pathname.includes('.')) {
-            const indexPath = path.join(baseDir, 'public', 'index.html')
-            const indexFile = Bun.file(indexPath)
-
-            if (await indexFile.exists()) {
-                return new Response(indexFile, {
-                    headers: {'Content-Type': 'text/html'},
-                })
-            }
+        const spaResponse = await trySpaFallback(baseDir, normalizedPathname, spaFallback)
+        if (spaResponse) {
+            return spaResponse
         }
 
         // No match found
@@ -101,6 +128,7 @@ function createStaticFileHandler(options: StaticFileServerOptions) {
  * Adds SPA fallback to a file serving response
  * If the original response is 404 and the request looks like a page route, serve index.html instead
  */
+// eslint-disable-next-line max-statements
 async function withSpaFallback(originalResponse: Response, request: Request, baseDir: string): Promise<Response> {
     // If we got a successful response, return it as-is
     if (originalResponse.status !== 404) {
@@ -138,14 +166,14 @@ async function withSpaFallback(originalResponse: Response, request: Request, bas
 }
 
 // Common service utilities
-export function createRuntime(serviceDir: string, packageJsonPath: string) {
+export function createRuntime(serviceDir: string, packageJsonPath: string): {service_dir: string; version: string} {
     return {
         service_dir: serviceDir,
         version: JSON.parse(fs.readFileSync(packageJsonPath, 'utf8')).version,
     }
 }
 
-export function createWelcomeBanner(title: string, tagline: string, version: string) {
+export function createWelcomeBanner(title: string, tagline: string, version: string): string {
     return `
 ${pc.cyan(figlet.textSync(title))}\n
  ${pc.white(pc.bold(tagline))}
@@ -161,7 +189,7 @@ export interface BunchyConfigOptions {
     version: string
 }
 
-export function setupBunchyConfig(options: BunchyConfigOptions) {
+export function setupBunchyConfig(options: BunchyConfigOptions): {common: string; logPrefix: string; reload_ignore: string[]; separateAssets?: string[]; version: string; workspace: string} {
     const {
         logPrefix,
         reloadIgnore = [],
@@ -183,7 +211,7 @@ export function setupBunchyConfig(options: BunchyConfigOptions) {
 export function createWebSocketManagers(
     authOptions: unknown,
     sessionMiddleware: (request: Request) => {session: {userid?: string}; sessionId: string},
-) {
+): {bunchyManager: WebSocketServerManager; wsManager: WebSocketServerManager} {
     const wsManager = new WebSocketServerManager({
         authOptions,
         endpoint: '/ws',
@@ -204,8 +232,10 @@ export const userManager = new UserManager()
 
 // Service initialization
 export const service = {
-    async init(config: {appName: string; configPath: string; useBcrypt?: boolean}, database?: any) {
-        await userManager.init(database, config)
+    async init(config: {appName: string; configPath: string; useBcrypt?: boolean}, database?: Database): Promise<void> {
+        if (database) {
+            await userManager.init(database, config)
+        }
     },
 }
 

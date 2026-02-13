@@ -162,7 +162,7 @@ ${result.chunk.text.slice(0, 500)}${result.chunk.text.length > 500 ? '...' : ''}
 
 Full content:
 ${result.doc.content}
-`).join('\n\n---\n\n')
+`).join('\n\n -= 1-\n\n')
 
         return `Relevant Documentation (${results.length} results):\n\n${formatted}`
     }
@@ -298,12 +298,12 @@ ${result.doc.content}
             `${systemPrompt}\n\n${skillPrompt}` :
             systemPrompt
 
-        const anthropicTools = Object.values(this.tools).map(toolToAnthropic)
+        const anthropicTools = Object.values(this.tools).map((tool): unknown => toolToAnthropic(tool))
         const messages: {content: unknown; role: 'user' | 'assistant'}[] = [
             {content: userMessage, role: 'user'},
         ]
 
-        while (true) {
+        while (true) { // eslint-disable-line no-constant-condition
             await this.streamReasoning('🤔 Thinking...')
 
             const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -323,7 +323,7 @@ ${result.doc.content}
             })
 
             if (!response.ok) {
-                const error = await response.json().catch(() => ({error: {message: 'Unknown error'}}))
+                const error = await response.json().catch((): {error: {message: string}} => ({error: {message: 'Unknown error'}}))
                 throw new Error(error.error?.message || `API error: ${response.status}`)
             }
 
@@ -350,10 +350,10 @@ ${result.doc.content}
             }
 
             // Handle tool_use content blocks
-            const toolUses = data.content.filter((c: {type: string}) => c.type === 'tool_use')
+            const toolUses = data.content.filter((c: {type: string}): boolean => c.type === 'tool_use')
             if (toolUses.length === 0) {
                 // Final text response
-                const textContent = data.content.find((c: {type: string}) => c.type === 'text')
+                const textContent = data.content.find((c: {type: string}): boolean => c.type === 'text')
                 if (textContent) {
                     await this.streamReasoning('✅ Completed')
                     return textContent.text
@@ -474,7 +474,7 @@ ${result.doc.content}
             })
 
             if (!response.ok) {
-                const error = await response.json().catch(() => ({error: {message: 'Unknown error'}}))
+                const error = await response.json().catch((): {error: {message: string}} => ({error: {message: 'Unknown error'}}))
                 throw new Error(error.error?.message || `API error: ${response.status}`)
             }
 
@@ -579,7 +579,7 @@ ${result.doc.content}
             })
 
             if (!response.ok) {
-                const error = await response.json().catch(() => ({error: {message: 'Unknown error'}}))
+                const error = await response.json().catch((): {error: {message: string}} => ({error: {message: 'Unknown error'}}))
                 throw new Error(error.error?.message || `API error: ${response.status}`)
             }
 
@@ -631,18 +631,21 @@ ${result.doc.content}
     protected log(message: string, level: 'info' | 'warn' | 'error' = 'info'): void {
         const logMessage = `[Agent ${this.name}] ${message}`
         switch (level) {
-            case 'info': {
+            case 'info': 
                 logger.info(logMessage)
                 break
-            }
-            case 'warn': {
+            
+            
+            case 'warn': 
                 logger.warn(logMessage)
                 break
-            }
-            case 'error': {
+            
+            
+            case 'error': 
                 logger.error(logMessage)
                 break
-            }
+            
+            
         }
     }
 
@@ -656,7 +659,7 @@ ${result.doc.content}
     ): Promise<T> {
         let lastError: Error | null = null
 
-        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
             try {
                 return await fn()
             } catch(error) {

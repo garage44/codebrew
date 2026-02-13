@@ -191,7 +191,7 @@ ${JSON.stringify(ticketsContext, null, 2)}`
                     updateStmt.run(p.priority, newStatus, Date.now(), p.ticket_id)
 
                     if (p.should_move_to_todo) {
-                        movedCount++
+                        movedCount += 1
                         this.log(`Moved ticket ${p.ticket_id} to todo (priority: ${p.priority})`)
                     } else {
                         this.log(`Updated priority for ticket ${p.ticket_id}: ${p.priority}`)
@@ -549,7 +549,7 @@ Please respond to the user's request and refine the ticket as requested.`
                             // Find the end of the string (unescaped quote followed by comma/brace)
                             let endIdx = -1
                             let escaped = false
-                            for (let i = 0; i < valueText.length; i++) {
+                            for (let i = 0; i < valueText.length; i += 1) {
                                 if (escaped) {
                                     escaped = false
                                     continue

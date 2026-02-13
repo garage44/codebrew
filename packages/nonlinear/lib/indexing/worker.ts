@@ -7,7 +7,7 @@ import {logger} from '../../service.ts'
 import {db} from '../database.ts'
 import {indexCodeFile} from '../docs/code-embeddings.ts'
 import {generateDocEmbeddings} from '../docs/embeddings.ts'
-import {generateTicketEmbedding} from '../docs/embeddings.ts'
+import {generateTicketEmbedding} from '../docs/embeddings.ts' as {generateTicketEmbedding: (ticketId: string, title: string, description: string | null) => Promise<void>}
 
 export interface IndexingJob {
     completed_at?: number
@@ -75,7 +75,7 @@ class IndexingWorker {
 
         while (this.queue.length > 0) {
             const jobs = this.queue.splice(0, this.maxConcurrent)
-            await Promise.all(jobs.map((job) => this.processJob(job)))
+            await Promise.all(jobs.map((job): Promise<void> => this.processJob(job)))
         }
 
         this.processing = false
@@ -127,7 +127,7 @@ class IndexingWorker {
             `).run(Date.now(), job.id)
 
             logger.info(`[IndexingWorker] Completed job ${job.id} (${job.type})`)
-        } catch(error) {
+        } catch(error: unknown) {
             const errorMsg = error instanceof Error ? error.message : String(error)
             logger.error(`[IndexingWorker] Failed job ${job.id}:`, errorMsg)
 
@@ -156,10 +156,10 @@ class IndexingWorker {
         `).all(repositoryId) as {status: string}[]
 
         return {
-            completed: jobs.filter((j) => j.status === 'completed').length,
-            failed: jobs.filter((j) => j.status === 'failed').length,
-            pending: jobs.filter((j) => j.status === 'pending').length,
-            processing: jobs.filter((j) => j.status === 'processing').length,
+            completed: jobs.filter((j): boolean => j.status === 'completed').length,
+            failed: jobs.filter((j): boolean => j.status === 'failed').length,
+            pending: jobs.filter((j): boolean => j.status === 'pending').length,
+            processing: jobs.filter((j): boolean => j.status === 'processing').length,
             total: jobs.length,
         }
     }

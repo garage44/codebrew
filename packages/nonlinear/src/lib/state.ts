@@ -12,7 +12,14 @@ const persistantState = mergeDeep({
             width: 600,
         },
     },
-}, commonPersistantState) as any
+}, commonPersistantState) as typeof commonPersistantState & {
+    panels: {
+        context: {
+            collapsed: boolean
+            width: number
+        }
+    }
+}
 
 const volatileState = mergeDeep({
     agents: [] as {

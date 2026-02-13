@@ -18,8 +18,12 @@ export default function ContextGroups({groupId, path}: ContextGroupsProps) {
     const orderedGroups = useMemo(() => {
         const groups = $s.admin.groups.filter((g) => g.public).concat($s.admin.groups.filter((g) => !g.public))
         return groups.toSorted((a, b) => {
-            if (a._name < b._name) {return -1}
-            if (a._name > b._name) {return 1}
+            if (a._name < b._name) {
+                return -1
+            }
+            if (a._name > b._name) {
+                return 1
+            }
             return 0
         })
     }, [])
@@ -65,7 +69,9 @@ export default function ContextGroups({groupId, path}: ContextGroupsProps) {
     }
 
     const saveGroupAction = async (): Promise<void> => {
-        if (!$s.admin.group) {return}
+        if (!$s.admin.group) {
+            return
+        }
         const groupId = String($s.admin.group._name || '')
         const group = await saveGroup(groupId, $s.admin.group)
 
@@ -89,7 +95,9 @@ export default function ContextGroups({groupId, path}: ContextGroupsProps) {
     }
 
     const toggleMarkDelete = async () => {
-        if (!$s.admin.group) {return}
+        if (!$s.admin.group) {
+            return
+        }
         $s.admin.group._delete = !$s.admin.group._delete
         for (const group of $s.admin.groups) {
             if (group._name == $s.admin.group._name) {
@@ -114,11 +122,16 @@ export default function ContextGroups({groupId, path}: ContextGroupsProps) {
         route(`/admin/groups/${groupId}/misc`)
     }
 
-    useEffect(() => () => {
+    useEffect(
+        () => () => {
             $s.admin.group = null
-        }, [])
+        },
+        [],
+    )
 
-    if (!($s.admin.authenticated && $s.admin.permission)) {return null}
+    if (!($s.admin.authenticated && $s.admin.permission)) {
+        return null
+    }
 
     return (
         <section class='c-admin-groups-context presence'>

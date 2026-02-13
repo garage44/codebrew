@@ -101,8 +101,8 @@ class AgentService {
          * The WebSocket 'open' event will also trigger catch-up, but we do it here too
          * in case WebSocket connection is delayed
          */
-        setTimeout(() => {
-            this.catchUpOnTasks().catch((error) => {
+        setTimeout((): void => {
+            this.catchUpOnTasks().catch((error: unknown): void => {
                 this.logger?.error(`[AgentService] Error during catch-up: ${error}`)
             })
             // 1 second delay to allow WebSocket connection to establish
@@ -176,7 +176,7 @@ class AgentService {
 
         // Subscribe to stop topic
         const stopTopic = `/agents/${this.agentId}/stop`
-        this.wsClient.onRoute(stopTopic, async() => {
+        this.wsClient.onRoute(stopTopic, async(): Promise<void> => {
             if (!this.logger) {return}
 
             this.logger.info(`[AgentService] Received stop command for agent ${this.agentId}`)
@@ -188,7 +188,11 @@ class AgentService {
                 const maxWait = 30_000
                 const startTime = Date.now()
                 while (this.processingTask && (Date.now() - startTime) < maxWait) {
-                    await new Promise((resolve) => setTimeout(resolve, 500))
+                    await new Promise<void>((resolve): void => {
+                        setTimeout((): void => {
+                            resolve()
+                        }, 500)
+                    })
                 }
             }
 
@@ -201,7 +205,7 @@ class AgentService {
         })
 
         // Handle reconnection
-        this.wsClient.on('open', async() => {
+        this.wsClient.on('open', async(): Promise<void> => {
             this.logger?.info(`[AgentService] WebSocket connected to ${this.wsUrl}`)
 
             // Set WebSocket client for comment broadcasting
@@ -211,17 +215,17 @@ class AgentService {
             try {
                 await this.wsClient.post(`/api/agents/${this.agentId}/subscribe`, {})
                 this.logger?.info(`[AgentService] Subscribed to /agents/${this.agentId}/tasks`)
-            } catch(error) {
+            } catch(error: unknown) {
                 this.logger?.warn(`[AgentService] Failed to subscribe to task topic: ${error}`)
             }
 
             // Catch up on missed tasks after reconnection
-            this.catchUpOnTasks().catch((error) => {
+            this.catchUpOnTasks().catch((error: unknown): void => {
                 this.logger?.error(`[AgentService] Error during catch-up after reconnect: ${error}`)
             })
         })
 
-        this.wsClient.on('reconnecting', ({attempt}) => {
+        this.wsClient.on('reconnecting', ({attempt}: {attempt: number}): void => {
             this.logger?.warn(`[AgentService] WebSocket reconnecting (attempt ${attempt})`)
             if (attempt >= 5) {
                 this.logger?.error(
@@ -231,7 +235,7 @@ class AgentService {
             }
         })
 
-        this.wsClient.on('error', (error) => {
+        this.wsClient.on('error', (error: unknown): void => {
             const errorMsg = error instanceof Error ? error.message : String(error)
             this.logger?.error(`[AgentService] WebSocket error: ${errorMsg}`)
             // Log helpful message if connection fails
@@ -314,7 +318,7 @@ class AgentService {
             this.lastRun = Date.now()
             this.lastError = undefined
             this.logger.info(`[AgentService] Completed task ${taskId}`)
-        } catch(error) {
+        } catch(error: unknown) {
             const errorMsg = error instanceof Error ? error.message : String(error)
             this.lastError = errorMsg
             this.logger.error(`[AgentService] Error processing task ${task.taskId}: ${errorMsg}`)
@@ -327,7 +331,7 @@ class AgentService {
             // Process next task if available
             if (this.taskQueue.length > 0) {
                 // Small delay to prevent tight loop
-                setTimeout(() => {
+                setTimeout((): void => {
                     this.processNextTask()
                 }, 100)
             }
@@ -353,6 +357,7 @@ if (import.meta.main) {
     const agentId = process.argv[2]
 
     if (!agentId) {
+        // eslint-disable-next-line no-console
         console.error('Usage: bun lib/agent/service.ts <agent-id>')
         process.exit(1)
     }
@@ -371,13 +376,13 @@ if (import.meta.main) {
         service.setLogger(logger)
 
         /* Handle graceful shutdown */
-        process.on('SIGINT', () => {
+        process.on('SIGINT', (): void => {
             logger.info(`[AgentService] Received SIGINT, shutting down agent ${agentId}...`)
             service.stop()
             process.exit(0)
         })
 
-        process.on('SIGTERM', () => {
+        process.on('SIGTERM', (): void => {
             logger.info(`[AgentService] Received SIGTERM, shutting down agent ${agentId}...`)
             service.stop()
             process.exit(0)
@@ -386,7 +391,7 @@ if (import.meta.main) {
         service.start()
 
         /* Keep process alive - log status every minute */
-        setInterval(() => {
+        setInterval((): void => {
             const status = service.getStatus()
             logger.debug(`[AgentService] Status: ${JSON.stringify(status)}`)
         }, 60_000)
