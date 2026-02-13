@@ -16,7 +16,7 @@ let isDeduplicating = false
  * Keeps the first occurrence of each user
  * This function is called immediately after any operation that modifies $s.users
  */
-function deduplicateUsers() {
+function deduplicateUsers(): void {
     // Prevent re-entry to avoid infinite loops
     if (isDeduplicating) {return}
     if (!$s.users || $s.users.length === 0) {return}
@@ -28,19 +28,17 @@ function deduplicateUsers() {
         let duplicateCount = 0
 
         for (const user of $s.users) {
-            if (!user || !user.id) {
-                continue
-            }
-
-            const normalizedId = String(user.id).trim()
-            if (!normalizedId) {continue}
-
-            if (seenIds.has(normalizedId)) {
-                duplicateCount++
-                logger.debug(`[deduplicateUsers] Removing duplicate user: ${normalizedId} (${user.username || 'unknown'})`)
-            } else {
-                seenIds.add(normalizedId)
-                uniqueUsers.push(user)
+            if (user && user.id) {
+                const normalizedId = String(user.id).trim()
+                if (normalizedId) {
+                    if (seenIds.has(normalizedId)) {
+                        duplicateCount += 1
+                        logger.debug(`[deduplicateUsers] Removing duplicate user: ${normalizedId} (${user.username || 'unknown'})`)
+                    } else {
+                        seenIds.add(normalizedId)
+                        uniqueUsers.push(user)
+                    }
+                }
             }
         }
 
@@ -58,11 +56,11 @@ function deduplicateUsers() {
  * Initialize all WebSocket subscriptions
  * Called after WebSocket connection is established
  */
-export const initWebSocketSubscriptions = () => {
+export const initWebSocketSubscriptions = (): void => {
     logger.info('Initializing WebSocket subscriptions')
 
     // Set up reactive deduplication - watches $s.users and removes duplicates automatically
-    effect(() => {
+    effect((): void => {
         // Access $s.users to track changes
         const {users} = $s
         if (users && users.length > 0) {
@@ -83,15 +81,15 @@ export const initWebSocketSubscriptions = () => {
  * Chat WebSocket subscriptions
  * Listen for broadcasts from backend
  */
-const initChatSubscriptions = () => {
+const initChatSubscriptions = (): void => {
     // Listen for incoming chat messages (broadcast from backend)
-    events.on('app:init', () => {
+    events.on('app:init', (): void => {
         /*
          * Use onRoute for dynamic channel message broadcasts
          * Since URLs are dynamic (/channels/general/messages, /channels/dev/messages, etc.),
          * we use the generic message handler but with better pattern matching
          */
-        ws.on('message', (message) => {
+        ws.on('message', (message): void => {
             if (!message || !message.url) {return}
 
             /*
@@ -171,7 +169,7 @@ const initChatSubscriptions = () => {
 
                 // Increment unread count if not the active channel
                 if ($s.chat.activeChannelSlug !== channelSlug) {
-                    channel.unread++
+                    channel.unread += 1
                 }
             }
 
@@ -203,14 +201,21 @@ const initChatSubscriptions = () => {
 
                     // Update typing state for this user in this channel
                     if (typing) {
-                        channels[channelKey].typing![userId] = {
+                        if (!channels[channelKey].typing) {
+                            channels[channelKey].typing = {}
+                        }
+                        channels[channelKey].typing[userId] = {
                             timestamp: Date.now(),
                             userId,
                             username: username || 'Unknown',
                         }
-                    } else {
+                    } else if (channels[channelKey].typing) {
                         // Remove typing indicator when user stops typing
-                        delete channels[channelKey].typing![userId]
+                        const {typing} = channels[channelKey]
+                        if (typing && typeof typing === 'object') {
+                            // eslint-disable-next-line no-dynamic-delete
+                            delete typing[userId]
+                        }
                     }
                 }
             }
@@ -222,10 +227,10 @@ const initChatSubscriptions = () => {
  * Presence WebSocket subscriptions
  * Listen for broadcasts from backend
  */
-const initPresenceSubscriptions = () => {
-    events.on('app:init', () => {
+const initPresenceSubscriptions = (): void => {
+    events.on('app:init', (): void => {
         // User joined group (broadcast from backend)
-        ws.on('/presence/:groupId/join', (data) => {
+        ws.on('/presence/:groupId/join', (data): void => {
             const {groupId, timestamp, userId, username} = data
 
             logger.debug(`User ${username} joined group ${groupId}`)
@@ -263,7 +268,7 @@ const initPresenceSubscriptions = () => {
                     return
                 }
 
-                const userIndex = $s.users.findIndex((u) => u && u.id && String(u.id).trim() === normalizedUserId)
+                const userIndex = $s.users.findIndex((u): boolean => u && u.id && String(u.id).trim() === normalizedUserId)
                 if (userIndex === -1) {
                     // User doesn't exist, add it
                     $s.users.push({
@@ -290,7 +295,7 @@ const initPresenceSubscriptions = () => {
         })
 
         // User left group (broadcast from backend)
-        ws.on('/presence/:groupId/leave', (data) => {
+        ws.on('/presence/:groupId/leave', (data): void => {
             const {groupId, timestamp, userId} = data
 
             logger.debug(`User ${userId} left group ${groupId}`)
@@ -315,7 +320,7 @@ const initPresenceSubscriptions = () => {
             if ($s.sfu.channel.name === groupId) {
                 // Normalize userId to string for consistent comparison
                 const normalizedUserId = String(userId).trim()
-                const userIndex = $s.users.findIndex((u) => u && u.id && String(u.id).trim() === normalizedUserId)
+                const userIndex = $s.users.findIndex((u): boolean => u && u.id && String(u.id).trim() === normalizedUserId)
                 if (userIndex !== -1) {
                     $s.users.splice(userIndex, 1)
                 }
@@ -325,7 +330,7 @@ const initPresenceSubscriptions = () => {
         })
 
         // User status update (broadcast from backend)
-        ws.on('/presence/:groupId/status', (data) => {
+        ws.on('/presence/:groupId/status', (data): void => {
             const {status, timestamp, userId} = data
 
             // Update presence status in chat.users
@@ -339,7 +344,7 @@ const initPresenceSubscriptions = () => {
 
             // Normalize userId to string for consistent comparison
             const normalizedUserId = String(userId).trim()
-            const user = $s.users.find((u) => u && u.id && String(u.id).trim() === normalizedUserId)
+            const user = $s.users.find((u): boolean => u && u.id && String(u.id).trim() === normalizedUserId)
             if (user) {
                 Object.assign(user.data, status)
             }
@@ -348,7 +353,7 @@ const initPresenceSubscriptions = () => {
         })
 
         // Listen for user presence updates (from /users/presence broadcast)
-        ws.on('/users/presence', (data) => {
+        ws.on('/users/presence', (data): void => {
             const {status, timestamp, userid} = data
 
             if ($s.chat.users && userid) {
@@ -365,10 +370,10 @@ const initPresenceSubscriptions = () => {
  * Group state WebSocket subscriptions
  * Listen for broadcasts from backend
  */
-const initGroupSubscriptions = () => {
-    events.on('app:init', () => {
+const initGroupSubscriptions = (): void => {
+    events.on('app:init', (): void => {
         // Group lock status changed (broadcast from backend)
-        ws.on('/groups/:groupId/lock', (data) => {
+        ws.on('/groups/:groupId/lock', (data): void => {
             const {locked, reason, timestamp} = data
             const {groupId} = data // Extracted from broadcast
 
@@ -387,7 +392,7 @@ const initGroupSubscriptions = () => {
         })
 
         // Recording status changed (broadcast from backend)
-        ws.on('/groups/:groupId/recording', (data) => {
+        ws.on('/groups/:groupId/recording', (data): void => {
             const {recording, recordingId, timestamp} = data
             const {groupId} = data
 
@@ -400,7 +405,7 @@ const initGroupSubscriptions = () => {
         })
 
         // Group configuration updated (broadcast from backend)
-        ws.on('/groups/:groupId/config', (data) => {
+        ws.on('/groups/:groupId/config', (data): void => {
             const {config, timestamp} = data
             const {groupId} = data
 
@@ -413,7 +418,7 @@ const initGroupSubscriptions = () => {
         })
 
         // Group created or deleted (broadcast from backend)
-        ws.on('/groups/update', (data) => {
+        ws.on('/groups/update', (data): void => {
             const {action, group, groupId, timestamp} = data
 
             logger.debug(`Group ${groupId} ${action}`)
@@ -440,15 +445,19 @@ const initGroupSubscriptions = () => {
                  * Note: We don't delete from sfu.channels to preserve audio/video state
                  * Only clear group metadata, keep audio/video preferences
                  */
+                // eslint-disable-next-line no-dynamic-delete
                 delete sfuChannelsUpdate[groupId].locked
+                // eslint-disable-next-line no-dynamic-delete
                 delete sfuChannelsUpdate[groupId].clientCount
+                // eslint-disable-next-line no-dynamic-delete
                 delete sfuChannelsUpdate[groupId].comment
+                // eslint-disable-next-line no-dynamic-delete
                 delete sfuChannelsUpdate[groupId].description
             }
         })
 
         // Operator action (broadcast from backend)
-        ws.on('/groups/:groupId/op-action', (data) => {
+        ws.on('/groups/:groupId/op-action', (data): void => {
             const {action, actionData, targetUserId, timestamp} = data
             const {groupId} = data
 
@@ -458,10 +467,10 @@ const initGroupSubscriptions = () => {
 
             // Normalize targetUserId to string for consistent comparison
             const normalizedTargetUserId = String(targetUserId).trim()
-            const targetUser = $s.users.find((u) => u && u.id && String(u.id).trim() === normalizedTargetUserId)
+            const targetUser = $s.users.find((u): boolean => u && u.id && String(u.id).trim() === normalizedTargetUserId)
 
             switch (action) {
-                case 'kick': {
+                case 'kick': { 
                     // Remove kicked user
                     if (targetUserId === $s.profile.id) {
                         // Current user was kicked, disconnect
@@ -476,15 +485,16 @@ const initGroupSubscriptions = () => {
                         }
                     } else if (targetUser) {
                         // Another user was kicked
-                        const userIndex = $s.users.findIndex((u) => u && u.id && String(u.id).trim() === normalizedTargetUserId)
+                        const userIndex = $s.users.findIndex((u): boolean => u && u.id && String(u.id).trim() === normalizedTargetUserId)
                         if (userIndex !== -1) {
                             $s.users.splice(userIndex, 1)
                         }
                     }
                     break
                 }
+                
 
-                case 'mute': {
+                case 'mute': { 
                     // Mute user's microphone
                     if (targetUserId === $s.profile.id) {
                         $s.devices.mic.enabled = false
@@ -493,9 +503,10 @@ const initGroupSubscriptions = () => {
                     }
                     break
                 }
+                
 
                 case 'op':
-                case 'unop': {
+                case 'unop': { 
                     // Update operator permissions
                     if (targetUser && 'permissions' in targetUser && targetUser.permissions && typeof targetUser.permissions === 'object') {
                         (targetUser.permissions as {op?: boolean}).op = action === 'op'
@@ -505,9 +516,10 @@ const initGroupSubscriptions = () => {
                     }
                     break
                 }
+                
 
                 case 'present':
-                case 'unpresent': {
+                case 'unpresent': { 
                     // Update presenter permissions
                     if (targetUser && 'permissions' in targetUser && targetUser.permissions && typeof targetUser.permissions === 'object') {
                         (targetUser.permissions as {present?: boolean}).present = action === 'present'
@@ -515,6 +527,11 @@ const initGroupSubscriptions = () => {
                     if (targetUserId === $s.profile.id) {
                         $s.permissions.present = action === 'present'
                     }
+                    break
+                }
+                
+                default: {
+                    logger.warn(`[handleGroupAction] Unknown action: ${action}`)
                     break
                 }
             }
@@ -525,7 +542,7 @@ const initGroupSubscriptions = () => {
 /**
  * Send chat message via WebSocket (using REST-like API)
  */
-export const sendChatMessage = (message: string, kind: string = 'message') => {
+export const sendChatMessage = (message: string, kind = 'message'): void => {
     if (!$s.sfu.channel.name) {return}
 
     ws.post(`/api/chat/${$s.sfu.channel.name}/message`, {
@@ -538,7 +555,7 @@ export const sendChatMessage = (message: string, kind: string = 'message') => {
 /**
  * Send typing indicator
  */
-export const sendTypingIndicator = (typing: boolean) => {
+export const sendTypingIndicator = (typing: boolean): void => {
     if (!$s.sfu.channel.name || !$s.profile.id) {return}
 
     ws.post(`/api/chat/${$s.sfu.channel.name}/typing`, {
@@ -550,7 +567,7 @@ export const sendTypingIndicator = (typing: boolean) => {
 /**
  * Join a group (announce presence)
  */
-export const joinGroup = async(groupId: string) => {
+export const joinGroup = async(groupId: string): Promise<void> => {
     if (!$s.profile.id || !$s.profile.username) {return}
 
     const response = await ws.post(`/api/presence/${groupId}/join`, {
@@ -569,12 +586,12 @@ export const joinGroup = async(groupId: string) => {
             // Remove users that are no longer in the group (keep only current members)
             const memberIds = new Set(
                 response.members
-                    .filter((m) => m && typeof m === 'object' && 'id' in m && m.id)
-                    .map((m) => String((m as {id: unknown}).id).trim()),
+                    .filter((m): boolean => m && typeof m === 'object' && 'id' in m && m.id)
+                    .map((m): string => String((m as {id: unknown}).id).trim()),
             )
 
             // Filter out users not in current members list
-            $s.users = $s.users.filter((u) => {
+            $s.users = $s.users.filter((u): boolean => {
                 if (!u || !u.id) {return false}
                 const normalizedId = String(u.id).trim()
                 return memberIds.has(normalizedId)
@@ -583,12 +600,9 @@ export const joinGroup = async(groupId: string) => {
             // Add/update all current members
             for (const member of response.members) {
                 // Normalize member.id to string for consistent comparison
-                if (!member || !member.id) {
-                    logger.warn('[joinGroup] Skipping member: invalid member data')
-                    continue
-                }
-                const normalizedMemberId = String(member.id).trim()
-                const userIndex = $s.users.findIndex((u) => u && u.id && String(u.id).trim() === normalizedMemberId)
+                if (member && member.id) {
+                    const normalizedMemberId = String(member.id).trim()
+                const userIndex = $s.users.findIndex((u): boolean => u && u.id && String(u.id).trim() === normalizedMemberId)
                 if (userIndex === -1) {
                     // User doesn't exist, add it
                     $s.users.push({
@@ -609,6 +623,9 @@ export const joinGroup = async(groupId: string) => {
                     // User exists, update username if changed
                     $s.users[userIndex].username = member.username
                 }
+                } else {
+                    logger.warn('[joinGroup] Skipping member: invalid member data')
+                }
             }
             // Ensure no duplicates exist (safety net)
             deduplicateUsers()
@@ -619,7 +636,7 @@ export const joinGroup = async(groupId: string) => {
 /**
  * Leave a group (remove presence)
  */
-export const leaveGroup = (groupId: string) => {
+export const leaveGroup = (groupId: string): void => {
     if (!$s.profile.id) {return}
 
     ws.post(`/api/presence/${groupId}/leave`, {
@@ -630,7 +647,7 @@ export const leaveGroup = (groupId: string) => {
 /**
  * Query presence for a group
  */
-export const queryGroupPresence = async(groupId: string) => {
+export const queryGroupPresence = async(groupId: string): Promise<void> => {
     const response = await ws.get(`/api/presence/${groupId}/members`, {})
     return response?.members || []
 }

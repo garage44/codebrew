@@ -29,7 +29,7 @@ export async function saveGroup(groupId: string, data: Record<string, unknown>):
 
     if (group._name === group._newName) {
         notifier.notify({level: 'info', message: $t('group.action.saved', {group: group._name})})
-        $s.admin.groups[$s.admin.groups.findIndex((g) => g._name === group._name)] = group
+        $s.admin.groups[$s.admin.groups.findIndex((g): boolean => g._name === group._name)] = group
     } else {
         notifier.notify({
             level: 'info',
@@ -39,7 +39,7 @@ export async function saveGroup(groupId: string, data: Record<string, unknown>):
             }),
         })
 
-        const groupIndex = $s.admin.groups.findIndex((g) => g._name === group._name)
+        const groupIndex = $s.admin.groups.findIndex((g): boolean => g._name === group._name)
         group._name = group._newName
         $s.admin.groups[groupIndex] = group
     }

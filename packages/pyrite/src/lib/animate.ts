@@ -17,11 +17,11 @@ export default function tween({
     onFinish?: () => void
     onUpdate?: (value: number) => void
     to?: number
-} = {}) {
+} = {}): void {
     const delta = to - from
     const startTime = performance.now()
 
-    function update(currentTime: number) {
+    function update(currentTime: number): void {
         const elapsed = currentTime - startTime
         const progress = Math.min(elapsed / duration, 1)
         const latest = from + (ease(progress) * delta)

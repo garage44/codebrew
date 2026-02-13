@@ -2,8 +2,8 @@ import {$s} from '@/app'
 import {$t, logger, notifier} from '@garage44/common/app'
 import * as sfu from './sfu/sfu.ts'
 
-export let localStream
-export let screenStream
+export let localStream: MediaStream | null = null
+export let screenStream: MediaStream | null = null
 
 // Fake stream resources (cleaned up when stream stops)
 let fakeVideoCanvas: HTMLCanvasElement | null = null
@@ -19,7 +19,7 @@ let fakeAudioSource: MediaStreamAudioSourceNode | null = null
 /**
  * Helper function to create fake stream fallback when no devices are available
  */
-async function createFakeStreamFallback(selectedVideoDevice: unknown, selectedAudioDevice: unknown) {
+async function createFakeStreamFallback(selectedVideoDevice: unknown, selectedAudioDevice: unknown): Promise<void> {
     logger.info(`[media] No devices available, creating fake stream as fallback`)
     try {
         const width = (selectedVideoDevice && typeof selectedVideoDevice === 'object' && 'width' in selectedVideoDevice && typeof selectedVideoDevice.width === 'object' && selectedVideoDevice.width !== null && 'ideal' in selectedVideoDevice.width ? selectedVideoDevice.width.ideal : 640) as number
@@ -39,10 +39,10 @@ async function createFakeStreamFallback(selectedVideoDevice: unknown, selectedAu
         }
 
         localStream = createFakeStream({
-            audio: !!selectedAudioDevice,
+            audio: Boolean(selectedAudioDevice),
             height,
-            microphoneStream: microphoneStream || undefined,
-            video: !!selectedVideoDevice,
+            microphoneStream: microphoneStream || null,
+            video: Boolean(selectedVideoDevice),
             width,
         })
 
@@ -99,7 +99,7 @@ function createFakeStream(options: {video?: boolean; audio?: boolean; width?: nu
         }
 
         let frame = 0
-        const drawFrame = () => {
+        const drawFrame = (): void => {
             if (!fakeVideoContext || !fakeVideoCanvas) {return}
 
             // Get audio level if microphone is available
@@ -107,8 +107,8 @@ function createFakeStream(options: {video?: boolean; audio?: boolean; width?: nu
                 fakeAudioAnalyser.getByteFrequencyData(fakeAudioDataArray as Uint8Array<ArrayBuffer>)
                 // Calculate RMS (root mean square) for overall volume
                 let sum = 0
-                for (let i = 0; i < fakeAudioDataArray.length; i++) {
-                    sum += fakeAudioDataArray[i] * fakeAudioDataArray[i]
+                for (const value of fakeAudioDataArray) {
+                    sum += value * value
                 }
                 const rms = Math.sqrt(sum / fakeAudioDataArray.length) / 255
                 // Smooth the audio level with exponential averaging
@@ -144,7 +144,7 @@ function createFakeStream(options: {video?: boolean; audio?: boolean; width?: nu
             const audioAmplitude = 0.5 + audioLevel * 2.5
 
             // Draw concentric circles with blue-tinted gradients
-            for (let i = 0; i < 5; i++) {
+            for (let i = 0; i < 5; i += 1) {
                 // Base radius scaled to canvas size, ensuring circles fit
                 const baseRadius = (50 + i * 40) * scaleFactor
                 const audioPulse = audioLevel * 30 * scaleFactor * (1 + Math.sin(time * 2 + i))
@@ -203,7 +203,7 @@ function createFakeStream(options: {video?: boolean; audio?: boolean; width?: nu
                 const barWidth = w / (barCount + 1)
                 const maxBarHeight = h * 0.3
 
-                for (let i = 0; i < barCount; i++) {
+                for (let i = 0; i < barCount; i += 1) {
                     const dataIndex = Math.floor((i / barCount) * fakeAudioDataArray.length)
                     const barHeight = (fakeAudioDataArray[dataIndex] / 255) * maxBarHeight
                     const x = (i + 1) * barWidth
@@ -230,7 +230,7 @@ function createFakeStream(options: {video?: boolean; audio?: boolean; width?: nu
             const statusText = microphoneStream ? 'Using microphone input' : 'Using test pattern'
             ctx.fillText(statusText, centerX, centerY + 20)
 
-            frame++
+            frame += 1
             fakeVideoAnimationFrame = requestAnimationFrame(drawFrame)
         }
 
@@ -240,7 +240,7 @@ function createFakeStream(options: {video?: boolean; audio?: boolean; width?: nu
         const videoTrack = fakeVideoCanvas.captureStream(30).getVideoTracks()[0]
         if (videoTrack) {
             // Clean up when track stops
-            videoTrack.addEventListener('ended', () => {
+            videoTrack.addEventListener('ended', (): void => {
                 if (fakeVideoAnimationFrame !== null) {
                     cancelAnimationFrame(fakeVideoAnimationFrame)
                     fakeVideoAnimationFrame = null
@@ -291,7 +291,7 @@ function createFakeStream(options: {video?: boolean; audio?: boolean; width?: nu
                 const audioTrack = destination.stream.getAudioTracks()[0]
                 if (audioTrack) {
                     // Clean up when track stops
-                    audioTrack.addEventListener('ended', () => {
+                    audioTrack.addEventListener('ended', (): void => {
                         if (fakeAudioOscillator) {
                             fakeAudioOscillator.stop()
                             fakeAudioOscillator = null
@@ -318,7 +318,7 @@ function createFakeStream(options: {video?: boolean; audio?: boolean; width?: nu
     return stream
 }
 
-export async function getUserMedia(presence) {
+export async function getUserMedia(presence: unknown): Promise<MediaStream | null> {
     logger.info(`[media] getUserMedia called, channel.connected=${$s.sfu.channel.connected}`)
     $s.mediaReady = false
 
@@ -340,7 +340,7 @@ export async function getUserMedia(presence) {
 
     // Validate and check if devices are selected
     const FAKE_STREAM_ID = '__fake_stream__'
-    const validateDeviceExists = (deviceId: string, deviceType: 'mic' | 'cam') => {
+    const validateDeviceExists = (deviceId: string, deviceType: 'mic' | 'cam'): boolean => {
         if (!deviceId) {return false}
         // Fake stream is always valid
         if (deviceId === FAKE_STREAM_ID) {return true}
@@ -350,7 +350,7 @@ export async function getUserMedia(presence) {
             logger.warn(`[media] ${deviceType} device options not initialized yet, skipping validation`)
             return false
         }
-        const exists = availableDevices.some((d) => d.id === deviceId)
+        const exists = availableDevices.some((d): boolean => d.id === deviceId)
         if (!exists) {
             logger.warn(`[media] selected ${deviceType} device ${deviceId} not found in available devices, clearing selection`)
             $s.devices[deviceType].selected = {id: null, name: ''}
@@ -428,8 +428,18 @@ export async function getUserMedia(presence) {
     if (isFakeCamSelected || isFakeMicSelected) {
         logger.info(`[media] Fake stream selected, creating fake stream`)
         try {
-            const width = $s.devices.cam.resolution.id === '1080p' ? 1920 : ($s.devices.cam.resolution.id === '720p' ? 1280 : 640)
-            const height = $s.devices.cam.resolution.id === '1080p' ? 1080 : ($s.devices.cam.resolution.id === '720p' ? 720 : 480)
+            let width = 640
+            if ($s.devices.cam.resolution.id === '1080p') {
+                width = 1920
+            } else if ($s.devices.cam.resolution.id === '720p') {
+                width = 1280
+            }
+            let height = 480
+            if ($s.devices.cam.resolution.id === '1080p') {
+                height = 1080
+            } else if ($s.devices.cam.resolution.id === '720p') {
+                height = 720
+            }
 
             // Try to get microphone access if audio is enabled and video is fake
             // This allows the pattern to oscillate with microphone input
@@ -447,7 +457,7 @@ export async function getUserMedia(presence) {
             localStream = createFakeStream({
                 audio: isFakeMicSelected || $s.devices.mic.enabled,
                 height,
-                microphoneStream: microphoneStream || undefined,
+                microphoneStream: microphoneStream || null,
                 video: isFakeCamSelected || $s.devices.cam.enabled,
                 width,
             })
@@ -534,8 +544,8 @@ export async function getUserMedia(presence) {
 
     try {
         localStream = await navigator.mediaDevices.getUserMedia(constraints)
-        logger.debug(`[media] getUserMedia successful, tracks: ${localStream.getTracks().map(t => `${t.kind}:${t.id}`).join(', ')}`)
-    } catch (error: any) {
+        logger.debug(`[media] getUserMedia successful, tracks: ${localStream.getTracks().map((t): string => `${t.kind}:${t.id}`).join(', ')}`)
+    } catch (error: unknown) {
         logger.error(`[media] getUserMedia failed: ${error}`)
 
         // Handle NotFoundError - device ID doesn't exist or is invalid
@@ -543,9 +553,17 @@ export async function getUserMedia(presence) {
             logger.warn(`[media] selected device not found, falling back to browser default`)
 
             // Retry with browser default (no deviceId specified)
+            let audioValue: boolean | {deviceId: string} | null = false
+            if (selectedAudioDevice) {
+                audioValue = typeof selectedAudioDevice === 'object' ? true : selectedAudioDevice
+            }
+            let videoValue: boolean | {deviceId: string; width?: {ideal: number; min: number}; height?: {ideal: number; min: number}} | null = false
+            if (selectedVideoDevice) {
+                videoValue = typeof selectedVideoDevice === 'object' ? true : selectedVideoDevice
+            }
             const fallbackConstraints: {audio: boolean | {deviceId: string} | null; video: boolean | {deviceId: string; width?: {ideal: number; min: number}; height?: {ideal: number; min: number}} | null} = {
-                audio: selectedAudioDevice ? (typeof selectedAudioDevice === 'object' ? true : selectedAudioDevice) : false,
-                video: selectedVideoDevice ? (typeof selectedVideoDevice === 'object' ? true : selectedVideoDevice) : false,
+                audio: audioValue,
+                video: videoValue,
             }
 
             // Remove deviceId if it was specified - let browser choose
@@ -625,10 +643,10 @@ export async function getUserMedia(presence) {
                     }
 
                     localStream = createFakeStream({
-                        audio: !!selectedAudioDevice,
+                        audio: Boolean(selectedAudioDevice),
                         height,
-                        microphoneStream: microphoneStream || undefined,
-                        video: !!selectedVideoDevice,
+                        microphoneStream: microphoneStream || null,
+                        video: Boolean(selectedVideoDevice),
                         width,
                     })
 
@@ -681,7 +699,7 @@ export async function getUserMedia(presence) {
     return localStream
 }
 
-export async function queryDevices() {
+export async function queryDevices(): Promise<void> {
     logger.info('querying for devices')
 
     // Initialize options arrays
@@ -743,44 +761,33 @@ export async function queryDevices() {
 
     for (const device of devices) {
         // Skip devices without deviceId (invalid devices)
-        if (!device.deviceId) {
-            logger.debug(`[media] Skipping device without deviceId: kind=${device.kind}`)
-            continue
-        }
+        if (device.deviceId && !added.includes(device.deviceId)) {
+            let name = device.label
 
-        // The same device may end up in the queryList multiple times;
-        // Don't add it twice to the options list.
-        if (added.includes(device.deviceId)) {
-            continue
-        }
-        let name = device.label
-
-        if (device.kind === 'videoinput') {
-            if (!name) {name = `Camera ${labelnr.cam}`}
-            $s.devices.cam.options.push({id: device.deviceId ? device.deviceId : name, name})
-            labelnr.cam++
-        } else if (device.kind === 'audioinput') {
-            // Skip devices without deviceId (invalid devices)
-            if (!device.deviceId) {
-                logger.warn(`[media] Skipping microphone device without deviceId`)
-                continue
-            }
+            if (device.kind === 'videoinput') {
+                if (!name) {name = `Camera ${labelnr.cam}`}
+                $s.devices.cam.options.push({id: device.deviceId ? device.deviceId : name, name})
+                labelnr.cam += 1
+            } else if (device.kind === 'audioinput') {
             // Provide fallback name if label is empty (happens when permissions not granted)
             if (!name || name.trim() === '') {
                 name = `Microphone ${labelnr.mic}`
                 logger.debug(`[media] Microphone device has no label, using fallback name: ${name}`)
             }
-            $s.devices.mic.options.push({id: device.deviceId, name})
-            logger.debug(`[media] Added microphone device: ${name} (${device.deviceId})`)
-            labelnr.mic++
-        } else if (device.kind === 'audiooutput') {
-            // Firefox doesn't support audio output enumeration and setSinkid
-            if (!name) {name = `Output ${labelnr.audio}`}
-            $s.devices.audio.options.push({id: device.deviceId ? device.deviceId : name, name})
-            labelnr.audio++
-        }
+                $s.devices.mic.options.push({id: device.deviceId, name})
+                logger.debug(`[media] Added microphone device: ${name} (${device.deviceId})`)
+                labelnr.mic += 1
+            } else if (device.kind === 'audiooutput') {
+                // Firefox doesn't support audio output enumeration and setSinkid
+                if (!name) {name = `Output ${labelnr.audio}`}
+                $s.devices.audio.options.push({id: device.deviceId ? device.deviceId : name, name})
+                labelnr.audio += 1
+            }
 
-        added.push(device.deviceId)
+            added.push(device.deviceId)
+        } else if (!device.deviceId) {
+            logger.debug(`[media] Skipping device without deviceId: kind=${device.kind}`)
+        }
     }
 
     const micCount = $s.devices.mic.options.length
@@ -791,10 +798,10 @@ export async function queryDevices() {
 
     // Warn if no microphone devices found (likely permissions issue)
     if (micCount === 0 && devices.length > 0) {
-        const audioInputDevices = devices.filter(d => d.kind === 'audioinput')
+        const audioInputDevices = devices.filter((d): boolean => d.kind === 'audioinput')
         if (audioInputDevices.length > 0) {
             logger.warn(`[media] Found ${audioInputDevices.length} audio input device(s) but none were added. This may indicate missing deviceIds or permission issues.`)
-            logger.debug(`[media] Audio input devices found:`, audioInputDevices.map(d => ({deviceId: d.deviceId, kind: d.kind, label: d.label})))
+            logger.debug(`[media] Audio input devices found:`, audioInputDevices.map((d): {deviceId: string | null; kind: string; label: string} => ({deviceId: d.deviceId, kind: d.kind, label: d.label})))
         }
     }
 
@@ -804,12 +811,13 @@ export async function queryDevices() {
     }
 }
 
-export function removeLocalStream() {
+export function removeLocalStream(): void {
     if (localStream) {
-        localStream.getTracks().forEach(track => {
+        const tracks = localStream.getTracks()
+        for (const track of tracks) {
             logger.debug(`stopping track ${track.id}`)
             track.stop()
-        })
+        }
     }
 
     // Clean up fake stream resources
@@ -844,13 +852,11 @@ export function removeLocalStream() {
     localStream = null
 }
 
-export function setDefaultDevice(useFirstAvailable = true) {
+export function setDefaultDevice(useFirstAvailable = true): void {
     const invalidDevices = validateDevices()
     const emptyOption = {id: null, name: ''}
     for (const key of Object.keys($s.devices)) {
-        if (key === 'audio' && $s.env.isFirefox) {continue}
-
-        if (invalidDevices[key] || $s.devices[key].selected.id === null) {
+        if ((key !== 'audio' || !$s.env.isFirefox) && (invalidDevices[key] || $s.devices[key].selected.id === null)) {
             if (useFirstAvailable && $s.devices[key].options.length) {
                 $s.devices[key].selected = $s.devices[key].options[0]
             } else {
@@ -860,35 +866,36 @@ export function setDefaultDevice(useFirstAvailable = true) {
     }
 }
 
-export function setScreenStream(stream) {
+export function setScreenStream(stream: MediaStream | null): void {
     screenStream = stream
 }
 
-export function validateDevices() {
+export function validateDevices(): {audio: boolean; cam: boolean; mic: boolean} {
     const {devices} = $s
     return {
-        audio: !$s.env.isFirefox && (!devices.audio.options.length || !devices.audio.options.some((i) => i.id === devices.audio.selected.id)),
-        cam: !devices.cam.options.length || !devices.cam.options.some((i) => i.id === devices.cam.selected.id),
-        mic: !devices.mic.options.length || !devices.mic.options.some((i) => i.id === devices.mic.selected.id),
+        audio: !$s.env.isFirefox && (!devices.audio.options.length || !devices.audio.options.some((i): boolean => i.id === devices.audio.selected.id)),
+        cam: !devices.cam.options.length || !devices.cam.options.some((i): boolean => i.id === devices.cam.selected.id),
+        mic: !devices.mic.options.length || !devices.mic.options.some((i): boolean => i.id === devices.mic.selected.id),
     }
 }
 
-navigator.mediaDevices.ondevicechange = async() => {
+navigator.mediaDevices.ondevicechange = async(): Promise<void> => {
     const oldDevices = JSON.parse(JSON.stringify($s.devices))
     await queryDevices()
-    let added = [], removed = []
+    let added: {id: string | null; name: string}[] = []
+    let removed: {id: string | null; name: string}[] = []
     for (const deviceType of Object.keys($s.devices)) {
-        const _added = $s.devices[deviceType].options.filter((i) => !oldDevices[deviceType].options.some((j) => i.id === j.id))
-        const _removed = oldDevices[deviceType].options.filter((i) => !$s.devices[deviceType].options.some((j) => i.id === j.id))
-        if (_added.length) {added = added.concat(_added)}
-        if (_removed.length) {removed = removed.concat(_removed)}
+        const _added = $s.devices[deviceType].options.filter((i): boolean => !oldDevices[deviceType].options.some((j): boolean => i.id === j.id))
+        const _removed = oldDevices[deviceType].options.filter((i): boolean => !$s.devices[deviceType].options.some((j): boolean => i.id === j.id))
+        if (_added.length) {added = [...added, ..._added]}
+        if (_removed.length) {removed = [...removed, ..._removed]}
     }
 
     if (added.length) {
         notifier.notify({
             icon: 'Headset',
             level: 'info',
-            list: added.map((i) => i.name),
+            list: added.map((i): string => i.name),
             message: $t('device.added', {count: added.length}),
         })
     }
@@ -896,7 +903,7 @@ navigator.mediaDevices.ondevicechange = async() => {
         notifier.notify({
             icon: 'Headset',
             level: 'warning',
-            list: removed.map((i) => i.name),
+            list: removed.map((i): string => i.name),
             message: $t('device.removed', {count: removed.length}),
         })
     }
@@ -908,8 +915,8 @@ navigator.mediaDevices.ondevicechange = async() => {
             icon: 'Headset',
             level: 'warning',
             list: Object.entries(invalidDevices)
-                .filter(([_, value]) => value)
-                .map(([key]) => $t(`device.select_${key}_label`)),
+                .filter(([_, value]): boolean => value)
+                .map(([key]): string => $t(`device.select_${key}_label`)),
             message: $t('device.action_required', {count: removed.length}),
         })
         // Don't set a default option; it must be clear that an

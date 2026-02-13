@@ -1,7 +1,6 @@
 import {$t, logger, store} from '@garage44/common/app'
 import {FieldSelect, Icon, SoundMeter as Soundmeter} from '@garage44/common/components'
-import {type Signal, signal} from '@preact/signals'
-import {effect} from '@preact/signals'
+import {type Signal, effect, signal} from '@preact/signals'
 import {useEffect, useRef, useState} from 'preact/hooks'
 
 import {$s} from '@/app'
@@ -14,7 +13,7 @@ import * as sfu from '@/models/sfu/sfu'
  * Device Settings Component for PanelContext Quick Access
  * Contains only device selection (cam, mic, audio) - no media settings
  */
-export function DeviceSettings() {
+export function DeviceSettings(): JSX.Element {
     const [description, setDescription] = useState<{
         direction: 'up'
         hasAudio: boolean
@@ -34,15 +33,15 @@ export function DeviceSettings() {
     const micIdSignalRef = useRef<ReturnType<typeof signal<string>>>(signal(''))
     const audioIdSignalRef = useRef<ReturnType<typeof signal<string>>>(signal(''))
 
-    useEffect(() => {
-        const updateCamId = () => {
+    useEffect((): (() => void) => {
+        const updateCamId = (): void => {
             const {selected} = $s.devices.cam
             const id = typeof selected === 'object' && selected !== null && 'id' in selected ? String(selected.id || '') : ''
             if (camIdSignalRef.current.value !== id) {
                 camIdSignalRef.current.value = id
             }
         }
-        const updateMicId = () => {
+        const updateMicId = (): void => {
             const {selected} = $s.devices.mic
             const id = typeof selected === 'object' && selected !== null && 'id' in selected ? String(selected.id || '') : ''
             if (micIdSignalRef.current.value !== id) {
@@ -50,7 +49,7 @@ export function DeviceSettings() {
                 logger.debug(`[DeviceSettings] Updated mic signal to: ${id}`)
             }
         }
-        const updateAudioId = () => {
+        const updateAudioId = (): void => {
             const {selected} = $s.devices.audio
             const id = typeof selected === 'object' && selected !== null && 'id' in selected ? String(selected.id || '') : ''
             if (audioIdSignalRef.current.value !== id) {
@@ -64,24 +63,24 @@ export function DeviceSettings() {
         updateAudioId()
 
         // Watch for changes
-        const unsubscribeCam = effect(() => {
+        const unsubscribeCam = effect((): void => {
             updateCamId()
         })
-        const unsubscribeMic = effect(() => {
+        const unsubscribeMic = effect((): void => {
             updateMicId()
         })
-        const unsubscribeAudio = effect(() => {
+        const unsubscribeAudio = effect((): void => {
             updateAudioId()
         })
 
-        return () => {
+        return (): void => {
             unsubscribeCam()
             unsubscribeMic()
             unsubscribeAudio()
         }
     }, [])
 
-    const remountStream = async () => {
+    const remountStream = async (): Promise<void> => {
         try {
             const newStream = await getUserMedia($s.devices)
             if (newStream) {
@@ -90,7 +89,9 @@ export function DeviceSettings() {
                 setDescription(null)
 
                 // Give the stream time to unmount first...
-                await new Promise((resolve) => setTimeout(resolve, 0))
+                await new Promise<void>((resolve): void => {
+                    setTimeout(resolve, 0)
+                })
 
                 setDescription({
                     direction: 'up',
@@ -111,7 +112,7 @@ export function DeviceSettings() {
         }
     }
 
-    const testSoundAudio = async () => {
+    const testSoundAudio = async (): Promise<void> => {
         if (!soundAudio) {
             return
         }
@@ -127,7 +128,7 @@ export function DeviceSettings() {
             await soundAudio.play({sink: sinkId})
 
             // Update playing state when sound ends
-            const checkPlaying = () => {
+            const checkPlaying = (): void => {
                 if (soundAudio && soundAudio.description.playing) {
                     requestAnimationFrame(checkPlaying)
                 }
@@ -139,8 +140,8 @@ export function DeviceSettings() {
     }
 
     // Initial mount
-    useEffect(() => {
-        const init = async () => {
+    useEffect((): (() => void) => {
+        const init = async (): Promise<void> => {
             try {
                 await queryDevices()
 
@@ -186,7 +187,7 @@ export function DeviceSettings() {
 
         init()
 
-        return () => {
+        return (): void => {
             if (!$s.sfu.channel.connected) {
                 sfu.delLocalMedia()
             }
@@ -194,22 +195,22 @@ export function DeviceSettings() {
     }, [])
 
     // Watch for device changes
-    useEffect(() => {
+    useEffect((): void => {
         remountStream()
     }, [])
 
     return (
-        <div class='c-device-settings'>
-            <div class='c-device-settings__section'>
-                <h3 class='c-device-settings__title'>Camera</h3>
+        <div className='c-device-settings'>
+            <div className='c-device-settings__section'>
+                <h3 className='c-device-settings__title'>Camera</h3>
                 <FieldSelect
                     help={$t('device.select_cam_help')}
                     label={$t('device.select_cam_label')}
                     model={camIdSignalRef.current as Signal<string>}
-                    onChange={(value) => {
+                    onChange={(value): void => {
                         const selectedOption = Array.isArray($s.devices.cam.options)
-                            ? $s.devices.cam.options.find((opt: {id: string; name: string}) => opt.id === value)
-                            : undefined
+                            ? $s.devices.cam.options.find((opt: {id: string; name: string}): boolean => opt.id === value)
+                            : null
                         if (selectedOption) {
                             $s.devices.cam.selected = selectedOption
                             store.save()
@@ -230,25 +231,25 @@ export function DeviceSettings() {
                     />
                 )}
                 {!description && (
-                    <div class='c-device-settings__placeholder'>
+                    <div className='c-device-settings__placeholder'>
                         <Icon name='webcam' />
                     </div>
                 )}
             </div>
 
-            <div class='c-device-settings__section'>
-                <h3 class='c-device-settings__title'>Microphone</h3>
-                <p class='c-device-settings__help c-device-settings__section-intro'>
+            <div className='c-device-settings__section'>
+                <h3 className='c-device-settings__title'>Microphone</h3>
+                <p className='c-device-settings__help c-device-settings__section-intro'>
                     Select a microphone input device. The sound meter below shows audio input levels.
                 </p>
                 <FieldSelect
                     help='Select which microphone should capture audio input'
                     label='Microphone Input Device'
                     model={micIdSignalRef.current as Signal<string>}
-                    onChange={(value) => {
+                    onChange={(value): void => {
                         const selectedOption = Array.isArray($s.devices.mic.options)
-                            ? $s.devices.mic.options.find((opt: {id: string; name: string}) => opt.id === value)
-                            : undefined
+                            ? $s.devices.mic.options.find((opt: {id: string; name: string}): boolean => opt.id === value)
+                            : null
                         if (selectedOption) {
                             $s.devices.mic.selected = selectedOption
                             store.save()
@@ -261,9 +262,9 @@ export function DeviceSettings() {
                 {streamId && stream && <Soundmeter stream={stream} streamId={streamId} />}
             </div>
 
-            <div class='c-device-settings__section'>
-                <h3 class='c-device-settings__title'>Audio Output</h3>
-                <p class='c-device-settings__help c-device-settings__section-intro'>
+            <div className='c-device-settings__section'>
+                <h3 className='c-device-settings__title'>Audio Output</h3>
+                <p className='c-device-settings__help c-device-settings__section-intro'>
                     Select an audio output device (speaker/headphones) to test where sound will play.
                 </p>
                 {Array.isArray($s.devices.audio.options) && $s.devices.audio.options.length > 0 && !$s.env.isFirefox && (
@@ -271,10 +272,10 @@ export function DeviceSettings() {
                         help='Select which audio output device (speaker/headphones) should play sound'
                         label='Audio Output Device'
                         model={audioIdSignalRef.current as Signal<string>}
-                        onChange={(value) => {
+                        onChange={(value): void => {
                             const selectedOption = Array.isArray($s.devices.audio.options)
-                                ? $s.devices.audio.options.find((opt: {id: string; name: string}) => opt.id === value)
-                                : undefined
+                                ? $s.devices.audio.options.find((opt: {id: string; name: string}): boolean => opt.id === value)
+                                : null
                             if (selectedOption) {
                                 $s.devices.audio.selected = selectedOption
                                 store.save()
@@ -285,12 +286,18 @@ export function DeviceSettings() {
                 )}
 
                 {($s.env.isFirefox || !Array.isArray($s.devices.audio.options) || $s.devices.audio.options.length === 0) && (
-                    <div class='c-device-settings__audio-test'>
+                    <div className='c-device-settings__audio-test'>
                         <label htmlFor='test-audio-output-btn'>Test Audio Output</label>
-                        <button class='btn' disabled={!soundAudio} id='test-audio-output-btn' onClick={testSoundAudio}>
+                        <button
+                            className='btn'
+                            disabled={!soundAudio}
+                            id='test-audio-output-btn'
+                            type='button'
+                            onClick={testSoundAudio}
+                        >
                             <Icon className='icon-d' name={soundAudio?.description.playing ? 'pause' : 'play'} />
                         </button>
-                        <p class='c-device-settings__help'>
+                        <p className='c-device-settings__help'>
                             Click play to test which audio output device (speaker/headphones) plays sound.
                             {!Array.isArray($s.devices.audio.options) || $s.devices.audio.options.length === 0
                                 ? ' Audio output device selection is not available in this browser.'

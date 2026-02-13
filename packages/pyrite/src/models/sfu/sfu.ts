@@ -48,9 +48,9 @@ let promiseConnect: {reject: (reason: string) => void; resolve: (value: string) 
 let connectionReady = false
 const streamRetryCounts = new Map<string, number>()
 const MAX_RETRIES = 3
-const pendingDownstreamStreams: Array<{stream: any; timestamp: number}> = []
+const pendingDownstreamStreams: {stream: any; timestamp: number}[] = []
 
-export async function addFileMedia(file) {
+export async function addFileMedia(file: File): Promise<unknown> {
     logger.info('add file media')
     const {glnStream} = newUpStream(null, {
         direction: 'up',
@@ -63,7 +63,7 @@ export async function addFileMedia(file) {
     return glnStream
 }
 
-export async function addShareMedia() {
+export async function addShareMedia(): Promise<void> {
     logger.info('add share media')
 
     // Validate connection is ready
@@ -83,17 +83,17 @@ export async function addShareMedia() {
 
     let stream = null
     try {
-        if (!('getDisplayMedia' in navigator.mediaDevices)) throw new Error('Your browser does not support screen sharing')
+        if (!('getDisplayMedia' in navigator.mediaDevices)) {throw new Error('Your browser does not support screen sharing')}
         stream = await (navigator.mediaDevices as any).getDisplayMedia({audio: true, video: true})
 
         if (!stream) {
             throw new Error('Failed to get display media')
         }
-    } catch(e) {
-        const errorMessage = e instanceof Error ? e.message : String(e)
+    } catch(error) {
+        const errorMessage = error instanceof Error ? error.message : String(error)
         logger.error(`[SFU] addShareMedia: failed to get display media: ${errorMessage}`)
         notifier.notify({message: errorMessage, type: 'error'})
-        throw e
+        throw error
     }
 
     let glnStream
@@ -103,8 +103,8 @@ export async function addShareMedia() {
             direction: 'up',
             mirror: false,
         })
-        glnStream = result.glnStream
-        streamState = result.streamState
+        ({ glnStream } = result)
+        ({ streamState } = result)
     } catch(error) {
         // Clean up the stream if we failed to create upstream
         stream.getTracks().forEach((t) => t.stop())
@@ -140,7 +140,7 @@ export async function addShareMedia() {
     return glnStream
 }
 
-export async function addUserMedia() {
+export async function addUserMedia(): Promise<void> {
     logger.debug('[sfu] addUserMedia called')
 
     // Enhanced validation
@@ -187,8 +187,8 @@ export async function addUserMedia() {
         logger.warn('[SFU] addUserMedia: RTC configuration not available')
     }
 
-    let localStreamId = findUpMedia('camera')
-    let oldStream = localStreamId && connection.up[localStreamId]
+    const localStreamId = findUpMedia('camera')
+    const oldStream = localStreamId && connection.up[localStreamId]
 
     if (oldStream) {
         logger.debug(`[sfu] removing old camera stream ${localStreamId}`)
@@ -238,7 +238,7 @@ export async function addUserMedia() {
     })
 }
 
-export async function connect(username?: string, password?: string) {
+export async function connect(username?: string, password?: string): Promise<void> {
     if (connection && connection.socket) {
         connection.close()
         await new Promise((r) => setTimeout(r, 150))
@@ -323,7 +323,7 @@ export async function connect(username?: string, password?: string) {
         const isLocalhost = typeof location !== 'undefined' &&
             (location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.hostname === '[::1]')
 
-        logger.debug(`[SFU] onpeerconnection called: serverConfig=${!!serverConfig}, isLocalhost=${isLocalhost}`)
+        logger.debug(`[SFU] onpeerconnection called: serverConfig=${Boolean(serverConfig)}, isLocalhost=${isLocalhost}`)
 
         if (serverConfig) {
             // Server provided configuration - check if it has STUN servers
@@ -348,7 +348,7 @@ export async function connect(username?: string, password?: string) {
                         break
                     }
                 }
-                if (hasStun) break
+                if (hasStun) {break}
             }
 
             if (!hasStun || iceServers.length === 0) {
@@ -403,7 +403,7 @@ export async function connect(username?: string, password?: string) {
      * For default HTTPS (443), browsers omit the port in location.host
      */
     const protocol = location.protocol === 'https:' ? 'wss' : 'ws'
-    // location.host already includes port if present, or omits it for default ports
+    // Location.host already includes port if present, or omits it for default ports
     const url = `${protocol}://${location.host}/sfu`
     logger.info(`[SFU] Connecting to Galene through proxy: ${url}`)
     logger.debug(`[SFU] Protocol: ${location.protocol}, Host: ${location.host}, Hostname: ${location.hostname}, Port: ${location.port || 'default'}`)
@@ -436,27 +436,27 @@ export async function connect(username?: string, password?: string) {
                 // Don't throw - connection is still valid
             }
         }
-    } catch(e) {
-        logger.error('[SFU] Failed to connect to Galene:', e)
+    } catch(error) {
+        logger.error('[SFU] Failed to connect to Galene:', error)
         // Clean up promiseConnect on connection error
         promiseConnect = null
         connectionReady = false
         streamRetryCounts.clear()
         pendingDownstreamStreams.length = 0
 
-        const errorMessage = e instanceof Error ? e.message : String(e)
+        const errorMessage = error instanceof Error ? error.message : String(error)
         notifier.notify({
             message: errorMessage || "Couldn't connect to " + url,
             type: 'error',
         })
-        throw e
+        throw error
     }
 
     // Return the promise that will resolve/reject when onJoined is called
     return joinPromise
 }
 
-export function delLocalMedia() {
+export function delLocalMedia(): void {
     // Find and disconnect screen share stream by label
     if (connection && connection.up) {
         const screenShareId = findUpMedia('screenshare')
@@ -465,15 +465,15 @@ export function delLocalMedia() {
             delUpMedia(connection.up[screenShareId])
         }
     }
-    if (!localStream) return
+    if (!localStream) {return}
 
     logger.info('delete local media share media')
     removeLocalStream()
 }
 
-export function delMedia(id) {
+export function delMedia(id: string): void {
     // Log stack trace to understand what's calling delMedia (helps debug Firefox canvas stream issues)
-    const stack = new Error().stack
+    const {stack} = new Error()
     const caller = stack ? stack.split('\n')[2] : 'unknown'
     logger.debug(`[sfu] delMedia: removing stream ${id}, called from: ${caller}`)
 
@@ -500,7 +500,7 @@ export function delMedia(id) {
     logger.debug(`[sfu] delMedia: stream ${id} removed from $s.streams (remaining: ${$s.streams.length})`)
 }
 
-export function delUpMedia(c) {
+export function delUpMedia(c: unknown): void {
     if (!c) {
         logger.warn('[SFU] delUpMedia: stream object is null or undefined')
         return
@@ -530,13 +530,14 @@ export function delUpMedia(c) {
     }
 
     if (connection && connection.up) {
+        // eslint-disable-next-line no-dynamic-delete
         delete connection.up[c.id]
     } else {
         logger.warn('[SFU] delUpMedia: connection or connection.up not available')
     }
 }
 
-export function delUpMediaKind(label) {
+export function delUpMediaKind(label: string): void {
     logger.debug(`remove all up media with label: ${label}`)
 
     if (!connection || !connection.up) {
@@ -546,9 +547,9 @@ export function delUpMediaKind(label) {
 
     const streamsToRemove: string[] = []
 
-    for (let id in connection.up) {
+    for (const id in connection.up) {
         const c = connection.up[id]
-        if (!c) continue
+        if (!c) {continue}
 
         if (label && c.label !== label) {
             continue
@@ -559,7 +560,7 @@ export function delUpMediaKind(label) {
 
     for (const id of streamsToRemove) {
         const c = connection.up[id]
-        if (!c) continue
+        if (!c) {continue}
 
         try {
             if (c.close) {
@@ -580,7 +581,7 @@ export function delUpMediaKind(label) {
     }
 }
 
-export function disconnect() {
+export function disconnect(): void {
     const channelSlug = $s.sfu.channel.name || $s.chat.activeChannelSlug
     logger.info(`disconnecting from group ${channelSlug}`)
 
@@ -614,14 +615,16 @@ export function disconnect() {
     delLocalMedia()
 }
 
-function fileTransferEvent(this: any, state: string, data: any) {
+function fileTransferEvent(this: any, state: string, data: any): void {
     const f = this
     switch (state) {
-        case 'inviting':
+        case 'inviting': {
             break
-        case 'connecting':
+        }
+        case 'connecting': {
             break
-        case 'connected':
+        }
+        case 'connected': {
             if (f.up) {
                 Object.assign(f.notifier, {
                     buttons: [{
@@ -651,7 +654,8 @@ function fileTransferEvent(this: any, state: string, data: any) {
                 })
             }
             break
-        case 'done':
+        }
+        case 'done': {
             if (!f.up) {
                 let url = URL.createObjectURL(data)
                 let a = document.createElement('a')
@@ -682,7 +686,8 @@ function fileTransferEvent(this: any, state: string, data: any) {
             // Update notification with timeout - notify method handles timeout automatically
             notifier.notify(f.notifier, 3000)
             break
-        case 'cancelled':
+        }
+        case 'cancelled': {
             Object.assign(f.notifier, {
                 buttons: [],
                 level: 'warning',
@@ -692,9 +697,11 @@ function fileTransferEvent(this: any, state: string, data: any) {
             // Update notification with timeout - notify method handles timeout automatically
             notifier.notify(f.notifier, 3000)
             break
-        case 'closed':
+        }
+        case 'closed': {
             break
-        default:
+        }
+        default: {
             Object.assign(f.notifier, {
                 buttons: [],
                 level: 'error',
@@ -705,16 +712,17 @@ function fileTransferEvent(this: any, state: string, data: any) {
             notifier.notify(f.notifier, 3000)
             f.cancel(`unexpected state "${state}" (this shouldn't happen)`)
             break
+        }
     }
 }
 
-function findUpMedia(label) {
+function findUpMedia(label: string): string | null {
     if (!connection || !connection.up) {
         logger.debug('[SFU] findUpMedia: connection or connection.up not available')
         return null
     }
 
-    for (let id in connection.up) {
+    for (const id in connection.up) {
         const stream = connection.up[id]
         if (stream && stream.label === label) {
             return id
@@ -723,41 +731,53 @@ function findUpMedia(label) {
     return null
 }
 
-function getMaxVideoThroughput() {
+function getMaxVideoThroughput(): number {
     switch ($s.media.upstream.id) {
-        case 'lowest':
+        case 'lowest': {
             return 150000
-        case 'low':
+        }
+        case 'low': {
             return 300000
-        case 'normal':
+        }
+        case 'normal': {
             return 700000
-        case 'unlimited':
+        }
+        case 'unlimited': {
             return null
-        default:
+        }
+        default: {
             return 700000
+        }
     }
 }
 
-function mapRequest(what) {
+function mapRequest(what: string): string {
     switch (what) {
-        case '':
+        case '': {
             return {}
-        case 'audio':
+        }
+        case 'audio': {
             return {'': ['audio']}
-        case 'screenshare-low':
+        }
+        case 'screenshare-low': {
             return {'': ['audio'], screenshare: ['audio', 'video-low']}
-        case 'screenshare':
+        }
+        case 'screenshare': {
             return {'': ['audio'], screenshare: ['audio', 'video']}
-        case 'everything-low':
+        }
+        case 'everything-low': {
             return {'': ['audio', 'video-low']}
-        case 'everything':
+        }
+        case 'everything': {
             return {'': ['audio', 'video']}
-        default:
+        }
+        default: {
             throw new Error(`Unknown value ${what} in request`)
+        }
     }
 }
 
-export function muteMicrophone(muted) {
+export function muteMicrophone(muted: boolean): void {
     $s.devices.mic.enabled = !muted
     logger.debug(`microphone enabled: ${$s.devices.mic.enabled}`)
 
@@ -766,9 +786,9 @@ export function muteMicrophone(muted) {
         return
     }
 
-    for (let id in connection.up) {
+    for (const id in connection.up) {
         const glnStream = connection.up[id]
-        if (!glnStream) continue
+        if (!glnStream) {continue}
 
         if (glnStream.label === 'camera' && glnStream.stream) {
             try {
@@ -784,7 +804,7 @@ export function muteMicrophone(muted) {
     }
 }
 
-function newUpStream(_id, state) {
+function newUpStream(_id: string | null, state: unknown): {glnStream: unknown} {
     // Validate connection exists
     if (!connection) {
         const error = new Error('SFU connection not available')
@@ -812,7 +832,7 @@ function newUpStream(_id, state) {
         throw error
     }
 
-    let streamState = {
+    const streamState = {
         aspectRatio: 4 / 3,
         direction: 'up',
         enlarged: false,
@@ -868,14 +888,14 @@ function newUpStream(_id, state) {
 }
 
 // Process pending downstream streams that arrived before connection was ready
-function processPendingDownstreamStreams() {
+function processPendingDownstreamStreams(): void {
     const now = Date.now()
     // 5 second timeout for pending streams
     const timeout = 5000
 
     while (pendingDownstreamStreams.length > 0) {
         const pending = pendingDownstreamStreams.shift()
-        if (!pending) continue
+        if (!pending) {continue}
 
         // Skip if too old
         if (now - pending.timestamp > timeout) {
@@ -892,7 +912,7 @@ function processPendingDownstreamStreams() {
  * Process existing downstream streams from connection.down that may have been created
  * before onJoined completed (e.g., when reconnecting and server sends existing streams)
  */
-function processExistingDownstreamStreams() {
+function processExistingDownstreamStreams(): void {
     if (!connection || !connection.down) {
         return
     }
@@ -936,7 +956,7 @@ function processExistingDownstreamStreams() {
     }
 }
 
-function onClose(code, reason) {
+function onClose(code: number, reason: string): void {
     // Reset connection state
     connectionReady = false
     streamRetryCounts.clear()
@@ -982,10 +1002,10 @@ function onClose(code, reason) {
         notifier.notify({message: `Socket close ${code}: ${reason}`, type: 'error'})
     }
 
-    // app.router.push({name: 'conference-groups'}, {params: {groupId: $s.sfu.channel.name}})
+    // App.router.push({name: 'conference-groups'}, {params: {groupId: $s.sfu.channel.name}})
 }
 
-function onDownStream(c) {
+function onDownStream(c: unknown): void {
     logger.debug(`[sfu] onDownStream: received downstream stream ${c.id} from user ${c.username}`)
 
     // Validate connection is ready
@@ -1061,7 +1081,7 @@ function onDownStream(c) {
 
         // Log detailed information about why stream is closing (helps debug Firefox canvas stream issues)
         const iceState = c.pc ? c.pc.iceConnectionState : 'no pc'
-        const hasStream = !!c.stream
+        const hasStream = Boolean(c.stream)
         const trackCount = c.stream ? c.stream.getTracks().length : 0
         // Check if a new stream with same ID exists (replacement scenario)
         const replacementExists = connection && connection.down && connection.down[c.id] && connection.down[c.id] !== c
@@ -1069,7 +1089,7 @@ function onDownStream(c) {
         logger.info(`[sfu] onDownStream: stream ${c.id} onclose called, replace=${replace}, ICE=${iceState}, hasStream=${hasStream}, tracks=${trackCount}, replacementExists=${replacementExists}`)
 
         // Also log stack trace to see what triggered the close
-        const stack = new Error().stack
+        const {stack} = new Error()
         if (stack) {
             const caller = stack.split('\n').slice(1, 4).join(' -> ')
             logger.debug(`[sfu] onDownStream: stream ${c.id} onclose call stack: ${caller}`)
@@ -1150,7 +1170,7 @@ function onDownStream(c) {
             $s.streams = [...$s.streams]
         }
 
-        logger.debug(`[sfu] onDownStream: track ${track.kind} arrived for stream ${c.id}, stream assigned: ${!!c.stream}, track readyState: ${track.readyState}`)
+        logger.debug(`[sfu] onDownStream: track ${track.kind} arrived for stream ${c.id}, stream assigned: ${Boolean(c.stream)}, track readyState: ${track.readyState}`)
     }
 
     /*
@@ -1171,7 +1191,7 @@ function onDownStream(c) {
             const retryCount = streamRetryCounts.get(c.id) || 0
             if (retryCount < MAX_RETRIES) {
                 streamRetryCounts.set(c.id, retryCount + 1)
-                const backoffDelay = Math.pow(2, retryCount) * 1000
+                const backoffDelay = 2 ** retryCount * 1000
                 setTimeout(() => {
                     if (connection && connection.down && connection.down[c.id]) {
                         // Original Galène sends renegotiate on ICE failure (protocol.js line 796-799)
@@ -1191,7 +1211,7 @@ function onDownStream(c) {
     }
 }
 
-async function onFileTransfer(f) {
+async function onFileTransfer(f: unknown): Promise<void> {
     f.onevent = fileTransferEvent
     if (f.up) {
         f.notifier = notifier.notify({
@@ -1214,12 +1234,12 @@ async function onFileTransfer(f) {
     }
 }
 
-async function onJoined(kind, group, permissions, status, data, message) {
+async function onJoined(kind: string, group: string, permissions: unknown, status: unknown, data: unknown, message: string): Promise<void> {
     logger.debug(`[onJoined] ${kind}/${group}: ${message}`)
-    let currentGroupData = currentGroup()
-    let _permissions = {}
+    const currentGroupData = currentGroup()
+    const _permissions = {}
     switch (kind) {
-        case 'fail':
+        case 'fail': {
             if (promiseConnect) {
                 promiseConnect.reject(message)
                 promiseConnect = null
@@ -1231,10 +1251,12 @@ async function onJoined(kind, group, permissions, status, data, message) {
              */
             connection.close()
             return
-        case 'leave':
+        }
+        case 'leave': {
             disconnect()
             return
-        case 'join':
+        }
+        case 'join': {
             for (const permission of permissions) {
                 _permissions[permission] = true
             }
@@ -1306,7 +1328,8 @@ async function onJoined(kind, group, permissions, status, data, message) {
                 promiseConnect = null
             }
             break
-        case 'change':
+        }
+        case 'change': {
 
             for (const permission of permissions) {
                 _permissions[permission] = true
@@ -1330,10 +1353,12 @@ async function onJoined(kind, group, permissions, status, data, message) {
             logger.debug(`permissions: ${JSON.stringify(permissions)}`)
             if (kind === 'change') return
             break
-        default:
+        }
+        default: {
             notifier.notify({message: 'Unknown join message', type: 'error'})
             connection.close()
             return
+        }
     }
 
     logger.debug(`request Galène media types: ${$s.media.accept.id}`)
@@ -1356,9 +1381,9 @@ async function onJoined(kind, group, permissions, status, data, message) {
      */
 }
 
-function onUser(id, kind) {
-    let user = {...connection.users[id], id}
-    let _permissions = {}
+function onUser(id: string, kind: string): void {
+    const user = {...connection.users[id], id}
+    const _permissions = {}
     if (user.permissions) {
         for (const permission of user.permissions) {
             _permissions[permission] = true
@@ -1443,27 +1468,28 @@ function onUser(id, kind) {
     }
 }
 
-function onUserMessage(id, dest, username, time, privileged, kind, message) {
+function onUserMessage(id: string, dest: string, username: string, time: number, privileged: boolean, kind: string, message: string): void {
     let source = username
     if (!source) {
-        if (id) source = 'Anonymous'
-        else source = 'System Message'
+        if (id) {source = 'Anonymous'}
+        else {source = 'System Message'}
     }
 
     // Handle incoming user messages - log for now, can be extended later
     logger.debug(`[onUserMessage] ${source}: ${message}`)
     // Remote actions are only allowed for operators.
-    if (!privileged) return
+    if (!privileged) {return}
 
     switch (kind) {
     // Handle related actions here...
-        case 'mute':
+        case 'mute': {
             muteMicrophone(true)
             break
+        }
     }
 }
 
-export function removeTrack(glnStream, kind) {
+export function removeTrack(glnStream: unknown, kind: string): void {
     const tracks = glnStream.stream.getTracks()
     tracks.forEach((track) => {
         if (track.kind === kind) {
@@ -1476,17 +1502,17 @@ export function removeTrack(glnStream, kind) {
     })
 }
 
-async function setMaxVideoThroughput(c, bps) {
-    const unlimitedRate = 1000000000
+async function setMaxVideoThroughput(c: unknown, bps: number): Promise<void> {
+    const unlimitedRate = 1_000_000_000
 
-    let senders = c.pc.getSenders()
+    const senders = c.pc.getSenders()
     for (let i = 0; i < senders.length; i++) {
-        let s = senders[i]
-        if (!s.track || s.track.kind !== 'video') continue
-        let p = s.getParameters()
-        if (!p.encodings) p.encodings = [{}]
+        const s = senders[i]
+        if (!s.track || s.track.kind !== 'video') {continue}
+        const p = s.getParameters()
+        if (!p.encodings) {p.encodings = [{}]}
         p.encodings.forEach((e) => {
-            if (!e.rid || e.rid === 'h') e.maxBitrate = bps || unlimitedRate
+            if (!e.rid || e.rid === 'h') {e.maxBitrate = bps || unlimitedRate}
         })
         logger.debug(`set video throughput at max ${bps} bps`)
 
@@ -1494,7 +1520,7 @@ async function setMaxVideoThroughput(c, bps) {
     }
 }
 
-function stopUpMedia(c) {
+function stopUpMedia(c: unknown): void {
     if (!c) {
         logger.warn('[SFU] stopUpMedia: stream object is null or undefined')
         return

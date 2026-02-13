@@ -3,11 +3,11 @@ import {api, events, notifier, ws} from '@garage44/common/app'
 import {logger} from '@garage44/common/lib/logger'
 import type {PyriteState} from '@/types'
 
-export function _events() {
+export function _events(): void {
     // Implement reactivity for panels.chat collapsed state
     // When chat panel is opened, clear unread count
 
-    events.on('channel', ({action, channelId, channel = null}) => {
+    events.on('channel', ({action, channelId, channel = null}): void => {
         logger.debug('switch chat channel to ', channelId)
         if (action === 'switch') {
             if (!$s.chat.channels[channelId]) {
@@ -18,29 +18,33 @@ export function _events() {
         }
     })
 
-    events.on('disconnected', () => {
+    events.on('disconnected', (): void => {
         $s.chat.channels.main.messages = []
         $s.chat.channels.main.unread = 0
     })
 
     // User left; clean up the channel.
-    events.on('user', ({action, user}) => {
+    events.on('user', ({action, user}): void => {
         if (action === 'del' && $s.chat.channels[user.id]) {
             // Change the active to-be-deleted channel to main
             if ($s.chat.channel === user.id) {
                 selectChannel('main')
             }
-            delete $s.chat.channels[user.id]
+            const channels = $s.chat.channels as PyriteState['chat']['channels']
+            // eslint-disable-next-line no-dynamic-delete
+            delete channels[user.id]
         }
     })
 }
 
-export function closeChannel(channel) {
+export function closeChannel(channel: {id: string}): void {
     selectChannel('main')
-    delete $s.chat.channels[channel.id]
+    const channels = $s.chat.channels as PyriteState['chat']['channels']
+    // eslint-disable-next-line no-dynamic-delete
+    delete channels[channel.id]
 }
 
-export function clearChat() {
+export function clearChat(): void {
     logger.debug('clearing chat from remote')
     $s.chat.channels.main.messages = []
 }
@@ -65,10 +69,11 @@ export async function onMessage(messageData: {
     history: boolean
     kind: string
     message: string
-}) {
+}): Promise<void> {
     const {sourceId, destinationId, nick, time, privileged, history, kind: messageKind, message} = messageData
     const kind = messageKind || 'default'
-    let channelId
+    // eslint-disable-next-line no-undefined
+    let channelId: string | undefined = undefined
     // Incoming message for the main channel
     if (!destinationId) {
         channelId = 'main'
@@ -77,7 +82,7 @@ export async function onMessage(messageData: {
     // This is a private message
     else if (destinationId && sourceId) {
         channelId = sourceId
-        const activeUser = $s.users.find((user) => user.id === sourceId)
+        const activeUser = $s.users.find((user): boolean => user.id === sourceId)
         if (activeUser) {
             if (!$s.chat.channels[sourceId]) {
                 $s.chat.channels[sourceId] = {
@@ -110,7 +115,7 @@ export async function onMessage(messageData: {
 export const emojiLookup = new Set()
 
 // Helper function to update user from member data
-function updateUserFromMember(member: {user_id: unknown, username?: string, avatar?: string}) {
+function updateUserFromMember(member: {user_id: unknown, username?: string, avatar?: string}): void {
     const userId = String(member.user_id)
     if ($s.chat.users[userId]) {
         // Update avatar/username if changed
@@ -133,12 +138,12 @@ function updateUserFromMember(member: {user_id: unknown, username?: string, avat
     }
 }
 
-export function selectChannel(channelSlug: string | number) {
+export function selectChannel(channelSlug: string | number): void {
     // ChannelSlug can be a channel slug (string) or a legacy numeric ID (for backward compatibility during migration)
     // For non-channel chat (e.g., 'main', user IDs), treat as string
     if (typeof channelSlug === 'string') {
         // Check if it's a Pyrite channel slug (by checking if it exists in channels)
-        const channel = $s.channels.find(c => c.slug === channelSlug)
+        const channel = $s.channels.find((c): boolean => c.slug === channelSlug)
         if (channel) {
             $s.chat.activeChannelSlug = channelSlug
             $s.chat.channel = channelSlug
@@ -168,7 +173,7 @@ const loadingChannels = new Set<string | number>()
 /**
  * Load all users globally from all accessible channels
  */
-export async function loadGlobalUsers() {
+export async function loadGlobalUsers(): Promise<void> {
     try {
         // Initialize global users map if needed
         if (!$s.chat.users) {
@@ -224,20 +229,21 @@ export async function loadGlobalUsers() {
 
         // Also load members from all channels to get real-time presence and update avatars
         if ($s.channels.length) {
-            for (const channel of $s.channels) {
+            const channelPromises = $s.channels.map(async (channel): Promise<void> => {
                 const membersResponse = await ws.get(`/channels/${channel.slug}/members`)
                 if (membersResponse && typeof membersResponse === 'object' && 'success' in membersResponse && membersResponse.success && 'members' in membersResponse && Array.isArray(membersResponse.members)) {
                     for (const member of membersResponse.members) {
                         if (member && typeof member === 'object' && 'user_id' in member && member.user_id) {
                             updateUserFromMember({
-                                avatar: 'avatar' in member && typeof member.avatar === 'string' ? member.avatar : undefined,
+                                avatar: 'avatar' in member && typeof member.avatar === 'string' ? member.avatar : '',
                                 user_id: member.user_id,
-                                username: 'username' in member && typeof member.username === 'string' ? member.username : undefined,
+                                username: 'username' in member && typeof member.username === 'string' ? member.username : '',
                             })
                         }
                     }
                 }
-            }
+            })
+            await Promise.all(channelPromises)
         }
 
         // Set offline status for users not in presence
@@ -253,7 +259,7 @@ export async function loadGlobalUsers() {
     }
 }
 
-export async function loadChannelHistory(channelSlug: string | number) {
+export async function loadChannelHistory(channelSlug: string | number): Promise<void> {
     // Prevent duplicate requests for the same channel
     if (loadingChannels.has(channelSlug)) {
         logger.debug(`[Chat] Already loading history for channel ${channelSlug}`)
@@ -305,7 +311,7 @@ export async function loadChannelHistory(channelSlug: string | number) {
             // Transform database message format to frontend format
             // DB format: {id, channel_id, user_id, username, message, timestamp, kind}
             // Frontend format: {kind, message, nick, time, user_id}
-            const transformedMessages = response.messages.map((msg: any) => ({
+            const transformedMessages = response.messages.map((msg: {kind?: string; message: string; username: string; timestamp: number; user_id: string}): {kind: string; message: string; nick: string; time: number; user_id: string} => ({
                 kind: msg.kind || 'message',
                 message: msg.message,
                 nick: msg.username,
@@ -336,7 +342,7 @@ export async function loadChannelHistory(channelSlug: string | number) {
 /**
  * Send typing indicator for current channel
  */
-export async function sendTypingIndicator(typing: boolean, channelSlug?: string) {
+export async function sendTypingIndicator(typing: boolean, channelSlug?: string): Promise<void> {
     const targetChannelSlug = channelSlug || $s.chat.activeChannelSlug
     if (!targetChannelSlug) {return}
 
@@ -350,7 +356,7 @@ export async function sendTypingIndicator(typing: boolean, channelSlug?: string)
     }
 }
 
-export async function sendMessage(message: string) {
+export async function sendMessage(message: string): Promise<void> {
     if (!$s.chat.activeChannelSlug) {
         notifier.notify({
             level: 'error',
@@ -370,9 +376,10 @@ export async function sendMessage(message: string) {
             message = message.slice(1)
             kind = 'message'
         } else {
-            let cmd, rest
+            let cmd = ''
+            let rest = ''
             const space = message.indexOf(' ')
-            if (space < 0) {
+            if (space === -1) {
                 cmd = message.slice(1)
                 rest = ''
             } else {
@@ -414,7 +421,7 @@ export async function sendMessage(message: string) {
     }
 }
 
-export function unreadMessages() {
+export function unreadMessages(): number {
     let unread = 0
 
     const channels = $s.chat.channels as PyriteState['chat']['channels']

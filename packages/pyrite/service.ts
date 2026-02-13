@@ -37,7 +37,7 @@ const pyriteDir = fileURLToPath(new URL('.', import.meta.url))
 
 const runtime = createRuntime(pyriteDir, path.join(pyriteDir, 'package.json'))
 
-function welcomeBanner() {
+function welcomeBanner(): string {
     return createWelcomeBanner('Pyrite', 'Efficient communication for automated teams...', runtime.version)
 }
 
@@ -65,7 +65,7 @@ if (BUN_ENV === 'development') {
 
 cli.usage('Usage: $0 [task]')
     .detectLocale(false)
-    .command('start', 'Start the Pyrite service', (yargs) => {
+    .command('start', 'Start the Pyrite service', (yargs): yargs.Argv<Record<string, never>> => {
         // oxlint-disable-next-line no-console
         console.log(welcomeBanner())
         return yargs
@@ -94,7 +94,7 @@ cli.usage('Usage: $0 [task]')
                 describe: 'Enable TLS/HTTPS',
                 type: 'boolean',
             })
-    }, async(argv) => {
+    }, async(argv): Promise<void> => {
         await initConfig(config)
 
         // Initialize database
@@ -156,7 +156,7 @@ cli.usage('Usage: $0 [task]')
 
         // Start Bun.serve server
         const server = Bun.serve({
-            fetch: (req, server) => {
+            fetch: (req, server): Promise<Response> | Response => {
                 const url = new URL(req.url)
                 if (url.pathname === '/dev/snapshot') {
                     return new Response(JSON.stringify(devContext.snapshot({
@@ -181,7 +181,7 @@ cli.usage('Usage: $0 [task]')
     .demandCommand()
     .help('help')
     .showHelpOnFail(true)
-    .argv
+cli.parse()
 
 export {
     logger,

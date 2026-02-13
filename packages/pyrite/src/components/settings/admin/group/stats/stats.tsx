@@ -40,13 +40,13 @@ export default function Stats({groupId}: StatsProps) {
 
     const statEnabled = (track: TrackStats, property: keyof TrackStats) => {
         // Already enabled; return quick
-        if (statProps[property]) return true
-        if (track[property].some((i) => i !== track[property][0])) return true
+        if (statProps[property]) {return true}
+        if (track[property].some((i) => i !== track[property][0])) {return true}
         return false
     }
 
     const loadStats = async () => {
-        if (!groupId) return
+        if (!groupId) {return}
 
         let initClient = false
         const apiStats = await api.get(`/api/dashboard/${groupId}`)
@@ -56,13 +56,14 @@ export default function Stats({groupId}: StatsProps) {
             return
         }
 
-        const clients = apiStats.clients.map((i: {id: string}) => i.id)
+        const clients = new Set(apiStats.clients.map((i: {id: string}) => i.id))
         const newStats = {...stats}
 
-        const removedClients = Object.keys(newStats.clients).filter((i) => !clients.includes(i))
+        const removedClients = Object.keys(newStats.clients).filter((i) => !clients.has(i))
         // A client was removed
         for (const clientId of removedClients) {
             logger.info(`remove client ${clientId}`)
+            // eslint-disable-next-line no-dynamic-delete
             delete newStats.clients[clientId]
         }
 
@@ -72,7 +73,7 @@ export default function Stats({groupId}: StatsProps) {
         }
 
         for (const client of apiStats.clients) {
-            if (!client.up) continue
+            if (!client.up) {continue}
 
             if (!newStats.clients[client.id]) {
                 newStats.clients[client.id] = {
@@ -103,16 +104,16 @@ export default function Stats({groupId}: StatsProps) {
                             maxBitrate: [track.maxBitrate],
                         }
                     } else {
-                        if (statEnabled(trackRef[trackIndex], 'bitrate')) setStatProps((prev) => ({...prev, bitrate: true}))
+                        if (statEnabled(trackRef[trackIndex], 'bitrate')) {setStatProps((prev) => ({...prev, bitrate: true}))}
                         trackRef[trackIndex].bitrate.push(track.bitrate)
 
-                        if (statEnabled(trackRef[trackIndex], 'jitter')) setStatProps((prev) => ({...prev, jitter: true}))
+                        if (statEnabled(trackRef[trackIndex], 'jitter')) {setStatProps((prev) => ({...prev, jitter: true}))}
                         trackRef[trackIndex].jitter.push(track.jitter)
 
-                        if (statEnabled(trackRef[trackIndex], 'loss')) setStatProps((prev) => ({...prev, loss: true}))
+                        if (statEnabled(trackRef[trackIndex], 'loss')) {setStatProps((prev) => ({...prev, loss: true}))}
                         trackRef[trackIndex].loss.push(track.loss)
 
-                        if (statEnabled(trackRef[trackIndex], 'maxBitrate')) setStatProps((prev) => ({...prev, maxBitrate: true}))
+                        if (statEnabled(trackRef[trackIndex], 'maxBitrate')) {setStatProps((prev) => ({...prev, maxBitrate: true}))}
                         trackRef[trackIndex].maxBitrate.push(track.maxBitrate)
                     }
                 }

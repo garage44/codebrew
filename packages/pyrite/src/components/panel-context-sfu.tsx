@@ -18,11 +18,11 @@ export function PanelContextSfu(): JSX.Element {
      * Use VideoCanvas when panel width is > 300px (widened state)
      * Higher threshold gives more space before canvas view sets in
      */
-    const currentWidth = useMemo(() => $s.panels.context.width || 350, [])
-    const showCanvasLayout = useMemo(() => !$s.panels.context.collapsed && currentWidth > 300, [currentWidth])
+    const currentWidth = useMemo((): number => $s.panels.context.width || 350, [])
+    const showCanvasLayout = useMemo((): boolean => !$s.panels.context.collapsed && currentWidth > 300, [currentWidth])
 
     // Fullscreen handler
-    const handleFullscreen = async () => {
+    const handleFullscreen = async (): Promise<void> => {
         if (!canvasRef.current) {
             return
         }
@@ -49,19 +49,20 @@ export function PanelContextSfu(): JSX.Element {
     }
 
     // Listen for fullscreen changes to update state
-    useEffect(() => {
-        const handleFullscreenChange = () => {
+    useEffect((): (() => void) => {
+        const handleFullscreenChange = (): void => {
             $s.panels.context.expanded = Boolean(document.fullscreenElement)
             store.save()
         }
 
         document.addEventListener('fullscreenchange', handleFullscreenChange)
-        return () => document.removeEventListener('fullscreenchange', handleFullscreenChange)
+        return (): void => document.removeEventListener('fullscreenchange', handleFullscreenChange)
     }, [])
 
     // Calculate available space: viewport width - menu width - chat min-width (350px)
-    const calculateAvailableWidth = () => {
-        if (typeof globalThis.window === 'undefined') {
+    const calculateAvailableWidth = (): number => {
+        // eslint-disable-next-line no-undefined
+        if (globalThis.window === undefined) {
             return 350
         }
         const viewportWidth = globalThis.window.innerWidth
@@ -74,12 +75,12 @@ export function PanelContextSfu(): JSX.Element {
     }
 
     // Update panel width when window is resized (only if not collapsed)
-    useEffect(() => {
+    useEffect((): (() => void) | undefined => {
         if ($s.panels.context.collapsed) {
             return
         }
 
-        const handleResize = () => {
+        const handleResize = (): void => {
             const availableWidth = calculateAvailableWidth()
             // Only update if current width exceeds available space
             const currentWidth = $s.panels.context.width || 350
@@ -90,7 +91,7 @@ export function PanelContextSfu(): JSX.Element {
         }
 
         globalThis.window.addEventListener('resize', handleResize)
-        return () => globalThis.window.removeEventListener('resize', handleResize)
+        return (): void => globalThis.window.removeEventListener('resize', handleResize)
     }, [])
 
     // Calculate maximum width based on available space
@@ -103,7 +104,7 @@ export function PanelContextSfu(): JSX.Element {
             defaultWidth={350}
             maxWidth={maxWidth}
             minWidth={160}
-            onWidthChange={(width) => {
+            onWidthChange={(width): void => {
                 // Only allow width changes when not collapsed
                 if (!$s.panels.context.collapsed) {
                     // Clamp width to maxWidth to prevent exceeding available space
@@ -111,7 +112,7 @@ export function PanelContextSfu(): JSX.Element {
                     $s.panels.context.width = clampedWidth
                 }
             }}
-            onWidthChangeEnd={(_width) => {
+            onWidthChangeEnd={(_width): void => {
                 /*
                  * Save to store only when dragging ends (mouse up)
                  * This prevents excessive localStorage writes during smooth dragging
@@ -124,7 +125,7 @@ export function PanelContextSfu(): JSX.Element {
         >
             <ControlsMain
                 key='controls'
-                onCollapseChange={(collapsed) => {
+                onCollapseChange={(collapsed): void => {
                     if (!collapsed) {
                         /*
                          * Expanding: Set width to fill available space (100% minus menu and chat min-width)

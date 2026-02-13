@@ -19,7 +19,7 @@ export default class Sound {
         this.played = false
     }
 
-    async play({loop = false, sink = null}: {loop?: boolean; sink?: string | null} = {}) {
+    async play({loop = false, sink = null}: {loop?: boolean; sink?: string | null} = {}): Promise<void> {
         this.loop = loop
 
         if (!this.played) {this.audio.addEventListener('ended', this.playEnd.bind(this))}
@@ -33,7 +33,7 @@ export default class Sound {
         }
         // Loop the sound.
         if (loop) {
-            this.audio.addEventListener('ended', () => {
+            this.audio.addEventListener('ended', (): void => {
                 this.description.playing = false
             }, false)
         }
@@ -47,7 +47,7 @@ export default class Sound {
 
     }
 
-    playEnd() {
+    playEnd(): void {
         this.description.playing = false
 
         if (this.loop) {
@@ -57,7 +57,7 @@ export default class Sound {
         }
     }
 
-    stop() {
+    stop(): void {
         this.audio.pause()
         this.audio.currentTime = 0
         this.description.playing = false
