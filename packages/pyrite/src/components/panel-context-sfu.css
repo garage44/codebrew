@@ -2,8 +2,45 @@
     display: flex;
     flex-direction: column;
     gap: var(--spacer-1);
+    transition: width 0.3s ease;
 
     .content {
         display: flex;
+        transition: all 0.3s ease;
     }
+}
+
+/* Override collapsed width to match control buttons container width */
+
+.c-panel-context-conference.collapsed {
+    min-width: 200px;
+    width: 180px;
+}
+
+/* Fix tooltip z-index - ensure tooltips appear above panel (z-index: 100001) */
+/* Tooltips need to be above panel context which has z-index: 100001 */
+
+.c-panel-context-conference [data-tippy-root] {
+    z-index: 1000000 !important;
+}
+
+.c-panel-context-conference .tippy-box {
+    z-index: 1000000 !important;
+}
+
+/* Fullscreen container for canvas view */
+
+.canvas-fullscreen-container {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.canvas-fullscreen-container:fullscreen {
+    background: var(--surface-0);
+    display: flex;
+    height: 100vh;
+    width: 100vw;
 }

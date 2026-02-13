@@ -1,8 +1,9 @@
-import classnames from 'classnames'
-import {ContextInput, ContextSelect, FieldSelect, FieldText, Icon} from '@garage44/common/components'
-import {useState} from 'preact/hooks'
-import {$s} from '@/app'
 import {$t, events, notifier} from '@garage44/common/app'
+import {ContextInput, ContextSelect, FieldSelect, FieldText, Icon} from '@garage44/common/components'
+import classnames from 'classnames'
+import {useState} from 'preact/hooks'
+
+import {$s} from '@/app'
 import {connection} from '@/models/sfu/sfu'
 
 interface UsersContextMenuProps {
@@ -106,80 +107,79 @@ export default function UsersContextMenu({user}: UsersContextMenuProps) {
     return (
         <div class={classnames('c-users-context-menu context-menu', {active: active})}>
             <Icon className='icon icon-d' name='menu' onClick={toggleMenu} />
-            {active &&
+            {active && (
                 <div class='context-actions'>
-                {user.id !== $s.profile.id &&
-                    <button class='action' onClick={activateUserChat}>
-                    <Icon className='icon icon-s' name='chat' />
-                    {`${$t('user.action.chat', {username: user.username})}`}
-                    </button>}
+                    {user.id !== $s.profile.id && (
+                        <button class='action' onClick={activateUserChat}>
+                            <Icon className='icon icon-s' name='chat' />
+                            {`${$t('user.action.chat', {username: user.username})}`}
+                        </button>
+                    )}
 
-                {user.id !== $s.profile.id &&
-                    <button
-                        class='action'
-                        onClick={() => {
-                            const input = document.createElement('input')
-                            input.type = 'file'
-                            input.accept = '*'
-                            input.onchange = (e) => {
-                                const file = (e.target as HTMLInputElement).files?.[0]
-                                if (file) {
-                                    sendFile(file)
+                    {user.id !== $s.profile.id && (
+                        <button
+                            class='action'
+                            onClick={() => {
+                                const input = document.createElement('input')
+                                input.type = 'file'
+                                input.accept = '*'
+                                input.onchange = (e) => {
+                                    const file = (e.target as HTMLInputElement).files?.[0]
+                                    if (file) {
+                                        sendFile(file)
+                                    }
                                 }
-                            }
-                            input.click()
-                        }}
-                    >
-                    <Icon className='icon icon-s' name='upload' />
-                    {$t('user.action.share_file.send')}
-                    </button>}
+                                input.click()
+                            }}
+                        >
+                            <Icon className='icon icon-s' name='upload' />
+                            {$t('user.action.share_file.send')}
+                        </button>
+                    )}
 
-                {($s.permissions.op && user.id !== $s.profile.id) &&
-                    <ContextInput
-                        FieldTextComponent={FieldText}
-                        submit={sendNotification}
-                        value={warning}
-                    />}
+                    {$s.permissions.op && user.id !== $s.profile.id && (
+                        <ContextInput FieldTextComponent={FieldText} submit={sendNotification} value={warning} />
+                    )}
 
-                {($s.permissions.op && user.id !== $s.profile.id) &&
-                    <button class='action' onClick={muteUser}>
-                    <Icon className='icon icon-s' name='mic' />
-                    {$t('user.action.mute_mic')}
-                    </button>}
+                    {$s.permissions.op && user.id !== $s.profile.id && (
+                        <button class='action' onClick={muteUser}>
+                            <Icon className='icon icon-s' name='mic' />
+                            {$t('user.action.mute_mic')}
+                        </button>
+                    )}
 
-                {($s.permissions.op && user.id !== $s.profile.id) &&
-                    <button class='action' onClick={toggleOperator}>
-                    <Icon className='icon icon-s' name='operator' />
-                    {user.permissions?.op ? $t('user.action.set_role.op_retract') : $t('user.action.set_role.op_assign')}
-                    </button>}
+                    {$s.permissions.op && user.id !== $s.profile.id && (
+                        <button class='action' onClick={toggleOperator}>
+                            <Icon className='icon icon-s' name='operator' />
+                            {user.permissions?.op ? $t('user.action.set_role.op_retract') : $t('user.action.set_role.op_assign')}
+                        </button>
+                    )}
 
-                {($s.permissions.op && user.id !== $s.profile.id) &&
-                    <button class='action' onClick={togglePresenter}>
-                    <Icon className='icon icon-s' name='present' />
-                    {user.permissions?.present ?
-                            $t('user.action.set_role.present_retract') :
-                            $t('user.action.set_role.present_assign')}
-                    </button>}
+                    {$s.permissions.op && user.id !== $s.profile.id && (
+                        <button class='action' onClick={togglePresenter}>
+                            <Icon className='icon icon-s' name='present' />
+                            {user.permissions?.present
+                                ? $t('user.action.set_role.present_retract')
+                                : $t('user.action.set_role.present_assign')}
+                        </button>
+                    )}
 
-                {user.id === $s.profile.id &&
-                    <ContextSelect
-                        FieldSelectComponent={FieldSelect}
-                        icon='User'
-                        options={statusOptions}
-                        submit={setAvailability}
-                        title={$t(`user.action.set_availability.${$s.sfu.profile.availability.id}`)}
-                        value={$s.sfu.profile.availability}
-                    />}
+                    {user.id === $s.profile.id && (
+                        <ContextSelect
+                            FieldSelectComponent={FieldSelect}
+                            icon='User'
+                            options={statusOptions}
+                            submit={setAvailability}
+                            title={$t(`user.action.set_availability.${$s.sfu.profile.availability.id}`)}
+                            value={$s.sfu.profile.availability}
+                        />
+                    )}
 
-                {(user.id !== $s.profile.id && $s.permissions.op) &&
-                    <ContextInput
-                        FieldTextComponent={FieldText}
-                        required={false}
-                        submit={kickUser}
-                        value={kick}
-                    />}
-
-                </div>}
+                    {user.id !== $s.profile.id && $s.permissions.op && (
+                        <ContextInput FieldTextComponent={FieldText} required={false} submit={kickUser} value={kick} />
+                    )}
+                </div>
+            )}
         </div>
     )
 }

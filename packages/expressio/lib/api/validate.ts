@@ -1,4 +1,4 @@
-import {z} from 'zod'
+import type {z} from 'zod'
 
 /**
  * Validate request data against a Zod schema

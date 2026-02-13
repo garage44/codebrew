@@ -1,5 +1,5 @@
 ---
-description: "Linting workflow - run lint checks before committing"
+description: "Linting workflow - hooks handle auto-formatting, manual linting only when needed"
 globs:
   - "**/*.{ts,tsx,js,jsx,css}"
 alwaysApply: true
@@ -8,31 +8,117 @@ priority: 1
 
 # Linting Workflow
 
-**CRITICAL: AI assistants MUST run lint checks after making code changes and fix all errors before completing tasks.**
+**Linting is handled automatically by hooks - agents should NOT manually lint after each change.**
 
-## Workflow for AI Assistants
+## Automatic Linting
 
-1. **After making code changes**, immediately run lint checks:
-   ```bash
-   bun run lint:ts
-   bun run lint:ts-style
-   bun run lint:css  # if CSS was modified
-   ```
+This project uses automated linting via hooks:
 
-2. **Auto-fix what you can**:
-   ```bash
-   bun run lint:ts --fix
-   bun run lint:ts-style --fix
-   bun run lint:css --fix
-   ```
+1. **After file edits**: `.cursor/hooks/format.sh` auto-formats files with oxlint/eslint/stylelint
+2. **Before commits**: Lefthook runs `lint-staged` which auto-fixes staged files
+3. **Commit messages**: Commitlint validates conventional commit format
 
-3. **Fix remaining errors manually** - read the ESLint output and fix each error according to the rule violations.
+**Agents should rely on these hooks** - no need to manually run linting after each change.
 
-4. **Verify all errors are fixed** - run lint checks again to confirm.
+## Manual Linting Commands
 
-5. **Only then** mark the task as complete.
+Use these commands only when needed (e.g., fixing existing issues, checking before manual commits):
 
-## Why This Matters
+```bash
+# TypeScript linting (syntax, style, types)
+bun run lint:ts
+
+# CSS linting
+bun run lint:css
+
+# Individual checks
+bun run lint:ts-syntax   # oxlint
+bun run lint:ts-style    # eslint
+bun run lint:ts-types    # TypeScript type checking
+```
+
+**Auto-fixing:**
+- oxlint/eslint/stylelint support `--fix` flags
+- Lefthook's lint-staged automatically fixes issues before commit
+
+## TypeScript Fix Strategy
+
+**CRITICAL: Fix types at interface definitions, not at usage sites.**
+
+When fixing TypeScript errors:
+
+1. **Trace errors to source**: Find the interface/type definition causing the issue
+2. **Fix at definition**: Update the interface/type to match actual usage patterns
+3. **Use inference**: Let TypeScript infer types instead of explicit annotations when possible
+4. **Avoid unnecessary conditionals**: Don't add `if (x !== undefined)` checks just to satisfy TypeScript
+5. **Avoid type assertions**: Don't use `as Type` or `!` assertions - fix the underlying type instead
+
+### Examples
+
+**❌ Bad: Adding conditionals everywhere**
+```tsx
+// Interface says name?: string, but it's always present
+interface User {
+  name?: string
+}
+
+// Bad: Adding checks everywhere
+if (user?.name) {
+  console.log(user.name)
+}
+```
+
+**✅ Good: Fix the interface**
+```tsx
+// Fix at the source - if name is always present, make it required
+interface User {
+  name: string
+}
+
+// Now no conditionals needed
+console.log(user.name)
+```
+
+**❌ Bad: Type assertions**
+```tsx
+// Bad: Silencing errors with assertions
+const value = data as ExpectedType
+const result = maybeNull!.property
+```
+
+**✅ Good: Fix the type definition**
+```tsx
+// Fix the function signature or interface
+function processData(data: ExpectedType): Result {
+  // Type is correct, no assertion needed
+}
+```
+
+**❌ Bad: Explicit types when inference works**
+```tsx
+// Bad: Unnecessary explicit type
+const items: string[] = ['a', 'b', 'c']
+const user: User = { name: 'John' }
+```
+
+**✅ Good: Use inference**
+```tsx
+// Good: Let TypeScript infer
+const items = ['a', 'b', 'c']  // inferred as string[]
+const user = { name: 'John' }  // inferred from usage
+```
+
+### Workflow for TypeScript Errors
+
+1. Read the error message carefully - understand what type mismatch exists
+2. Identify the type causing the issue - find where it's defined
+3. Trace to interface/type definition - follow imports to find the source
+4. Determine root cause - is the type definition wrong or the usage?
+5. Fix at source - update interface/type definition when possible
+6. Only add guards if truly needed - if value can legitimately be undefined/null in that context
+7. Use inference - remove explicit types when TypeScript can infer correctly
+
+## Linting Rules Reference
 
 This project has **200+ strict stylistic rules** covering:
 - No semicolons (`@stylistic/semi: never`)
@@ -42,6 +128,9 @@ This project has **200+ strict stylistic rules** covering:
 - Object/array property sorting (perfectionist plugin)
 - Specific spacing rules for every construct
 
-**AI assistants cannot perfectly predict all these rules** - you MUST run linting to catch errors.
+See `eslint.config.js` for complete rule details.
 
-The git hook will catch linting errors, but **fix them proactively** - don't rely on the hook. See `eslint.config.js` for complete rule details.
+## Commands for Linting
+
+- `/fix-lint` - Fix linting issues in changed files only (optimized, low token usage)
+- `/lint-workspace` - Lint entire workspace or specific package (with TypeScript inference strategy)

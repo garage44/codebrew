@@ -17,7 +17,7 @@ interface EnolaEngine {
     config: EnolaEngineConfig
     init: (config: {api_key: string; base_url: string}, logger: EnolaLogger) => Promise<void>
     logger: EnolaLogger
-    suggestion?: (tagPath: string[], sourceText: string, similarTranslations: Array<{path: string[]; source: string}>) => Promise<string>
+    suggestion?: (tagPath: string[], sourceText: string, similarTranslations: {path: string[]; source: string}[]) => Promise<string>
     translate: (tag: EnolaTag, targetLanguage: TargetLanguage) => Promise<string>
     translateBatch: (batch: EnolaTag[], targetLanguage: TargetLanguage) => Promise<string[]>
     usage: () => Promise<{count: number; limit: number}>

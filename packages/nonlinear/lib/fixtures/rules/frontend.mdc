@@ -3,7 +3,6 @@ description: "Frontend development rules - Preact, CSS (modern nesting), DeepSig
 globs:
   - "packages/expressio/src/**"
   - "packages/pyrite/src/**"
-  - "packages/malkovich/src/**"
   - "packages/common/components/**"
   - "packages/common/css/**"
   - "**/*.css"
@@ -69,18 +68,16 @@ interface TranslationProps {
 }
 
 export const TranslationGroup = ({ translations, onSelect }: TranslationProps) => {
-  const selectedId = useSignal<string | null>(null);
+    const selectedId = useSignal<string | null>(null);
 
-  return (
-    <div class="translation-group">
-      {translations.map(t => (
-        <div key={t.id} onClick={() => selectedId.value = t.id}>
-          {t.key}
-        </div>
-      ))}
+    return <div class="translation-group">
+        {translations.map(t => (
+            <div key={t.id} onClick={() => selectedId.value = t.id}>
+                {t.key}
+            </div>
+        ))}
     </div>
-  );
-};
+}
 ```
 
 **State Management with DeepSignal:**
@@ -98,56 +95,56 @@ const state = deepSignal({
 })
 
 const MyComponent = () => {
-  // ✅ State is stable across renders
-  return <div onClick={() => state.count++}>{state.count}</div>
+    // ✅ State is stable across renders
+    return <div onClick={() => state.count++}>{state.count}</div>
 }
 
 // ✅ For per-instance component state, use useRef to store DeepSignal
 const PerInstanceComponent = () => {
-  const stateRef = useRef(deepSignal({
-    content: '',
-    loading: true,
-    error: null as string | null,
-  }))
-  const state = stateRef.current
+    const stateRef = useRef(deepSignal({
+        content: '',
+        loading: true,
+        error: null as string | null,
+    }))
+    const state = stateRef.current
 
-  // ✅ State is created once per component instance, stable across renders
-  return <div onClick={() => state.count++}>{state.count}</div>
+    // ✅ State is created once per component instance, stable across renders
+    return <div onClick={() => state.count++}>{state.count}</div>
 }
 
 // ❌ DON'T define state inside component directly - causes infinite re-renders
 const BadComponent = () => {
-  const state = deepSignal({count: 0}) // Wrong! Recreated on every render
-  return <div onClick={() => state.count++}>{state.count}</div>
+    const state = deepSignal({count: 0}) // Wrong! Recreated on every render
+    return <div onClick={() => state.count++}>{state.count}</div>
 }
 
 // ✅ Real example from login component
 const LoginComponent = () => {
-  // State is defined outside component - stable across renders
-  const {validation, isValid, resetTouched} = createValidator({
-    password: [state.$password, required('Password is required')],
-    username: [state.$username, required('Username is required')],
-  })
+    // State is defined outside component - stable across renders
+    const {validation, isValid, resetTouched} = createValidator({
+        password: [state.$password, required('Password is required')],
+        username: [state.$username, required('Username is required')],
+    })
 
-  return <div>
-    <FieldText
-      model={state.$username}  // Pass signal directly
-      label="Username"
-      validation={validation.value.username}
-    />
-    <FieldText
-      model={state.$password}  // Pass signal directly
-      label="Password"
-      type="password"
-      validation={validation.value.password}
-    />
-  </div>
+    return <div>
+        <FieldText
+            model={state.$username}  // Pass signal directly
+            label="Username"
+            validation={validation.value.username}
+        />
+        <FieldText
+            model={state.$password}  // Pass signal directly
+            label="Password"
+            type="password"
+            validation={validation.value.password}
+        />
+    </div>
 }
 
 // ❌ Don't use useState for component state - ALWAYS use DeepSignal
 const BadComponent = () => {
-  const [count, setCount] = useState(0) // Wrong! Use deepSignal instead
-  const [loading, setLoading] = useState(false) // Wrong! Use deepSignal instead
+    const [count, setCount] = useState(0) // Wrong! Use deepSignal instead
+    const [loading, setLoading] = useState(false) // Wrong! Use deepSignal instead
 }
 ```
 
@@ -167,36 +164,34 @@ const state = deepSignal({
 })
 
 const LoginForm = () => {
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+    const [loading, setLoading] = useState(false)
+    const [error, setError] = useState('')
 
-  // ✅ Validation with signals
-  const {validation, isValid, resetTouched} = createValidator({
-    password: [state.$password, required('Password is required')],
-    username: [state.$username, required('Username is required')],
-  })
+    // ✅ Validation with signals
+    const {validation, isValid, resetTouched} = createValidator({
+        password: [state.$password, required('Password is required')],
+        username: [state.$username, required('Username is required')],
+    })
 
-  return (
-    <div>
-      <FieldText
-        model={state.$username}  // ✅ Pass signal directly
-        label="Username"
-        placeholder="Enter username"
-        validation={validation.value.username}
-      />
-      <FieldText
-        model={state.$password}  // ✅ Pass signal directly
-        label="Password"
-        type="password"
-        validation={validation.value.password}
-      />
-      <FieldSelect
-        model={state.$workspace_id}  // ✅ Signal for select
-        label="Workspace"
-        options={workspaces.map(w => ({id: w.id, name: w.name}))}
-      />
+    return <div>
+        <FieldText
+            model={state.$username}  // ✅ Pass signal directly
+            label="Username"
+            placeholder="Enter username"
+            validation={validation.value.username}
+        />
+        <FieldText
+            model={state.$password}  // ✅ Pass signal directly
+            label="Password"
+            type="password"
+            validation={validation.value.password}
+        />
+        <FieldSelect
+            model={state.$workspace_id}  // ✅ Signal for select
+            label="Workspace"
+            options={workspaces.map(w => ({id: w.id, name: w.name}))}
+        />
     </div>
-  )
 }
 ```
 
@@ -206,16 +201,14 @@ const LoginForm = () => {
 const state = deepSignal({workspace_id: null})
 
 // Pass signal directly to form fields (prevents component re-renders)
-const WorkspaceSelector = () => (
-  <FieldSelect
+const WorkspaceSelector = () => <FieldSelect
     model={state.$workspace_id}
     onChange={async(workspace_id) => {
-      // Handle workspace change
-      $s.workspace = await ws.get(`/api/workspaces/${workspace_id}`)
+        // Handle workspace change
+        $s.workspace = await ws.get(`/api/workspaces/${workspace_id}`)
     }}
     options={$s.workspaces.map(i => ({id: i.workspace_id, name: i.workspace_id}))}
-  />
-)
+/>
 ```
 
 **useEffect with Signals:**
@@ -225,39 +218,39 @@ import {effect} from '@preact/signals'
 import {deepSignal} from 'deepsignal'
 
 const MarkdownComponent = () => {
-  const stateRef = useRef(deepSignal({
-    content: '',
-    loading: true,
-    error: null as string | null,
-  }))
-  const state = stateRef.current
+    const stateRef = useRef(deepSignal({
+        content: '',
+        loading: true,
+        error: null as string | null,
+    }))
+    const state = stateRef.current
 
-  // ✅ Use effect() to watch DeepSignal state changes
-  useEffect(() => {
-    const unsubscribe = effect(() => {
-      // Access state properties to track changes
-      const content = state.content
-      const loading = state.loading
+    // ✅ Use effect() to watch DeepSignal state changes
+    useEffect(() => {
+        const unsubscribe = effect(() => {
+            // Access state properties to track changes
+            const content = state.content
+            const loading = state.loading
 
-      if (!loading && content) {
-        // React to state changes immediately
-        renderContent(content)
-      }
-    })
+            if (!loading && content) {
+                // React to state changes immediately
+                renderContent(content)
+            }
+        })
 
-    return unsubscribe
-  }, [state])
+        return unsubscribe
+    }, [state])
 
-  // ✅ Component re-renders when state properties are accessed in JSX
-  if (state.loading) return <div>Loading...</div>
-  if (state.error) return <div>Error: {state.error}</div>
-  return <div>{state.content}</div>
+    // ✅ Component re-renders when state properties are accessed in JSX
+    if (state.loading) return <div>Loading...</div>
+    if (state.error) return <div>Error: {state.error}</div>
+    return <div>{state.content}</div>
 }
 
 // ❌ DON'T use useState - always use DeepSignal
 const BadComponent = () => {
-  const [loading, setLoading] = useState(false) // Wrong!
-  const [content, setContent] = useState('') // Wrong!
+    const [loading, setLoading] = useState(false) // Wrong!
+    const [content, setContent] = useState('') // Wrong!
 }
 ```
 
@@ -267,13 +260,13 @@ const BadComponent = () => {
 import {$s} from '@/app'
 
 const WorkspaceComponent = () => {
-  // Access global workspace state
-  if (!$s.workspace) return null
+    // Access global workspace state
+    if (!$s.workspace) return null
 
-  return <div>
-    <h1>{$s.workspace.config.workspace_id}</h1>
-    <p>Authenticated: {$s.user.authenticated}</p>
-  </div>
+    return <div>
+        <h1>{$s.workspace.config.workspace_id}</h1>
+        <p>Authenticated: {$s.user.authenticated}</p>
+    </div>
 }
 ```
 
@@ -283,24 +276,24 @@ const WorkspaceComponent = () => {
 import {deepSignal} from 'deepsignal'
 
 class Store {
-  state = deepSignal({})
+    state = deepSignal({})
 
-  load(persistantState, volatileState) {
-    this.persistantState = copyObject(persistantState)
+    load(persistantState, volatileState) {
+        this.persistantState = copyObject(persistantState)
 
-    let restoredState
-    try {
-      restoredState = JSON.parse(localStorage.getItem('store'))
-    } catch (err) {
-      restoredState = {}
+        let restoredState
+        try {
+            restoredState = JSON.parse(localStorage.getItem('store'))
+        } catch (err) {
+            restoredState = {}
+        }
+
+        Object.assign(this.state, mergeDeep(mergeDeep(persistantState, restoredState), volatileState))
     }
 
-    Object.assign(this.state, mergeDeep(mergeDeep(persistantState, restoredState), volatileState))
-  }
-
-  save() {
-    localStorage.setItem('store', JSON.stringify(this.filterKeys(this.state, this.persistantState)))
-  }
+    save() {
+        localStorage.setItem('store', JSON.stringify(this.filterKeys(this.state, this.persistantState)))
+    }
 }
 ```
 
@@ -353,7 +346,7 @@ import {Button} from '../button/button'
 import {Icon} from '../icon/icon'
 
 export function MyComponent() {
-  return <div class="c-my-component">...</div>
+    return <div class="c-my-component">...</div>
 }
 
 // ❌ Wrong: Don't import CSS files
@@ -428,33 +421,33 @@ import {pathCreate, pathDelete, pathUpdate} from '@garage44/common/lib/paths.ts'
 
 // ✅ Real WebSocket usage from translations component
 events.on('app:init', () => {
-  ws.on('/i18n/sync', ({create_tags, delete_tags, modify_tags}) => {
-    for (const tag of create_tags) {
-      const {path, value} = tag
-      pathCreate($s.workspace.i18n, path, value, $s.workspace.config.languages.target, value.target)
-    }
-    for (const tag of delete_tags) {
-      const {path} = tag
-      pathDelete($s.workspace.i18n, path)
-    }
-    for (const tag of modify_tags) {
-      const {path, value} = tag
-      pathUpdate($s.workspace.i18n, path, value)
-    }
-  })
+    ws.on('/i18n/sync', ({create_tags, delete_tags, modify_tags}) => {
+        for (const tag of create_tags) {
+            const {path, value} = tag
+            pathCreate($s.workspace.i18n, path, value, $s.workspace.config.languages.target, value.target)
+        }
+        for (const tag of delete_tags) {
+            const {path} = tag
+            pathDelete($s.workspace.i18n, path)
+        }
+        for (const tag of modify_tags) {
+            const {path, value} = tag
+            pathUpdate($s.workspace.i18n, path, value)
+        }
+    })
 
-  // Handle full i18n state updates
-  ws.on('/i18n/state', ({workspace_id, i18n, timestamp}) => {
-    if (!$s.workspace || $s.workspace.config.workspace_id !== workspace_id) {
-      return
-    }
+    // Handle full i18n state updates
+    ws.on('/i18n/state', ({workspace_id, i18n, timestamp}) => {
+        if (!$s.workspace || $s.workspace.config.workspace_id !== workspace_id) {
+            return
+        }
 
-    // Check if this update is newer (prevents race conditions)
-    if (!$s.workspace.lastStateUpdateTime || timestamp > ($s.workspace.lastStateUpdateTime ?? 0)) {
-      $s.workspace.i18n = i18n
-      $s.workspace.lastStateUpdateTime = timestamp
-    }
-  })
+        // Check if this update is newer (prevents race conditions)
+        if (!$s.workspace.lastStateUpdateTime || timestamp > ($s.workspace.lastStateUpdateTime ?? 0)) {
+            $s.workspace.i18n = i18n
+            $s.workspace.lastStateUpdateTime = timestamp
+        }
+    })
 })
 ```
 
@@ -462,23 +455,23 @@ events.on('app:init', () => {
 ```tsx
 // ✅ Direct WebSocket API usage
 const handleUndo = async () => {
-  ws.post(`/api/workspaces/${$s.workspace.config.workspace_id}/undo`, {})
+    ws.post(`/api/workspaces/${$s.workspace.config.workspace_id}/undo`, {})
 }
 
 const handleRedo = async () => {
-  ws.post(`/api/workspaces/${$s.workspace.config.workspace_id}/redo`, {})
+    ws.post(`/api/workspaces/${$s.workspace.config.workspace_id}/redo`, {})
 }
 
 // ✅ WebSocket connection management
 const Main = () => {
-  useEffect(() => {
-    (async() => {
-      const context = await api.get('/api/context')
-      if (context.authenticated) {
-        ws.connect() // Connect WebSocket when authenticated
-      }
-    })()
-  }, [])
+    useEffect(() => {
+        (async() => {
+            const context = await api.get('/api/context')
+            if (context.authenticated) {
+                ws.connect() // Connect WebSocket when authenticated
+            }
+        })()
+    }, [])
 }
 ```
 
@@ -493,24 +486,20 @@ const Main = () => {
 ### UI Components for i18n
 ```tsx
 // Translation status indicator
-const TranslationStatus = ({ status }: { status: TranslationStatus }) => (
-  <span class={`translation-status translation-status--${status}`}>
+const TranslationStatus = ({ status }: { status: TranslationStatus }) => <span class={`translation-status translation-status--${status}`}>
     {status === 'pending' && '⏳'}
     {status === 'translated' && '✅'}
     {status === 'reviewed' && '🔍'}
-  </span>
-);
+</span>
 
 // Translation result display
-const TranslationResult = ({ original, translated, confidence }) => (
-  <div class="translation-result">
+const TranslationResult = ({ original, translated, confidence }) => <div class="translation-result">
     <div class="translation-result__original">{original}</div>
     <div class="translation-result__translated">{translated}</div>
     <div class="translation-result__confidence">
-      Confidence: {Math.round(confidence * 100)}%
+        Confidence: {Math.round(confidence * 100)}%
     </div>
-  </div>
-);
+</div>
 ```
 
 ### Icon Component Usage
@@ -527,76 +516,64 @@ const TranslationResult = ({ original, translated, confidence }) => (
 // ✅ Use Icon component from common library
 import {Icon} from '@garage44/common/components'
 
-const TranslateButton = () => (
-  <button class="translate-button">
+const TranslateButton = () => <button class="translate-button">
     <Icon name="translate" />
     Translate
-  </button>
-)
+</button>
 
 // ✅ Real example from main component
-const Navigation = () => (
-  <div class="menu-group">
+const Navigation = () => <div class="menu-group">
     <Link activeClassName="active" href="/">
-      <Icon name="settings" type="info"/>
-      <span>{$t('menu.settings')}</span>
+        <Icon name="settings" type="info"/>
+        <span>{$t('menu.settings')}</span>
     </Link>
     <Link href={`/workspaces/${$s.workspace.config.workspace_id}/translations`}>
-      <Icon name="translate" type="info"/>
-      <span>{$t('menu.workspace.translations')}</span>
+        <Icon name="translate" type="info"/>
+        <span>{$t('menu.workspace.translations')}</span>
     </Link>
-  </div>
-)
+</div>
 
 // ✅ Icon with click handlers
-const HistoryActions = () => (
-  <div class="history-actions">
+const HistoryActions = () => <div class="history-actions">
     <Icon
-      name="chevron_left"
-      onClick={async() => {
-        ws.post(`/api/workspaces/${$s.workspace.config.workspace_id}/undo`, {})
-      }}
-      tip="Undo"
-      type="info"
+        name="chevron_left"
+        onClick={async() => {
+            ws.post(`/api/workspaces/${$s.workspace.config.workspace_id}/undo`, {})
+        }}
+        tip="Undo"
+        type="info"
     />
     <Icon
-      name="chevron_right"
-      onClick={async() => {
-        ws.post(`/api/workspaces/${$s.workspace.config.workspace_id}/redo`, {})
-      }}
-      tip="Redo"
-      type="info"
+        name="chevron_right"
+        onClick={async() => {
+            ws.post(`/api/workspaces/${$s.workspace.config.workspace_id}/redo`, {})
+        }}
+        tip="Redo"
+        type="info"
     />
-  </div>
-)
+</div>
 
 // ❌ Don't use direct SVG or font icons
-const BadComponent = () => (
-  <div>
+const BadComponent = () => <div>
     <svg viewBox="0 0 24 24">...</svg> {/* Wrong! */}
     <i class="fas fa-check"></i> {/* Wrong! */}
     <span>🔍</span> {/* Wrong! Use Icon component */}
-  </div>
-)
+</div>
 
 // ❌ Don't use inline SVG paths
-const BadComponent = () => (
-  <button>
+const BadComponent = () => <button>
     <svg width="24" height="24" viewBox="0 0 24 24">
-      <path d="M3 6h18M3 12h18M3 18h18" />
+        <path d="M3 6h18M3 12h18M3 18h18" />
     </svg>
-  </button>
-)
+</button>
 
 // ✅ If icon is missing, add it to icon.tsx first
 // In packages/common/components/ui/icon/icon.tsx:
 // menu_hamburger: 'M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z',
 // Then use it:
-const GoodComponent = () => (
-  <button>
+const GoodComponent = () => <button>
     <Icon name="menu_hamburger" size="d" />
-  </button>
-)
+</button>
 ```
 
 ## File Organization
@@ -649,43 +626,41 @@ import {TranslationGroup} from '@/components/elements'
 import {deepSignal} from 'deepsignal'
 
 const TranslationComponent = () => {
-  const localState = deepSignal({
-    filter: '',
-    sort: 'asc' as 'asc' | 'desc'
-  })
+    const localState = deepSignal({
+        filter: '',
+        sort: 'asc' as 'asc' | 'desc'
+    })
 
-  // Filter translations directly - reactive to localState changes
-  const filteredTranslations = $s.workspace.i18n.filter(t =>
-    t.key.toLowerCase().includes(localState.filter.toLowerCase())
-  )
+    // Filter translations directly - reactive to localState changes
+    const filteredTranslations = $s.workspace.i18n.filter(t =>
+        t.key.toLowerCase().includes(localState.filter.toLowerCase())
+    )
 
-  return <div>
-    <input
-      value={localState.filter}
-      onInput={e => localState.filter = (e.target as HTMLInputElement).value}
-    />
-    <TranslationGroup
-      group={{_id: 'root', ...$s.workspace.i18n}}
-      filter={localState.filter}
-      sort={localState.sort}
-    />
-  </div>
+    return <div>
+        <input
+            value={localState.filter}
+            onInput={e => localState.filter = (e.target as HTMLInputElement).value}
+        />
+        <TranslationGroup
+            group={{_id: 'root', ...$s.workspace.i18n}}
+            filter={localState.filter}
+            sort={localState.sort}
+        />
+    </div>
 }
 
 // ✅ Pass signals to form fields for performance
-const WorkspaceSelector = () => (
-  <FieldSelect
+const WorkspaceSelector = () => <FieldSelect
     model={state.$workspace_id}  // Signal passed directly
     onChange={async(workspace_id) => {
-      $s.workspace = await ws.get(`/api/workspaces/${workspace_id}`)
+        $s.workspace = await ws.get(`/api/workspaces/${workspace_id}`)
     }}
     options={$s.workspaces.map(i => ({id: i.workspace_id, name: i.workspace_id}))}
-  />
-)
+/>
 
 // ❌ Don't recreate objects in render
 const BadList = () => {
-  return translations.map(t => <Item data={{...t, extra: 'data'}} />) // Creates new objects
+    return translations.map(t => <Item data={{...t, extra: 'data'}} />) // Creates new objects
 }
 ```
 
@@ -711,35 +686,11 @@ const BadList = () => {
 - Check signal updates in browser console
 - Validate translation data flow in real-time
 
-## Code Style and ESLint Compliance
+## Code Style
 
-**🚨 CRITICAL: See `@linting.mdc` for complete linting requirements.**
+**See `@linting.mdc` for linting workflow and TypeScript fix strategy.**
 
-**All code must pass ESLint checks before committing.**
-
-### Before Committing
-
-Always run lint checks and fix any errors before committing:
-
-```bash
-# Check TypeScript/TSX files
-bun run lint:ts
-
-# Check CSS files (if CSS was modified)
-bun run lint:css
-```
-
-**Auto-fixing:**
-- Many formatting issues can be auto-fixed: `bun run lint:ts --fix`
-- Always verify auto-fixes don't break functionality
-- Fix any remaining errors manually according to ESLint output
-
-**ESLint configuration:**
-- Rules are defined in `eslint.config.js` at the workspace root
-- Follow ESLint error messages to fix code style issues
-- Do not commit code with linting errors
-
-**For detailed linting rules and workflow, see `@linting.mdc`.**
+Linting is handled automatically by hooks - no manual linting needed during development.
 
 ## Common Anti-patterns
 
@@ -761,7 +712,6 @@ bun run lint:css
 - Create utility CSS classes - create components instead
 - Pass non-signal values to Field model props
 - Forget to pass validation prop to Field components
-- Commit code without running lint checks
 
 ✅ **Do:**
 - Define deepSignal state OUTSIDE components for shared state, or use useRef for per-instance state
@@ -781,4 +731,3 @@ bun run lint:css
 - Use modern CSS nesting in component CSS files
 - Extract reusable patterns as components, not utility classes
 - Keep useEffect dependencies minimal and stable
-- Always run `bun run lint:ts` and `bun run lint:css` before committing

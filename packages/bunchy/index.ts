@@ -25,14 +25,28 @@ interface Settings {
         src: string
         workspace: string
     }
+    minify?: boolean
     reload_ignore: string[]
     separateAssets?: string[]
+    sourcemap?: boolean
+    sourceMap?: boolean
+    version?: string
 }
 
 const settings = {} as Settings
 const tooling = {} as {css: (options: {entrypoint: string; minify?: boolean; outFile: string; sourcemap?: boolean}) => Promise<string>}
 
-function applySettings(config) {
+interface Config {
+    common: string
+    minify?: boolean
+    reload_ignore: string[]
+    separateAssets?: string[]
+    sourcemap?: boolean
+    version: string
+    workspace: string
+}
+
+function applySettings(config: Config): void {
     Object.assign(settings, {
         buildId: generateRandomId(),
         dir: {
@@ -55,12 +69,19 @@ function applySettings(config) {
     showConfig(settings)
 }
 
-async function bunchyService(server, config, wsManager?) {
+interface WsManager {
+    api?: {
+        post?: (path: string, handler: (ctx: unknown, req: {data?: unknown}) => Promise<unknown>, middlewares?: unknown[]) => void
+    }
+    broadcast: (url: string, data: MessageData, method?: string) => void
+}
+
+async function bunchyService(server: unknown, config: Config, wsManager?: WsManager): Promise<unknown> {
     applySettings(config)
 
     // Set up broadcast function if WebSocket manager is provided
     if (wsManager) {
-        broadcastFn = (url: string, data: MessageData, method = 'POST') => {
+        broadcastFn = (url: string, data: MessageData, method = 'POST'): void => {
             wsManager.broadcast(url, data, method)
         }
         logger.info('[bunchy] connected to WebSocket broadcast system')
@@ -77,7 +98,13 @@ async function bunchyService(server, config, wsManager?) {
     return server
 }
 
-function bunchyArgs(yargs, config) {
+interface YargsInstance {
+    argv: {minify?: boolean; sourcemap?: boolean}
+    command: (command: string, description: string, handler: (yargs: YargsInstance) => void) => YargsInstance
+    option: (name: string, options: {default: boolean | string; description?: string; describe?: string; type: string}) => YargsInstance
+}
+
+function bunchyArgs(yargs: YargsInstance, config: Config): YargsInstance {
     applySettings(config)
 
     yargs.option('minify', {
@@ -92,19 +119,19 @@ function bunchyArgs(yargs, config) {
         default: '',
         describe: '[Bunchy] Directory to build to',
         type: 'string',
-    }).command('build', '[Bunchy] build application', (yargs) => {
+    }).command('build', '[Bunchy] build application', (yargs: YargsInstance): void => {
         applySettings({...config, minify: yargs.argv.minify, sourcemap: yargs.argv.sourcemap})
         tasks.build.start({minify: true, sourcemap: true})
-    }).command('code_backend', '[Bunchy] bundle backend javascript', (yargs) => {
+    }).command('code_backend', '[Bunchy] bundle backend javascript', (yargs: YargsInstance): void => {
         applySettings({...config, minify: yargs.argv.minify, sourcemap: yargs.argv.sourcemap})
         tasks.code_backend.start({minify: true, sourcemap: true})
-    }).command('code_frontend', '[Bunchy] bundle frontend javascript', (yargs) => {
+    }).command('code_frontend', '[Bunchy] bundle frontend javascript', (yargs: YargsInstance): void => {
         applySettings({...config, minify: yargs.argv.minify, sourcemap: yargs.argv.sourcemap})
         tasks.code_frontend.start({minify: true, sourcemap: true})
-    }).command('html', '[Bunchy] build html file', (yargs) => {
+    }).command('html', '[Bunchy] build html file', (yargs: YargsInstance): void => {
         applySettings({...config, minify: yargs.argv.minify, sourcemap: yargs.argv.sourcemap})
         tasks.html.start({minify: true, sourcemap: true})
-    }).command('styles', '[Bunchy] bundle styles', (yargs) => {
+    }).command('styles', '[Bunchy] bundle styles', (yargs: YargsInstance): void => {
         applySettings({...config, minify: yargs.argv.minify, sourcemap: yargs.argv.sourcemap})
         tasks.styles.start({minify: true, sourcemap: true})
     })
@@ -114,16 +141,20 @@ function bunchyArgs(yargs, config) {
 
 // For backward compatibility, re-export connections from the manager
 const connections = {
-    add: (ws) => logger.info('[bunchy] WebSocket connection added'),
-    delete: (ws) => logger.info('[bunchy] WebSocket connection removed'),
-    has: (ws) => false,
-    get size() {
+    add: (ws: WebSocket): void => {
+        logger.info('[bunchy] WebSocket connection added')
+    },
+    delete: (ws: WebSocket): void => {
+        logger.info('[bunchy] WebSocket connection removed')
+    },
+    has: (_ws: WebSocket): boolean => false,
+    get size(): number {
         return 0
     },
 } as Set<WebSocket>
 
 // For backward compatibility, re-export broadcast from the manager
-const broadcast = (url: string, data: MessageData, method = 'POST') => {
+const broadcast = (url: string, data: MessageData, method = 'POST'): void => {
     if (broadcastFn) {
         broadcastFn(url, data, method)
         logger.debug('[bunchy] Broadcast sent:', url, data, method)
@@ -133,9 +164,11 @@ const broadcast = (url: string, data: MessageData, method = 'POST') => {
 }
 
 // Set up log forwarding from client to server
-function setupLogForwarding(wsManager) {
-
-    wsManager.api.post('/logs/forward', async (ctx, req) => {
+function setupLogForwarding(wsManager: WsManager): void {
+    if (!wsManager.api?.post) {
+        return
+    }
+    wsManager.api.post('/logs/forward', async (_ctx: unknown, req: {data?: unknown}): Promise<{status: string}> => {
         const {args, level, message, source, timestamp} = req.data as {
             args: string[]
             level: string
@@ -151,28 +184,51 @@ function setupLogForwarding(wsManager) {
         // Log using the server logger with appropriate level
         try {
             devContext.addLog('remote', `${formattedMessage} ${formattedArgs.join(' ')}`)
-        } catch {}
+        } catch {
+            // Ignore errors in dev context logging
+        }
         switch (level) {
-            case 'error':
+            case 'error': {  
                 logger.remote(formattedMessage, ...formattedArgs)
                 break
-            case 'warn':
+            }
+            
+            
+            case 'warn': {  
                 logger.remote(formattedMessage, ...formattedArgs)
                 break
-            case 'info':
+            }
+            
+            
+            case 'info': {  
                 logger.remote(formattedMessage, ...formattedArgs)
                 break
-            case 'success':
+            }
+            
+            
+            case 'success': {  
                 logger.remote(formattedMessage, ...formattedArgs)
                 break
-            case 'verbose':
+            }
+            
+            
+            case 'verbose': {  
                 logger.remote(formattedMessage, ...formattedArgs)
                 break
-            case 'debug':
+            }
+            
+            
+            case 'debug': {  
                 logger.remote(formattedMessage, ...formattedArgs)
                 break
-            default:
+            }
+            
+            
+            default: {  
                 logger.remote(formattedMessage, ...formattedArgs)
+            }
+            
+            
         }
 
         return {status: 'ok'}
@@ -183,8 +239,12 @@ function setupLogForwarding(wsManager) {
  * Wrap a fetch handler to automatically handle Bunchy WebSocket upgrades
  * This should be used BEFORE Bun.serve() is called
  */
-function wrapFetchHandler(fetchHandler: (request: Request, server: any) => Response | Promise<Response>) {
-    return async (request: Request, server: any) => {
+interface Server {
+    upgrade?: (request: Request, options: {data: {endpoint: string}}) => boolean
+}
+
+function wrapFetchHandler(fetchHandler: (request: Request, server: Server) => Response | Promise<Response>): (request: Request, server: Server) => Promise<Response> {
+    return async (request: Request, server: Server): Promise<Response> => {
         try {
             const url = new URL(request.url)
 
@@ -197,7 +257,7 @@ function wrapFetchHandler(fetchHandler: (request: Request, server: any) => Respo
                         },
                     })
                     if (success) {
-                        return // Return undefined to indicate upgrade success
+                        return new Response(null, {status: 101}) // Return 101 Switching Protocols to indicate upgrade success
                     }
                     return new Response('WebSocket upgrade failed', {status: 400})
                 }

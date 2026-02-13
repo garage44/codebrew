@@ -7,7 +7,7 @@ import type {WebSocketServerManager} from '@garage44/common/lib/ws-server'
 import {db} from '../database.ts'
 import {randomId} from '@garage44/common/lib/utils'
 import {logger} from '../../service.ts'
-import {WebSocketClient} from '@garage44/common/lib/ws-client'
+import type {WebSocketClient} from '@garage44/common/lib/ws-client'
 
 export type StreamingMessageType = 'comment' | 'chat'
 
@@ -180,11 +180,11 @@ export async function finalizeStreamingMessage(
  * Get streaming message by ID
  */
 export function getStreamingMessage(messageId: string): {
-    id: string
     content: string
+    id: string
     status: StreamingMessageStatus
     type: StreamingMessageType
-} | undefined {
+} | null {
     const comment = db.prepare('SELECT * FROM comments WHERE id = ?').get(messageId) as {
         content: string
         id: string
@@ -201,5 +201,5 @@ export function getStreamingMessage(messageId: string): {
     }
 
     // Future: chat message lookup
-    return undefined
+    return null
 }

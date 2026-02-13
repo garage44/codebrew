@@ -33,6 +33,7 @@
 
     /* Small screen - context overlays when expanded */
     @media (max-width: 1024px) {
+
         &:has(.c-panel-context:not(.collapsed)) {
             grid-template-columns: [content] 1fr;
         }
@@ -209,12 +210,14 @@
 
 /* Small screen backdrop for context panel overlay */
 @media (max-width: 1024px) {
+
     .c-panel-backdrop--context {
         display: block;
     }
 }
 
 @media (min-width: 1025px) {
+
     .c-panel-backdrop--context {
         display: none;
     }

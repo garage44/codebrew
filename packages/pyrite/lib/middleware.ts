@@ -1,18 +1,19 @@
+import {devContext} from '@garage44/common/lib/dev-context'
 import {createFinalHandler} from '@garage44/common/lib/middleware'
 import {createComplexAuthContext} from '@garage44/common/lib/profile.ts'
-import {devContext} from '@garage44/common/lib/dev-context'
 import {userManager} from '@garage44/common/service'
-import {logger, runtime} from '../service.ts'
-import apiChat from '../api/chat.ts'
+import path from 'node:path'
+
 import apiChannels from '../api/channels.ts'
+import apiChat from '../api/chat.ts'
 import apiDashboard from '../api/dashboard.ts'
 import apiGroups from '../api/groups.ts'
 import apiI18n from '../api/i18n.ts'
 import apiRecordings from '../api/recordings.ts'
 import apiUsers from '../api/users.ts'
 import {config} from '../lib/config.ts'
+import {logger, runtime} from '../service.ts'
 import {loadGroups} from './group.js'
-import path from 'node:path'
 
 // Type definitions
 export type Session = {userid?: string}
@@ -94,9 +95,34 @@ async function proxySFUWebSocket(request: Request, server: Server) {
     logger.info(`[SFU Proxy] Connecting to upstream: ${targetUrl}`)
     logger.debug(`[SFU Proxy] Client requested: ${request.url}`)
     logger.debug(`[SFU Proxy] SFU base URL: ${config.sfu.url}`)
+    logger.debug(`[SFU Proxy] Converted SFU URL: ${sfuUrl}`)
+    logger.debug(`[SFU Proxy] Target WebSocket URL: ${targetUrl}`)
+
+    /*
+     * Verify Galène is accessible before attempting WebSocket connection
+     * This helps diagnose connection issues early
+     */
+    try {
+        const healthCheckUrl = config.sfu.url.replace('/ws', '').replace('ws://', 'http://').replace('wss://', 'https://')
+        const healthResponse = await fetch(`${healthCheckUrl}/stats.json`, {signal: AbortSignal.timeout(2000)})
+        if (healthResponse.ok) {
+            logger.debug('[SFU Proxy] Galène health check passed')
+        } else {
+            logger.warn(`[SFU Proxy] Galène health check failed: ${healthResponse.status} ${healthResponse.statusText}`)
+        }
+    } catch (healthError) {
+        const errorMessage = healthError instanceof Error ? healthError.message : String(healthError)
+        logger.warn(`[SFU Proxy] Galène health check error (non-fatal): ${errorMessage}`)
+        // Continue anyway - WebSocket might still work even if HTTP health check fails
+    }
 
     try {
-        // Create WebSocket connection to upstream server (Galène)
+        /*
+         * Create WebSocket connection to upstream server (Galène)
+         * Note: For server-side WebSocket clients in Bun, we use the WebSocket API
+         * If connecting to WSS upstream, certificate validation may be needed
+         */
+        logger.debug(`[SFU Proxy] Creating upstream WebSocket connection to ${targetUrl}`)
         const upstream = new WebSocket(targetUrl)
 
         /*
@@ -106,6 +132,9 @@ async function proxySFUWebSocket(request: Request, server: Server) {
         await new Promise<void>((resolve, reject) => {
             const timeout = setTimeout(() => {
                 logger.error(`[SFU Proxy] Connection timeout after 5s for ${targetUrl}`)
+                const stateMsg = `${upstream.readyState} (0=CONNECTING, 1=OPEN, 2=CLOSING, 3=CLOSED)`
+                logger.error(`[SFU Proxy] Connection state at timeout: ${stateMsg}`)
+                upstream.close()
                 reject(new Error(`Connection timeout after 5s for ${targetUrl}`))
             }, 5000)
 
@@ -117,18 +146,30 @@ async function proxySFUWebSocket(request: Request, server: Server) {
 
             upstream.onerror = (error: Event) => {
                 clearTimeout(timeout)
-                logger.error(`[SFU Proxy] Upstream WebSocket error for ${targetUrl}:`, error)
+                logger.error(`[SFU Proxy] Upstream WebSocket error for ${targetUrl}`)
+                logger.error('[SFU Proxy] Error event:', error)
+                logger.error(`[SFU Proxy] Error type: ${error.type}`)
+                const stateMsg = `${upstream.readyState} (0=CONNECTING, 1=OPEN, 2=CLOSING, 3=CLOSED)`
+                logger.error(`[SFU Proxy] Upstream connection state: ${stateMsg}`)
+
+                // Log additional error details if available
                 if ('message' in error) {
                     logger.error(`[SFU Proxy] Error message: ${(error as {message?: string}).message}`)
                 }
-                logger.error(`[SFU Proxy] Upstream connection state: ${upstream.readyState}`)
+                if ('error' in error) {
+                    logger.error('[SFU Proxy] Error object:', (error as {error?: unknown}).error)
+                }
 
                 // Try to get more error details
                 if (upstream.readyState === WebSocket.CLOSED || upstream.readyState === WebSocket.CLOSING) {
                     logger.error(`[SFU Proxy] Connection closed immediately, check if Galene is running on ${targetUrl}`)
+                    const httpsMsg = 'If using HTTPS for Pyrite, ensure Galene is accessible and the connection URL is correct'
+                    logger.error(`[SFU Proxy] ${httpsMsg}`)
                 }
 
-                reject(new Error(`Failed to connect to ${targetUrl}. Check if Galene is running and accessible.`))
+                const baseMsg = `Failed to connect to ${targetUrl}. Check if Galene is running and accessible.`
+                const errorMsg = `${baseMsg} Connection state: ${upstream.readyState}`
+                reject(new Error(errorMsg))
             }
 
             upstream.onclose = (event: CloseEvent) => {
@@ -136,6 +177,7 @@ async function proxySFUWebSocket(request: Request, server: Server) {
                 logger.warn(`[SFU Proxy] Upstream connection closed before upgrade: ${event.code} ${event.reason || 'no reason'}`)
                 if (event.code !== 1000) {
                     logger.error(`[SFU Proxy] Abnormal close: code=${event.code}, reason=${event.reason || 'none'}`)
+                    logger.error(`[SFU Proxy] Connection was clean: ${event.wasClean}`)
                 }
                 // Only reject if not already resolved
                 if (upstream.readyState !== WebSocket.OPEN) {
@@ -164,7 +206,7 @@ async function proxySFUWebSocket(request: Request, server: Server) {
         logger.error('[SFU Proxy] Failed to upgrade client connection')
         upstream.close()
         return new Response('WebSocket upgrade failed', {status: 400})
-    } catch(error) {
+    } catch (error) {
         logger.error(`[SFU Proxy] Failed to connect to SFU: ${error}`)
         if (error instanceof Error) {
             logger.error(`[SFU Proxy] Error details: ${error.message}`)
@@ -174,9 +216,8 @@ async function proxySFUWebSocket(request: Request, server: Server) {
     }
 }
 
-
 // Auth middleware that can be reused across routes
-const requireAdmin = async(ctx: {session?: Session}, next: (ctx: {session?: Session}) => Promise<unknown>) => {
+const requireAdmin = async (ctx: {session?: Session}, next: (ctx: {session?: Session}) => Promise<unknown>) => {
     if (!ctx.session?.userid) {
         throw new Error('Unauthorized')
     }
@@ -220,10 +261,12 @@ async function initMiddleware(_bunchyConfig) {
             deniedContext: contextFunctions.deniedContext,
             userContext: contextFunctions.userContext,
         },
-        customWebSocketHandlers: [{
-            handler: proxySFUWebSocket,
-            path: '/sfu',
-        }],
+        customWebSocketHandlers: [
+            {
+                handler: proxySFUWebSocket,
+                path: '/sfu',
+            },
+        ],
         devContext,
         endpointAllowList: ['/api/i18n', '/api/chat/emoji', '/api/groups/public', '/api/login'],
         logger,
@@ -255,7 +298,4 @@ async function initMiddleware(_bunchyConfig) {
     }
 }
 
-export {
-    initMiddleware,
-    requireAdmin,
-}
+export {initMiddleware, requireAdmin}

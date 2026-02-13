@@ -22,7 +22,6 @@ type LogEvent = {
     ts: number
 }
 
-
 class DevContext {
     http = new RingBuffer<HttpEvent>(500)
 

@@ -14,12 +14,12 @@ function prepareMermaidDiagrams(html: string): string {
     // Match mermaid code blocks: <pre><code class="language-mermaid">...</code></pre>
     const mermaidRegex = /<pre><code class="language-mermaid">([\s\S]*?)<\/code><\/pre>/g
 
-    return html.replace(mermaidRegex, (match, diagramCode) => {
+    return html.replace(mermaidRegex, (_match: string, diagramCode: string): string => {
         // Decode HTML entities and trim whitespace
         const decoded = diagramCode
-            .replace(/&lt;/g, '<')
-            .replace(/&gt;/g, '>')
-            .replace(/&amp;/g, '&')
+            .replaceAll('&lt;', '<')
+            .replaceAll('&gt;', '>')
+            .replaceAll('&amp;', '&')
             .trim()
 
         // Generate unique ID for this diagram
@@ -35,13 +35,14 @@ function prepareMermaidDiagrams(html: string): string {
  */
 export function renderMarkdown(markdown: string): string {
     try {
-        const html = typeof marked.parse(markdown) === 'string'
-            ? marked.parse(markdown) as string
-            : String(marked.parse(markdown))
+        const html = typeof marked.parse(markdown) === 'string' ?
+            marked.parse(markdown) as string :
+                String(marked.parse(markdown))
         return prepareMermaidDiagrams(html)
-    } catch (error) {
+    } catch(error: unknown) {
+        // eslint-disable-next-line no-console
         console.error('Error rendering markdown:', error)
         // Fallback: escape HTML and return as-is
-        return markdown.replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        return markdown.replaceAll('<', '&lt;').replaceAll('>', '&gt;')
     }
 }

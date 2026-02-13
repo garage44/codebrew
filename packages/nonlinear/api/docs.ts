@@ -3,36 +3,37 @@
  */
 
 import type {WebSocketServerManager} from '@garage44/common/lib/ws-server'
-import {db, getLabelDefinition} from '../lib/database.ts'
+
 import {randomId} from '@garage44/common/lib/utils'
-import {logger} from '../service.ts'
-import {queueIndexingJob} from '../lib/indexing/queue.ts'
-import {unifiedVectorSearch, searchDocs} from '../lib/docs/search.ts'
-import type {DocFilters} from '../lib/docs/search.ts'
-import {
-    DocDbSchema,
-    EnrichedDocSchema,
-} from '../lib/schemas/docs.ts'
-import {validateRequest} from '../lib/api/validate.ts'
 import {z} from 'zod'
+
+import type {DocFilters} from '../lib/docs/search.ts'
+
+import {validateRequest} from '../lib/api/validate.ts'
+import {db, getLabelDefinition} from '../lib/database.ts'
+import {unifiedVectorSearch, searchDocs} from '../lib/docs/search.ts'
+import {queueIndexingJob} from '../lib/indexing/queue.ts'
+import {DocDbSchema, EnrichedDocSchema} from '../lib/schemas/docs.ts'
+import {logger} from '../service.ts'
 
 /**
  * Enrich doc with labels
  */
-function enrichDoc(doc: {
-    [key: string]: unknown
-    id: string
-}): z.infer<typeof EnrichedDocSchema> {
+function enrichDoc(doc: {[key: string]: unknown; id: string}): z.infer<typeof EnrichedDocSchema> {
     const validatedDoc = validateRequest(DocDbSchema, doc)
-    const labels = db.prepare(`
+    const labels = db
+        .prepare(`
         SELECT label FROM documentation_labels WHERE doc_id = ?
-    `).all(doc.id) as Array<{label: string}>
+    `)
+        .all(doc.id) as Array<{label: string}>
 
     const tags = labels.map((l) => l.label)
-    const labelDefinitions = tags.map((tag) => {
-        const def = getLabelDefinition(tag)
-        return def ? {color: def.color, name: def.name} : null
-    }).filter((def): def is {color: string; name: string} => def !== null)
+    const labelDefinitions = tags
+        .map((tag) => {
+            const def = getLabelDefinition(tag)
+            return def ? {color: def.color, name: def.name} : null
+        })
+        .filter((def): def is {color: string; name: string} => def !== null)
 
     return validateRequest(EnrichedDocSchema, {
         ...validatedDoc,
@@ -50,18 +51,12 @@ export default function apiDocs(router: {
         path: string,
         handler: (req: Request, params: Record<string, string>, session?: unknown) => Promise<Response>,
     ) => void
-    get: (
-        path: string,
-        handler: (req: Request, params: Record<string, string>, session?: unknown) => Promise<Response>,
-    ) => void
-    post: (
-        path: string,
-        handler: (req: Request, params: Record<string, string>, session?: unknown) => Promise<Response>,
-    ) => void
+    get: (path: string, handler: (req: Request, params: Record<string, string>, session?: unknown) => Promise<Response>) => void
+    post: (path: string, handler: (req: Request, params: Record<string, string>, session?: unknown) => Promise<Response>) => void
     put: (path: string, handler: (req: Request, params: Record<string, string>, session?: unknown) => Promise<Response>) => void
 }) {
     // List docs (public)
-    router.get('/api/docs', async(_req: Request, _params: Record<string, string>, _session: unknown) => {
+    router.get('/api/docs', async (_req: Request, _params: Record<string, string>, _session: unknown) => {
         const url = new URL(_req.url)
         const tags = url.searchParams.get('tags') ? url.searchParams.get('tags')!.split(',') : undefined
         const workspace = url.searchParams.get('workspace') || undefined
@@ -102,7 +97,7 @@ export default function apiDocs(router: {
     })
 
     // Get doc by path (public)
-    router.get('/api/docs/by-path', async(_req: Request, _params: Record<string, string>, _session: unknown) => {
+    router.get('/api/docs/by-path', async (_req: Request, _params: Record<string, string>, _session: unknown) => {
         const url = new URL(_req.url)
         const path = url.searchParams.get('path')
 
@@ -113,15 +108,17 @@ export default function apiDocs(router: {
             })
         }
 
-        const doc = db.prepare('SELECT * FROM documentation WHERE path = ?').get(path) as {
-            author_id: string
-            content: string
-            created_at: number
-            id: string
-            path: string
-            title: string
-            updated_at: number
-        } | undefined
+        const doc = db.prepare('SELECT * FROM documentation WHERE path = ?').get(path) as
+            | {
+                  author_id: string
+                  content: string
+                  created_at: number
+                  id: string
+                  path: string
+                  title: string
+                  updated_at: number
+              }
+            | undefined
 
         if (!doc) {
             return new Response(JSON.stringify({error: 'Documentation not found'}), {
@@ -136,7 +133,7 @@ export default function apiDocs(router: {
     })
 
     // Semantic search (public)
-    router.get('/api/docs/search', async(_req: Request, _params: Record<string, string>, _session: unknown) => {
+    router.get('/api/docs/search', async (_req: Request, _params: Record<string, string>, _session: unknown) => {
         const url = new URL(_req.url)
         const query = url.searchParams.get('query') || ''
         const limit = parseInt(url.searchParams.get('limit') || '10', 10)
@@ -161,7 +158,7 @@ export default function apiDocs(router: {
             return new Response(JSON.stringify({results}), {
                 headers: {'Content-Type': 'application/json'},
             })
-        } catch(error) {
+        } catch (error) {
             return new Response(JSON.stringify({error: error instanceof Error ? error.message : String(error)}), {
                 headers: {'Content-Type': 'application/json'},
                 status: 500,
@@ -170,7 +167,7 @@ export default function apiDocs(router: {
     })
 
     // Unified search (public)
-    router.get('/api/search', async(_req: Request, _params: Record<string, string>, _session: unknown) => {
+    router.get('/api/search', async (_req: Request, _params: Record<string, string>, _session: unknown) => {
         const url = new URL(_req.url)
         const query = url.searchParams.get('query') || ''
         const limit = parseInt(url.searchParams.get('limit') || '10', 10)
@@ -200,7 +197,7 @@ export default function apiDocs(router: {
             return new Response(JSON.stringify(results), {
                 headers: {'Content-Type': 'application/json'},
             })
-        } catch(error) {
+        } catch (error) {
             return new Response(JSON.stringify({error: error instanceof Error ? error.message : String(error)}), {
                 headers: {'Content-Type': 'application/json'},
                 status: 500,
@@ -211,7 +208,7 @@ export default function apiDocs(router: {
 
 export function registerDocsWebSocketApiRoutes(wsManager: WebSocketServerManager) {
     // List docs (filter by tags, workspace)
-    wsManager.api.get('/api/docs', async(_ctx, req) => {
+    wsManager.api.get('/api/docs', async (_ctx, req) => {
         const tags = req.query.tags ? (req.query.tags as string).split(',') : undefined
         const workspace = req.query.workspace as string | undefined
 
@@ -253,22 +250,24 @@ export function registerDocsWebSocketApiRoutes(wsManager: WebSocketServerManager
     })
 
     // Get doc by path (must be registered before /api/docs/:id to avoid route conflict)
-    wsManager.api.get('/api/docs/by-path', async(_ctx, req) => {
+    wsManager.api.get('/api/docs/by-path', async (_ctx, req) => {
         const path = req.query?.path as string | undefined
 
         if (!path) {
             return {error: 'Path parameter required'}
         }
 
-        const doc = db.prepare('SELECT * FROM documentation WHERE path = ?').get(path) as {
-            author_id: string
-            content: string
-            created_at: number
-            id: string
-            path: string
-            title: string
-            updated_at: number
-        } | undefined
+        const doc = db.prepare('SELECT * FROM documentation WHERE path = ?').get(path) as
+            | {
+                  author_id: string
+                  content: string
+                  created_at: number
+                  id: string
+                  path: string
+                  title: string
+                  updated_at: number
+              }
+            | undefined
 
         if (!doc) {
             return {error: 'Documentation not found'}
@@ -280,7 +279,7 @@ export function registerDocsWebSocketApiRoutes(wsManager: WebSocketServerManager
     })
 
     // Create doc
-    wsManager.api.post('/api/docs', async(ctx, req) => {
+    wsManager.api.post('/api/docs', async (ctx, req) => {
         const userId = ctx.session?.userid
         if (!userId) {
             return {error: 'Unauthorized'}
@@ -310,15 +309,7 @@ export function registerDocsWebSocketApiRoutes(wsManager: WebSocketServerManager
             db.prepare(`
                 INSERT INTO documentation (id, path, title, content, author_id, created_at, updated_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
-            `).run(
-                docId,
-                body.path,
-                body.title,
-                body.content,
-                userId,
-                now,
-                now,
-            )
+            `).run(docId, body.path, body.title, body.content, userId, now, now)
 
             // Add tags
             if (body.tags) {
@@ -352,22 +343,24 @@ export function registerDocsWebSocketApiRoutes(wsManager: WebSocketServerManager
                     docId,
                     type: 'doc',
                 })
-            } catch(error) {
+            } catch (error) {
                 logger.warn(`[Docs API] Failed to generate embeddings for ${docId}:`, error)
                 // Continue anyway - embeddings can be regenerated later
             }
 
-            const doc = db.prepare('SELECT * FROM documentation WHERE id = ?').get(docId) as {
-                [key: string]: unknown
-                id: string
-            } | undefined
+            const doc = db.prepare('SELECT * FROM documentation WHERE id = ?').get(docId) as
+                | {
+                      [key: string]: unknown
+                      id: string
+                  }
+                | undefined
             if (!doc) {
                 return {error: 'Documentation not found'}
             }
             return {
                 doc: enrichDoc(doc),
             }
-        } catch(error) {
+        } catch (error) {
             if (String(error).includes('UNIQUE constraint')) {
                 return {error: 'Documentation with this path already exists'}
             }
@@ -377,7 +370,7 @@ export function registerDocsWebSocketApiRoutes(wsManager: WebSocketServerManager
     })
 
     // Update doc
-    wsManager.api.put('/api/docs/:id', async(ctx, req) => {
+    wsManager.api.put('/api/docs/:id', async (ctx, req) => {
         const userId = ctx.session?.userid
         if (!userId) {
             return {error: 'Unauthorized'}
@@ -449,28 +442,30 @@ export function registerDocsWebSocketApiRoutes(wsManager: WebSocketServerManager
                     docId,
                     type: 'doc',
                 })
-            } catch(error) {
+            } catch (error) {
                 logger.warn(`[Docs API] Failed to regenerate embeddings for ${docId}:`, error)
             }
 
-            const doc = db.prepare('SELECT * FROM documentation WHERE id = ?').get(docId) as {
-                [key: string]: unknown
-                id: string
-            } | undefined
+            const doc = db.prepare('SELECT * FROM documentation WHERE id = ?').get(docId) as
+                | {
+                      [key: string]: unknown
+                      id: string
+                  }
+                | undefined
             if (!doc) {
                 return {error: 'Documentation not found'}
             }
             return {
                 doc: enrichDoc(doc),
             }
-        } catch(error) {
+        } catch (error) {
             logger.error('[Docs API] Failed to update doc:', error)
             return {error: 'Failed to update documentation'}
         }
     })
 
     // Delete doc
-    wsManager.api.delete('/api/docs/:id', async(ctx, req) => {
+    wsManager.api.delete('/api/docs/:id', async (ctx, req) => {
         const userId = ctx.session?.userid
         if (!userId) {
             return {error: 'Unauthorized'}
@@ -481,14 +476,14 @@ export function registerDocsWebSocketApiRoutes(wsManager: WebSocketServerManager
         try {
             db.prepare('DELETE FROM documentation WHERE id = ?').run(docId)
             return {success: true}
-        } catch(error) {
+        } catch (error) {
             logger.error('[Docs API] Failed to delete doc:', error)
             return {error: 'Failed to delete documentation'}
         }
     })
 
     // Semantic search (unified docs + tickets)
-    wsManager.api.get('/api/search', async(_ctx, req) => {
+    wsManager.api.get('/api/search', async (_ctx, req) => {
         const query = req.query.q as string | undefined
         const contentType = req.query.contentType as 'doc' | 'ticket' | 'both' | undefined
         const workspace = req.query.workspace as string | undefined
@@ -521,14 +516,14 @@ export function registerDocsWebSocketApiRoutes(wsManager: WebSocketServerManager
                 })),
                 tickets: result.tickets,
             }
-        } catch(error) {
+        } catch (error) {
             logger.error('[Docs API] Search failed:', error)
             return {docs: [], error: 'Search failed', tickets: []}
         }
     })
 
     // Search only docs
-    wsManager.api.get('/api/docs/search', async(_ctx, req) => {
+    wsManager.api.get('/api/docs/search', async (_ctx, req) => {
         const query = req.query.q as string | undefined
         const workspace = req.query.workspace as string | undefined
         const tags = req.query.tags ? (req.query.tags as string).split(',') : undefined
@@ -554,7 +549,7 @@ export function registerDocsWebSocketApiRoutes(wsManager: WebSocketServerManager
                     doc: enrichDoc(r.doc as unknown as {[key: string]: unknown; id: string}),
                 })),
             }
-        } catch(error) {
+        } catch (error) {
             logger.error('[Docs API] Doc search failed:', error)
             return {error: 'Search failed', results: []}
         }

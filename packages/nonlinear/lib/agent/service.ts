@@ -5,17 +5,17 @@
  * Runs independently from the main Nonlinear service
  */
 
-import {initConfig, config} from '../config.ts'
-import {initDatabase, db} from '../database.ts'
+import {config, initConfig} from '../config.ts'
+import {db, initDatabase} from '../database.ts'
 import {loggerTransports} from '@garage44/common/service'
 import {WebSocketClient} from '@garage44/common/lib/ws-client'
 import {runAgent as runAgentScheduler} from './scheduler.ts'
 import {
+    type TaskData,
     getPendingTasks,
     markTaskCompleted,
     markTaskFailed,
     markTaskProcessing,
-    type TaskData,
 } from './tasks.ts'
 import {setBroadcastWebSocketClient} from './streaming.ts'
 
@@ -37,7 +37,7 @@ class AgentService {
 
     private processingTask = false
 
-    private taskQueue: Array<{taskId: string; taskData: TaskData}> = []
+    private taskQueue: {taskData: TaskData; taskId: string}[] = []
 
     private running = false
 
@@ -96,14 +96,17 @@ class AgentService {
         // Initialize WebSocket client
         this.initWebSocket()
 
-        // Catch up on missed tasks from database (with delay to allow WebSocket to connect)
-        // The WebSocket 'open' event will also trigger catch-up, but we do it here too
-        // in case WebSocket connection is delayed
-        setTimeout(() => {
-            this.catchUpOnTasks().catch((error) => {
+        /*
+         * Catch up on missed tasks from database (with delay to allow WebSocket to connect)
+         * The WebSocket 'open' event will also trigger catch-up, but we do it here too
+         * in case WebSocket connection is delayed
+         */
+        setTimeout((): void => {
+            this.catchUpOnTasks().catch((error: unknown): void => {
                 this.logger?.error(`[AgentService] Error during catch-up: ${error}`)
             })
-        }, 1000) // 1 second delay to allow WebSocket connection to establish
+            // 1 second delay to allow WebSocket connection to establish
+        }, 1000)
 
         this.logger.info(`[AgentService] Agent service started for agent ${this.agentId}`)
     }
@@ -133,25 +136,25 @@ class AgentService {
      * Initialize WebSocket client and subscribe to task events
      */
     private initWebSocket(): void {
-        if (!this.logger) return
+        if (!this.logger) {return}
 
         this.wsClient = new WebSocketClient(this.wsUrl)
 
         // Subscribe to agent-specific task topic
         const taskTopic = `/agents/${this.agentId}/tasks`
         this.wsClient.onRoute(taskTopic, async(data: {
+            task_data?: TaskData
             task_id?: string
             task_type?: string
-            task_data?: TaskData
-        }) => {
-            if (!this.logger) return
+        }): Promise<void> => {
+            if (!this.logger) {return}
 
             const taskId = data.task_id as string
             const taskType = data.task_type as string
             const taskData = (data.task_data || data) as TaskData
 
             if (!taskId) {
-                this.logger.warn(`[AgentService] Received task event without task_id, ignoring`)
+                this.logger.warn('[AgentService] Received task event without task_id, ignoring')
                 return
             }
 
@@ -173,19 +176,24 @@ class AgentService {
 
         // Subscribe to stop topic
         const stopTopic = `/agents/${this.agentId}/stop`
-        this.wsClient.onRoute(stopTopic, async() => {
-            if (!this.logger) return
+        this.wsClient.onRoute(stopTopic, async(): Promise<void> => {
+            if (!this.logger) {return}
 
             this.logger.info(`[AgentService] Received stop command for agent ${this.agentId}`)
 
             // Wait for current task to finish if processing
             if (this.processingTask) {
-                this.logger.info(`[AgentService] Waiting for current task to finish before stopping...`)
+                this.logger.info('[AgentService] Waiting for current task to finish before stopping...')
                 // Poll until task is done (max 30 seconds)
-                const maxWait = 30000
+                const maxWait = 30_000
                 const startTime = Date.now()
                 while (this.processingTask && (Date.now() - startTime) < maxWait) {
-                    await new Promise((resolve) => setTimeout(resolve, 500))
+                    // eslint-disable-next-line no-await-in-loop
+                    await new Promise<void>((resolve): void => {
+                        setTimeout((): void => {
+                            resolve()
+                        }, 500)
+                    })
                 }
             }
 
@@ -198,7 +206,7 @@ class AgentService {
         })
 
         // Handle reconnection
-        this.wsClient.on('open', async() => {
+        this.wsClient.on('open', async(): Promise<void> => {
             this.logger?.info(`[AgentService] WebSocket connected to ${this.wsUrl}`)
 
             // Set WebSocket client for comment broadcasting
@@ -208,30 +216,33 @@ class AgentService {
             try {
                 await this.wsClient.post(`/api/agents/${this.agentId}/subscribe`, {})
                 this.logger?.info(`[AgentService] Subscribed to /agents/${this.agentId}/tasks`)
-            } catch(error) {
+            } catch(error: unknown) {
                 this.logger?.warn(`[AgentService] Failed to subscribe to task topic: ${error}`)
             }
 
             // Catch up on missed tasks after reconnection
-            this.catchUpOnTasks().catch((error) => {
+            this.catchUpOnTasks().catch((error: unknown): void => {
                 this.logger?.error(`[AgentService] Error during catch-up after reconnect: ${error}`)
             })
         })
 
-        this.wsClient.on('reconnecting', ({attempt}) => {
+        this.wsClient.on('reconnecting', ({attempt}: {attempt: number}): void => {
             this.logger?.warn(`[AgentService] WebSocket reconnecting (attempt ${attempt})`)
             if (attempt >= 5) {
-                this.logger?.error(`[AgentService] WebSocket connection failed after ${attempt} attempts. Make sure the Nonlinear service is running on ${this.wsUrl}`)
+                this.logger?.error(
+                    `[AgentService] WebSocket connection failed after ${attempt} attempts. ` +
+                    `Make sure the Nonlinear service is running on ${this.wsUrl}`,
+                )
             }
         })
 
-        this.wsClient.on('error', (error) => {
+        this.wsClient.on('error', (error: unknown): void => {
             const errorMsg = error instanceof Error ? error.message : String(error)
             this.logger?.error(`[AgentService] WebSocket error: ${errorMsg}`)
             // Log helpful message if connection fails
             if (errorMsg.includes('Failed to connect') || errorMsg.includes('ECONNREFUSED')) {
                 this.logger?.warn(`[AgentService] Cannot connect to ${this.wsUrl}. Make sure the Nonlinear service is running.`)
-                this.logger?.warn(`[AgentService] Start the service with: bun service.ts start`)
+                this.logger?.warn('[AgentService] Start the service with: bun service.ts start')
             }
         })
 
@@ -243,7 +254,7 @@ class AgentService {
      * Catch up on missed tasks from database
      */
     private async catchUpOnTasks(): Promise<void> {
-        if (!this.logger) return
+        if (!this.logger) {return}
 
         const pendingTasks = getPendingTasks(this.agentId)
 
@@ -275,7 +286,7 @@ class AgentService {
      * Process next task in queue
      */
     private async processNextTask(): Promise<void> {
-        if (!this.logger) return
+        if (!this.logger) {return}
 
         // Don't process if already processing or queue is empty
         if (this.processingTask || this.taskQueue.length === 0) {
@@ -284,12 +295,12 @@ class AgentService {
 
         // Get next task from queue
         const task = this.taskQueue.shift()
-        if (!task) return
+        if (!task) {return}
 
         this.processingTask = true
 
         try {
-            const {taskId, taskData} = task
+            const {taskData, taskId} = task
 
             this.logger.info(`[AgentService] Processing task ${taskId}`)
 
@@ -306,9 +317,9 @@ class AgentService {
             markTaskCompleted(taskId)
 
             this.lastRun = Date.now()
-            this.lastError = undefined
+            this.lastError = null
             this.logger.info(`[AgentService] Completed task ${taskId}`)
-        } catch(error) {
+        } catch(error: unknown) {
             const errorMsg = error instanceof Error ? error.message : String(error)
             this.lastError = errorMsg
             this.logger.error(`[AgentService] Error processing task ${task.taskId}: ${errorMsg}`)
@@ -321,7 +332,7 @@ class AgentService {
             // Process next task if available
             if (this.taskQueue.length > 0) {
                 // Small delay to prevent tight loop
-                setTimeout(() => {
+                setTimeout((): void => {
                     this.processNextTask()
                 }, 100)
             }
@@ -347,6 +358,7 @@ if (import.meta.main) {
     const agentId = process.argv[2]
 
     if (!agentId) {
+        // eslint-disable-next-line no-console
         console.error('Usage: bun lib/agent/service.ts <agent-id>')
         process.exit(1)
     }
@@ -354,8 +366,8 @@ if (import.meta.main) {
     const service = new AgentService(agentId)
 
     /* Declare logger here */
-    let logger: ReturnType<typeof loggerTransports>;
-    (async() => {
+    let logger: ReturnType<typeof loggerTransports> | null = null
+    ;(async(): Promise<void> => {
         await initConfig(config)
         initDatabase()
 
@@ -365,13 +377,13 @@ if (import.meta.main) {
         service.setLogger(logger)
 
         /* Handle graceful shutdown */
-        process.on('SIGINT', () => {
+        process.on('SIGINT', (): void => {
             logger.info(`[AgentService] Received SIGINT, shutting down agent ${agentId}...`)
             service.stop()
             process.exit(0)
         })
 
-        process.on('SIGTERM', () => {
+        process.on('SIGTERM', (): void => {
             logger.info(`[AgentService] Received SIGTERM, shutting down agent ${agentId}...`)
             service.stop()
             process.exit(0)
@@ -380,10 +392,10 @@ if (import.meta.main) {
         service.start()
 
         /* Keep process alive - log status every minute */
-        setInterval(() => {
+        setInterval((): void => {
             const status = service.getStatus()
             logger.debug(`[AgentService] Status: ${JSON.stringify(status)}`)
-        }, 60000)
+        }, 60_000)
     })()
 }
 

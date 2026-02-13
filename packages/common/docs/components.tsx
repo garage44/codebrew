@@ -1,3 +1,5 @@
+import {deepSignal} from 'deepsignal'
+
 import {
     Button,
     ButtonGroup,
@@ -24,11 +26,9 @@ import {
 } from '@/components'
 // Import utilities from common components
 import {ComponentDemo} from '@/components/lib/component-demo'
-import {Notifier} from '@/lib/notifier'
 import {StateView} from '@/components/lib/state-view'
-import {deepSignal} from 'deepsignal'
 import {svg} from '@/components/ui/icon/icon'
-
+import {Notifier} from '@/lib/notifier'
 
 const data = deepSignal({
     model: {
@@ -51,7 +51,8 @@ const data = deepSignal({
 const notifier = new Notifier()
 notifier.init(data.model.notifications)
 
-export const Components = () => <div class='c-components styleguide-page'>
+export const Components = () => (
+    <div class='c-components styleguide-page'>
         <h1>Components</h1>
         <p>All available components from @garage44/common</p>
 
@@ -117,8 +118,6 @@ export const Components = () => <div class='c-components styleguide-page'>
                         <Button disabled={true} icon='workspace' type='warning' variant='toggle' />
                     </div>
                 </div>
-
-
             </div>
         </ComponentDemo>
 
@@ -139,30 +138,20 @@ export const Components = () => <div class='c-components styleguide-page'>
 
         <ComponentDemo component='FieldCheckbox' title='Field Checkbox'>
             <div class='demo-grid'>
-                <FieldCheckbox
-                    help='Enter help text...'
-                    label='Basic Checkbox'
-                    model={data.model.$checkboxValue}
-                />
-                <FieldCheckbox
-                    help='Enter help text...'
-                    label='Checked'
-                    model={data.model.$checkboxValue}
-                />
-                <FieldCheckbox
-                    help='Enter help text...'
-                    label='Disabled'
-                    model={data.model.$checkboxValue}
-                />
+                <FieldCheckbox help='Enter help text...' label='Basic Checkbox' model={data.model.$checkboxValue} />
+                <FieldCheckbox help='Enter help text...' label='Checked' model={data.model.$checkboxValue} />
+                <FieldCheckbox help='Enter help text...' label='Disabled' model={data.model.$checkboxValue} />
             </div>
             <StateView state={{checkboxValue: data.model.checkboxValue}} title='Field Checkbox State' />
         </ComponentDemo>
 
         <ComponentDemo component='Icon' title='Icon'>
             <div class='icon-grid'>
-                {Object.keys(svg).map((iconName) => <div class='item' key={iconName}>
+                {Object.keys(svg).map((iconName) => (
+                    <div class='item' key={iconName}>
                         <Icon name={iconName} tip={iconName} />
-                </div>)}
+                    </div>
+                ))}
             </div>
         </ComponentDemo>
 
@@ -175,7 +164,6 @@ export const Components = () => <div class='c-components styleguide-page'>
                 <Progress boundaries={[0, 100]} iso6391='en' loading={false} percentage={1} />
             </div>
         </ComponentDemo>
-
 
         <ComponentDemo component='FieldSelect' title='Field Select'>
             <div class='demo-grid'>
@@ -211,10 +199,7 @@ export const Components = () => <div class='c-components styleguide-page'>
 
         <ComponentDemo component='FieldUpload' title='Field Upload'>
             <div class='demo-grid'>
-                <FieldUpload
-                    label='File Upload'
-                    model={[data.model, 'uploadValue']}
-                />
+                <FieldUpload label='File Upload' model={[data.model, 'uploadValue']} />
             </div>
             <StateView state={{uploadValue: data.model.uploadValue}} title='Field Upload State' />
         </ComponentDemo>
@@ -267,11 +252,7 @@ export const Components = () => <div class='c-components styleguide-page'>
 
         <ComponentDemo component='Splash' title='Splash'>
             <div style={{background: 'var(--bg-secondary)', height: '300px'}}>
-                <Splash
-                    header='Welcome'
-                    IconComponent={IconLogo}
-                    instruction='This is a splash screen'
-                />
+                <Splash header='Welcome' IconComponent={IconLogo} instruction='This is a splash screen' />
             </div>
         </ComponentDemo>
 
@@ -313,13 +294,13 @@ export const Components = () => <div class='c-components styleguide-page'>
             <div class='demo-grid'>
                 <FieldNumber
                     label='Enter a number'
-                    onChange={(v) => data.model.numberValue = v}
+                    onChange={(v) => (data.model.numberValue = v)}
                     value={data.model.numberValue}
                 />
                 <FieldNumber
                     help='Enter a numeric value'
                     label='With help text'
-                    onChange={(v) => data.model.numberValue = v}
+                    onChange={(v) => (data.model.numberValue = v)}
                     value={data.model.numberValue}
                 />
             </div>
@@ -330,7 +311,7 @@ export const Components = () => <div class='c-components styleguide-page'>
             <div class='demo-grid'>
                 <FieldRadioGroup
                     label='Choose an option'
-                    onChange={(v) => data.model.radioValue = v}
+                    onChange={(v) => (data.model.radioValue = v)}
                     options={[
                         ['option1', 'Option 1'],
                         ['option2', 'Option 2'],
@@ -361,12 +342,12 @@ export const Components = () => <div class='c-components styleguide-page'>
             <div class='demo-grid'>
                 <FieldTextarea
                     label='Enter text'
-                    onChange={(v) => data.model.textareaValue = v}
+                    onChange={(v) => (data.model.textareaValue = v)}
                     value={data.model.textareaValue}
                 />
                 <FieldTextarea
                     label='With placeholder'
-                    onChange={(v) => data.model.textareaValue = v}
+                    onChange={(v) => (data.model.textareaValue = v)}
                     placeholder='Type something here...'
                     value={data.model.textareaValue}
                 />
@@ -378,7 +359,7 @@ export const Components = () => <div class='c-components styleguide-page'>
             <div class='demo-grid'>
                 <FieldMultiSelect
                     label='Select multiple'
-                    onChange={(v) => data.model.multiSelectValue = v}
+                    onChange={(v) => (data.model.multiSelectValue = v)}
                     options={[
                         {id: 'item1', name: 'Item 1'},
                         {id: 'item2', name: 'Item 2'},
@@ -425,4 +406,5 @@ export const Components = () => <div class='c-components styleguide-page'>
             </div>
             <StateView state={{contextSelectValue: data.model.contextSelectValue}} title='Context Select State' />
         </ComponentDemo>
-</div>
+    </div>
+)

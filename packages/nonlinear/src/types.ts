@@ -1,11 +1,6 @@
 import type {CommonState} from '@garage44/common/types'
-import type {
-    EnrichedAgent,
-    LabelDefinition,
-    EnrichedTicket,
-    EnrichedDoc,
-    Repository,
-} from '../lib/schemas/index.ts'
+
+import type {EnrichedAgent, LabelDefinition, EnrichedTicket, EnrichedDoc, Repository} from '../lib/schemas/index.ts'
 
 export interface NonlinearState extends CommonState {
     agents: Array<EnrichedAgent>

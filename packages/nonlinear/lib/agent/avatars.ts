@@ -10,8 +10,8 @@ import {logger} from '../../service.ts'
  * Default avatar assignments for agent types
  */
 export const DEFAULT_AVATARS: Record<'planner' | 'developer' | 'reviewer', string> = {
-    planner: 'placeholder-2.png',
     developer: 'placeholder-3.png',
+    planner: 'placeholder-2.png',
     reviewer: 'placeholder-4.png',
 }
 
@@ -19,21 +19,21 @@ export const DEFAULT_AVATARS: Record<'planner' | 'developer' | 'reviewer', strin
  * Initialize agent avatars
  * Assigns default avatars to agents that don't have one
  */
-export function initAgentAvatars() {
+export function initAgentAvatars(): void {
     const agents = db.prepare(`
         SELECT id, name, type, avatar, display_name
         FROM agents
-    `).all() as Array<{
+    `).all() as {
         avatar: string | null
         display_name: string | null
         id: string
         name: string
         type: 'planner' | 'developer' | 'reviewer'
-    }>
+    }[]
 
     for (const agent of agents) {
         let needsUpdate = false
-        let avatar = agent.avatar
+        let {avatar} = agent
         let displayName = agent.display_name
 
         // Assign default avatar if missing
@@ -73,7 +73,7 @@ export function getAgentAvatar(agentId: string): string | null {
 /**
  * Set avatar for an agent
  */
-export function setAgentAvatar(agentId: string, avatar: string) {
+export function setAgentAvatar(agentId: string, avatar: string): void {
     db.prepare(`
         UPDATE agents
         SET avatar = ?

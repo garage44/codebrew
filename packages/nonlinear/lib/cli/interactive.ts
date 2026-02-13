@@ -3,10 +3,10 @@
  */
 
 import pc from 'picocolors'
-import {BaseAgent, type AgentContext, type AgentResponse} from '../agent/base.ts'
+import type {AgentContext, AgentResponse, BaseAgent} from '../agent/base.ts'
 import {REPL, type REPLOptions} from './repl.ts'
 import {executeToolCommand, getToolsHelp, getToolsList} from './command-parser.ts'
-import {getPendingTasks, markTaskProcessing, markTaskCompleted, markTaskFailed} from '../agent/tasks.ts'
+import {getPendingTasks, markTaskCompleted, markTaskFailed, markTaskProcessing} from '../agent/tasks.ts'
 import {runAgent as runAgentScheduler} from '../agent/scheduler.ts'
 import {db} from '../database.ts'
 
@@ -17,10 +17,10 @@ function createReasoningStream(
     onMessage: (message: string) => void,
 ): WritableStream<string> {
     return new WritableStream({
-        close() {
+        close(): void {
             // Stream closed
         },
-        write(chunk: string) {
+        write(chunk: string): void {
             onMessage(chunk)
         },
     })
@@ -42,7 +42,7 @@ export async function runAgentInteractive(options: InteractiveCLIOptions): Promi
     const {agent, context, onReasoning} = options
 
     // Create reasoning stream for real-time output
-    const stream = createReasoningStream((message) => {
+    const stream = createReasoningStream((message): void => {
         if (onReasoning) {
             onReasoning(message)
         } else {
@@ -72,14 +72,16 @@ export async function runAgentInteractive(options: InteractiveCLIOptions): Promi
         if (agentRecord) {
             const pendingTasks = getPendingTasks(agentRecord.id)
             if (pendingTasks.length > 0) {
-                pendingTasksMessage = `\n${pc.yellow(`⚠️  Found ${pendingTasks.length} pending task(s) in queue.`)}\nType ${pc.yellow('process-pending')} or ${pc.yellow('catch-up')} to process them.\n`
+                pendingTasksMessage = `\n${pc.yellow(`⚠️  Found ${pendingTasks.length} pending task(s) in queue.`)}\n` +
+                    `Type ${pc.yellow('process-pending')} or ${pc.yellow('catch-up')} to process them.\n`
             }
         }
-    } catch(error) {
+    } catch{
         // Silently fail - database might not be initialized or agent not found
     }
 
-    const welcomeMessage = `\n${pc.bold(pc.cyan(`${agentName} Interactive Mode`))}\nType ${pc.yellow('help')} for available commands, ${pc.yellow('exit')} to quit.${pendingTasksMessage}\n`
+    const welcomeMessage = `\n${pc.bold(pc.cyan(`${agentName} Interactive Mode`))}\n` +
+        `Type ${pc.yellow('help')} for available commands, ${pc.yellow('exit')} to quit.${pendingTasksMessage}\n`
 
     // Agent-specific help messages
     let helpMessage = ''
@@ -126,21 +128,25 @@ export async function runAgentInteractive(options: InteractiveCLIOptions): Promi
     }
 
     const replOptions: REPLOptions = {
-        prompt,
-        welcomeMessage,
         helpMessage,
+        onExit(): void {
+            // eslint-disable-next-line no-console
+            console.log('\n👋 Goodbye!\n')
+        },
         async onInput(input: string): Promise<void> {
             try {
                 const trimmed = input.trim()
 
                 // Handle "tools" command
                 if (trimmed === 'tools') {
+                    // eslint-disable-next-line no-console
                     console.log(getToolsList(agent.getTools()))
                     return
                 }
 
                 // Handle "tools --help" command
                 if (trimmed === 'tools --help' || trimmed === 'tools -h') {
+                    // eslint-disable-next-line no-console
                     console.log(getToolsHelp(agent.getTools()))
                     return
                 }
@@ -156,27 +162,32 @@ export async function runAgentInteractive(options: InteractiveCLIOptions): Promi
                         `).get(agentName, agentName) as {id: string} | undefined
 
                         if (!agentRecord) {
-                            console.log(pc.red(`\n❌ Agent not found in database\n`))
+                            // eslint-disable-next-line no-console
+                            console.log(pc.red('\n❌ Agent not found in database\n'))
                             return
                         }
 
                         const pendingTasks = getPendingTasks(agentRecord.id)
 
                         if (pendingTasks.length === 0) {
-                            console.log(pc.green(`\n✅ No pending tasks found\n`))
+                            // eslint-disable-next-line no-console
+                            console.log(pc.green('\n✅ No pending tasks found\n'))
                             return
                         }
 
+                        // eslint-disable-next-line no-console
                         console.log(pc.cyan(`\n📋 Processing ${pendingTasks.length} pending task(s)...\n`))
 
                         // Process each task
                         for (const task of pendingTasks) {
                             try {
+                                // eslint-disable-next-line no-console
                                 console.log(pc.gray(`Processing task ${task.id} (type: ${task.task_type})...`))
 
                                 markTaskProcessing(task.id)
 
                                 const taskData = JSON.parse(task.task_data) as Record<string, unknown>
+                                // eslint-disable-next-line no-await-in-loop
                                 await runAgentScheduler(agentRecord.id, {
                                     ...taskData,
                                     task_id: task.id,
@@ -184,17 +195,21 @@ export async function runAgentInteractive(options: InteractiveCLIOptions): Promi
                                 })
 
                                 markTaskCompleted(task.id)
+                                // eslint-disable-next-line no-console
                                 console.log(pc.green(`✅ Completed task ${task.id}\n`))
-                            } catch(error) {
+                            } catch(error: unknown) {
                                 const errorMsg = error instanceof Error ? error.message : String(error)
                                 markTaskFailed(task.id, errorMsg)
+                                // eslint-disable-next-line no-console
                                 console.log(pc.red(`❌ Failed task ${task.id}: ${errorMsg}\n`))
                             }
                         }
 
-                        console.log(pc.green(`\n✅ Finished processing pending tasks\n`))
-                    } catch(error) {
+                        // eslint-disable-next-line no-console
+                        console.log(pc.green('\n✅ Finished processing pending tasks\n'))
+                    } catch(error: unknown) {
                         const errorMsg = error instanceof Error ? error.message : String(error)
+                        // eslint-disable-next-line no-console
                         console.log(pc.red(`\n❌ Error processing pending tasks: ${errorMsg}\n`))
                     }
                     return
@@ -206,17 +221,23 @@ export async function runAgentInteractive(options: InteractiveCLIOptions): Promi
 
                 if (toolResult !== null) {
                     // Direct tool invocation
+                    // eslint-disable-next-line no-console
                     console.log(`\n${pc.bold(pc.cyan('Direct Tool Execution:'))}\n`)
                     if (toolResult.success) {
+                        // eslint-disable-next-line no-console
                         console.log(pc.green('Tool executed successfully\n'))
                         if (toolResult.data) {
+                            // eslint-disable-next-line no-console
                             console.log(pc.gray(JSON.stringify(toolResult.data, null, 2)))
                         }
                         if (toolResult.context) {
+                            // eslint-disable-next-line no-console
                             console.log(`\n${pc.bold('Context:')}`)
+                            // eslint-disable-next-line no-console
                             console.log(pc.gray(JSON.stringify(toolResult.context, null, 2)))
                         }
                     } else {
+                        // eslint-disable-next-line no-console
                         console.error(pc.red(`Tool execution failed: ${toolResult.error || 'Unknown error'}\n`))
                     }
                     return
@@ -225,28 +246,37 @@ export async function runAgentInteractive(options: InteractiveCLIOptions): Promi
                 // Process instruction through agent (natural language)
                 const response: AgentResponse = await agent.executeInstruction(trimmed, agentContext as AgentContext)
 
-                // Display result
-                console.log('\n') // New line after reasoning stream
+                /*
+                 * Display result
+                 * New line after reasoning stream
+                 */
+                // eslint-disable-next-line no-console
+                console.log('\n')
                 if (response.success) {
+                    // eslint-disable-next-line no-console
                     console.log(pc.green(response.message))
                     if (response.data) {
+                        // eslint-disable-next-line no-console
                         console.log(pc.gray(JSON.stringify(response.data, null, 2)))
                     }
                 } else {
+                    // eslint-disable-next-line no-console
                     console.error(pc.red(response.message))
                     if (response.error) {
+                        // eslint-disable-next-line no-console
                         console.error(pc.red(`Error: ${response.error}`))
                     }
                 }
+                // eslint-disable-next-line no-console
                 console.log('') // Blank line for readability
-            } catch(error) {
+            } catch(error: unknown) {
                 const errorMsg = error instanceof Error ? error.message : String(error)
+                // eslint-disable-next-line no-console
                 console.error(pc.red(`\nError processing instruction: ${errorMsg}\n`))
             }
         },
-        onExit() {
-            console.log('\n👋 Goodbye!\n')
-        },
+        prompt,
+        welcomeMessage,
     }
 
     const repl = new REPL(replOptions)
@@ -264,30 +294,37 @@ export async function runAgentOneShot(
 ): Promise<AgentResponse> {
     const agentContext = context || agent.buildToolContext({})
 
-    const stream = createReasoningStream((message) => {
+    const stream = createReasoningStream((message): void => {
         process.stdout.write(message)
     })
     agent.setStream(stream)
 
     try {
         const response = await agent.executeInstruction(instruction, agentContext as AgentContext)
-        console.log('\n') // New line after reasoning stream
+        // New line after reasoning stream
+        // eslint-disable-next-line no-console
+        console.log('\n')
 
         if (response.success) {
+            // eslint-disable-next-line no-console
             console.log(pc.green(response.message))
             if (response.data) {
+                // eslint-disable-next-line no-console
                 console.log(pc.gray(JSON.stringify(response.data, null, 2)))
             }
         } else {
+            // eslint-disable-next-line no-console
             console.error(pc.red(response.message))
             if (response.error) {
+                // eslint-disable-next-line no-console
                 console.error(pc.red(`Error: ${response.error}`))
             }
         }
 
         return response
-    } catch(error) {
+    } catch(error: unknown) {
         const errorMsg = error instanceof Error ? error.message : String(error)
+        // eslint-disable-next-line no-console
         console.error(pc.red(`\nFatal error: ${errorMsg}`))
         throw error
     }

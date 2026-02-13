@@ -1,21 +1,21 @@
-import {$s} from '@/app'
 import {api, ws} from '@garage44/common/app'
 import {Icon} from '@garage44/common/components'
 import {deepSignal} from 'deepsignal'
 import {useEffect} from 'preact/hooks'
-import {Markdown} from './markdown'
+
+import {$s} from '@/app'
+
 import {DocEditor} from './editor'
+import {Markdown} from './markdown'
 import './docs.css'
 
 // Use api for public access, ws for authenticated
-const getApi = () => {
-    return $s.profile.authenticated ? ws : api
-}
+const getApi = () => ($s.profile.authenticated ? ws : api)
 
 interface Doc {
     content: string
     id: string
-    labelDefinitions?: Array<{color: string; name: string}>
+    labelDefinitions?: {color: string; name: string}[]
     path: string
     tags?: string[]
     title: string
@@ -36,7 +36,7 @@ export const Docs = () => {
         loadDocs()
     }, [])
 
-    const loadDocs = async() => {
+    const loadDocs = async () => {
         try {
             state.loading = true
             const apiClient = getApi()
@@ -44,17 +44,19 @@ export const Docs = () => {
             if (result.docs) {
                 state.docs = result.docs
             }
-        } catch(error) {
+        } catch (error) {
+            // eslint-disable-next-line no-console
             console.error('Failed to load docs:', error)
         } finally {
             state.loading = false
         }
     }
 
-    const handleDocSelect = async(path: string) => {
+    const handleDocSelect = async (path: string) => {
         try {
             const apiClient = getApi()
             const url = `/api/docs/by-path?path=${encodeURIComponent(path)}`
+            // eslint-disable-next-line no-console
             console.log('[Docs] Loading doc:', {
                 apiClient: apiClient === ws ? 'ws' : 'api',
                 authenticated: $s.profile.authenticated,
@@ -62,16 +64,20 @@ export const Docs = () => {
                 url,
             })
             const result = await apiClient.get(url)
+            // eslint-disable-next-line no-console
             console.log('[Docs] Result:', result)
             if (result?.doc) {
                 state.selectedDoc = result.doc
                 state.editing = false
             } else if (result?.error) {
+                // eslint-disable-next-line no-console
                 console.error('[Docs] API error:', result.error)
             } else {
+                // eslint-disable-next-line no-console
                 console.warn('[Docs] Unexpected result format:', result)
             }
-        } catch(error) {
+        } catch (error) {
+            // eslint-disable-next-line no-console
             console.error('[Docs] Failed to load doc:', error)
         }
     }
@@ -80,8 +86,10 @@ export const Docs = () => {
         state.editing = true
     }
 
-    const handleSave = async(content: string, tags: string[]) => {
-        if (!state.selectedDoc) return
+    const handleSave = async (content: string, tags: string[]) => {
+        if (!state.selectedDoc) {
+            return
+        }
 
         try {
             const result = await ws.put(`/api/docs/${state.selectedDoc.id}`, {
@@ -94,7 +102,8 @@ export const Docs = () => {
                 // Reload docs list
                 await loadDocs()
             }
-        } catch(error) {
+        } catch (error) {
+            // eslint-disable-next-line no-console
             console.error('Failed to save doc:', error)
         }
     }
@@ -111,7 +120,7 @@ export const Docs = () => {
             const parts = doc.path.split('/').filter(Boolean)
             let current = tree
 
-            for (let i = 0; i < parts.length; i++) {
+            for (let i = 0; i < parts.length; i += 1) {
                 const part = parts[i]
                 if (i === parts.length - 1) {
                     // Last part is the doc
@@ -132,8 +141,8 @@ export const Docs = () => {
         node: Record<string, Doc | Record<string, unknown>>,
         path: string = '',
         depth: number = 0,
-    ): Array<{depth: number; doc?: Doc; name?: string; path: string; type: 'doc' | 'dir'}> => {
-        const items: Array<{depth: number; doc?: Doc; name?: string; path: string; type: 'doc' | 'dir'}> = []
+    ): {depth: number; doc?: Doc; name?: string; path: string; type: 'doc' | 'dir'}[] => {
+        const items: {depth: number; doc?: Doc; name?: string; path: string; type: 'doc' | 'dir'}[] = []
 
         for (const [key, value] of Object.entries(node)) {
             const currentPath = path ? `${path}/${key}` : key
@@ -204,8 +213,9 @@ export const Docs = () => {
                 </div>
 
                 <div class='tree'>
-                    {state.loading ?
-                        <div class='loading'>Loading...</div> :
+                    {state.loading ? (
+                        <div class='loading'>Loading...</div>
+                    ) : (
                         <ul>
                             {filteredItems.map((item) => {
                                 if (item.type === 'dir') {
@@ -230,42 +240,42 @@ export const Docs = () => {
                                     </li>
                                 )
                             })}
-                        </ul>}
+                        </ul>
+                    )}
                 </div>
             </div>
 
             <div class='content'>
-                {state.selectedDoc ?
-                    state.editing ?
-                        <DocEditor
-                            doc={state.selectedDoc}
-                            onCancel={handleCancel}
-                            onSave={handleSave}
-                        /> :
+                {state.selectedDoc ? (
+                    state.editing ? (
+                        <DocEditor doc={state.selectedDoc} onCancel={handleCancel} onSave={handleSave} />
+                    ) : (
                         <div class='doc-viewer'>
                             <div class='doc-header'>
                                 <h1>{state.selectedDoc.title}</h1>
-                                {$s.profile.authenticated &&
+                                {$s.profile.authenticated && (
                                     <button onClick={handleEdit}>
                                         <Icon name='edit' type='info' />
                                         Edit
-                                    </button>}
+                                    </button>
+                                )}
                             </div>
                             <div class='doc-tags'>
-                                {state.selectedDoc.labelDefinitions?.map((def) => <span
-                                    class='tag'
-                                    key={def.name}
-                                    style={`background-color: ${def.color}`}
-                                >
+                                {state.selectedDoc.labelDefinitions?.map((def) => (
+                                    <span class='tag' key={def.name} style={`background-color: ${def.color}`}>
                                         {def.name}
-                                </span>)}
+                                    </span>
+                                ))}
                             </div>
                             <Markdown content={state.selectedDoc.content} />
-                        </div> :
+                        </div>
+                    )
+                ) : (
                     <div class='empty'>
                         <Icon name='description' size='xl' type='info' />
                         <p>Select a document to view</p>
-                    </div>}
+                    </div>
+                )}
             </div>
         </div>
     )

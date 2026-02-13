@@ -88,10 +88,10 @@ export async function checkPortListening(port: number): Promise<HealthCheckResul
 /**
  * Check if an HTTP endpoint is accessible
  */
-export async function checkHttpEndpoint(url: string, timeoutMs = 10000): Promise<HealthCheckResult> {
+export async function checkHttpEndpoint(url: string, timeoutMs = 10_000): Promise<HealthCheckResult> {
     try {
         const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+        const timeoutId = setTimeout((): void => controller.abort(), timeoutMs)
 
         try {
             const response = await fetch(url, {
@@ -127,17 +127,17 @@ export async function checkHttpEndpoint(url: string, timeoutMs = 10000): Promise
                 healthy: false,
                 message: `HTTP endpoint ${url} returned error status: ${response.status}`,
             }
-        } catch(fetchError) {
+        } catch(error) {
             clearTimeout(timeoutId)
 
-            if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+            if (error instanceof Error && error.name === 'AbortError') {
                 return {
                     healthy: false,
                     message: `HTTP endpoint ${url} timed out after ${timeoutMs}ms`,
                 }
             }
 
-            throw fetchError
+            throw error
         }
     } catch(error) {
         const message = error instanceof Error ? error.message : String(error)
@@ -153,12 +153,13 @@ export async function checkHttpEndpoint(url: string, timeoutMs = 10000): Promise
  */
 export async function waitForService(
     serviceName: string,
-    maxWaitMs = 60000,
+    maxWaitMs = 60_000,
     checkIntervalMs = 2000,
 ): Promise<HealthCheckResult> {
     const startTime = Date.now()
 
     while (Date.now() - startTime < maxWaitMs) {
+        // eslint-disable-next-line no-await-in-loop
         const check = await checkServiceStatus(serviceName)
         if (check.healthy) {
             return {
@@ -168,7 +169,12 @@ export async function waitForService(
         }
 
         // Wait before next check
-        await new Promise((resolve) => setTimeout(resolve, checkIntervalMs))
+        // eslint-disable-next-line no-await-in-loop
+        await new Promise<void>((resolve): void => {
+            setTimeout((): void => {
+                resolve()
+            }, checkIntervalMs)
+        })
     }
 
     // Final check
@@ -189,12 +195,13 @@ export async function waitForService(
  */
 export async function waitForPort(
     port: number,
-    maxWaitMs = 60000,
+    maxWaitMs = 60_000,
     checkIntervalMs = 2000,
 ): Promise<HealthCheckResult> {
     const startTime = Date.now()
 
     while (Date.now() - startTime < maxWaitMs) {
+        // eslint-disable-next-line no-await-in-loop
         const check = await checkPortListening(port)
         if (check.healthy) {
             return {
@@ -204,7 +211,12 @@ export async function waitForPort(
         }
 
         // Wait before next check
-        await new Promise((resolve) => setTimeout(resolve, checkIntervalMs))
+        // eslint-disable-next-line no-await-in-loop
+        await new Promise<void>((resolve): void => {
+            setTimeout((): void => {
+                resolve()
+            }, checkIntervalMs)
+        })
     }
 
     // Final check
@@ -224,13 +236,14 @@ export async function waitForPort(
  */
 export async function waitForHttpEndpoint(
     url: string,
-    maxWaitMs = 120000,
+    maxWaitMs = 120_000,
     checkIntervalMs = 3000,
-    timeoutMs = 10000,
+    timeoutMs = 10_000,
 ): Promise<HealthCheckResult> {
     const startTime = Date.now()
 
     while (Date.now() - startTime < maxWaitMs) {
+        // eslint-disable-next-line no-await-in-loop
         const check = await checkHttpEndpoint(url, timeoutMs)
         if (check.healthy) {
             return {
@@ -241,7 +254,12 @@ export async function waitForHttpEndpoint(
         }
 
         // Wait before next check
-        await new Promise((resolve) => setTimeout(resolve, checkIntervalMs))
+        // eslint-disable-next-line no-await-in-loop
+        await new Promise<void>((resolve): void => {
+            setTimeout((): void => {
+                resolve()
+            }, checkIntervalMs)
+        })
     }
 
     // Final check
@@ -264,11 +282,11 @@ export async function checkPRDeploymentHealth(
     deployment: PRDeployment,
     packagesToDeploy: string[],
 ): Promise<{
-    checks: Array<{name: string; result: HealthCheckResult}>
+    checks: {name: string; result: HealthCheckResult}[]
     healthy: boolean
     message: string
 }> {
-    const checks: Array<{name: string; result: HealthCheckResult}> = []
+    const checks: {name: string; result: HealthCheckResult}[] = []
     const baseDomain = 'garage44.org'
 
     // Port mapping for packages
@@ -286,6 +304,7 @@ export async function checkPRDeploymentHealth(
         const httpsUrl = `https://${subdomain}`
 
         // Check service status
+        // eslint-disable-next-line no-await-in-loop
         const serviceCheck = await checkServiceStatus(serviceName)
         checks.push({
             name: `Service: ${serviceName}`,
@@ -293,6 +312,7 @@ export async function checkPRDeploymentHealth(
         })
 
         // Check port
+        // eslint-disable-next-line no-await-in-loop
         const portCheck = await checkPortListening(port)
         checks.push({
             name: `Port: ${port} (${packageName})`,
@@ -300,21 +320,22 @@ export async function checkPRDeploymentHealth(
         })
 
         // Check HTTP endpoint
-        const httpCheck = await checkHttpEndpoint(httpsUrl, 10000)
+        // eslint-disable-next-line no-await-in-loop
+        const httpCheck = await checkHttpEndpoint(httpsUrl, 10_000)
         checks.push({
             name: `HTTP: ${httpsUrl}`,
             result: httpCheck,
         })
     }
 
-    const allHealthy = checks.every((check) => check.result.healthy)
-    const failedChecks = checks.filter((check) => !check.result.healthy)
+    const allHealthy = checks.every((check): boolean => check.result.healthy)
+    const failedChecks = checks.filter((check): boolean => !check.result.healthy)
 
     return {
         checks,
         healthy: allHealthy,
         message: allHealthy ?
             'All health checks passed' :
-            `${failedChecks.length} health check(s) failed: ${failedChecks.map((c) => c.name).join(', ')}`,
+            `${failedChecks.length} health check(s) failed: ${failedChecks.map((c): string => c.name).join(', ')}`,
     }
 }

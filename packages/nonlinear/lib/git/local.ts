@@ -46,32 +46,38 @@ export class LocalGitAdapter implements GitPlatform {
         _title: string,
         _description: string,
     ): Promise<string> {
-        // Local git doesn't support remote PR/MR creation
-        // Return a placeholder ID
+        /*
+         * Local git doesn't support remote PR/MR creation
+         * Return a placeholder ID
+         */
         logger.info('[LocalGit] Merge request creation not supported for local repositories')
         return 'local-' + Date.now()
     }
 
     async addComment(_repo: Repository, _mrId: string, comment: string): Promise<void> {
-        // Local git doesn't support comments
-        // Log the comment instead
+        /*
+         * Local git doesn't support comments
+         * Log the comment instead
+         */
         logger.info(`[LocalGit] Comment (not persisted): ${comment}`)
     }
 
     async getStatus(_repo: Repository, branch: string): Promise<MRStatus | null> {
-        // Local git doesn't have MR status
-        // Return a basic status indicating the branch exists
+        /*
+         * Local git doesn't have MR status
+         * Return a basic status indicating the branch exists
+         */
         const originalCwd = process.cwd()
         try {
             process.chdir(_repo.path)
             const branchCheck = await $`git branch --list ${branch}`.quiet()
             if (branchCheck.exitCode === 0 && branchCheck.stdout.toString().trim()) {
                 return {
+                    description: 'Local branch (no remote MR)',
                     id: `local-${branch}`,
                     state: 'open',
-                    url: '',
                     title: branch,
-                    description: 'Local branch (no remote MR)',
+                    url: '',
                 }
             }
             return null

@@ -1,5 +1,6 @@
-import {useEffect, useState, useMemo} from 'preact/hooks'
 import {$t} from '@garage44/common/app'
+import {useEffect, useState, useMemo} from 'preact/hooks'
+
 import {connection} from '@/models/sfu/sfu'
 
 interface ReportsProps {
@@ -109,54 +110,43 @@ export const Reports = ({description, onClick}: ReportsProps) => {
 
     return (
         <div class='c-stream-reports' onClick={onClick}>
-            {!hasAudioStats && !hasVideoStats &&
-                <div class='no-stats-available'>
-                    {$t('group.report.not_available')}
-                </div>}
+            {!hasAudioStats && !hasVideoStats && <div class='no-stats-available'>{$t('group.report.not_available')}</div>}
 
-            {hasVideoStats &&
+            {hasVideoStats && (
                 <div class='category'>
-                    <div class='title'>
-                        {$t('group.report.video')}
-                    </div>
-                    {Object.entries(description.settings.video).map(([statName, stat]) => <div class='stat' key={statName}>
-                            <div class='key'>
-                                {statName}
-                            </div>
-                            <div class='value'>
-                                {String(stat)}
-                            </div>
-                    </div>)}
-                </div>}
+                    <div class='title'>{$t('group.report.video')}</div>
+                    {Object.entries(description.settings.video).map(([statName, stat]) => (
+                        <div class='stat' key={statName}>
+                            <div class='key'>{statName}</div>
+                            <div class='value'>{String(stat)}</div>
+                        </div>
+                    ))}
+                </div>
+            )}
 
-            {hasAudioStats &&
+            {hasAudioStats && (
                 <div class='category'>
-                    <div class='title'>
-                        {$t('group.report.audio')}
-                    </div>
-                    {Object.entries(description.settings.audio).map(([statName, stat]) => <div class='stat' key={statName}>
-                            <div class='key'>
-                                {statName}
-                            </div>
-                            <div class='value'>
-                                {String(stat)}
-                            </div>
-                    </div>)}
-                </div>}
+                    <div class='title'>{$t('group.report.audio')}</div>
+                    {Object.entries(description.settings.audio).map(([statName, stat]) => (
+                        <div class='stat' key={statName}>
+                            <div class='key'>{statName}</div>
+                            <div class='value'>{String(stat)}</div>
+                        </div>
+                    ))}
+                </div>
+            )}
 
-            {Object.entries(stats).map(([categoryName, category]) => <div class='category' key={categoryName}>
-                    <div class='title'>
-                        {categoryName}
-                    </div>
-                    {Object.entries(category).map(([statName, stat]) => <div class='stat' key={statName}>
-                            <div class='key'>
-                                {statName}
-                            </div>
-                            <div class='value'>
-                                {String(stat)}
-                            </div>
-                    </div>)}
-            </div>)}
+            {Object.entries(stats).map(([categoryName, category]) => (
+                <div class='category' key={categoryName}>
+                    <div class='title'>{categoryName}</div>
+                    {Object.entries(category).map(([statName, stat]) => (
+                        <div class='stat' key={statName}>
+                            <div class='key'>{statName}</div>
+                            <div class='value'>{String(stat)}</div>
+                        </div>
+                    ))}
+                </div>
+            ))}
         </div>
     )
 }

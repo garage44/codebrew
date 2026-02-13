@@ -1,6 +1,5 @@
 import {z} from 'zod'
-import {IdSchema} from './common.ts'
-import {WorkspaceIdParamsSchema, WorkspaceIdPathSchema} from './common.ts'
+import {IdSchema, WorkspaceIdParamsSchema, WorkspaceIdPathSchema} from './common.ts'
 
 // Re-export for convenience
 export {WorkspaceIdParamsSchema, WorkspaceIdPathSchema} from './common.ts'

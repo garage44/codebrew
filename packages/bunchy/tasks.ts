@@ -1,12 +1,13 @@
 import {broadcast, settings} from './index.ts'
 import {Task} from './task.ts'
 import fs from 'fs-extra'
-import {Glob, $} from 'bun'
-import path from 'path'
+import {$, Glob} from 'bun'
+import path from 'node:path'
 import template from 'lodash.template'
 import {throttle} from '@garage44/common/lib/utils'
-import {watch} from 'fs'
+import {watch} from 'node:fs'
 import {bundle} from 'lightningcss'
+import type {MessageData} from '@garage44/common/lib/ws-server'
 
 const debounce = {options: {trailing: true}, wait: 1000}
 
@@ -22,10 +23,12 @@ function normalizeSourceMap(map: Uint8Array, sourceFileDir: string, publicDir: s
 
     // Normalize source paths to be relative to public directory
     if (sourceMapObj.sources) {
-        sourceMapObj.sources = sourceMapObj.sources.map((source: string) => {
-            // Source paths from Lightning CSS are relative to the input file or absolute without leading /
-            // Resolve them to absolute paths first, then make relative to public dir
-            let absolutePath: string
+        sourceMapObj.sources = sourceMapObj.sources.map((source: string): string => {
+            /*
+             * Source paths from Lightning CSS are relative to the input file or absolute without leading /
+             * Resolve them to absolute paths first, then make relative to public dir
+             */
+            let absolutePath = ''
             if (path.isAbsolute(source)) {
                 absolutePath = source
             } else if (source.startsWith('home/')) {
@@ -43,27 +46,27 @@ function normalizeSourceMap(map: Uint8Array, sourceFileDir: string, publicDir: s
 }
 
 const runner = {
-    assets: throttle(async() => {
+    assets: throttle(async(): Promise<void> => {
         const result = await tasks.assets.start()
         if (settings.reload_ignore.includes('/tasks/assets')) {
             return
         }
-        broadcast('/tasks/assets', result || {}, 'POST')
+        broadcast('/tasks/assets', (result || {}) as MessageData, 'POST')
     }, debounce.wait, debounce.options),
-    code_bunchy: throttle(async() => {
+    code_bunchy: throttle(async(): Promise<void> => {
         const result = await tasks.code_bunchy.start({minify: false, sourcemap: true})
         if (settings.reload_ignore.includes('/tasks/code_bunchy')) {
             return
         }
-        if (result) {
+        if (result && typeof result === 'object' && 'filename' in result && 'size' in result) {
             broadcast('/tasks/code_bunchy', {
-                filename: result.filename,
+                filename: (result as {filename: string; size: number}).filename,
                 publicPath: path.relative(settings.dir.workspace, settings.dir.public),
-                size: result.size,
+                size: (result as {filename: string; size: number}).size,
             }, 'POST')
         }
     }, debounce.wait, debounce.options),
-    hmr: throttle(async(filePath: string) => {
+    hmr: throttle(async(filePath: string): Promise<void> => {
         // Rebuild the frontend code
         await tasks.code_frontend.start({minify: false, sourcemap: true})
         if (settings.reload_ignore.includes('/tasks/hmr')) {
@@ -76,51 +79,55 @@ const runner = {
             timestamp: Date.now(),
         }, 'POST')
     }, debounce.wait, debounce.options),
-    html: throttle(async() => {
-        const {filename, size} = await tasks.html.start({minify: false})
+    html: throttle(async(): Promise<void> => {
+        const result = await tasks.html.start({minify: false})
         if (settings.reload_ignore.includes('/tasks/html')) {
             return
         }
-        broadcast('/tasks/html', {
-            filename,
-            publicPath: path.relative(settings.dir.workspace, settings.dir.public),
-            size,
-        }, 'POST')
+        if (result && typeof result === 'object' && 'filename' in result && 'size' in result) {
+            broadcast('/tasks/html', {
+                filename: (result as {filename: string; size: number}).filename,
+                publicPath: path.relative(settings.dir.workspace, settings.dir.public),
+                size: (result as {filename: string; size: number}).size,
+            }, 'POST')
+        }
     }, debounce.wait, debounce.options),
     styles: {
-        app: throttle(async() => {
+        app: throttle(async(): Promise<void> => {
             const [appResult, componentsResult] = await Promise.all([
                 tasks.stylesApp.start({minify: false, sourcemap: true}),
                 tasks.stylesComponents.start({minify: false, sourcemap: true}),
             ])
 
             // Broadcast both messages since both stylesheets were rebuilt
-            if (!settings.reload_ignore.includes('/tasks/styles/app')) {
+            if (!settings.reload_ignore.includes('/tasks/styles/app') && appResult && typeof appResult === 'object' && 'filename' in appResult && 'size' in appResult) {
                 broadcast('/tasks/styles/app', {
-                    filename: appResult.filename,
+                    filename: (appResult as {filename: string; size: number}).filename,
                     publicPath: path.relative(settings.dir.workspace, settings.dir.public),
-                    size: appResult.size,
+                    size: (appResult as {filename: string; size: number}).size,
                 }, 'POST')
             }
 
-            if (!settings.reload_ignore.includes('/tasks/styles/components')) {
+            if (!settings.reload_ignore.includes('/tasks/styles/components') && componentsResult && typeof componentsResult === 'object' && 'filename' in componentsResult && 'size' in componentsResult) {
                 broadcast('/tasks/styles/components', {
-                    filename: componentsResult.filename,
+                    filename: (componentsResult as {filename: string; size: number}).filename,
                     publicPath: path.relative(settings.dir.workspace, settings.dir.public),
-                    size: componentsResult.size,
+                    size: (componentsResult as {filename: string; size: number}).size,
                 }, 'POST')
             }
         }, debounce.wait, debounce.options),
-        components: throttle(async() => {
-            const {filename, size} = await tasks.stylesComponents.start({minify: false, sourcemap: true})
+        components: throttle(async(): Promise<void> => {
+            const result = await tasks.stylesComponents.start({minify: false, sourcemap: true})
             if (settings.reload_ignore.includes('/tasks/styles/components')) {
                 return
             }
-            broadcast('/tasks/styles/components', {
-                filename,
-                publicPath: path.relative(settings.dir.workspace, settings.dir.public),
-                size,
-            }, 'POST')
+            if (result && typeof result === 'object' && 'filename' in result && 'size' in result) {
+                broadcast('/tasks/styles/components', {
+                    filename: (result as {filename: string; size: number}).filename,
+                    publicPath: path.relative(settings.dir.workspace, settings.dir.public),
+                    size: (result as {filename: string; size: number}).size,
+                }, 'POST')
+            }
         }, debounce.wait, debounce.options),
     },
 }
@@ -144,7 +151,7 @@ interface Tasks {
 const tasks: Tasks = {} as Tasks
 
 
-tasks.assets = new Task('assets', async function taskAssets() {
+tasks.assets = new Task('assets', async function taskAssets(): Promise<void> {
     await fs.ensureDir(path.join(settings.dir.public, 'fonts'))
     await fs.ensureDir(path.join(settings.dir.public, 'img'))
 
@@ -177,23 +184,23 @@ tasks.assets = new Task('assets', async function taskAssets() {
     }
 
     // Execute copy operations, skipping if source doesn't exist
-    for (const operation of copyOperations) {
+    await Promise.all(copyOperations.map(async(operation): Promise<void> => {
         try {
             await fs.copy(operation.from, operation.to)
-        } catch (error) {
+        } catch(error) {
             // Skip if source directory doesn't exist
-            const errorCode = error.code
+            const errorCode = (error as {code?: string}).code
+            // eslint-disable-next-line no-console
             console.log('ERROR', error)
             if (errorCode !== 'ENOENT') {
                 throw error
             }
         }
-    }
+    }))
 })
 
 
-
-tasks.build = new Task('build', async function taskBuild({minify = false, sourcemap = false} = {}) {
+tasks.build = new Task('build', async function taskBuild({minify = false, sourcemap = false} = {}): Promise<void> {
     await tasks.clean.start()
     await Promise.all([
         tasks.assets.start(),
@@ -205,13 +212,13 @@ tasks.build = new Task('build', async function taskBuild({minify = false, source
 })
 
 
-tasks.clean = new Task('clean', async function taskClean() {
+tasks.clean = new Task('clean', async function taskClean(): Promise<void> {
     await fs.rm(settings.dir.public, {force: true, recursive: true})
     await fs.mkdirp(settings.dir.public)
 })
 
 
-tasks.code_frontend = new Task('code:frontend', async function taskCodeFrontend({minify = false, sourcemap = false} = {}) {
+tasks.code_frontend = new Task('code:frontend', async function taskCodeFrontend({minify = false, sourcemap = false} = {}): Promise<{filename: string; size: number} | undefined> {
     try {
         // Get git commit hash
         let commitHash = process.env.APP_COMMIT_HASH || ''
@@ -241,8 +248,8 @@ tasks.code_frontend = new Task('code:frontend', async function taskCodeFrontend(
 
         const result = await Bun.build({
             define: {
-                'process.env.APP_VERSION': `'${version}'`,
                 'process.env.APP_COMMIT_HASH': `'${commitHash}'`,
+                'process.env.APP_VERSION': `'${version}'`,
                 'process.env.NODE_ENV': `'${process.env.NODE_ENV}'`,
             },
             entrypoints: ['src/app.ts'],
@@ -272,13 +279,13 @@ tasks.code_frontend = new Task('code:frontend', async function taskCodeFrontend(
             }, 'POST')
             return
         }
-    } catch (error) {
-        // oxlint-disable-next-line no-console
+    } catch(error) {
+        // eslint-disable-next-line no-console
         console.error(error)
         // Broadcast error to client
         broadcast('/tasks/error', {
-            details: error.stack || error.toString(),
-            error: error.message || 'Unknown build error',
+            details: (error as Error).stack || String(error),
+            error: (error as Error).message || 'Unknown build error',
             task: 'code:frontend',
             timestamp: new Date().toISOString(),
         }, 'POST')
@@ -286,13 +293,14 @@ tasks.code_frontend = new Task('code:frontend', async function taskCodeFrontend(
     }
 
     const filename = `app.${settings.buildId}.js`
+    const fileContent = await fs.readFile(path.join(settings.dir.public, filename))
     return {
         filename,
-        size: (await fs.readFile(path.join(settings.dir.public, filename))).length,
+        size: fileContent.length,
     }
 })
 
-tasks.code_bunchy = new Task('code:bunchy', async function taskCodeBunchy({minify = false, sourcemap = false} = {}) {
+tasks.code_bunchy = new Task('code:bunchy', async function taskCodeBunchy({minify = false, sourcemap = false} = {}): Promise<{filename: string; size: number} | undefined> {
     try {
         const nodeEnv = process.env.NODE_ENV || 'development'
         const result = await Bun.build({
@@ -355,8 +363,8 @@ tasks.code_bunchy = new Task('code:bunchy', async function taskCodeBunchy({minif
             filename: expectedFilename,
             size: output.size,
         }
-    } catch (error) {
-        // oxlint-disable-next-line no-console
+    } catch(error) {
+        // eslint-disable-next-line no-console
         console.error(error)
         broadcast('/tasks/error', {
             details: String(error),
@@ -368,7 +376,7 @@ tasks.code_bunchy = new Task('code:bunchy', async function taskCodeBunchy({minif
     }
 })
 
-tasks.dev = new Task('dev', async function taskDev({minify = false, sourcemap = true} = {}) {
+tasks.dev = new Task('dev', async function taskDev({minify = false, sourcemap = true} = {}): Promise<void> {
     await tasks.clean.start()
     await Promise.all([
         tasks.assets.start(),
@@ -378,19 +386,21 @@ tasks.dev = new Task('dev', async function taskDev({minify = false, sourcemap = 
         tasks.styles.start({minify, sourcemap}),
     ])
 
-    watch(settings.dir.common, {recursive: true}, (event, filename) => {
+    watch(settings.dir.common, {recursive: true}, (_event: string, filename: string): void => {
         const extension = path.extname(filename)
         if (extension === '.ts' || extension === '.tsx') {
-            // Use HMR for common package TypeScript/TSX files
-            // Note: filename is relative to common dir, but HMR expects src/ prefix
-            // We'll need to adjust the path or use a different approach
+            /*
+             * Use HMR for common package TypeScript/TSX files
+             * Note: filename is relative to common dir, but HMR expects src/ prefix
+             * We'll need to adjust the path or use a different approach
+             */
             runner.hmr(filename)
         } else if (extension === '.css') {
             runner.styles.components()
         }
     })
 
-    watch(settings.dir.src, {recursive: true}, (event, filename) => {
+    watch(settings.dir.src, {recursive: true}, (_event: string, filename: string): void => {
         const extension = path.extname(filename)
 
         if (filename.startsWith('assets/')) {
@@ -421,7 +431,7 @@ tasks.dev = new Task('dev', async function taskDev({minify = false, sourcemap = 
 })
 
 
-tasks.html = new Task('html', async function taskHtml() {
+tasks.html = new Task('html', async function taskHtml(): Promise<{filename: string; size: number}> {
     const indexFile = await fs.readFile(path.join(settings.dir.src, 'index.html'))
     const html = template(indexFile)({
         settings: {
@@ -435,18 +445,25 @@ tasks.html = new Task('html', async function taskHtml() {
 })
 
 
-tasks.styles = new Task('styles', async function taskStyles({minify = false, sourcemap = false} = {}) {
+tasks.styles = new Task('styles', async function taskStyles({minify = false, sourcemap = false} = {}): Promise<{size: number}> {
     const actions = [
-        tasks.stylesApp.start({minify, sourcemap}),
-        tasks.stylesComponents.start({minify, sourcemap}),
+        tasks.stylesApp.start({minify, sourcemap}) as Promise<{filename: string; size: number} | undefined>,
+        tasks.stylesComponents.start({minify, sourcemap}) as Promise<{filename: string; size: number} | undefined>,
     ]
 
     const res = await Promise.all(actions)
-    return {size: res.reduce((total, result) => total + result.size, 0)}
+    let totalSize = 0
+    for (const result of res) {
+        const resultSize = result?.size
+        if (typeof resultSize === 'number') {
+            totalSize += resultSize
+        }
+    }
+    return {size: totalSize}
 })
 
 
-tasks.stylesApp = new Task('styles:app', async function taskStylesApp({minify, sourcemap}) {
+tasks.stylesApp = new Task('styles:app', async function taskStylesApp({minify, sourcemap}: {minify: boolean; sourcemap: boolean}): Promise<{filename: string; size: number} | undefined> {
     const filename = `app.${settings.buildId}.css`
     const appCssPath = path.join(settings.dir.src, 'css', 'app.css')
 
@@ -471,13 +488,13 @@ tasks.stylesApp = new Task('styles:app', async function taskStylesApp({minify, s
         }
 
         return {filename, size: finalCSS.length}
-
-    } catch (error) {
+    } catch(error) {
+        // eslint-disable-next-line no-console
         console.error(error)
         // Broadcast error to client
         broadcast('/tasks/error', {
-            details: error.stack || error.toString(),
-            error: error.message || 'CSS build failed',
+            details: (error as Error).stack || String(error),
+            error: (error as Error).message || 'CSS build failed',
             task: 'styles:app',
             timestamp: new Date().toISOString(),
         }, 'POST')
@@ -486,21 +503,21 @@ tasks.stylesApp = new Task('styles:app', async function taskStylesApp({minify, s
 })
 
 
-tasks.stylesComponents = new Task('styles:components', async function taskStylesComponents({minify, sourcemap}) {
-    // Create a temporary components entry file that imports all component CSS files
-    // Bun's Glob handles multiple patterns by creating separate instances
+tasks.stylesComponents = new Task('styles:components', async function taskStylesComponents({minify, sourcemap}: {minify: boolean; sourcemap: boolean}): Promise<{filename: string; size: number} | undefined> {
+    /*
+     * Create a temporary components entry file that imports all component CSS files
+     * Bun's Glob handles multiple patterns by creating separate instances
+     */
     const glob1 = new Glob('**/*.css')
     const glob2 = new Glob('**/*.css')
 
-    const imports1 = Array.from(glob1.scanSync(settings.dir.common)).map((f) => path.join(settings.dir.common, f))
-    const imports2 = Array.from(glob2.scanSync(settings.dir.components)).map((f) => path.join(settings.dir.components, f))
+    const imports1 = [...glob1.scanSync(settings.dir.common)].map((f: string): string => path.join(settings.dir.common, f))
+    const imports2 = [...glob2.scanSync(settings.dir.components)].map((f: string): string => path.join(settings.dir.components, f))
 
     const allImports = [...imports1, ...imports2]
 
     // Create the components entry file content using absolute paths
-    const componentImports = allImports.map((importFile) => {
-        return `@import "${importFile}";`
-    })
+    const componentImports = allImports.map((importFile: string): string => `@import "${importFile}";`)
 
     const entryContent = componentImports.join('\n')
     const entryFile = path.join(settings.dir.src, 'components.css')
@@ -542,13 +559,13 @@ tasks.stylesComponents = new Task('styles:components', async function taskStyles
             filename,
             size: finalCSS.length,
         }
-
-    } catch (error) {
+    } catch(error) {
+        // eslint-disable-next-line no-console
         console.error(error)
         // Broadcast error to client
         broadcast('/tasks/error', {
-            details: error.stack || error.toString(),
-            error: error.message || 'Component CSS build failed',
+            details: (error as Error).stack || String(error),
+            error: (error as Error).message || 'Component CSS build failed',
             task: 'styles:components',
             timestamp: new Date().toISOString(),
         }, 'POST')

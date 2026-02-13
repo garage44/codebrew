@@ -1,6 +1,7 @@
-import {enola} from '../service.ts'
-import {keyMod} from '@garage44/common/lib/utils.ts'
 import {pathRef} from '@garage44/common/lib/paths.ts'
+import {keyMod} from '@garage44/common/lib/utils.ts'
+
+import {enola} from '../service.ts'
 
 /**
  * Synchronizes translations for a specific language.

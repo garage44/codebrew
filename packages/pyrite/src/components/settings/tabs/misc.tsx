@@ -1,8 +1,9 @@
-import {AvatarUpload, FieldSelect, ThemeToggle} from '@garage44/common/components'
-import {useEffect} from 'preact/hooks'
-import {$s} from '@/app'
 import {$t, store} from '@garage44/common/app'
 import {logger} from '@garage44/common/app'
+import {AvatarUpload, FieldSelect, ThemeToggle} from '@garage44/common/components'
+import {useEffect} from 'preact/hooks'
+
+import {$s} from '@/app'
 
 export default function TabMisc() {
     const languages = [
@@ -19,7 +20,7 @@ export default function TabMisc() {
         logger.info(`setting theme color to ${themeColor} for theme ${currentTheme}`)
         const metaTheme = document.querySelector('meta[name="theme-color"]')
         if (metaTheme) {
-            (metaTheme as HTMLMetaElement).content = themeColor
+            ;(metaTheme as HTMLMetaElement).content = themeColor
         }
     }, [])
 

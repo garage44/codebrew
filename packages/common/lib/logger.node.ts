@@ -34,7 +34,7 @@ export class Logger {
 
     private fileStream?: NodeJS.WritableStream
 
-    constructor({file, level = 'info' }: {file?: string; level?: LogLevel} = {}) {
+    constructor({file, level = 'info'}: {file?: string; level?: LogLevel} = {}) {
         this.level = level
         if (file) {
             const fs = require('fs')

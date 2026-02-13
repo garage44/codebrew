@@ -1,10 +1,11 @@
-import {useEffect, useState, useMemo} from 'preact/hooks'
-import {Button, FieldSlider, Icon} from '@garage44/common/components'
-import {unreadMessages} from '@/models/chat'
-import {$s} from '@/app'
 import {$t, logger, store} from '@garage44/common/app'
-import * as sfu from '@/models/sfu/sfu'
+import {Button, FieldSlider, Icon} from '@garage44/common/components'
+import {useEffect, useState, useMemo} from 'preact/hooks'
+
+import {$s} from '@/app'
+import {unreadMessages} from '@/models/chat'
 import * as media from '@/models/media'
+import * as sfu from '@/models/sfu/sfu'
 
 export const GroupControls = () => {
     const [volume, setVolume] = useState({locked: null, value: 100})
@@ -12,11 +13,10 @@ export const GroupControls = () => {
     const fileMediaAccept = useMemo(() => {
         if ($s.env.isFirefox) {
             return '.mp4'
-        } else {
-            // Chromium supports at least these 3 formats:
-            return '.mp4,.mkv,.webm'
         }
-    }, [$s.env.isFirefox])
+        // Chromium supports at least these 3 formats:
+        return '.mp4,.mkv,.webm'
+    }, [])
 
     const filePlayTooltip = useMemo(() => {
         if ($s.files.playing.length) {
@@ -29,28 +29,49 @@ export const GroupControls = () => {
             formats.push('.mp4', 'webm', 'mkv')
         }
         return $t('file.stream', {formats: formats.join(',')})
-    }, [$s.files.playing.length, $s.env.isFirefox])
+    }, [])
 
-    const unreadCount = useMemo(() => unreadMessages(), [$s.chat.channels])
+    const unreadCount = useMemo(() => unreadMessages(), [])
 
-    const toggleCam = () => {
+    const toggleCam = (event?: MouseEvent) => {
+        console.log('[GroupControls] toggleCam CLICKED', event)
+        logger.info('[GroupControls] ===== VIDEO BUTTON CLICKED =====')
+
         const newState = !$s.devices.cam.enabled
         $s.devices.cam.enabled = newState
-        logger.debug(`[GroupControls] toggleCam: ${newState ? 'enabling' : 'disabling'} camera`)
-        logger.debug(`[GroupControls] cam.enabled=${newState}, mic.enabled=${$s.devices.mic.enabled}`)
+        logger.info(`[GroupControls] toggleCam: ${newState ? 'enabling' : 'disabling'} camera`)
+        logger.info(`[GroupControls] cam.enabled=${newState}, mic.enabled=${$s.devices.mic.enabled}, mediaReady=${$s.mediaReady}`)
+
+        // Sync channel state if channel is connected
+        const currentChannelSlug = $s.chat.activeChannelSlug
+        logger.info(`[GroupControls] currentChannelSlug=${currentChannelSlug}, connected=${$s.sfu.channel.connected}`)
+
+        if (currentChannelSlug && $s.sfu.channels[currentChannelSlug]) {
+            $s.sfu.channels[currentChannelSlug].video = newState
+        }
 
         if (!newState) {
             // Camera disabled - remove existing camera stream
-            logger.debug('[GroupControls] removing camera stream')
+            logger.info('[GroupControls] removing camera stream')
             sfu.delUpMediaKind('camera')
         } else {
             // Camera enabled - get new media
-            logger.debug('[GroupControls] requesting camera media')
-            media.getUserMedia($s.devices)
+            logger.info('[GroupControls] requesting camera media - calling getUserMedia')
+            console.log('[GroupControls] About to call getUserMedia with devices:', $s.devices)
+            media
+                .getUserMedia($s.devices)
+                .then(() => {
+                    logger.info('[GroupControls] camera media obtained successfully')
+                    console.log('[GroupControls] getUserMedia SUCCESS')
+                })
+                .catch((error) => {
+                    logger.error(`[GroupControls] failed to get camera media: ${error}`)
+                    console.error('[GroupControls] getUserMedia ERROR:', error)
+                })
         }
     }
 
-    const toggleChat = async() => {
+    const toggleChat = async () => {
         /*
          * Don't do a collapse animation while emoji is active; this is
          * too heavy due to the 1800+ items grid layout.
@@ -100,7 +121,7 @@ export const GroupControls = () => {
         }
     }
 
-    const toggleScreenshare = async() => {
+    const toggleScreenshare = async () => {
         if ($s.upMedia.screenshare.length) {
             logger.debug('turn screenshare stream off')
             sfu.delUpMedia(media.screenStream)
@@ -116,7 +137,7 @@ export const GroupControls = () => {
         if (sfu.connection) {
             sfu.connection.userAction('setdata', sfu.connection.id, {mic: $s.devices.mic.enabled})
         }
-    }, [$s.devices.mic.enabled])
+    }, [])
 
     /*
      * Note: Removed automatic getUserMedia call on permissions.present
@@ -146,7 +167,7 @@ export const GroupControls = () => {
                 variant='toggle'
             />
 
-            {$s.permissions.present &&
+            {$s.permissions.present && (
                 <>
                     <Button
                         active={$s.devices.mic.enabled ? $s.devices.mic.enabled : null}
@@ -158,9 +179,12 @@ export const GroupControls = () => {
 
                     <Button
                         active={$s.devices.cam.enabled}
-                        disabled={!$s.mediaReady}
                         icon='Webcam'
-                        onClick={toggleCam}
+                        onClick={(event) => {
+                            console.log('[GroupControls] Button onClick wrapper called', event)
+                            console.log('[GroupControls] toggleCam function:', toggleCam)
+                            toggleCam(event)
+                        }}
                         tip={$s.devices.cam.enabled ? $t('group.action.cam_off') : $t('group.action.cam_on')}
                         variant='toggle'
                     />
@@ -169,9 +193,9 @@ export const GroupControls = () => {
                         active={!!$s.upMedia.screenshare.length}
                         icon='ScreenShare'
                         onClick={toggleScreenshare}
-                        tip={$s.upMedia.screenshare.length ?
-                                $t('group.action.screenshare_off') :
-                                $t('group.action.screenshare_on')}
+                        tip={
+                            $s.upMedia.screenshare.length ? $t('group.action.screenshare_off') : $t('group.action.screenshare_on')
+                        }
                         variant='toggle'
                     />
 
@@ -192,22 +216,20 @@ export const GroupControls = () => {
                     >
                         <Icon name='upload' />
                     </Button>
-                </>}
+                </>
+            )}
 
-            {$s.sfu.channel.connected &&
+            {$s.sfu.channel.connected && (
                 <Button
                     active={$s.sfu.profile.raisehand}
                     icon='Hand'
                     onClick={toggleRaiseHand}
                     tip={$s.sfu.profile.raisehand ? $t('group.action.raisehand_active') : $t('group.action.raisehand')}
                     variant='toggle'
-                />}
+                />
+            )}
 
-            <Button
-                class='no-feedback'
-                tip={`${volume.value}% ${$t('group.audio_volume')}`}
-                variant='unset'
-            >
+            <Button class='no-feedback' tip={`${volume.value}% ${$t('group.audio_volume')}`} variant='unset'>
                 <FieldSlider
                     IconComponent={Icon}
                     onChange={(v) => setVolume({locked: v.locked ?? null, value: v.value})}

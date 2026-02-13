@@ -1,11 +1,12 @@
-import classnames from 'classnames'
-
 import {Icon} from '@garage44/common/components'
-import TabMisc from './tab-misc'
-import TabPermissions from './tab-permissions'
+import classnames from 'classnames'
 import {Link} from 'preact-router'
+
 import {$s} from '@/app'
 import {saveUser} from '@/models/user'
+
+import TabMisc from './tab-misc'
+import TabPermissions from './tab-permissions'
 
 interface SettingsProps {
     tabId?: string
@@ -13,27 +14,27 @@ interface SettingsProps {
 }
 
 export default function Settings({tabId = 'misc', userId}: SettingsProps) {
-    const routeSettings = (tab: string) => {
-        return `/settings/users/${$s.admin.user.id}?tab=${tab}`
-    }
+    const routeSettings = (tab: string) => `/settings/users/${$s.admin.user.id}?tab=${tab}`
 
-    const saveUserAction = async() => {
+    const saveUserAction = async (): Promise<void> => {
         if (userId) {
-            await saveUser(parseInt(userId), $s.admin.user)
+            await saveUser(String(userId), $s.admin.user)
         }
     }
 
-    if (!$s.admin.user) return null
+    if (!$s.admin.user) {
+        return null
+    }
 
     return (
         <div class='c-admin-user content'>
             <header>
                 <div class='notice' />
                 <div class='title'>
-                    <span>{typeof $s.admin.user === 'object' && $s.admin.user !== null &&
-                        'name' in $s.admin.user ?
-                            String($s.admin.user.name) :
-                        ''}
+                    <span>
+                        {typeof $s.admin.user === 'object' && $s.admin.user !== null && 'name' in $s.admin.user
+                            ? String($s.admin.user.name)
+                            : ''}
                     </span>
                     <Icon className='icon icon-regular' name='user' />
                 </div>

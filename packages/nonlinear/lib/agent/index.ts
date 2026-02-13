@@ -39,29 +39,33 @@ export function getAgentById(agentId: string): BaseAgent | null {
     }
 
     // Parse agent config
-    let agentConfig: {skills?: string[]; tools?: string[]} | undefined
+    let agentConfig = null as {skills?: string[]; tools?: string[]} | undefined
     try {
         if (agentRecord.config) {
             agentConfig = JSON.parse(agentRecord.config)
         }
     } catch {
-        // Invalid JSON, use undefined
+        // Invalid JSON, use null
     }
 
     // Create agent instance based on type
-    let agent: BaseAgent
+    let agent: BaseAgent = null as unknown as BaseAgent
     switch (agentRecord.type) {
-        case 'planner':
+        case 'planner': {
             agent = new PlannerAgent(agentConfig)
             break
-        case 'developer':
+        }
+        case 'developer': {
             agent = new DeveloperAgent(agentConfig)
             break
-        case 'reviewer':
+        }
+        case 'reviewer': {
             agent = new ReviewerAgent(agentConfig)
             break
-        default:
+        }
+        default: {
             return null
+        }
     }
 
     // Cache instance

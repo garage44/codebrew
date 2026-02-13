@@ -11,15 +11,17 @@ import {updateUsageFromHeaders} from '../agent/token-usage.ts'
 import {$} from 'bun'
 
 export interface CIRunResult {
-    success: boolean
-    output: string
-    fixesApplied: Array<{command: string; output: string}>
     error?: string
+    fixesApplied: {command: string; output: string}[]
+    output: string
+    success: boolean
 }
 
 export class CIRunner {
     private apiKey: string
+
     private maxAttempts: number
+
     private timeout: number
 
     constructor() {
@@ -30,7 +32,8 @@ export class CIRunner {
 
         this.apiKey = apiKey
         this.maxAttempts = config.ci.maxFixAttempts || 3
-        this.timeout = config.ci.timeout || 600000 // 10 minutes
+        // 10 minutes
+        this.timeout = config.ci.timeout || 600_000
     }
 
     /**
@@ -49,7 +52,7 @@ export class CIRunner {
         logger.info(`[CI] Starting CI run ${runId} for ticket ${ticketId}`)
 
         const originalCwd = process.cwd()
-        const fixesApplied: Array<{command: string; output: string}> = []
+        const fixesApplied: {command: string; output: string}[] = []
 
         try {
             process.chdir(repoPath)
@@ -58,38 +61,42 @@ export class CIRunner {
             let lastError: string | null = null
 
             while (attempt < this.maxAttempts) {
-                attempt++
+                attempt += 1
 
                 // Run tests
                 logger.info(`[CI] Running tests (attempt ${attempt}/${this.maxAttempts})`)
+                // eslint-disable-next-line no-await-in-loop
                 const testResult = await $`bun test`.quiet().nothrow()
 
                 if (testResult.exitCode === 0) {
                     // Tests passed, run linting
                     logger.info('[CI] Tests passed, running linting')
+                    // eslint-disable-next-line no-await-in-loop
                     const lintResult = await $`bun run lint:ts`.quiet().nothrow()
 
                     if (lintResult.exitCode === 0) {
                         // Everything passed
-                        const output = `Tests: PASSED\nLinting: PASSED`
+                        const output = 'Tests: PASSED\nLinting: PASSED'
                         this.completeRun(runId, 'success', output, fixesApplied)
                         return {
-                            success: true,
-                            output,
                             fixesApplied,
+                            output,
+                            success: true,
                         }
-                    } else {
-                        // Linting failed
-                        const lintError = lintResult.stderr?.toString() || lintResult.stdout?.toString() || 'Unknown linting error'
-                        lastError = `Linting failed: ${lintError}`
+                    }
+                    // Linting failed
+                    const lintError = lintResult.stderr?.toString() || lintResult.stdout?.toString() || 'Unknown linting error'
+                    lastError = `Linting failed: ${lintError}`
 
-                        if (attempt < this.maxAttempts) {
-                            logger.info('[CI] Linting failed, attempting auto-fix')
-                            const fixResult = await this.attemptFix('linting', lintError, repoPath)
-                            if (fixResult) {
-                                fixesApplied.push(fixResult)
-                                continue // Retry after fix
-                            }
+                    if (attempt < this.maxAttempts) {
+                        logger.info('[CI] Linting failed, attempting auto-fix')
+                        // eslint-disable-next-line no-await-in-loop
+                        const fixResult = await this.attemptFix('linting', lintError, repoPath)
+                        if (fixResult) {
+                            fixesApplied.push(fixResult)
+                            // Retry after fix - continue is necessary here for retry logic
+                            // eslint-disable-next-line no-continue
+                            continue
                         }
                     }
                 } else {
@@ -99,10 +106,13 @@ export class CIRunner {
 
                     if (attempt < this.maxAttempts) {
                         logger.info('[CI] Tests failed, attempting auto-fix')
+                        // eslint-disable-next-line no-await-in-loop
                         const fixResult = await this.attemptFix('tests', testError, repoPath)
                         if (fixResult) {
                             fixesApplied.push(fixResult)
-                            continue // Retry after fix
+                            // Retry after fix - continue is necessary here for retry logic
+                            // eslint-disable-next-line no-continue
+                            continue
                         }
                     }
                 }
@@ -112,20 +122,20 @@ export class CIRunner {
             const output = `Failed after ${this.maxAttempts} attempts\n\nLast error:\n${lastError}`
             this.completeRun(runId, 'failed', output, fixesApplied)
             return {
-                success: false,
-                output,
-                fixesApplied,
                 error: lastError || 'Unknown error',
+                fixesApplied,
+                output,
+                success: false,
             }
-        } catch (error) {
+        } catch(error: unknown) {
             const errorMsg = error instanceof Error ? error.message : String(error)
             logger.error(`[CI] Error during CI run: ${errorMsg}`)
             this.completeRun(runId, 'failed', `Error: ${errorMsg}`, fixesApplied)
             return {
-                success: false,
-                output: `Error: ${errorMsg}`,
-                fixesApplied,
                 error: errorMsg,
+                fixesApplied,
+                output: `Error: ${errorMsg}`,
+                success: false,
             }
         } finally {
             process.chdir(originalCwd)
@@ -163,27 +173,27 @@ Generate a command to fix this issue.`
 
             // Use raw fetch to access rate limit headers
             const response = await fetch('https://api.anthropic.com/v1/messages', {
-                method: 'POST',
+                body: JSON.stringify({
+                    max_tokens: 1024,
+                    messages: [
+                        {
+                            content: userMessage,
+                            role: 'user',
+                        },
+                    ],
+                    model: config.anthropic.model || 'claude-3-5-sonnet-20241022',
+                    system: systemPrompt,
+                }),
                 headers: {
                     'anthropic-version': '2023-06-01',
                     'content-type': 'application/json',
                     'x-api-key': this.apiKey,
                 },
-                body: JSON.stringify({
-                    model: config.anthropic.model || 'claude-3-5-sonnet-20241022',
-                    max_tokens: 1024,
-                    system: systemPrompt,
-                    messages: [
-                        {
-                            role: 'user',
-                            content: userMessage,
-                        },
-                    ],
-                }),
+                method: 'POST',
             })
 
             if (!response.ok) {
-                const error = await response.json().catch(() => ({error: {message: 'Unknown error'}}))
+                const error = await response.json().catch((): {error: {message: string}} => ({error: {message: 'Unknown error'}}))
                 throw new Error(error.error?.message || `API error: ${response.status}`)
             }
 
@@ -201,8 +211,8 @@ Generate a command to fix this issue.`
             logger.debug(`  All headers: ${JSON.stringify(Object.fromEntries(response.headers.entries()))}`)
 
             if (limitHeader && remainingHeader) {
-                const limit = parseInt(limitHeader, 10)
-                const remaining = parseInt(remainingHeader, 10)
+                const limit = Number.parseInt(limitHeader, 10)
+                const remaining = Number.parseInt(remainingHeader, 10)
                 const used = limit - remaining
 
                 logger.info(`[CI Runner] Token Usage: ${used}/${limit} (${remaining} remaining)`)
@@ -210,7 +220,7 @@ Generate a command to fix this issue.`
                 updateUsageFromHeaders({
                     limit,
                     remaining,
-                    reset: resetHeader || undefined,
+                    reset: resetHeader || null,
                 })
             } else {
                 logger.warn('[CI Runner] Rate limit headers not found in response')
@@ -222,7 +232,7 @@ Generate a command to fix this issue.`
             }
 
             // Parse response
-            let fixPlan: {command: string; explanation: string}
+            let fixPlan: {command: string; explanation: string} = {command: '', explanation: ''}
             try {
                 const jsonMatch = content.text.match(/```json\n([\s\S]*?)\n```/) || content.text.match(/```\n([\s\S]*?)\n```/)
                 const jsonStr = jsonMatch ? jsonMatch[1] : content.text
@@ -235,7 +245,8 @@ Generate a command to fix this issue.`
                         explanation: 'Auto-fix linting errors',
                     }
                 } else {
-                    return null // Can't auto-fix test failures easily
+                    // Can't auto-fix test failures easily
+                    return null
                 }
             }
 
@@ -251,11 +262,10 @@ Generate a command to fix this issue.`
                     command: fixPlan.command,
                     output: fixOutput,
                 }
-            } else {
-                logger.warn(`[CI] Fix command failed: ${fixOutput}`)
-                return null
             }
-        } catch (error) {
+            logger.warn(`[CI] Fix command failed: ${fixOutput}`)
+            return null
+        } catch(error: unknown) {
             logger.error(`[CI] Error attempting fix: ${error}`)
             return null
         }
@@ -265,7 +275,7 @@ Generate a command to fix this issue.`
         runId: string,
         status: 'success' | 'failed' | 'fixed',
         output: string,
-        fixesApplied: Array<{command: string; output: string}>,
+        fixesApplied: {command: string; output: string}[],
     ): void {
         db.prepare(`
             UPDATE ci_runs

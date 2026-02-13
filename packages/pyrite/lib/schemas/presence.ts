@@ -1,5 +1,9 @@
 import {z} from 'zod'
-import {GroupIdParamsSchema, UserIdSchema} from './common.ts'
+
+import {
+    GroupIdParamsSchema,
+    UserIdSchema,
+} from './common.ts'
 
 /**
  * Presence schemas for user presence and group state

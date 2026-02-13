@@ -121,7 +121,83 @@ This starts:
 - SFU proxy (/sfu)
 - Static file serving
 
-Open browser to: `http://localhost:3030`
+Open browser to: `http://localhost:3030` (or `https://192.168.1.204:3030` if HTTPS is enabled)
+
+#### HTTPS Development Setup
+
+For development with HTTPS (required for WebRTC features like camera/microphone access from network devices):
+
+1. **Install mkcert** (one-time setup):
+   ```bash
+   # macOS
+   brew install mkcert
+   
+   # Arch Linux
+   sudo pacman -S mkcert
+   
+   # Ubuntu/Debian
+   sudo apt install mkcert
+   
+   # Other platforms: See https://github.com/FiloSottile/mkcert#installation
+   ```
+
+2. **Generate development certificates**:
+   ```bash
+   cd packages/pyrite
+   ./scripts/generate-dev-cert.sh
+   ```
+   
+   This will:
+   - Install a local CA (requires sudo)
+   - Generate certificates for `192.168.1.204` and `localhost`
+   - Save certificates to `certs/` directory
+
+3. **Run development server**:
+   ```bash
+   bun run dev
+   ```
+   
+   The dev script automatically detects certificates and uses HTTPS if they exist.
+
+4. **Access the application**:
+   - Local: `https://localhost` (port 443)
+   - Network: `https://192.168.1.204` (port 443)
+
+**Note:** Port 443 requires root privileges. The dev script will automatically use `sudo` if needed.
+
+**Note:** The certificate generation script creates certificates valid for `192.168.1.204` and `localhost`. If your IP address changes, regenerate the certificates by running the script again.
+
+**Certificate Trust Issues:**
+If your browser shows "Not secure" after generating certificates:
+1. Restart your browser completely (close all windows and reopen)
+2. The `mkcert -install` command should have installed the local CA, but browsers may need a restart to recognize it
+3. If still not trusted, manually verify the CA is installed:
+   - Check: `mkcert -CAROOT` to see where the CA is stored
+   - Verify the CA certificate exists in that directory
+
+**WebSocket Connection Failures with HTTPS:**
+If WebSocket connections fail when using HTTPS (`wss://`):
+1. **Certificate Trust**: WebSocket connections require a trusted certificate. Ensure the certificate is trusted (see above)
+2. **Browser Restart**: After installing the mkcert CA, completely restart your browser
+3. **Check Console**: Look for specific WebSocket errors in the browser console
+4. **Verify Connection**: The WebSocket URL should be `wss://192.168.1.204/sfu` (no port for default HTTPS)
+5. **Test HTTP First**: Try accessing via HTTP (`http://192.168.1.204:3030`) to verify WebSocket works, then switch to HTTPS
+6. **SFU Proxy Issues**: If the SFU connection fails specifically:
+   - Check server logs for `[SFU Proxy]` messages - they will show the upstream connection status
+   - Verify Galène is running and accessible: `curl http://localhost:8443/stats.json`
+   - Ensure `sfu.url` in `~/.pyriterc` is correct (default: `http://localhost:8443`)
+   - The proxy connects to Galène using the configured URL - if Pyrite uses HTTPS but Galène uses HTTP, this should still work
+   - If errors persist, check if Bun's server-side WebSocket client has issues connecting to Galène
+
+**Manual TLS configuration:**
+If you need to specify certificates manually:
+```bash
+# Port 443 (requires sudo)
+sudo bun service.ts start -h 0.0.0.0 -p 443 --cert certs/192.168.1.204+3.pem --key certs/192.168.1.204+3-key.pem
+
+# Or use a non-privileged port (e.g., 8443)
+bun service.ts start -h 0.0.0.0 -p 8443 --cert certs/192.168.1.204+3.pem --key certs/192.168.1.204+3-key.pem
+```
 
 ### Production Build
 
@@ -188,9 +264,10 @@ NODE_ENV=production bun service.ts start
 - Configure `sfu.path` for group/recording data
 
 **WebRTC Requirements**
-- HTTPS required in production
+- HTTPS required in production (and recommended for development when accessing from network devices)
 - Camera/microphone permissions needed
 - Modern browser (2023+)
+- For local network access, use HTTPS with locally-trusted certificates (see HTTPS Development Setup above)
 
 ### Configuration Requirements
 

@@ -1,7 +1,10 @@
 pre-commit:
   commands:
     lint-staged:
-      run: bunx lint-staged
+      run: ./scripts/lint-staged.sh
+      env:
+        NO_COLOR: 1
+        CI: true
 
 commit-msg:
   commands:

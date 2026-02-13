@@ -1,9 +1,11 @@
+import {logger} from '@garage44/common/app'
 import {useEffect} from 'preact/hooks'
+
 import {$s} from '@/app'
-import ChannelChat from '../chat/channel-chat'
 import {selectChannel, loadChannelHistory} from '@/models/chat'
 import {connect as connectSFU} from '@/models/sfu/sfu'
-import {logger} from '@garage44/common/app'
+
+import ChannelChat from '../chat/channel-chat'
 
 interface ChannelProps {
     channelSlug: string
@@ -27,25 +29,29 @@ export const Channel = ({channelSlug}: ChannelProps) => {
         loadChannelHistory(channelSlug)
 
         /*
-         * Connect to SFU for video conferencing if not already connected
+         * Connect to SFU for video conferencing
          * Channel slug directly matches Galene group name (1:1 mapping)
-         * Wait for credentials to be available before connecting
+         * Original: only connect when !connected
+         * Channel switch: when connected to different channel, connect() closes old and creates new
          */
-        if (!$s.sfu.channel.connected && channelSlug) {
+        const shouldConnect = channelSlug && (!$s.sfu.channel.connected || $s.sfu.channel.name !== channelSlug)
+
+        if (shouldConnect) {
+            if ($s.sfu.channel.connected && $s.sfu.channel.name !== channelSlug) {
+                logger.info(`[Channel] Switching from group ${$s.sfu.channel.name} to channel ${channelSlug}`)
+            }
             logger.info(`[Channel] Preparing to connect to SFU for channel: ${channelSlug}`)
             logger.info(
                 `[Channel] Credentials check: username=${$s.profile.username ? '***' : '(empty)'}, ` +
-                `password=${$s.profile.password ? '***' : '(empty)'}`,
+                    `password=${$s.profile.password ? '***' : '(empty)'}`,
             )
-
-            /*
-             * connectSFU will read credentials from $s.profile
-             * It will use empty strings if not available, which may cause authentication to fail
-             * but that's expected if user hasn't logged in properly
-             */
-            connectSFU().catch((error) => {
-                logger.error(`[Channel] Failed to connect to SFU for channel ${channelSlug}:`, error)
-            })
+            connectSFU()
+                .then(() => {
+                    logger.info(`[Channel] connectSFU() completed successfully for channel ${channelSlug}`)
+                })
+                .catch((error) => {
+                    logger.error(`[Channel] Failed to connect to SFU for channel ${channelSlug}:`, error)
+                })
         }
     }, [channelSlug])
 

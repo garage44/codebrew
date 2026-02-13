@@ -1,12 +1,13 @@
 {
-  "$schema": "https://raw.githubusercontent.com/oxc-project/oxc/main/crates/oxc_linter/src/options.json",
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
   "categories": {
     "correctness": "error",
     "suspicious": "error",
     "pedantic": "error",
-    "style": "off",
-    "restriction": "off",
-    "nursery": "off"
+    "perf": "error",
+    "style": "error",
+    "restriction": "error",
+    "nursery": "error"
   },
   "plugins": ["react", "jsx-a11y", "typescript", "unicorn"],
   "rules": {
@@ -21,9 +22,13 @@
     "eslint/no-unused-vars": "off",
     "eslint/no-ternary": "off",
     "eslint/func-style": "off",
+    "eslint/sort-imports": "off",
     "max-lines-per-function": "off",
     "prefer-default-export": "off",
     "react-in-jsx-scope": "off",
+    "react/jsx-filename-extension": ["error", {"extensions": [".jsx", ".tsx"]}],
+    "react/jsx-max-depth": ["error", {"max": 5}],
+    "react/no-unknown-property": "off",
     "typescript/consistent-indexed-object-style": "off",
     "unicorn/explicit-length-check": "off",
     "unicorn/filename-case": "error",
@@ -40,6 +45,7 @@
   },
   "globals": {
     "Bun": "readonly",
-    "globalThis": "readonly"
+    "globalThis": "readonly",
+    "$": "readonly"
   }
 }

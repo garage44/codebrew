@@ -3,19 +3,29 @@ import {logger} from './index.ts'
 import pc from 'picocolors'
 import tildify from 'tildify'
 
-function showConfig(settings) {
+interface Settings {
+    buildId: string
+    dir: Record<string, string | string[]>
+    minify?: boolean
+    sourceMap?: boolean
+    sourcemap?: boolean
+    version?: string
+}
+
+function showConfig(settings: Settings): void {
     const tree = {
         label: 'Bunchy Config:',
         nodes: [
             {
                 label: pc.bold(pc.blue('Directories')),
-                nodes: Object.entries(settings.dir).map(([k, dir]) => {
+                nodes: Object.entries(settings.dir).map(([k, dir]): {label: string; nodes?: string[]} => {
                     if (typeof dir === 'string') {
                         return {label: `${k.padEnd(10, ' ')} ${tildify(dir)}`}
-                    } else if (Array.isArray(dir)) {
+                    }
+                    if (Array.isArray(dir)) {
                         return {
                             label: 'extra',
-                            nodes: dir.map((i) => tildify(i)),
+                            nodes: dir.map((i: string): string => tildify(i)),
                         }
                     }
                     return {label: `${k.padEnd(10, ' ')} ${tildify(String(dir))}`}
@@ -25,20 +35,22 @@ function showConfig(settings) {
                 label: pc.bold(pc.blue('Build Flags')),
                 nodes: [
                     {label: `${'buildId'.padEnd(10, ' ')} ${settings.buildId}`},
-                    {label: `${'minify'.padEnd(10, ' ')} ${settings.minify}`},
-                    {label: `${'sourceMap'.padEnd(10, ' ')} ${settings.sourceMap}`},
-                    {label: `${'version'.padEnd(10, ' ')} ${settings.version}`},
+                    {label: `${'minify'.padEnd(10, ' ')} ${settings.minify ?? false}`},
+                    {label: `${'sourceMap'.padEnd(10, ' ')} ${settings.sourceMap ?? settings.sourcemap ?? false}`},
+                    {label: `${'version'.padEnd(10, ' ')} ${settings.version ?? 'unknown'}`},
                 ],
             },
         ],
     }
 
     logger.info('')
-    archy(tree).split('\r').forEach((line) => logger.info(line))
+    for (const line of archy(tree).split('\r')) {
+        logger.info(line)
+    }
 }
 
-function generateRandomId() {
-    return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
+function generateRandomId(): string {
+    return Math.random().toString(36).slice(2, 15) + Math.random().toString(36).slice(2, 15)
 }
 
 export {generateRandomId, showConfig}

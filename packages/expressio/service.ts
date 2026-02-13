@@ -8,7 +8,7 @@ import {Enola} from './lib/enola/index.ts'
 import {Workspace} from './lib/workspace.ts'
 import {Workspaces} from './lib/workspaces.ts'
 import {translate_tag} from './lib/translate.ts'
-import {createRuntime, createWelcomeBanner, setupBunchyConfig, createWebSocketManagers, service, loggerTransports} from '@garage44/common/service'
+import {createRuntime, createWebSocketManagers, createWelcomeBanner, loggerTransports, service, setupBunchyConfig} from '@garage44/common/service'
 import {initDatabase} from '@garage44/common/lib/database'
 import fs from 'fs-extra'
 import {hideBin} from 'yargs/helpers'
@@ -27,7 +27,7 @@ export const serviceDir = fileURLToPath(new URL('.', import.meta.url))
 
 const runtime = createRuntime(serviceDir, path.join(serviceDir, 'package.json'))
 
-function welcomeBanner() {
+function welcomeBanner(): string {
     return createWelcomeBanner('Expressio', 'I18n for humans, through AI...', runtime.version)
 }
 
@@ -53,9 +53,10 @@ if (BUN_ENV === 'development') {
     bunchyArgs(cli, bunchyConfig)
 }
 
+// eslint-disable-next-line no-void
 void cli.usage('Usage: $0 [task]')
     .detectLocale(false)
-    .command('init', 'Initialize a new .expressio.json workspace file', (yargs) =>
+    .command('init', 'Initialize a new .expressio.json workspace file', (yargs): typeof yargs =>
         yargs
             .option('output', {
                 alias: 'o',
@@ -75,7 +76,7 @@ void cli.usage('Usage: $0 [task]')
                 describe: 'Source language code',
                 type: 'string',
             })
-    , async(argv) => {
+    , async(argv): Promise<void> => {
         const outputPath = path.resolve(argv.output)
 
         if (await fs.pathExists(outputPath)) {
@@ -140,7 +141,7 @@ void cli.usage('Usage: $0 [task]')
         logger.info(`Source language: ${argv.sourceLanguage}`)
         logger.info('Edit the file to add your translations and configure target languages')
     })
-    .command('import', 'Import source translations from i18next file', (yargs) =>
+    .command('import', 'Import source translations from i18next file', (yargs): typeof yargs =>
         yargs
             .option('workspace', {
                 alias: 'w',
@@ -166,7 +167,7 @@ void cli.usage('Usage: $0 [task]')
                 describe: 'Automatically translate imported tags',
                 type: 'boolean',
             })
-    , async(argv) => {
+    , async(argv): Promise<void> => {
         const workspace = new Workspace()
         await workspace.init({
             source_file: path.resolve(argv.workspace),
@@ -184,7 +185,7 @@ void cli.usage('Usage: $0 [task]')
         const createTags = []
         const skipTags = []
 
-        keyMod(importData, (sourceRef, id, refPath) => {
+        keyMod(importData, (sourceRef: unknown, id: string, refPath: string[]): void => {
             // The last string in refPath must not be a reserved keyword (.e.g source/target)
             const last = refPath.at(-1)
             if (last === 'source' || last === 'target' || last === 'cache') {
@@ -209,11 +210,10 @@ void cli.usage('Usage: $0 [task]')
                 }
 
                 createTags.push(refPath)
-                const targetLanguages = workspace.config.languages.target as unknown as Array<{engine: 'anthropic' | 'deepl'; formality: 'default' | 'more' | 'less'; id: string; name: string}>
                 pathCreate(workspace.i18n, [...refPath], {
-                    source: sourceRef[id] as string,
+                    source: sourceRef[id],
                     target: {},
-                }, targetLanguages)
+                }, workspace.config.languages.target as unknown as {engine: 'anthropic' | 'deepl'; formality: 'default' | 'more' | 'less'; id: string; name: string}[])
             }
         })
 
@@ -223,18 +223,20 @@ void cli.usage('Usage: $0 [task]')
             logger.info(`Skipped: ${skipTags.length} tags (existing or invalid)`)
         }
 
-        // Auto-translate if requested
+            // Auto-translate if requested
         if (argv.translate && createTags.length > 0) {
             logger.info('Starting automatic translation...')
             await enola.init(config.enola, logger)
 
+            // eslint-disable-next-line no-await-in-loop
             for (const tagPath of createTags) {
                 try {
                     const {id, ref} = pathRef(workspace.i18n, tagPath)
-                    const refId = ref[id] as {source?: string}
-                    const sourceText = refId.source || ''
+                    const tagRef = ref[id] as {source: string}
+                    const sourceText = tagRef.source
 
                     logger.info(`Translating: ${tagPath.join('.')}`)
+                    // eslint-disable-next-line no-await-in-loop
                     await translate_tag(workspace, tagPath, sourceText, true)
                 } catch (error) {
                     logger.error(`Failed to translate ${tagPath.join('.')}: ${error.message}`)
@@ -245,7 +247,7 @@ void cli.usage('Usage: $0 [task]')
             logger.info('Translation complete!')
         }
     })
-    .command('translate-all', 'Translate all untranslated or outdated tags', (yargs) =>
+    .command('translate-all', 'Translate all untranslated or outdated tags', (yargs): typeof yargs =>
         yargs
             .option('workspace', {
                 alias: 'w',
@@ -259,7 +261,7 @@ void cli.usage('Usage: $0 [task]')
                 describe: 'Force retranslation of all tags (ignore cache)',
                 type: 'boolean',
             })
-    , async(argv) => {
+    , async(argv): Promise<void> => {
         const workspace = new Workspace()
         await workspace.init({
             source_file: path.resolve(argv.workspace),
@@ -270,17 +272,22 @@ void cli.usage('Usage: $0 [task]')
         const tagsToTranslate = []
 
         // Collect all tags that need translation
-        keyMod(workspace.i18n, (ref, id, refPath) => {
-            if (ref && 'source' in ref && typeof ref.source === 'string') {
+        keyMod(workspace.i18n, (ref: unknown, id: string, refPath: string[]): void => {
+            if (ref && typeof ref === 'object' && ref !== null && 'source' in ref && typeof (ref as Record<string, unknown>).source === 'string') {
+                const refRecord = ref as Record<string, unknown>
                 // Skip soft tags
-                if (ref._soft) {
+                if (refRecord._soft) {
                     return
                 }
 
+                const sourceText = refRecord.source as string
                 const needsTranslation = argv.force ||
-                    !ref.cache ||
-                    ref.cache !== hash(ref.source) ||
-                    workspace.config.languages.target.some((lang) => !ref.target[lang.id])
+                    !refRecord.cache ||
+                    refRecord.cache !== hash(sourceText) ||
+                    workspace.config.languages.target.some((lang): boolean => {
+                        const target = refRecord.target as Record<string, unknown> | undefined
+                        return !target || !target[lang.id]
+                    })
 
                 if (needsTranslation) {
                     tagsToTranslate.push(refPath)
@@ -295,13 +302,15 @@ void cli.usage('Usage: $0 [task]')
 
         logger.info(`Found ${tagsToTranslate.length} tags to translate`)
 
+        // eslint-disable-next-line no-await-in-loop
         for (const [index, tagPath] of tagsToTranslate.entries()) {
             try {
                 const {id, ref} = pathRef(workspace.i18n, tagPath)
-                const refId = ref[id] as {source?: string}
-                const sourceText = refId.source || ''
+                const tagRef = ref[id] as {source: string}
+                const sourceText = tagRef.source
 
                 logger.info(`[${index + 1}/${tagsToTranslate.length}] Translating: ${tagPath.join('.')}`)
+                // eslint-disable-next-line no-await-in-loop
                 await translate_tag(workspace, tagPath, sourceText, true)
             } catch (error) {
                 logger.error(`Failed to translate ${tagPath.join('.')}: ${error.message}`)
@@ -311,7 +320,7 @@ void cli.usage('Usage: $0 [task]')
         await workspace.save()
         logger.info('Translation complete!')
     })
-    .command('stats', 'Show translation statistics', (yargs) =>
+    .command('stats', 'Show translation statistics', (yargs): typeof yargs =>
         yargs
             .option('workspace', {
                 alias: 'w',
@@ -319,7 +328,7 @@ void cli.usage('Usage: $0 [task]')
                 describe: 'Workspace file to use',
                 type: 'string',
             })
-    , async(argv) => {
+    , async(argv): Promise<void> => {
         const workspace = new Workspace()
         await workspace.init({
             source_file: path.resolve(argv.workspace),
@@ -337,39 +346,42 @@ void cli.usage('Usage: $0 [task]')
         }
 
         // Initialize language stats
-        workspace.config.languages.target.forEach((lang) => {
+        for (const lang of workspace.config.languages.target) {
             stats.translated[lang.id] = 0
             stats.untranslated[lang.id] = 0
-        })
+        }
 
-        keyMod(workspace.i18n, (ref, id, refPath) => {
-            if (ref && typeof ref === 'object') {
-                if ('source' in ref && typeof ref.source === 'string') {
-                    stats.tags++
+        keyMod(workspace.i18n, (ref: unknown, id: string, refPath: string[]): void => {
+            if (ref && typeof ref === 'object' && ref !== null) {
+                const refRecord = ref as Record<string, unknown>
+                if ('source' in refRecord && typeof refRecord.source === 'string') {
+                    stats.tags += 1
 
-                    if (ref._soft) {
-                        stats.soft++
+                    if (refRecord._soft) {
+                        stats.soft += 1
                     }
 
-                    if (ref._redundant) {
-                        stats.redundant++
+                    if (refRecord._redundant) {
+                        stats.redundant += 1
                     }
 
-                    const currentHash = hash(ref.source)
-                    if (ref.cache && ref.cache !== currentHash) {
-                        stats.outdated++
+                    const sourceText = refRecord.source as string
+                    const currentHash = hash(sourceText)
+                    if (refRecord.cache && refRecord.cache !== currentHash) {
+                        stats.outdated += 1
                     }
 
                     // Check translation status per language
-                    workspace.config.languages.target.forEach((lang) => {
-                        if (ref.target[lang.id] && ref.target[lang.id] !== id) {
-                            stats.translated[lang.id]++
+                    const target = refRecord.target as Record<string, unknown> | undefined
+                    for (const lang of workspace.config.languages.target) {
+                        if (target && target[lang.id] && target[lang.id] !== id) {
+                            stats.translated[lang.id] += 1
                         } else {
-                            stats.untranslated[lang.id]++
+                            stats.untranslated[lang.id] += 1
                         }
-                    })
+                    }
                 } else if (!refPath.length || refPath.length > 0) {
-                    stats.groups++
+                    stats.groups += 1
                 }
             }
         })
@@ -403,24 +415,24 @@ void cli.usage('Usage: $0 [task]')
 
         // oxlint-disable-next-line no-console
         console.log(pc.bold('\nTranslation Progress:'))
-        workspace.config.languages.target.forEach((lang) => {
-            const langData = lang as {id: string; name?: string}
+        for (const lang of workspace.config.languages.target) {
             const total = stats.translated[lang.id] + stats.untranslated[lang.id]
             const percentage = total > 0 ? Math.round((stats.translated[lang.id] / total) * 100) : 0
             const bar = '█'.repeat(Math.floor(percentage / 2)) + '░'.repeat(50 - Math.floor(percentage / 2))
+            const langWithName = lang as typeof lang & {name: string}
 
             // oxlint-disable-next-line no-console
-            console.log(`  ${langData.name || lang.id} (${lang.id}):`)
+            console.log(`  ${langWithName.name} (${lang.id}):`)
             // oxlint-disable-next-line no-console
             console.log(`    ${bar} ${percentage}%`)
             // oxlint-disable-next-line no-console
             console.log(`    ${pc.green(stats.translated[lang.id])} translated, ${pc.yellow(stats.untranslated[lang.id])} remaining`)
-        })
+        }
 
         // oxlint-disable-next-line no-console
         console.log('')
     })
-    .command('export', 'Export target translations to i18next format', (yargs) =>
+    .command('export', 'Export target translations to i18next format', (yargs): typeof yargs =>
         yargs
             .option('workspace', {
                 alias: 'w',
@@ -452,7 +464,7 @@ void cli.usage('Usage: $0 [task]')
                 describe: 'Split translations into separate files per language',
                 type: 'boolean',
             })
-    , async(argv) => {
+    , async(argv): Promise<void> => {
         const workspace = new Workspace()
         await workspace.init({
             source_file: path.resolve(argv.workspace),
@@ -465,7 +477,7 @@ void cli.usage('Usage: $0 [task]')
         await fs.mkdirp(outputDir)
 
         const languagesToExport = argv.language
-            ? workspace.config.languages.target.filter((lang) => lang.id === argv.language)
+            ? workspace.config.languages.target.filter((lang): boolean => lang.id === argv.language)
             : workspace.config.languages.target
 
         if (argv.language && languagesToExport.length === 0) {
@@ -475,19 +487,20 @@ void cli.usage('Usage: $0 [task]')
 
         if (argv.split) {
             // Export each language to a separate file
+            // eslint-disable-next-line no-await-in-loop
             for (const language of languagesToExport) {
-                const langData = language as {id: string; name?: string}
                 const outputFile = path.join(outputDir, `${outputBase}.${language.id}${outputExt}`)
                 const translations = i18nFormat(workspace.i18n, [language])
+                const langWithName = language as typeof language & {name: string}
 
+                // eslint-disable-next-line no-await-in-loop
                 await fs.writeFile(outputFile, JSON.stringify(translations, null, 2), 'utf8')
-                logger.info(`Exported ${langData.name || language.id} to: ${outputFile}`)
+                logger.info(`Exported ${langWithName.name} to: ${outputFile}`)
             }
         } else {
             // Export all languages to a single file
             const bundleTarget = path.resolve(outputDir, `${outputBase}${outputExt}`)
-            const targetLanguages = languagesToExport as unknown as Array<{id: string}>
-            const translations = i18nFormat(workspace.i18n, targetLanguages)
+            const translations = i18nFormat(workspace.i18n, languagesToExport)
 
             await fs.writeFile(bundleTarget, JSON.stringify(translations, null, 2), 'utf8')
             logger.info(`Exported to: ${bundleTarget}`)
@@ -495,14 +508,14 @@ void cli.usage('Usage: $0 [task]')
 
         logger.info('Export complete!')
     })
-    .command('lint', 'Lint translations', (yargs) => {
+    .command('lint', 'Lint translations', (yargs): typeof yargs => {
         yargs.option('workspace', {
             alias: 'w',
             default: './src/.expressio.json',
             describe: 'Workspace file to use',
             type: 'string',
         })
-    }, async(argv) => {
+    }, async(argv): Promise<void> => {
         const workspace = new Workspace()
         await workspace.init({
             source_file: path.resolve(argv.workspace),
@@ -511,8 +524,8 @@ void cli.usage('Usage: $0 [task]')
         const lintResult = await lintWorkspace(workspace, 'lint')
 
         if (lintResult) {
-            const maxPadding = Math.max(...lintResult.create_tags.map((fileGroup) =>
-                Math.max(...fileGroup.groups.map((tag) => `${tag.line}:${tag.column}`.length)),
+            const maxPadding = Math.max(...lintResult.create_tags.map((fileGroup): number =>
+                Math.max(...fileGroup.groups.map((tag): number => `${tag.line}:${tag.column}`.length)),
             )) + 2
 
             for (const fileGroup of lintResult.create_tags) {
@@ -549,7 +562,7 @@ void cli.usage('Usage: $0 [task]')
         console.log('\n✔ No issues found')
         process.exit(0)
     })
-    .command('start', 'Start the Expressio service', (yargs) => {
+    .command('start', 'Start the Expressio service', (yargs): typeof yargs => {
         // oxlint-disable-next-line no-console
         console.log(welcomeBanner())
         return yargs
@@ -565,10 +578,11 @@ void cli.usage('Usage: $0 [task]')
                 describe: 'port to run the Expression service on',
                 type: 'number',
             })
-    }, async(argv) => {
+    }, async(argv): Promise<void> => {
         await initConfig(config)
 
         // Initialize database (creates users table)
+        // eslint-disable-next-line no-undefined
         const database = initDatabase(undefined, 'expressio', logger)
 
         // Initialize common service (including UserManager) with database
@@ -601,7 +615,7 @@ void cli.usage('Usage: $0 [task]')
 
         // Start Bun.serve server
         const server = Bun.serve({
-            fetch: (req, server) => {
+            fetch: (req: Request, server: unknown): Response | Promise<Response> => {
                 const url = new URL(req.url)
                 if (url.pathname === '/dev/snapshot') {
                     return new Response(JSON.stringify(devContext.snapshot({
@@ -617,7 +631,7 @@ void cli.usage('Usage: $0 [task]')
         })
 
         if (BUN_ENV === 'development') {
-            await bunchyService(server, bunchyConfig, bunchyManager)
+            await bunchyService(server, bunchyConfig, bunchyManager as unknown as {api: {post: (path: string, handler: (ctx: unknown, req: {data: unknown}) => Promise<{status: string}>) => void}; broadcast: (url: string, data: unknown, method?: string) => void})
         }
 
         logger.info(`service: http://${argv.host}:${argv.port}`)

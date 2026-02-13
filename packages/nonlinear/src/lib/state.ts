@@ -9,53 +9,30 @@ const persistantState = mergeDeep({
     panels: {
         context: {
             collapsed: false,
-            width: 600,
+            width: 600 as number,
         },
     },
-}, commonPersistantState) as any
+}, commonPersistantState) as typeof commonPersistantState & {
+    panels: {
+        context: {
+            collapsed: boolean
+            width: number
+        }
+    }
+}
 
 const volatileState = mergeDeep({
-    tickets: [] as Array<{
-        id: string
-        repository_id: string
-        title: string
-        description: string | null
-        status: 'backlog' | 'todo' | 'in_progress' | 'review' | 'closed'
-        priority: number | null
-        assignee_type: 'agent' | 'human' | null
-        assignee_id: string | null
-        assignees: Array<{assignee_type: 'agent' | 'human', assignee_id: string}>
-        labels: string[]
-        branch_name: string | null
-        merge_request_id: string | null
-        created_at: number
-        updated_at: number
-        repository_name: string | null
-    }>,
-    repositories: [] as Array<{
-        id: string
-        name: string
-        path: string
-        platform: 'github' | 'gitlab' | 'local'
-        remote_url: string | null
-        config: string
-        created_at: number
-        updated_at: number
-    }>,
-    agents: [] as Array<{
-        id: string
-        name: string
-        username: string
-        displayName: string
+    agents: [] as {
         avatar: string
-        status: 'idle' | 'working' | 'error' | 'offline'
-        type: 'planner' | 'developer' | 'reviewer'
         config: string
-        enabled: number
         created_at: number
-        isAgent: true
         currentTicketId: string | null
+        displayName: string
+        enabled: number
+        id: string
+        isAgent: true
         lastActivity: number
+        name: string
         serviceOnline?: boolean
         stats?: {
             completed: number
@@ -63,37 +40,67 @@ const volatileState = mergeDeep({
             pending: number
             processing: number
         }
-    }>,
-    labelDefinitions: [] as Array<{
+        status: 'idle' | 'working' | 'error' | 'offline'
+        type: 'planner' | 'developer' | 'reviewer'
+        username: string
+    }[],
+    anthropic: {
+        usage: {
+            count: 0,
+            limit: 1_000_000,
+            // Default limit: 1M tokens per month (typical Anthropic tier)
+            loading: false,
+        },
+    },
+    docs: [] as {
+        author_id: string
+        content: string
+        created_at: number
+        id: string
+        labelDefinitions?: {color: string; name: string}[]
+        path: string
+        tags?: string[]
+        title: string
+        updated_at: number
+    }[],
+    labelDefinitions: [] as {
         color: string
         created_at: number
         id: string
         name: string
         updated_at: number
-    }>,
-    docs: [] as Array<{
-        id: string
-        path: string
-        title: string
-        content: string
-        author_id: string
+    }[],
+    repositories: [] as {
+        config: string
         created_at: number
+        id: string
+        name: string
+        path: string
+        platform: 'github' | 'gitlab' | 'local'
+        remote_url: string | null
         updated_at: number
-        tags?: string[]
-        labelDefinitions?: Array<{color: string; name: string}>
-    }>,
+    }[],
     selectedDoc: null as string | null,
+    selectedLane: null as 'backlog' | 'todo' | 'in_progress' | 'review' | 'closed' | null,
     selectedRepository: null as string | null,
     selectedTicket: null as string | null,
-    selectedLane: null as 'backlog' | 'todo' | 'in_progress' | 'review' | 'closed' | null,
-    anthropic: {
-        usage: {
-            count: 0,
-            limit: 1000000,
-            // Default limit: 1M tokens per month (typical Anthropic tier)
-            loading: false,
-        },
-    },
+    tickets: [] as {
+        assignee_id: string | null
+        assignee_type: 'agent' | 'human' | null
+        assignees: {assignee_id: string; assignee_type: 'agent' | 'human'}[]
+        branch_name: string | null
+        created_at: number
+        description: string | null
+        id: string
+        labels: string[]
+        merge_request_id: string | null
+        priority: number | null
+        repository_id: string
+        repository_name: string | null
+        status: 'backlog' | 'todo' | 'in_progress' | 'review' | 'closed'
+        title: string
+        updated_at: number
+    }[],
 }, commonVolatileState)
 
 export {

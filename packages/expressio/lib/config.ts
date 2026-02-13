@@ -1,9 +1,10 @@
 import {copyObject, randomId} from '@garage44/common/lib/utils.ts'
-import {logger, workspaces} from '../service.ts'
 import fs from 'fs-extra'
 import {homedir} from 'node:os'
 import path from 'node:path'
 import rc from 'rc'
+
+import {logger, workspaces} from '../service.ts'
 
 const config = rc('expressio', {
     enola: {
@@ -54,7 +55,7 @@ async function initConfig(config) {
     const envConfigPath = process.env.CONFIG_PATH
     const configPath = envConfigPath || path.join(homedir(), '.expressiorc')
     // Check if the config file exists
-    if (!await fs.pathExists(configPath)) {
+    if (!(await fs.pathExists(configPath))) {
         await saveConfig()
     }
     return config
@@ -82,8 +83,4 @@ async function saveConfig() {
     logger.info(`[config] saved config to ${configPath}`)
 }
 
-export {
-    config,
-    saveConfig,
-    initConfig,
-}
+export {config, saveConfig, initConfig}

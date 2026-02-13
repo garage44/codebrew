@@ -1,8 +1,11 @@
 import type {WebSocketServerManager} from '@garage44/common/lib/ws-server'
-import {Workspace} from './workspace'
-import type {WorkspaceDescription} from '../src/types'
-import {logger} from '../service.ts'
+
 import path from 'node:path'
+
+import type {WorkspaceDescription} from '../src/types'
+
+import {logger} from '../service.ts'
+import {Workspace} from './workspace'
 
 export class Workspaces {
     private wsManager?: WebSocketServerManager

@@ -1,8 +1,10 @@
-import {Database} from 'bun:sqlite'
+import type {Database} from 'bun:sqlite'
+
 import {initDatabase as initCommonDatabase} from '@garage44/common/lib/database'
-import {logger} from '../service.ts'
-import path from 'node:path'
 import {homedir} from 'node:os'
+import path from 'node:path'
+
+import {logger} from '../service.ts'
 import {config} from './config.ts'
 
 /**
@@ -28,7 +30,7 @@ export interface Repository {
 export interface Ticket {
     assignee_id: string | null
     assignee_type: 'agent' | 'human' | null
-    assignees?: Array<{assignee_id: string; assignee_type: 'agent' | 'human'}>
+    assignees?: {assignee_id: string; assignee_type: 'agent' | 'human'}[]
     branch_name: string | null
     created_at: number
     description: string | null
@@ -156,16 +158,15 @@ export function initDatabase(dbPath?: string): Database {
              * Database is empty, initialize fixtures
              * Use dynamic import to avoid blocking initialization
              */
-            Promise.all([
-                import('./fixtures.ts'),
-                import('./workspace.ts'),
-            ]).then(([{initializeFixtures}, {findWorkspaceRoot}]) => {
-                const workspaceRoot = findWorkspaceRoot() || process.cwd()
-                logger.info(`[Database] Initializing fixtures from ${workspaceRoot}`)
-                return initializeFixtures(db!, workspaceRoot)
-            }).catch((error) => {
-                logger.error('[Database] Failed to initialize fixtures:', error)
-            })
+            Promise.all([import('./fixtures.ts'), import('./workspace.ts')])
+                .then(([{initializeFixtures}, {findWorkspaceRoot}]) => {
+                    const workspaceRoot = findWorkspaceRoot() || process.cwd()
+                    logger.info(`[Database] Initializing fixtures from ${workspaceRoot}`)
+                    return initializeFixtures(db!, workspaceRoot)
+                })
+                .catch((error) => {
+                    logger.error('[Database] Failed to initialize fixtures:', error)
+                })
         } else {
             logger.info('[Database] Workspace already exists, skipping fixture initialization')
         }
@@ -190,19 +191,21 @@ function loadVecExtension(db: Database): void {
                 load(db)
                 logger.info('[Database] Loaded sqlite-vec extension')
                 return
-            } catch(_requireError) {
+            } catch {
                 // Fallback to ES module import
-                import('sqlite-vec').then(({load}) => {
-                    load(db)
-                    logger.info('[Database] Loaded sqlite-vec extension')
-                }).catch((importError) => {
-                    logger.warn('[Database] Failed to load sqlite-vec extension via import:', importError)
-                })
+                import('sqlite-vec')
+                    .then(({load}) => {
+                        load(db)
+                        logger.info('[Database] Loaded sqlite-vec extension')
+                    })
+                    .catch((importError) => {
+                        logger.warn('[Database] Failed to load sqlite-vec extension via import:', importError)
+                    })
             }
         } else {
             logger.warn('[Database] Database does not support loadExtension')
         }
-    } catch(error) {
+    } catch (error) {
         logger.warn('[Database] Failed to load sqlite-vec extension:', error)
         // Continue without vector search - can add embeddings later
     }
@@ -213,7 +216,9 @@ function loadVecExtension(db: Database): void {
  * Users table is created by common database initialization
  */
 function createNonlinearTables() {
-    if (!db) throw new Error('Database not initialized')
+    if (!db) {
+        throw new Error('Database not initialized')
+    }
 
     // Repositories table
     db.exec(`
@@ -481,17 +486,17 @@ function createNonlinearTables() {
      */
     try {
         // Get embedding dimension from config (defaults based on provider)
-        const embeddingDim = config.embeddings.dimension || (
-            config.embeddings.provider === 'local' ?
-                384 :
-                config.embeddings.provider === 'openai' ? 1536 : 1024
-        )
+        const embeddingDim =
+            config.embeddings.dimension ||
+            (config.embeddings.provider === 'local' ? 384 : (config.embeddings.provider === 'openai' ? 1536 : 1024))
 
         // Check if vec0 table exists with different dimension
-        const existingTable = db.prepare(`
+        const existingTable = db
+            .prepare(`
             SELECT name FROM sqlite_master
             WHERE type='table' AND name='vec_content'
-        `).get()
+        `)
+            .get()
 
         if (existingTable) {
             /*
@@ -514,7 +519,7 @@ function createNonlinearTables() {
             `)
             logger.info(`[Database] Created vec0 virtual table for vector search (dimension: ${embeddingDim})`)
         }
-    } catch(error) {
+    } catch (error) {
         logger.warn('[Database] Failed to create vec0 table (sqlite-vec may not be loaded):', error)
     }
 
@@ -523,17 +528,17 @@ function createNonlinearTables() {
      * Only create if sqlite-vec extension is loaded
      */
     try {
-        const embeddingDim = config.embeddings.dimension || (
-            config.embeddings.provider === 'local' ?
-                384 :
-                config.embeddings.provider === 'openai' ? 1536 : 1024
-        )
+        const embeddingDim =
+            config.embeddings.dimension ||
+            (config.embeddings.provider === 'local' ? 384 : (config.embeddings.provider === 'openai' ? 1536 : 1024))
 
         // Check if code_embeddings table exists
-        const existingCodeTable = db.prepare(`
+        const existingCodeTable = db
+            .prepare(`
             SELECT name FROM sqlite_master
             WHERE type='table' AND name='code_embeddings'
-        `).get()
+        `)
+            .get()
 
         if (!existingCodeTable) {
             db.exec(`
@@ -553,7 +558,7 @@ function createNonlinearTables() {
             `)
             logger.info(`[Database] Created code_embeddings vec0 table (dimension: ${embeddingDim})`)
         }
-    } catch(error) {
+    } catch (error) {
         logger.warn('[Database] Failed to create code_embeddings table (sqlite-vec may not be loaded):', error)
     }
 
@@ -600,19 +605,23 @@ function createNonlinearTables() {
  * This maintains backward compatibility while transitioning to multiple assignees
  */
 function migrateAssigneeData() {
-    if (!db) throw new Error('Database not initialized')
+    if (!db) {
+        throw new Error('Database not initialized')
+    }
 
     try {
         // Get all tickets with assignees
-        const ticketsWithAssignees = db.prepare(`
+        const ticketsWithAssignees = db
+            .prepare(`
             SELECT id, assignee_type, assignee_id
             FROM tickets
             WHERE assignee_type IS NOT NULL AND assignee_id IS NOT NULL
-        `).all() as Array<{
+        `)
+            .all() as {
             assignee_id: string
             assignee_type: string
             id: string
-        }>
+        }[]
 
         const insertStmt = db.prepare(`
             INSERT OR IGNORE INTO ticket_assignees (ticket_id, assignee_type, assignee_id)
@@ -623,7 +632,7 @@ function migrateAssigneeData() {
         for (const ticket of ticketsWithAssignees) {
             try {
                 insertStmt.run(ticket.id, ticket.assignee_type, ticket.assignee_id)
-                migratedCount++
+                migratedCount += 1
             } catch {
                 // Already exists, skip
             }
@@ -632,7 +641,7 @@ function migrateAssigneeData() {
         if (migratedCount > 0) {
             logger.info(`[Database] Migrated ${migratedCount} existing assignees to ticket_assignees table`)
         }
-    } catch(error) {
+    } catch (error) {
         logger.warn(`[Database] Error migrating assignee data: ${error}`)
         // Don't throw - migration failure shouldn't block initialization
     }
@@ -643,22 +652,20 @@ function migrateAssigneeData() {
  * Creates label definitions for any labels that don't exist yet
  */
 function migrateLabelsToDefinitions() {
-    if (!db) throw new Error('Database not initialized')
+    if (!db) {
+        throw new Error('Database not initialized')
+    }
 
     try {
         // Get all unique labels from ticket_labels
-        const existingLabels = db.prepare(`
+        const existingLabels = db
+            .prepare(`
             SELECT DISTINCT label FROM ticket_labels
-        `).all() as Array<{label: string}>
+        `)
+            .all() as {label: string}[]
 
         // Default color palette for labels
-        const defaultColors = [
-            'var(--info-6)',
-            'var(--success-6)',
-            'var(--warning-6)',
-            'var(--danger-6)',
-            'var(--primary-6)',
-        ]
+        const defaultColors = ['var(--info-6)', 'var(--success-6)', 'var(--warning-6)', 'var(--danger-6)', 'var(--primary-6)']
 
         const insertStmt = db.prepare(`
             INSERT OR IGNORE INTO label_definitions (id, name, color, created_at, updated_at)
@@ -667,14 +674,14 @@ function migrateLabelsToDefinitions() {
 
         let migratedCount = 0
         const now = Date.now()
-        for (let i = 0; i < existingLabels.length; i++) {
-            const label = existingLabels[i].label
+        for (let i = 0; i < existingLabels.length; i += 1) {
+            const {label} = existingLabels[i]
             const color = defaultColors[i % defaultColors.length]
             const labelId = `label-${label.toLowerCase().replaceAll(/[^a-z0-9]/g, '-')}`
 
             try {
                 insertStmt.run(labelId, label, color, now, now)
-                migratedCount++
+                migratedCount += 1
             } catch {
                 // Already exists, skip
             }
@@ -683,7 +690,7 @@ function migrateLabelsToDefinitions() {
         if (migratedCount > 0) {
             logger.info(`[Database] Migrated ${migratedCount} existing labels to label_definitions table`)
         }
-    } catch(error) {
+    } catch (error) {
         logger.warn(`[Database] Error migrating labels: ${error}`)
         // Don't throw - migration failure shouldn't block initialization
     }
@@ -693,10 +700,14 @@ function migrateLabelsToDefinitions() {
  * Get all labels for a ticket
  */
 export function getTicketLabels(ticketId: string): string[] {
-    if (!db) throw new Error('Database not initialized')
-    const labels = db.prepare(`
+    if (!db) {
+        throw new Error('Database not initialized')
+    }
+    const labels = db
+        .prepare(`
         SELECT label FROM ticket_labels WHERE ticket_id = ?
-    `).all(ticketId) as Array<{label: string}>
+    `)
+        .all(ticketId) as {label: string}[]
     return labels.map((l) => l.label)
 }
 
@@ -704,13 +715,15 @@ export function getTicketLabels(ticketId: string): string[] {
  * Add a label to a ticket
  */
 export function addTicketLabel(ticketId: string, label: string): void {
-    if (!db) throw new Error('Database not initialized')
+    if (!db) {
+        throw new Error('Database not initialized')
+    }
     try {
         db.prepare(`
             INSERT INTO ticket_labels (ticket_id, label)
             VALUES (?, ?)
         `).run(ticketId, label)
-    } catch(error) {
+    } catch (error) {
         // Label already exists, ignore
         if (!String(error).includes('UNIQUE constraint')) {
             throw error
@@ -722,7 +735,9 @@ export function addTicketLabel(ticketId: string, label: string): void {
  * Remove a label from a ticket
  */
 export function removeTicketLabel(ticketId: string, label: string): void {
-    if (!db) throw new Error('Database not initialized')
+    if (!db) {
+        throw new Error('Database not initialized')
+    }
     db.prepare(`
         DELETE FROM ticket_labels
         WHERE ticket_id = ? AND label = ?
@@ -733,25 +748,33 @@ export function removeTicketLabel(ticketId: string, label: string): void {
  * Check if a ticket has a specific label
  */
 export function hasTicketLabel(ticketId: string, label: string): boolean {
-    if (!db) throw new Error('Database not initialized')
-    const result = db.prepare(`
+    if (!db) {
+        throw new Error('Database not initialized')
+    }
+    const result = db
+        .prepare(`
         SELECT 1 FROM ticket_labels
         WHERE ticket_id = ? AND label = ?
         LIMIT 1
-    `).get(ticketId, label) as {1?: number} | undefined
-    return !!result
+    `)
+        .get(ticketId, label) as {1?: number} | undefined
+    return Boolean(result)
 }
 
 /**
  * Get all assignees for a ticket
  */
-export function getTicketAssignees(ticketId: string): Array<{assignee_id: string; assignee_type: 'agent' | 'human'}> {
-    if (!db) throw new Error('Database not initialized')
-    const assignees = db.prepare(`
+export function getTicketAssignees(ticketId: string): {assignee_id: string; assignee_type: 'agent' | 'human'}[] {
+    if (!db) {
+        throw new Error('Database not initialized')
+    }
+    const assignees = db
+        .prepare(`
         SELECT assignee_type, assignee_id
         FROM ticket_assignees
         WHERE ticket_id = ?
-    `).all(ticketId) as Array<{assignee_id: string; assignee_type: string}>
+    `)
+        .all(ticketId) as {assignee_id: string; assignee_type: string}[]
     return assignees.map((a) => ({
         assignee_id: a.assignee_id,
         assignee_type: a.assignee_type as 'agent' | 'human',
@@ -762,13 +785,15 @@ export function getTicketAssignees(ticketId: string): Array<{assignee_id: string
  * Add an assignee to a ticket
  */
 export function addTicketAssignee(ticketId: string, assignee_type: 'agent' | 'human', assignee_id: string): void {
-    if (!db) throw new Error('Database not initialized')
+    if (!db) {
+        throw new Error('Database not initialized')
+    }
     try {
         db.prepare(`
             INSERT INTO ticket_assignees (ticket_id, assignee_type, assignee_id)
             VALUES (?, ?, ?)
         `).run(ticketId, assignee_type, assignee_id)
-    } catch(error) {
+    } catch (error) {
         // Assignee already exists, ignore
         if (!String(error).includes('UNIQUE constraint')) {
             throw error
@@ -780,7 +805,9 @@ export function addTicketAssignee(ticketId: string, assignee_type: 'agent' | 'hu
  * Remove an assignee from a ticket
  */
 export function removeTicketAssignee(ticketId: string, assignee_type: 'agent' | 'human', assignee_id: string): void {
-    if (!db) throw new Error('Database not initialized')
+    if (!db) {
+        throw new Error('Database not initialized')
+    }
     db.prepare(`
         DELETE FROM ticket_assignees
         WHERE ticket_id = ? AND assignee_type = ? AND assignee_id = ?
@@ -791,42 +818,56 @@ export function removeTicketAssignee(ticketId: string, assignee_type: 'agent' | 
  * Check if a ticket has a specific assignee
  */
 export function hasTicketAssignee(ticketId: string, assignee_type: 'agent' | 'human', assignee_id: string): boolean {
-    if (!db) throw new Error('Database not initialized')
-    const result = db.prepare(`
+    if (!db) {
+        throw new Error('Database not initialized')
+    }
+    const result = db
+        .prepare(`
         SELECT 1 FROM ticket_assignees
         WHERE ticket_id = ? AND assignee_type = ? AND assignee_id = ?
         LIMIT 1
-    `).get(ticketId, assignee_type, assignee_id) as {1?: number} | undefined
-    return !!result
+    `)
+        .get(ticketId, assignee_type, assignee_id) as {1?: number} | undefined
+    return Boolean(result)
 }
 
 /**
  * Get all label definitions
  */
-export function getLabelDefinitions(): Array<LabelDefinition> {
-    if (!db) throw new Error('Database not initialized')
-    return db.prepare(`
+export function getLabelDefinitions(): LabelDefinition[] {
+    if (!db) {
+        throw new Error('Database not initialized')
+    }
+    return db
+        .prepare(`
         SELECT * FROM label_definitions
         ORDER BY name ASC
-    `).all() as Array<LabelDefinition>
+    `)
+        .all() as LabelDefinition[]
 }
 
 /**
  * Get a label definition by name
  */
 export function getLabelDefinition(name: string): LabelDefinition | undefined {
-    if (!db) throw new Error('Database not initialized')
-    return db.prepare(`
+    if (!db) {
+        throw new Error('Database not initialized')
+    }
+    return db
+        .prepare(`
         SELECT * FROM label_definitions
         WHERE name = ?
-    `).get(name) as LabelDefinition | undefined
+    `)
+        .get(name) as LabelDefinition | undefined
 }
 
 /**
  * Create or update a label definition
  */
 export function upsertLabelDefinition(id: string, name: string, color: string): void {
-    if (!db) throw new Error('Database not initialized')
+    if (!db) {
+        throw new Error('Database not initialized')
+    }
     const now = Date.now()
     db.prepare(`
         INSERT INTO label_definitions (id, name, color, created_at, updated_at)
@@ -842,7 +883,9 @@ export function upsertLabelDefinition(id: string, name: string, color: string): 
  * Delete a label definition
  */
 export function deleteLabelDefinition(id: string): void {
-    if (!db) throw new Error('Database not initialized')
+    if (!db) {
+        throw new Error('Database not initialized')
+    }
     db.prepare(`
         DELETE FROM label_definitions
         WHERE id = ?
@@ -854,7 +897,9 @@ export function deleteLabelDefinition(id: string): void {
  * Role tags and essential type tags for documentation
  */
 function initializePresetTags() {
-    if (!db) throw new Error('Database not initialized')
+    if (!db) {
+        throw new Error('Database not initialized')
+    }
 
     const presetTags = [
         // Role tags
@@ -891,7 +936,7 @@ function initializePresetTags() {
         const tagId = `preset-${tag.name.toLowerCase().replaceAll(':', '-')}`
         try {
             insertStmt.run(tagId, tag.name, tag.color, now, now)
-        } catch(_error) {
+        } catch {
             // Tag already exists, that's fine
         }
     }
@@ -899,6 +944,4 @@ function initializePresetTags() {
     logger.info('[Database] Initialized preset tags')
 }
 
-export {
-    db,
-}
+export {db}

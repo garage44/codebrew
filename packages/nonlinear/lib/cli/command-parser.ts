@@ -4,8 +4,7 @@
  */
 
 import pc from 'picocolors'
-import type {Tool, ToolResult} from '../fixtures/tools/types.ts'
-import type {ToolContext} from '../fixtures/tools/types.ts'
+import type {Tool, ToolContext, ToolResult} from '../fixtures/tools/types.ts'
 
 /**
  * Parse command-line style arguments into a params object
@@ -33,19 +32,17 @@ function parseArgs(args: string[]): Record<string, unknown> {
                 // --key value format
                 params[paramKey] = parseValue(value)
                 // Skip next arg as it's the value
-                i++
+                i += 1
             } else {
                 // --flag (boolean)
                 params[key] = true
             }
-        } else {
+        } else if (Object.keys(params).length === 0) {
             // Positional argument - treat as value for first parameter
-            if (Object.keys(params).length === 0) {
-                params.value = arg
-            }
+            params.value = arg
         }
 
-        i++
+        i += 1
     }
 
     return params
@@ -57,10 +54,10 @@ function parseArgs(args: string[]): Record<string, unknown> {
 function parseValue(value: string): unknown {
     // Try to parse as number
     if (/^-?\d+$/.test(value)) {
-        return parseInt(value, 10)
+        return Number.parseInt(value, 10)
     }
     if (/^-?\d+\.\d+$/.test(value)) {
-        return parseFloat(value)
+        return Number.parseFloat(value)
     }
 
     // Try to parse as boolean
@@ -92,14 +89,14 @@ function validateParams(params: Record<string, unknown>, tool: Tool): {errors: s
 
     // Check required parameters
     for (const param of tool.parameters) {
-        if (param.required && params[param.name] === undefined) {
+        if (param.required && !(param.name in params) || params[param.name] === null) {
             errors.push(`Missing required parameter: ${param.name}`)
         }
     }
 
     // Check parameter types
     for (const [key, value] of Object.entries(params)) {
-        const paramDef = tool.parameters.find((p) => p.name === key)
+        const paramDef = tool.parameters.find((p): boolean => p.name === key)
         if (paramDef) {
             const expectedType = paramDef.type
             const actualType = typeof value
@@ -112,6 +109,7 @@ function validateParams(params: Record<string, unknown>, tool: Tool): {errors: s
             }
         } else {
             // Unknown parameter - warn but don't error
+            // eslint-disable-next-line no-console
             console.warn(`⚠️  Unknown parameter: ${key}`)
         }
     }
@@ -167,7 +165,7 @@ export async function executeToolCommand(
     try {
         const result = await tool.execute(params, toolContext)
         return result
-    } catch(error) {
+    } catch(error: unknown) {
         return {
             error: error instanceof Error ? error.message : String(error),
             success: false,
@@ -179,13 +177,13 @@ export async function executeToolCommand(
  * Get compact list of tools (names and descriptions only)
  */
 export function getToolsList(tools: Record<string, Tool>): string {
-    const toolNames = Object.keys(tools).sort()
+    const toolNames = Object.keys(tools).toSorted()
     const lines: string[] = []
 
     lines.push(pc.cyan('\nAvailable Tools:\n'))
 
     // Group tools by category (prefix before underscore)
-    const categories: Record<string, Array<{name: string; tool: Tool}>> = {}
+    const categories: Record<string, {name: string; tool: Tool}[]> = {}
     for (const toolName of toolNames) {
         const tool = tools[toolName]
         const category = toolName.includes('_') ? toolName.split('_')[0] : 'other'
@@ -196,7 +194,7 @@ export function getToolsList(tools: Record<string, Tool>): string {
     }
 
     // Display by category
-    for (const [category, toolList] of Object.entries(categories).sort()) {
+    for (const [category, toolList] of Object.entries(categories).toSorted()) {
         if (category !== 'other') {
             lines.push(pc.gray(`  ${category}:`))
         }
@@ -217,7 +215,7 @@ export function getToolsList(tools: Record<string, Tool>): string {
  * Get help text for all available tools
  */
 export function getToolsHelp(tools: Record<string, Tool>): string {
-    const toolNames = Object.keys(tools).sort()
+    const toolNames = Object.keys(tools).toSorted()
     const helpLines: string[] = []
 
     helpLines.push(pc.cyan('\nAvailable Tools:\n'))

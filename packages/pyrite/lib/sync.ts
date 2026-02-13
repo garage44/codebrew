@@ -1,12 +1,14 @@
+import type {User} from '@garage44/common/lib/user-manager'
+
 import {GroupManager} from '@garage44/common/lib/group-manager'
 import {userManager} from '@garage44/common/service'
-import {config} from './config.ts'
-import {logger} from '../service.ts'
+import {Database} from 'bun:sqlite'
 import fs from 'fs-extra'
 import path from 'node:path'
+
+import {logger} from '../service.ts'
+import {config} from './config.ts'
 import {getDatabase} from './database.ts'
-import {Database} from 'bun:sqlite'
-import type {User} from '@garage44/common/lib/user-manager'
 
 /*
  * Initialize GroupManager for Pyrite
@@ -46,7 +48,7 @@ export async function syncUsersToGalene() {
         }
 
         logger.info(`Synced ${users.length} users to global config and ${groups.length} groups`)
-    } catch(error) {
+    } catch (error) {
         logger.error('Failed to sync users to Galene:', error)
         throw error
     }
@@ -100,7 +102,7 @@ async function syncUsersToGlobalConfig(users: User[], _db: Database) {
 
     // Sync ALL users
     for (const user of users) {
-    // Convert password to Galene format
+        // Convert password to Galene format
         let password: string | {key: string; type: string} = user.password.key
 
         // If password is hashed, keep the hash format; otherwise use plaintext
@@ -146,7 +148,7 @@ async function updateGroupWithChannelMembers(groupName: string, db: Database) {
     const groupFile = path.join(config.sfu.path, 'groups', `${groupName}.json`)
 
     // Skip if group file doesn't exist (should be created by channel sync)
-    if (!await fs.pathExists(groupFile)) {
+    if (!(await fs.pathExists(groupFile))) {
         logger.debug(`Group file ${groupName}.json doesn't exist, skipping user sync`)
         return
     }
@@ -170,7 +172,7 @@ async function updateGroupWithChannelMembers(groupName: string, db: Database) {
     const channel = channelStmt.get(groupName) as {id: number} | null
 
     if (!channel) {
-    // No channel found for this group - clear users
+        // No channel found for this group - clear users
         logger.debug(`No channel found for group ${groupName}, clearing users`)
         groupData.op = []
         groupData.other = []
@@ -249,7 +251,7 @@ async function updateGroupWithChannelMembers(groupName: string, db: Database) {
 async function saveGroupNativeGalene(groupName: string, groupData: Record<string, unknown>): Promise<void> {
     // Create a clean copy without Pyrite-specific fields
     const nativeData: Record<string, unknown> = {
-    // Copy all native Galene fields
+        // Copy all native Galene fields
         'allow-anonymous': groupData['allow-anonymous'] ?? false,
         'allow-recording': groupData['allow-recording'] ?? true,
         'allow-subgroups': groupData['allow-subgroups'] ?? true,
@@ -277,7 +279,7 @@ async function saveGroupNativeGalene(groupName: string, groupData: Record<string
     if (groupData.users && typeof groupData.users === 'object' && !Array.isArray(groupData.users)) {
         nativeData.users = groupData.users
     } else {
-    // Ensure users dictionary exists (even if empty)
+        // Ensure users dictionary exists (even if empty)
         nativeData.users = {}
     }
 

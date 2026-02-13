@@ -1,16 +1,16 @@
 import {$} from 'bun'
 import {homedir} from 'node:os'
-import {existsSync, unlinkSync} from 'fs'
-import {join as pathJoin} from 'path'
-import {findWorkspaceRoot, extractWorkspacePackages, isApplicationPackage} from './workspace'
+import {existsSync, unlinkSync} from 'node:fs'
+import {join as pathJoin} from 'node:path'
+import {extractWorkspacePackages, findWorkspaceRoot, isApplicationPackage} from './workspace'
 import {cleanupPRDeployment} from './pr-cleanup'
-import {deployPR, type PRMetadata, updateAllPRDeploymentsWithMain} from './pr-deploy'
-import {updatePRDeployment, getPRDeployment} from './pr-registry'
+import {type PRMetadata, deployPR, updateAllPRDeploymentsWithMain} from './pr-deploy'
+import {getPRDeployment, updatePRDeployment} from './pr-registry'
 import {
-    waitForService,
-    waitForPort,
-    waitForHttpEndpoint,
     type HealthCheckResult,
+    waitForHttpEndpoint,
+    waitForPort,
+    waitForService,
 } from './health-check'
 
 interface PullRequestWebhookEvent {
@@ -39,6 +39,7 @@ const REPO_PATH = process.env.REPO_PATH || findWorkspaceRoot() || process.cwd()
  */
 export async function validateSignature(payload: string, signature: string, secret: string): Promise<boolean> {
     if (!secret) {
+        // eslint-disable-next-line no-console
         console.error('[webhook] WEBHOOK_SECRET not configured')
         return false
     }
@@ -64,8 +65,8 @@ export async function validateSignature(payload: string, signature: string, secr
     )
 
     const hmacSignature = await crypto.subtle.sign('HMAC', key, payloadData)
-    const calculatedHash = Array.from(new Uint8Array(hmacSignature))
-        .map((b) => b.toString(16).padStart(2, '0'))
+    const calculatedHash = [...new Uint8Array(hmacSignature)]
+        .map((b): string => b.toString(16).padStart(2, '0'))
         .join('')
 
     // Use constant-time comparison to prevent timing attacks
@@ -74,9 +75,10 @@ export async function validateSignature(payload: string, signature: string, secr
     }
 
     let result = 0
-    for (let i = 0; i < calculatedHash.length; i++) {
+    for (let i = 0; i < calculatedHash.length; i += 1) {
         const calculatedCode = calculatedHash.codePointAt(i) ?? 0
         const sigCode = sigHash.codePointAt(i) ?? 0
+        // eslint-disable-next-line no-bitwise
         result |= calculatedCode ^ sigCode
     }
 
@@ -87,6 +89,7 @@ export async function validateSignature(payload: string, signature: string, secr
  * Remove database files to ensure clean state
  */
 function removeDatabases(): void {
+    // eslint-disable-next-line no-console
     console.log('[deploy] Removing database files...')
 
     const dbFiles = [
@@ -106,9 +109,11 @@ function removeDatabases(): void {
         if (existsSync(file)) {
             try {
                 unlinkSync(file)
+                // eslint-disable-next-line no-console
                 console.log(`[deploy] Removed ${file}`)
             } catch(error: unknown) {
                 const message = error instanceof Error ? error.message : String(error)
+                // eslint-disable-next-line no-console
                 console.warn(`[deploy] Failed to remove ${file}: ${message}`)
             }
         }
@@ -122,19 +127,24 @@ function removeDatabases(): void {
  */
 export async function deploy(): Promise<{message: string; success: boolean}> {
     try {
+        // eslint-disable-next-line no-console
         console.log('[deploy] Starting deployment...')
+        // eslint-disable-next-line no-console
         console.log(`[deploy] Repository path: ${REPO_PATH}`)
+        // eslint-disable-next-line no-console
         console.log(`[deploy] Current working directory: ${process.cwd()}`)
 
         // Verify repository path exists
         if (!existsSync(REPO_PATH)) {
             throw new Error(`Repository path does not exist: ${REPO_PATH}`)
         }
+        // eslint-disable-next-line no-console
         console.log(`[deploy] Repository path verified: ${REPO_PATH}`)
 
         // Change to repository directory
         try {
             process.chdir(REPO_PATH)
+            // eslint-disable-next-line no-console
             console.log(`[deploy] Changed to repository directory: ${process.cwd()}`)
         } catch(error: unknown) {
             const message = error instanceof Error ? error.message : String(error)
@@ -145,19 +155,25 @@ export async function deploy(): Promise<{message: string; success: boolean}> {
         if (!existsSync(pathJoin(REPO_PATH, '.git'))) {
             throw new Error(`Not a git repository: ${REPO_PATH}`)
         }
+        // eslint-disable-next-line no-console
         console.log('[deploy] Git repository verified')
 
         // Pull latest code from main branch
+        // eslint-disable-next-line no-console
         console.log('[deploy] Pulling latest code from main branch...')
         const pullResult = await $`git fetch origin main && git reset --hard origin/main`.nothrow()
         if (pullResult.exitCode !== 0) {
             const stderr = pullResult.stderr?.toString() || ''
             const stdout = pullResult.stdout?.toString() || ''
+            // eslint-disable-next-line no-console
             console.error(`[deploy] Git pull failed with exit code ${pullResult.exitCode}`)
+            // eslint-disable-next-line no-console
             console.error(`[deploy] Git pull stderr: ${stderr}`)
+            // eslint-disable-next-line no-console
             console.error(`[deploy] Git pull stdout: ${stdout}`)
             throw new Error(`Failed to pull latest code: ${stderr || stdout || 'Unknown error'}`)
         }
+        // eslint-disable-next-line no-console
         console.log('[deploy] Code pulled successfully')
 
         // Verify bun is available
@@ -167,6 +183,7 @@ export async function deploy(): Promise<{message: string; success: boolean}> {
                 throw new Error('Bun is not available or not in PATH')
             }
             const bunVersion = bunVersionResult.stdout?.toString().trim() || 'unknown'
+            // eslint-disable-next-line no-console
             console.log(`[deploy] Bun version: ${bunVersion}`)
         } catch(error: unknown) {
             const message = error instanceof Error ? error.message : String(error)
@@ -174,8 +191,10 @@ export async function deploy(): Promise<{message: string; success: boolean}> {
         }
 
         // Remove database files
+        // eslint-disable-next-line no-console
         console.log('[deploy] Removing database files...')
         removeDatabases()
+        // eslint-disable-next-line no-console
         console.log('[deploy] Database files removed')
 
         // Verify package.json exists
@@ -183,101 +202,138 @@ export async function deploy(): Promise<{message: string; success: boolean}> {
         if (!existsSync(packageJsonPath)) {
             throw new Error(`package.json not found at ${packageJsonPath}`)
         }
+        // eslint-disable-next-line no-console
         console.log('[deploy] package.json verified')
 
         // Install dependencies (must be run from workspace root)
+        // eslint-disable-next-line no-console
         console.log('[deploy] Installing dependencies...')
+        // eslint-disable-next-line no-console
         console.log(`[deploy] Installing from: ${process.cwd()}`)
         const installResult = await $`bun install`.nothrow()
         if (installResult.exitCode !== 0) {
             const stderr = installResult.stderr?.toString() || ''
             const stdout = installResult.stdout?.toString() || ''
             const errorDetails = stderr || stdout || 'Unknown install error'
+            // eslint-disable-next-line no-console
             console.error(`[deploy] Install failed with exit code ${installResult.exitCode}`)
+            // eslint-disable-next-line no-console
             console.error(`[deploy] Install stderr: ${stderr}`)
+            // eslint-disable-next-line no-console
             console.error(`[deploy] Install stdout: ${stdout}`)
             throw new Error(`Failed to install dependencies: ${errorDetails.slice(0, 500)}`)
         }
+        // eslint-disable-next-line no-console
         console.log('[deploy] Dependencies installed successfully')
 
         // Build all packages
+        // eslint-disable-next-line no-console
         console.log('[deploy] Building all packages...')
+        // eslint-disable-next-line no-console
         console.log('[deploy] Build command: bun run build')
+        // eslint-disable-next-line no-console
         console.log(`[deploy] Working directory: ${process.cwd()}`)
         const buildResult = await $`bun run build`.nothrow()
         if (buildResult.exitCode !== 0) {
             const stderr = buildResult.stderr?.toString() || ''
             const stdout = buildResult.stdout?.toString() || ''
             const errorOutput = stderr || stdout || 'Unknown build error'
+            // eslint-disable-next-line no-console
             console.error(`[deploy] Build failed with exit code ${buildResult.exitCode}`)
+            // eslint-disable-next-line no-console
             console.error(`[deploy] Build stderr (first 2000 chars): ${stderr.slice(0, 2000)}`)
+            // eslint-disable-next-line no-console
             console.error(`[deploy] Build stdout (first 2000 chars): ${stdout.slice(0, 2000)}`)
             if (stderr.length > 2000) {
+                // eslint-disable-next-line no-console
                 console.error(`[deploy] Build stderr (truncated, total length: ${stderr.length})`)
             }
             if (stdout.length > 2000) {
+                // eslint-disable-next-line no-console
                 console.error(`[deploy] Build stdout (truncated, total length: ${stdout.length})`)
             }
             throw new Error(`Build failed: ${errorOutput.slice(0, 1000)}`)
         }
+        // eslint-disable-next-line no-console
         console.log('[deploy] Build completed successfully')
 
         // Auto-discover packages from workspace
+        // eslint-disable-next-line no-console
         console.log('[deploy] Discovering packages to deploy...')
         const workspaceRoot = findWorkspaceRoot() || REPO_PATH
+        // eslint-disable-next-line no-console
         console.log(`[deploy] Workspace root: ${workspaceRoot}`)
         const allPackages = extractWorkspacePackages(workspaceRoot)
+        // eslint-disable-next-line no-console
         console.log(`[deploy] All packages found: ${allPackages.join(', ')}`)
-        const appPackages = allPackages.filter((pkg) => isApplicationPackage(pkg))
+        const appPackages = allPackages.filter((pkg): boolean => isApplicationPackage(pkg))
+        // eslint-disable-next-line no-console
         console.log(`[deploy] Application packages: ${appPackages.join(', ')}`)
 
         // Always include nonlinear in deployment
         const packagesToDeploy = [...appPackages, 'nonlinear']
+        // eslint-disable-next-line no-console
         console.log(`[deploy] Packages to deploy: ${packagesToDeploy.join(', ')}`)
 
-        const otherPackages = packagesToDeploy.filter((pkg) => pkg !== 'nonlinear')
-        const nonlinearPackage = packagesToDeploy.find((pkg) => pkg === 'nonlinear')
+        const otherPackages = packagesToDeploy.filter((pkg): boolean => pkg !== 'nonlinear')
+        const nonlinearPackage = packagesToDeploy.find((pkg): boolean => pkg === 'nonlinear')
 
         // Restart systemd services for all packages except nonlinear
+        // eslint-disable-next-line no-console
         console.log('[deploy] Restarting systemd services (excluding nonlinear)...')
         for (const packageName of otherPackages) {
             try {
+                // eslint-disable-next-line no-console
                 console.log(`[deploy] Restarting ${packageName} service...`)
+                // eslint-disable-next-line no-await-in-loop
                 const restartResult = await $`sudo /usr/bin/systemctl restart ${packageName}.service`.nothrow()
                 if (restartResult.exitCode === 0) {
+                    // eslint-disable-next-line no-console
                     console.log(`[deploy] ${packageName} service restarted successfully`)
                 } else {
                     const stderr = restartResult.stderr?.toString() || ''
                     const stdout = restartResult.stdout?.toString() || ''
+                    // eslint-disable-next-line no-console
                     console.warn(`[deploy] Failed to restart ${packageName} service (exit code ${restartResult.exitCode})`)
+                    // eslint-disable-next-line no-console
                     console.warn(`[deploy] ${packageName} restart stderr: ${stderr}`)
+                    // eslint-disable-next-line no-console
                     console.warn(`[deploy] ${packageName} restart stdout: ${stdout}`)
                 }
             } catch(error: unknown) {
                 const message = error instanceof Error ? error.message : String(error)
+                // eslint-disable-next-line no-console
                 console.warn(`[deploy] Error restarting ${packageName}: ${message}`)
             }
         }
 
+        // eslint-disable-next-line no-console
         console.log('[deploy] Deployment completed successfully')
 
         if (nonlinearPackage) {
+            // eslint-disable-next-line no-console
             console.log('[deploy] Scheduling nonlinear service restart (after function returns)...')
-            queueMicrotask(async() => {
+            queueMicrotask(async(): Promise<void> => {
                 try {
+                    // eslint-disable-next-line no-console
                     console.log('[deploy] Restarting nonlinear service...')
                     const restartResult = await $`sudo /usr/bin/systemctl restart ${nonlinearPackage}.service`.nothrow()
                     if (restartResult.exitCode === 0) {
+                        // eslint-disable-next-line no-console
                         console.log(`[deploy] ✅ ${nonlinearPackage} service restarted successfully`)
                     } else {
                         const stderr = restartResult.stderr?.toString() || ''
                         const stdout = restartResult.stdout?.toString() || ''
+                        // eslint-disable-next-line no-console
                         console.error(`[deploy] ❌ Failed to restart ${nonlinearPackage} service (${restartResult.exitCode})`)
+                        // eslint-disable-next-line no-console
                         console.error(`[deploy] ${nonlinearPackage} restart stderr: ${stderr}`)
+                        // eslint-disable-next-line no-console
                         console.error(`[deploy] ${nonlinearPackage} restart stdout: ${stdout}`)
                     }
                 } catch(error: unknown) {
                     const errorMessage = error instanceof Error ? error.message : String(error)
+                    // eslint-disable-next-line no-console
                     console.error(`[deploy] ❌ Error restarting ${nonlinearPackage}: ${errorMessage}`)
                 }
             })
@@ -286,9 +342,11 @@ export async function deploy(): Promise<{message: string; success: boolean}> {
         return {message: 'Deployment completed successfully', success: true}
     } catch(error: unknown) {
         const message = error instanceof Error ? error.message : String(error)
-        const stack = error instanceof Error ? error.stack : undefined
+        const stack = error instanceof Error ? error.stack || null : null
+        // eslint-disable-next-line no-console
         console.error(`[deploy] Deployment failed: ${message}`)
         if (stack) {
+            // eslint-disable-next-line no-console
             console.error(`[deploy] Stack trace: ${stack}`)
         }
         return {message: `Deployment failed: ${message}`, success: false}
@@ -298,8 +356,8 @@ export async function deploy(): Promise<{message: string; success: boolean}> {
 /**
  * Handle pull request events
  */
-async function handlePullRequestEvent(event: PullRequestWebhookEvent): Promise<Response> {
-    const action = event.action
+async function handlePullRequestEvent(event: PullRequestWebhookEvent): Promise<Response> { // eslint-disable-line @typescript-eslint/explicit-function-return-type
+    const {action} = event
     const pullRequest = event.pull_request
     const prNumber = pullRequest?.number
 
@@ -310,6 +368,7 @@ async function handlePullRequestEvent(event: PullRequestWebhookEvent): Promise<R
         })
     }
 
+    // eslint-disable-next-line no-console
     console.log(`[webhook] PR #${prNumber} event: ${action}`)
 
     // Handle PR close/merge - cleanup
@@ -347,14 +406,17 @@ async function handlePullRequestEvent(event: PullRequestWebhookEvent): Promise<R
 
         // Deploy synchronously and wait for completion
         try {
+            // eslint-disable-next-line no-console
             console.log(`[webhook] Starting deployment for PR #${prNumber}...`)
             const deployResult = await deployPR(pr)
 
             if (!deployResult.success) {
+                // eslint-disable-next-line no-console
                 console.error(`[webhook] PR #${prNumber} deployment failed: ${deployResult.message}`)
                 if (deployResult.deployment) {
-                    await updatePRDeployment(prNumber, {status: 'failed'}).catch((err) => {
-                        console.error('[webhook] Failed to update deployment status:', err)
+                    await updatePRDeployment(prNumber, {status: 'failed'}).catch((error: unknown): void => {
+                        // eslint-disable-next-line no-console
+                        console.error('[webhook] Failed to update deployment status:', error)
                     })
                 }
 
@@ -381,6 +443,7 @@ async function handlePullRequestEvent(event: PullRequestWebhookEvent): Promise<R
                 })
             }
 
+            // eslint-disable-next-line no-console
             console.log(`[webhook] PR #${prNumber} deployment completed, verifying health...`)
 
             // Get the deployment record to check packages
@@ -400,12 +463,13 @@ async function handlePullRequestEvent(event: PullRequestWebhookEvent): Promise<R
             // Discover packages to verify
             const repoDir = pathJoin(deployment.directory, 'repo')
             const allPackages = extractWorkspacePackages(repoDir)
-            const appPackages = allPackages.filter((pkg) => isApplicationPackage(pkg))
+            const appPackages = allPackages.filter((pkg): boolean => isApplicationPackage(pkg))
             const packagesToDeploy = [...appPackages, 'nonlinear']
 
             // Wait for services to start (with timeout)
+            // eslint-disable-next-line no-console
             console.log(`[webhook] Waiting for services to start for PR #${prNumber}...`)
-            const serviceChecks: Array<{name: string; result: HealthCheckResult}> = []
+            const serviceChecks: {name: string; result: HealthCheckResult}[] = []
             const portMap: Record<string, number> = {
                 expressio: deployment.ports.expressio,
                 nonlinear: deployment.ports.nonlinear,
@@ -416,49 +480,59 @@ async function handlePullRequestEvent(event: PullRequestWebhookEvent): Promise<R
                 const serviceName = `pr-${prNumber}-${packageName}.service`
                 const port = portMap[packageName] || deployment.ports.nonlinear
 
+                // eslint-disable-next-line no-console
                 console.log(`[webhook] Waiting for ${serviceName} to become active...`)
-                const serviceCheck = await waitForService(serviceName, 60000, 2000)
+                // eslint-disable-next-line no-await-in-loop
+                const serviceCheck = await waitForService(serviceName, 60_000, 2000)
                 serviceChecks.push({name: serviceName, result: serviceCheck})
 
                 if (serviceCheck.healthy) {
+                    // eslint-disable-next-line no-console
                     console.log(`[webhook] Waiting for port ${port} to become listening...`)
-                    const portCheck = await waitForPort(port, 60000, 2000)
+                    // eslint-disable-next-line no-await-in-loop
+                    const portCheck = await waitForPort(port, 60_000, 2000)
                     serviceChecks.push({name: `port-${port}`, result: portCheck})
                 }
             }
 
             // Wait for HTTP endpoints to become accessible
+            // eslint-disable-next-line no-console
             console.log(`[webhook] Waiting for HTTP endpoints to become accessible for PR #${prNumber}...`)
             const baseDomain = 'garage44.org'
-            const httpChecks: Array<{name: string; result: HealthCheckResult}> = []
+            const httpChecks: {name: string; result: HealthCheckResult}[] = []
 
             for (const packageName of packagesToDeploy) {
                 const subdomain = `pr-${prNumber}-${packageName}.${baseDomain}`
                 const httpsUrl = `https://${subdomain}`
 
+                // eslint-disable-next-line no-console
                 console.log(`[webhook] Checking HTTP endpoint: ${httpsUrl}`)
-                const httpCheck = await waitForHttpEndpoint(httpsUrl, 120000, 3000, 10000)
+                // eslint-disable-next-line no-await-in-loop
+                const httpCheck = await waitForHttpEndpoint(httpsUrl, 120_000, 3000, 10_000)
                 httpChecks.push({name: httpsUrl, result: httpCheck})
             }
 
             // Combine all checks
             const allChecks = [...serviceChecks, ...httpChecks]
-            const allHealthy = allChecks.every((check) => check.result.healthy)
-            const failedChecks = allChecks.filter((check) => !check.result.healthy)
+            const allHealthy = allChecks.every((check: {name: string; result: {healthy: boolean; message: string; details?: unknown}}): boolean => check.result.healthy)
+            const failedChecks = allChecks.filter((check: {name: string; result: {healthy: boolean; message: string; details?: unknown}}): boolean => !check.result.healthy)
 
             if (!allHealthy) {
-                console.error(`[webhook] PR #${prNumber} health checks failed:`, failedChecks.map((c) => c.name))
-                await updatePRDeployment(prNumber, {status: 'failed'}).catch((err) => {
-                    console.error('[webhook] Failed to update deployment status:', err)
+                // eslint-disable-next-line no-console
+                console.error(`[webhook] PR #${prNumber} health checks failed:`, failedChecks.map((c: {name: string}): string => c.name))
+                // eslint-disable-next-line no-await-in-loop
+                await updatePRDeployment(prNumber, {status: 'failed'}).catch((error: unknown): void => {
+                    // eslint-disable-next-line no-console
+                    console.error('[webhook] Failed to update deployment status:', error)
                 })
 
                 return new Response(JSON.stringify({
-                    allChecks: allChecks.map((c) => ({
+                    allChecks: allChecks.map((c: {name: string; result: {healthy: boolean; message: string}}): {healthy: boolean; message: string; name: string} => ({
                         healthy: c.result.healthy,
                         message: c.result.message,
                         name: c.name,
                     })),
-                    failedChecks: failedChecks.map((c) => ({
+                    failedChecks: failedChecks.map((c: {name: string; result: {details?: unknown; message: string}}): {details?: unknown; message: string; name: string} => ({
                         details: c.result.details,
                         message: c.result.message,
                         name: c.name,
@@ -473,6 +547,7 @@ async function handlePullRequestEvent(event: PullRequestWebhookEvent): Promise<R
                 })
             }
 
+            // eslint-disable-next-line no-console
             console.log(`[webhook] PR #${prNumber} deployment successful and healthy`)
             return new Response(JSON.stringify({
                 deployment: {
@@ -480,7 +555,7 @@ async function handlePullRequestEvent(event: PullRequestWebhookEvent): Promise<R
                     ports: deployment.ports,
                     url: `https://pr-${prNumber}-nonlinear.${baseDomain}`,
                 },
-                healthChecks: allChecks.map((c) => ({
+                healthChecks: allChecks.map((c: {name: string; result: {healthy: boolean; message: string}}): {healthy: boolean; message: string; name: string} => ({
                     healthy: c.result.healthy,
                     message: c.result.message,
                     name: c.name,
@@ -495,15 +570,19 @@ async function handlePullRequestEvent(event: PullRequestWebhookEvent): Promise<R
             })
         } catch(error) {
             const errorMessage = error instanceof Error ? error.message : String(error)
-            const errorStack = error instanceof Error ? error.stack : undefined
+            const errorStack = error instanceof Error ? error.stack || null : null
+            // eslint-disable-next-line no-console
             console.error(`[webhook] PR #${prNumber} deployment error:`, errorMessage)
             if (errorStack) {
+                // eslint-disable-next-line no-console
                 console.error('[webhook] Stack trace:', errorStack)
             }
 
             // Update deployment status to failed
-            await updatePRDeployment(prNumber, {status: 'failed'}).catch((err) => {
-                console.error('[webhook] Failed to update deployment status:', err)
+            // eslint-disable-next-line no-await-in-loop
+            await updatePRDeployment(prNumber, {status: 'failed'}).catch((error: unknown): void => {
+                // eslint-disable-next-line no-console
+                console.error('[webhook] Failed to update deployment status:', error)
             })
 
             return new Response(JSON.stringify({
@@ -555,6 +634,7 @@ export async function handleWebhook(req: Request): Promise<Response> {
     // Validate signature
     const isValid = await validateSignature(payload, signature, WEBHOOK_SECRET)
     if (!isValid) {
+        // eslint-disable-next-line no-console
         console.error('[webhook] Invalid signature')
         return new Response(JSON.stringify({error: 'Invalid signature'}), {
             headers: {'Content-Type': 'application/json'},
@@ -563,7 +643,7 @@ export async function handleWebhook(req: Request): Promise<Response> {
     }
 
     // Parse webhook payload
-    let event
+    let event: unknown = null
     try {
         event = JSON.parse(payload)
     } catch {
@@ -590,7 +670,8 @@ export async function handleWebhook(req: Request): Promise<Response> {
     }
 
     // Only process push events to main branch
-    if (event.ref !== 'refs/heads/main' && event.ref) {
+    const pushEvent = event as {ref?: string}
+    if (pushEvent.ref !== 'refs/heads/main' && pushEvent.ref) {
         return new Response(JSON.stringify({message: 'Ignored: not main branch'}), {
             headers: {'Content-Type': 'application/json'},
             status: 200,
@@ -601,12 +682,15 @@ export async function handleWebhook(req: Request): Promise<Response> {
      * Process deployment synchronously
      * Nonlinear restart is handled asynchronously inside deploy() to avoid killing the connection
      */
+    // eslint-disable-next-line no-console
     console.log('[webhook] Received push event to main branch, starting deployment...')
     const deploymentResult = await deploy()
 
     if (deploymentResult.success) {
+        // eslint-disable-next-line no-console
         console.log('[webhook] Deployment successful')
     } else {
+        // eslint-disable-next-line no-console
         console.error(`[webhook] Deployment failed: ${deploymentResult.message}`)
     }
 
@@ -614,11 +698,14 @@ export async function handleWebhook(req: Request): Promise<Response> {
      * Update all active PR deployments with main branch changes
      * This runs asynchronously and doesn't block the response
      */
+    // eslint-disable-next-line no-console
     console.log('[webhook] Updating active PR deployments with main branch changes...')
-    updateAllPRDeploymentsWithMain().then((result) => {
+    updateAllPRDeploymentsWithMain().then((result: {message: string}): void => {
+        // eslint-disable-next-line no-console
         console.log(`[webhook] PR deployments update: ${result.message}`)
-    }).catch((error) => {
+    }).catch((error: unknown): void => {
         const errorMessage = error instanceof Error ? error.message : String(error)
+        // eslint-disable-next-line no-console
         console.error(`[webhook] Error updating PR deployments: ${errorMessage}`)
     })
 

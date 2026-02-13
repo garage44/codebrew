@@ -11,10 +11,10 @@ export type AgentStatus = 'idle' | 'working' | 'error' | 'offline'
 
 interface AgentStatusState {
     agentId: string
-    status: AgentStatus
     currentTicketId: string | null
-    lastActivity: number
     error: string | null
+    lastActivity: number
+    status: AgentStatus
 }
 
 const agentStatuses = new Map<string, AgentStatusState>()
@@ -24,18 +24,18 @@ let wsManager: WebSocketServerManager | null = null
 /**
  * Initialize agent status tracking
  */
-export function initAgentStatusTracking(manager: WebSocketServerManager) {
+export function initAgentStatusTracking(manager: WebSocketServerManager): void {
     wsManager = manager
 
     // Load existing agent statuses from database
-    const agents = db.prepare('SELECT id, status FROM agents').all() as Array<{id: string; status: string}>
+    const agents = db.prepare('SELECT id, status FROM agents').all() as {id: string; status: string}[]
     for (const agent of agents) {
         agentStatuses.set(agent.id, {
             agentId: agent.id,
-            status: (agent.status || 'idle') as AgentStatus,
             currentTicketId: null,
-            lastActivity: Date.now(),
             error: null,
+            lastActivity: Date.now(),
+            status: (agent.status || 'idle') as AgentStatus,
         })
     }
 
@@ -50,21 +50,21 @@ export function updateAgentStatus(
     status: AgentStatus,
     ticketId?: string | null,
     error?: string | null,
-) {
+): void {
     const currentState = agentStatuses.get(agentId) || {
         agentId,
-        status: 'idle' as AgentStatus,
         currentTicketId: null,
-        lastActivity: Date.now(),
         error: null,
+        lastActivity: Date.now(),
+        status: 'idle' as AgentStatus,
     }
 
     const newState: AgentStatusState = {
         agentId,
-        status,
         currentTicketId: ticketId || currentState.currentTicketId,
-        lastActivity: Date.now(),
         error: error || null,
+        lastActivity: Date.now(),
+        status,
     }
 
     agentStatuses.set(agentId, newState)
@@ -84,10 +84,10 @@ export function updateAgentStatus(
     if (wsManager) {
         wsManager.broadcast('/agents', {
             agentId,
-            status,
             currentTicketId: newState.currentTicketId,
             error: newState.error,
             lastActivity: newState.lastActivity,
+            status,
             type: 'agent:status',
         })
     }
@@ -106,12 +106,12 @@ export function getAgentStatus(agentId: string): AgentStatusState | null {
  * Get all agent statuses
  */
 export function getAllAgentStatuses(): AgentStatusState[] {
-    return Array.from(agentStatuses.values())
+    return [...agentStatuses.values()]
 }
 
 /**
  * Clear agent status (when agent stops working)
  */
-export function clearAgentStatus(agentId: string) {
+export function clearAgentStatus(agentId: string): void {
     updateAgentStatus(agentId, 'idle', null, null)
 }

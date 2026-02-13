@@ -1,7 +1,7 @@
-import {copyFile, readFile, unlink, writeFile} from 'fs/promises'
+import {copyFile, readFile, unlink, writeFile} from 'node:fs/promises'
 import {$} from 'bun'
-import {join} from 'path'
-import {findWorkspaceRoot, extractWorkspacePackages} from './workspace'
+import {join} from 'node:path'
+import {extractWorkspacePackages, findWorkspaceRoot} from './workspace'
 import {takeScreenshots} from './screenshot'
 
 // Topological sort to determine publish order
@@ -66,6 +66,7 @@ async function buildDependencyGraph(workspaceRoot: string, packages: string[]): 
         const packageJsonPath = join(packagePath, 'package.json')
 
         try {
+            // eslint-disable-next-line no-await-in-loop
             const packageJson = JSON.parse(await readFile(packageJsonPath, 'utf8'))
             const packageName = packageJson.name
 
@@ -86,6 +87,7 @@ async function buildDependencyGraph(workspaceRoot: string, packages: string[]): 
 
             graph[packageName] = deps
         } catch(error) {
+            // eslint-disable-next-line no-console
             console.warn(`Failed to read package.json for ${pkg}:`, error)
         }
     }
@@ -95,66 +97,81 @@ async function buildDependencyGraph(workspaceRoot: string, packages: string[]): 
 
 // Main publish function
 export async function publish(): Promise<void> {
+    // eslint-disable-next-line no-console
     console.log('🚀 Starting monorepo publish...\n')
 
     try {
         // Find workspace root
         const workspaceRoot = findWorkspaceRoot() || process.cwd()
+        // eslint-disable-next-line no-console
         console.log(`📁 Workspace root: ${workspaceRoot}\n`)
 
         // Auto-discover packages from workspace
         const packages = extractWorkspacePackages(workspaceRoot)
+        // eslint-disable-next-line no-console
         console.log(`📦 Discovered packages: ${packages.join(', ')}\n`)
 
         // Build packages list with paths
-        const packageList = packages.map((pkg) => ({
+        const packageList = packages.map((pkg): {name: string; path: string} => ({
             name: `@garage44/${pkg}`,
             path: `packages/${pkg}`,
         }))
 
         // Build dependency graph
         const dependencies = await buildDependencyGraph(workspaceRoot, packages)
+        // eslint-disable-next-line no-console
         console.log('📋 Dependency graph:', JSON.stringify(dependencies, null, 2), '\n')
 
         // 1. Take fresh screenshots for README
+        // eslint-disable-next-line no-console
         console.log('📸 Taking fresh screenshots...')
         try {
             await takeScreenshots()
+            // eslint-disable-next-line no-console
             console.log('✅ Screenshots updated\n')
         } catch(error) {
+            // eslint-disable-next-line no-console
             console.warn('⚠️ Screenshot generation failed:', error.message)
+            // eslint-disable-next-line unicorn/no-process-exit
             process.exit(1)
         }
 
         // 2. Build all packages
+        // eslint-disable-next-line no-console
         console.log('📦 Building packages...')
         process.chdir(workspaceRoot)
         await $`bun run build`
+        // eslint-disable-next-line no-console
         console.log('✅ Build completed\n')
 
         // 3. Determine publish order
         const publishOrder = topologicalSort(dependencies)
+        // eslint-disable-next-line no-console
         console.log('📋 Publish order:', publishOrder.join(' → '), '\n')
 
         // 4. Collect current versions and bump them
         const packageVersions: Record<string, string> = {}
         for (const packageName of publishOrder) {
-            const packageInfo = packageList.find((pkg) => pkg.name === packageName)
+            const packageInfo = packageList.find((pkg): boolean => pkg.name === packageName)
             if (packageInfo) {
                 const packagePath = join(workspaceRoot, packageInfo.path)
+                // eslint-disable-next-line no-await-in-loop
                 const currentVersion = await getCurrentVersion(packagePath)
                 const newVersion = bumpVersion(currentVersion)
                 packageVersions[packageName] = newVersion
 
+                // eslint-disable-next-line no-console
                 console.log(`📝 ${packageName}: ${currentVersion} → ${newVersion}`)
             }
         }
+        // eslint-disable-next-line no-console
         console.log()
 
         // 5. Update versions and publish
         for (const packageName of publishOrder) {
-            const packageInfo = packageList.find((pkg) => pkg.name === packageName)
+            const packageInfo = packageList.find((pkg): boolean => pkg.name === packageName)
             if (packageInfo) {
+                // eslint-disable-next-line no-console
                 console.log(`🚀 Publishing ${packageName}...`)
 
                 const packagePath = join(workspaceRoot, packageInfo.path)
@@ -163,47 +180,61 @@ export async function publish(): Promise<void> {
                 let readmeCopied = false
                 if (packageName === '@garage44/expressio') {
                     try {
+                        // eslint-disable-next-line no-await-in-loop
                         await copyFile(join(workspaceRoot, 'README.md'), join(packagePath, 'README.md'))
+                        // eslint-disable-next-line no-console
                         console.log('📄 Copied root README.md to expressio package')
                         readmeCopied = true
                     } catch(error) {
+                        // eslint-disable-next-line no-console
                         console.warn('⚠️ Could not copy README.md:', error.message)
                     }
                 }
 
                 try {
                     // Update version
+                    // eslint-disable-next-line no-await-in-loop
                     await updateVersion(packagePath, packageVersions[packageName])
 
                     // Publish
+                    // eslint-disable-next-line no-await-in-loop
                     await $`cd ${packagePath} && bun publish`
+                    // eslint-disable-next-line no-console
                     console.log(`✅ ${packageName} published successfully`)
                 } catch(error) {
+                    // eslint-disable-next-line no-console
                     console.error(`❌ Failed to publish ${packageName}:`, error.message)
                     throw error
                 } finally {
                     // Clean up copied README for expressio package
                     if (readmeCopied) {
                         try {
+                            // eslint-disable-next-line no-await-in-loop
                             await unlink(join(packagePath, 'README.md'))
+                            // eslint-disable-next-line no-console
                             console.log('🧹 Removed copied README.md from expressio package')
                         } catch(error) {
+                            // eslint-disable-next-line no-console
                             console.warn('⚠️ Could not remove copied README.md:', error.message)
                         }
                     }
                 }
 
+                // eslint-disable-next-line no-console
                 console.log()
             }
         }
 
+        // eslint-disable-next-line no-console
         console.log('🎉 All packages published successfully!')
 
         // 6. Commit version changes to git
+        // eslint-disable-next-line no-console
         console.log('📦 Committing version changes to git...')
         try {
             // Add all modified package.json files
             for (const packageInfo of packageList) {
+                // eslint-disable-next-line no-await-in-loop
                 await $`git add ${packageInfo.path}/package.json`
             }
 
@@ -212,22 +243,29 @@ export async function publish(): Promise<void> {
 
             // Create commit message with all version changes
             const versionChanges = publishOrder
-                .map((name) => `${name}@${packageVersions[name]}`)
+                .map((name): string => `${name}@${packageVersions[name]}`)
                 .join(', ')
 
             await $`git commit -m "chore: bump versions and update screenshots - ${versionChanges}"`
+            // eslint-disable-next-line no-console
             console.log('✅ Version changes committed to git')
 
             // Push changes to remote
+            // eslint-disable-next-line no-console
             console.log('🚀 Pushing changes to remote repository...')
             await $`git push`
+            // eslint-disable-next-line no-console
             console.log('✅ Changes pushed to remote repository')
         } catch(error) {
+            // eslint-disable-next-line no-console
             console.warn('⚠️ Could not commit/push to git:', error.message)
+            // eslint-disable-next-line no-console
             console.warn('📝 Please manually commit and push the version changes')
         }
     } catch(error) {
+        // eslint-disable-next-line no-console
         console.error('❌ Publish failed:', error.message)
+        // eslint-disable-next-line unicorn/no-process-exit
         process.exit(1)
     }
 }

@@ -3,9 +3,8 @@
  * Handles creation, retrieval, and status updates for agent tasks
  */
 
-import {db} from '../database.ts'
+import {db, type AgentTask} from '../database.ts'
 import {randomId} from '@garage44/common/lib/utils'
-import type {AgentTask} from '../database.ts'
 
 export type TaskType = 'mention' | 'assignment' | 'manual' | 'refinement'
 
@@ -123,17 +122,17 @@ export function markTaskFailed(taskId: string, error: string): void {
  * Get task statistics for an agent
  */
 export function getTaskStats(agentId: string): {
-    pending: number
-    processing: number
     completed: number
     failed: number
+    pending: number
+    processing: number
 } {
     const stats = db.prepare(`
         SELECT status, COUNT(*) as count
         FROM agent_tasks
         WHERE agent_id = ?
         GROUP BY status
-    `).all(agentId) as Array<{status: string; count: number}>
+    `).all(agentId) as {count: number; status: string}[]
 
     const result = {
         completed: 0,

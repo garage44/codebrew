@@ -1,16 +1,9 @@
-import {$s} from '@/app'
-import {Button, FieldText} from '@garage44/common/components'
 import {ws, notifier} from '@garage44/common/app'
+import {Button, FieldText} from '@garage44/common/components'
 import {deepSignal} from 'deepsignal'
 import {useEffect, useRef, useState} from 'preact/hooks'
 
-interface LabelDefinition {
-    color: string
-    created_at: number
-    id: string
-    name: string
-    updated_at: number
-}
+import {$s} from '@/app'
 
 interface LabelDefinition {
     color: string
@@ -20,10 +13,19 @@ interface LabelDefinition {
     updated_at: number
 }
 
-const createLabelFormState = () => deepSignal({
-    color: '#3b82f6',
-    name: '',
-})
+interface LabelDefinition {
+    color: string
+    created_at: number
+    id: string
+    name: string
+    updated_at: number
+}
+
+const createLabelFormState = () =>
+    deepSignal({
+        color: '#3b82f6',
+        name: '',
+    })
 
 export function Labels() {
     const [labels, setLabels] = useState<LabelDefinition[]>([])
@@ -61,13 +63,13 @@ export function Labels() {
         }
     }, [])
 
-    const loadLabels = async() => {
+    const loadLabels = async () => {
         try {
             const result = await ws.get('/api/labels')
             if (result.labels) {
                 setLabels(result.labels as LabelDefinition[])
             }
-        } catch(error) {
+        } catch (error) {
             notifier.notify({
                 message: `Failed to load labels: ${error instanceof Error ? error.message : String(error)}`,
                 type: 'error',
@@ -75,7 +77,7 @@ export function Labels() {
         }
     }
 
-    const handleCreateLabel = async() => {
+    const handleCreateLabel = async () => {
         if (!formState.name.trim()) {
             notifier.notify({
                 message: 'Label name is required',
@@ -98,7 +100,7 @@ export function Labels() {
                 message: 'Label created',
                 type: 'success',
             })
-        } catch(error) {
+        } catch (error) {
             notifier.notify({
                 message: `Failed to create label: ${error instanceof Error ? error.message : String(error)}`,
                 type: 'error',
@@ -106,7 +108,7 @@ export function Labels() {
         }
     }
 
-    const handleUpdateLabel = async(labelId: string) => {
+    const handleUpdateLabel = async (labelId: string) => {
         if (!editFormState.name.trim()) {
             notifier.notify({
                 message: 'Label name is required',
@@ -130,7 +132,7 @@ export function Labels() {
                 message: 'Label updated',
                 type: 'success',
             })
-        } catch(error) {
+        } catch (error) {
             notifier.notify({
                 message: `Failed to update label: ${error instanceof Error ? error.message : String(error)}`,
                 type: 'error',
@@ -138,7 +140,7 @@ export function Labels() {
         }
     }
 
-    const handleDeleteLabel = async(labelId: string) => {
+    const handleDeleteLabel = async (labelId: string) => {
         if (!confirm('Are you sure you want to delete this label? This will remove it from all tickets.')) {
             return
         }
@@ -154,7 +156,7 @@ export function Labels() {
                 message: 'Label deleted',
                 type: 'success',
             })
-        } catch(error) {
+        } catch (error) {
             notifier.notify({
                 message: `Failed to delete label: ${error instanceof Error ? error.message : String(error)}`,
                 type: 'error',
@@ -177,18 +179,12 @@ export function Labels() {
     return (
         <div class='c-labels-settings'>
             <h2>Label Definitions</h2>
-            <p class='description'>
-                Manage label definitions. Labels can be reused across tickets and have configurable colors.
-            </p>
+            <p class='description'>Manage label definitions. Labels can be reused across tickets and have configurable colors.</p>
 
             <div class='create-form'>
                 <h3>Create New Label</h3>
                 <div class='form-fields'>
-                    <FieldText
-                        label='Label Name'
-                        model={formState.$name}
-                        placeholder='Enter label name'
-                    />
+                    <FieldText label='Label Name' model={formState.$name} placeholder='Enter label name' />
                     <div class='color-field'>
                         <label>Color</label>
                         <div class='color-input-wrapper'>
@@ -199,10 +195,7 @@ export function Labels() {
                                 type='color'
                                 value={formState.color}
                             />
-                            <FieldText
-                                model={formState.$color}
-                                placeholder='#3b82f6'
-                            />
+                            <FieldText model={formState.$color} placeholder='#3b82f6' />
                         </div>
                     </div>
                     <Button onClick={handleCreateLabel} type='success'>
@@ -212,10 +205,12 @@ export function Labels() {
             </div>
 
             <div class='list'>
-                {labels.length === 0 ?
-                    <p class='empty'>No labels defined</p> :
-                        labels.map((label) => <div class='item' key={label.id}>
-                            {editingId === label.id ?
+                {labels.length === 0 ? (
+                    <p class='empty'>No labels defined</p>
+                ) : (
+                    labels.map((label) => (
+                        <div class='item' key={label.id}>
+                            {editingId === label.id ? (
                                 <div class='edit-form'>
                                     <div class='form-fields'>
                                         <FieldText
@@ -233,10 +228,7 @@ export function Labels() {
                                                     type='color'
                                                     value={editFormState.color}
                                                 />
-                                                <FieldText
-                                                    model={editFormState.$color}
-                                                    placeholder='#3b82f6'
-                                                />
+                                                <FieldText model={editFormState.$color} placeholder='#3b82f6' />
                                             </div>
                                         </div>
                                         <div class='actions'>
@@ -248,7 +240,8 @@ export function Labels() {
                                             </Button>
                                         </div>
                                     </div>
-                                </div> :
+                                </div>
+                            ) : (
                                 <div class='content'>
                                     <div class='label-preview'>
                                         <span
@@ -262,13 +255,7 @@ export function Labels() {
                                         </span>
                                     </div>
                                     <div class='actions'>
-                                        <Button
-                                            icon='edit'
-                                            onClick={() => startEdit(label)}
-                                            size='s'
-                                            tip='Edit'
-                                            type='default'
-                                        />
+                                        <Button icon='edit' onClick={() => startEdit(label)} size='s' tip='Edit' type='default' />
                                         <Button
                                             icon='trash'
                                             onClick={() => handleDeleteLabel(label.id)}
@@ -277,8 +264,11 @@ export function Labels() {
                                             type='default'
                                         />
                                     </div>
-                                </div>}
-                        </div>)}
+                                </div>
+                            )}
+                        </div>
+                    ))
+                )}
             </div>
         </div>
     )

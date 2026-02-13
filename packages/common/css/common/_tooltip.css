@@ -3,7 +3,8 @@
 }
 
 [data-tippy-root] {
-    max-width: calc(100vw - 10px)
+    max-width: calc(100vw - 10px);
+    z-index: 1000000 !important;
 }
 
 .tippy-box {
@@ -16,6 +17,7 @@
     position: relative;
     transition-property: transform, visibility, opacity;
     white-space: normal;
+    z-index: 1000000;
 }
 
 .tippy-box[data-placement^="top"]>.tippy-arrow {
@@ -84,5 +86,5 @@
 .tippy-content {
     padding: 5px 9px;
     position: relative;
-    z-index: 1
+    z-index: 1000000;
 }

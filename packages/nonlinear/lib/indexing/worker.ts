@@ -6,26 +6,27 @@
 import {logger} from '../../service.ts'
 import {db} from '../database.ts'
 import {indexCodeFile} from '../docs/code-embeddings.ts'
-import {generateDocEmbeddings} from '../docs/embeddings.ts'
-import {generateTicketEmbedding} from '../docs/embeddings.ts'
+import {generateDocEmbeddings, generateTicketEmbedding} from '../docs/embeddings.ts'
 
 export interface IndexingJob {
-    id: string
-    type: 'code' | 'doc' | 'ticket'
-    repositoryId?: string
-    filePath?: string
-    docId?: string
-    ticketId?: string
-    status: 'pending' | 'processing' | 'completed' | 'failed'
-    created_at: number
-    started_at?: number
     completed_at?: number
+    created_at: number
+    docId?: string
     error?: string
+    filePath?: string
+    id: string
+    repositoryId?: string
+    started_at?: number
+    status: 'pending' | 'processing' | 'completed' | 'failed'
+    ticketId?: string
+    type: 'code' | 'doc' | 'ticket'
 }
 
 class IndexingWorker {
     private queue: IndexingJob[] = []
+
     private processing = false
+
     private maxConcurrent = 3
 
     /**
@@ -34,9 +35,9 @@ class IndexingWorker {
     async addJob(job: Omit<IndexingJob, 'id' | 'status' | 'created_at'>): Promise<string> {
         const indexingJob: IndexingJob = {
             ...job,
+            created_at: Date.now(),
             id: crypto.randomUUID(),
             status: 'pending',
-            created_at: Date.now(),
         }
 
         // Store in database
@@ -53,7 +54,7 @@ class IndexingWorker {
             indexingJob.docId || null,
             indexingJob.ticketId || null,
             indexingJob.status,
-            indexingJob.created_at
+            indexingJob.created_at,
         )
 
         this.queue.push(indexingJob)
@@ -73,7 +74,8 @@ class IndexingWorker {
 
         while (this.queue.length > 0) {
             const jobs = this.queue.splice(0, this.maxConcurrent)
-            await Promise.all(jobs.map(job => this.processJob(job)))
+            // eslint-disable-next-line no-await-in-loop
+            await Promise.all(jobs.map((job): Promise<void> => this.processJob(job)))
         }
 
         this.processing = false
@@ -105,8 +107,8 @@ class IndexingWorker {
                 }
             } else if (job.type === 'ticket' && job.ticketId) {
                 const ticket = db.prepare('SELECT * FROM tickets WHERE id = ?').get(job.ticketId) as {
-                    title: string
                     description: string | null
+                    title: string
                 } | undefined
                 if (ticket) {
                     await generateTicketEmbedding(job.ticketId, ticket.title, ticket.description)
@@ -125,7 +127,7 @@ class IndexingWorker {
             `).run(Date.now(), job.id)
 
             logger.info(`[IndexingWorker] Completed job ${job.id} (${job.type})`)
-        } catch (error) {
+        } catch(error: unknown) {
             const errorMsg = error instanceof Error ? error.message : String(error)
             logger.error(`[IndexingWorker] Failed job ${job.id}:`, errorMsg)
 
@@ -142,23 +144,23 @@ class IndexingWorker {
      * Get indexing status for a repository
      */
     getStatus(repositoryId: string): {
-        total: number
         completed: number
-        processing: number
-        pending: number
         failed: number
+        pending: number
+        processing: number
+        total: number
     } {
         const jobs = db.prepare(`
             SELECT status FROM indexing_jobs
             WHERE repository_id = ?
-        `).all(repositoryId) as Array<{status: string}>
+        `).all(repositoryId) as {status: string}[]
 
         return {
+            completed: jobs.filter((j): boolean => j.status === 'completed').length,
+            failed: jobs.filter((j): boolean => j.status === 'failed').length,
+            pending: jobs.filter((j): boolean => j.status === 'pending').length,
+            processing: jobs.filter((j): boolean => j.status === 'processing').length,
             total: jobs.length,
-            completed: jobs.filter(j => j.status === 'completed').length,
-            processing: jobs.filter(j => j.status === 'processing').length,
-            pending: jobs.filter(j => j.status === 'pending').length,
-            failed: jobs.filter(j => j.status === 'failed').length,
         }
     }
 }

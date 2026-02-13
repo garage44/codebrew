@@ -1,18 +1,24 @@
 import {logger} from './index.ts'
 import notifier from 'node-notifier'
 import pc from 'picocolors'
-import {performance} from 'perf_hooks'
+import {performance} from 'node:perf_hooks'
 
 export class Task {
     title: string
-    execute: (...args: any[]) => any
-    prefix: { error: string; ok: string }
+
+    execute: (...args: unknown[]) => unknown
+
+    prefix: {error: string; ok: string}
+
     startTime?: number
+
     endTime?: number
+
     spendTime?: string
+
     size?: string
 
-    constructor(title, execute) {
+    constructor(title: string, execute: (...args: unknown[]) => unknown) {
         this.title = title
 
         this.execute = execute
@@ -22,31 +28,32 @@ export class Task {
         }
     }
 
-    log(...args: any[]) {
-        logger.info(...(args as [any, ...any[]]))
+    log(...args: unknown[]): void {
+        logger.info(...(args.map(String) as [string, ...string[]]))
     }
 
-    async start(...args) {
+    async start(...args: unknown[]): Promise<unknown> {
         this.startTime = performance.now()
         const logStart = `${this.prefix.ok}${pc.gray('task started')}`
         this.log(logStart)
-        let result
+        let result: unknown = null
 
         try {
             result = await this.execute(...args)
-            if (result && result.size) {
-                if (result.size < 1024) {
-                    this.size = `${result.size}B`
-                } else if (result.size < Math.pow(1024, 2)) {
-                    this.size = `${Number(result.size / 1024).toFixed(2)}KiB`
+            if (result && typeof result === 'object' && 'size' in result && typeof (result as {size: number}).size === 'number') {
+                const resultSize = (result as {size: number}).size
+                if (resultSize < 1024) {
+                    this.size = `${resultSize}B`
+                } else if (resultSize < 1024 ** 2) {
+                    this.size = `${Number(resultSize / 1024).toFixed(2)}KiB`
                 } else {
-                    this.size = `${Number(result.size / Math.pow(1024, 2)).toFixed(2)}MiB`
+                    this.size = `${Number(resultSize / 1024 ** 2).toFixed(2)}MiB`
                 }
             }
-        } catch (err) {
-            logger.error(`${this.prefix.error}task failed\n${err}`)
+        } catch(error) {
+            logger.error(`${this.prefix.error}task failed\n${error}`)
             notifier.notify({
-                message: `${err}`,
+                message: `${error}`,
                 title: `Task ${this.title} failed!`,
             })
         }
@@ -56,7 +63,7 @@ export class Task {
         let logComplete = `${this.prefix.ok}task completed`
 
         logComplete += ` (${pc.bold(this.spendTime)}`
-        if (this.size) logComplete += `, ${pc.bold(this.size)}`
+        if (this.size) {logComplete += `, ${pc.bold(this.size)}`}
         logComplete += ')'
 
         logger.info(logComplete)

@@ -1,9 +1,9 @@
-import {useRef} from 'preact/hooks'
 import {deepSignal, type DeepSignal} from 'deepsignal'
+import {useRef} from 'preact/hooks'
+
 import {api, notifier} from '@/app'
 
 export interface CollectionManagerConfig<TItem, TFormData> {
-
     /**
      * API endpoint for creating items (e.g., '/api/users' or a function that takes formData)
      */
@@ -105,19 +105,19 @@ export interface CollectionManagerState<TItem, TFormData> {
  *   populateFormData: (user) => ({ username: user.username, ... }),
  * })
  */
-export function useCollectionManager<TItem, TFormData>(
-    config: CollectionManagerConfig<TItem, TFormData>,
-) {
-    const stateRef = useRef(deepSignal<CollectionManagerState<TItem, TFormData>>({
-        editing: null,
-        error: null,
-        formData: config.initialFormData,
-        items: [],
-        loading: false,
-    }))
+export function useCollectionManager<TItem, TFormData>(config: CollectionManagerConfig<TItem, TFormData>) {
+    const stateRef = useRef(
+        deepSignal<CollectionManagerState<TItem, TFormData>>({
+            editing: null,
+            error: null,
+            formData: config.initialFormData,
+            items: [],
+            loading: false,
+        }),
+    )
     const state = stateRef.current
 
-    const loadItems = async() => {
+    const loadItems = async () => {
         state.loading = true
         state.error = null
         try {
@@ -134,15 +134,16 @@ export function useCollectionManager<TItem, TFormData>(
         }
     }
 
-    const createItem = async() => {
+    const createItem = async () => {
         try {
             state.loading = true
             state.error = null
             const payload = config.transformCreateData(state.formData as TFormData)
-            const endpoint = typeof config.createEndpoint === 'function' ?
-                    config.createEndpoint(state.formData as TFormData) :
-                config.createEndpoint
-            const newItem = await api.post(endpoint, payload) as TItem
+            const endpoint =
+                typeof config.createEndpoint === 'function'
+                    ? config.createEndpoint(state.formData as TFormData)
+                    : config.createEndpoint
+            const newItem = (await api.post(endpoint, payload)) as TItem
             state.items = [...state.items, newItem] as (TItem & DeepSignal<TItem>)[]
             Object.assign(state.formData, config.initialFormData)
             notifier.notify({
@@ -150,7 +151,7 @@ export function useCollectionManager<TItem, TFormData>(
                 message: config.messages?.createSuccess || 'Item created successfully',
             })
             return newItem
-        } catch(error) {
+        } catch (error) {
             const message = error instanceof Error ? error.message : config.messages?.createFailed || 'Failed to create item'
             state.error = message
             notifier.notify({
@@ -163,15 +164,16 @@ export function useCollectionManager<TItem, TFormData>(
         }
     }
 
-    const updateItem = async(itemId: string | number) => {
+    const updateItem = async (itemId: string | number) => {
         try {
             state.loading = true
             state.error = null
             const payload = config.transformUpdateData(state.formData as TFormData)
             const method = config.updateMethod || 'PUT'
-            const updatedItem = method === 'POST' ?
-                await api.post(config.updateEndpoint(itemId), payload) as TItem :
-                await api.put(config.updateEndpoint(itemId), payload) as TItem
+            const updatedItem =
+                method === 'POST'
+                    ? ((await api.post(config.updateEndpoint(itemId), payload)) as TItem)
+                    : ((await api.put(config.updateEndpoint(itemId), payload)) as TItem)
             state.items = state.items.map((item) => {
                 const itemValue = item as unknown as TItem
                 return config.getId(itemValue) === itemId ? updatedItem : itemValue
@@ -183,7 +185,7 @@ export function useCollectionManager<TItem, TFormData>(
                 message: config.messages?.updateSuccess || 'Item updated successfully',
             })
             return updatedItem
-        } catch(error) {
+        } catch (error) {
             const message = error instanceof Error ? error.message : config.messages?.updateFailed || 'Failed to update item'
             state.error = message
             notifier.notify({
@@ -196,11 +198,11 @@ export function useCollectionManager<TItem, TFormData>(
         }
     }
 
-    const deleteItem = async(item: TItem) => {
+    const deleteItem = async (item: TItem) => {
         const itemId = config.getId(item)
-        const confirmMessage = config.messages?.deleteConfirm ?
-                config.messages.deleteConfirm(item) :
-            'Are you sure you want to delete this item?'
+        const confirmMessage = config.messages?.deleteConfirm
+            ? config.messages.deleteConfirm(item)
+            : 'Are you sure you want to delete this item?'
 
         if (!confirm(confirmMessage)) {
             return
@@ -215,9 +217,8 @@ export function useCollectionManager<TItem, TFormData>(
             } else {
                 await api.delete(config.deleteEndpoint(itemId), {})
             }
-            state.items = state.items.filter(
-                (i) => config.getId(i as unknown as TItem) !== itemId,
-            ) as (TItem & DeepSignal<TItem>)[]
+            state.items = state.items.filter((i) => config.getId(i as unknown as TItem) !== itemId) as (TItem &
+                DeepSignal<TItem>)[]
             if (state.editing === itemId) {
                 state.editing = null
                 Object.assign(state.formData, config.initialFormData)
@@ -226,7 +227,7 @@ export function useCollectionManager<TItem, TFormData>(
                 level: 'success',
                 message: config.messages?.deleteSuccess || 'Item deleted successfully',
             })
-        } catch(error) {
+        } catch (error) {
             const message = error instanceof Error ? error.message : config.messages?.deleteFailed || 'Failed to delete item'
             state.error = message
             notifier.notify({

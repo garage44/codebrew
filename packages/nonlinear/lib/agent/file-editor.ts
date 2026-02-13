@@ -8,12 +8,15 @@ import fs from 'fs-extra'
 import path from 'node:path'
 
 export interface FileModification {
-    path: string
     changes: string
-    // Changes can be:
-    // - Full file replacement (if changes is complete file content)
-    // - Diff/patch format (future enhancement)
-    // - JSON patch format (future enhancement)
+    path: string
+
+    /*
+     * Changes can be:
+     * - Full file replacement (if changes is complete file content)
+     * - Diff/patch format (future enhancement)
+     * - JSON patch format (future enhancement)
+     */
 }
 
 /**
@@ -24,8 +27,8 @@ export interface FileModification {
 export async function applyFileModifications(
     repoPath: string,
     modifications: FileModification[],
-): Promise<Array<{path: string; success: boolean; error?: string}>> {
-    const results: Array<{error?: string; path: string; success: boolean}> = []
+): Promise<{error?: string; path: string; success: boolean}[]> {
+    const results: {error?: string; path: string; success: boolean}[] = []
 
     for (const mod of modifications) {
         try {
@@ -33,16 +36,20 @@ export async function applyFileModifications(
 
             // Ensure directory exists
             const dir = path.dirname(filePath)
+            // eslint-disable-next-line no-await-in-loop
             await fs.ensureDir(dir)
 
             // Create backup before modification
             const backupPath = `${filePath}.backup.${Date.now()}`
+            // eslint-disable-next-line no-await-in-loop
             if (await fs.pathExists(filePath)) {
+                // eslint-disable-next-line no-await-in-loop
                 await fs.copy(filePath, backupPath)
                 logger.debug(`[FileEditor] Created backup: ${backupPath}`)
             }
 
             // Apply modification (full file replacement for now)
+            // eslint-disable-next-line no-await-in-loop
             await fs.writeFile(filePath, mod.changes, 'utf8')
 
             logger.info(`[FileEditor] Modified file: ${mod.path}`)
@@ -52,11 +59,14 @@ export async function applyFileModifications(
             })
 
             // Clean up backup after successful modification
+            // eslint-disable-next-line no-await-in-loop
             if (await fs.pathExists(backupPath)) {
-                // Keep backup for now, could delete after validation
-                // await fs.remove(backupPath)
+                /*
+                 * Keep backup for now, could delete after validation
+                 * await fs.remove(backupPath)
+                 */
             }
-        } catch (error) {
+        } catch(error: unknown) {
             const errorMsg = error instanceof Error ? error.message : String(error)
             logger.error(`[FileEditor] Failed to modify ${mod.path}: ${errorMsg}`)
             results.push({
@@ -84,16 +94,12 @@ export function validateModifications(modifications: FileModification[]): {
         // Basic validation
         if (!mod.path || !mod.changes) {
             invalid.push(mod)
-            continue
-        }
-
-        // Check for path traversal attempts
-        if (mod.path.includes('..') || mod.path.startsWith('/')) {
+        } else if (mod.path.includes('..') || mod.path.startsWith('/')) {
+            // Check for path traversal attempts
             invalid.push(mod)
-            continue
+        } else {
+            valid.push(mod)
         }
-
-        valid.push(mod)
     }
 
     return {invalid, valid}

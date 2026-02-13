@@ -12,6 +12,7 @@ interface PanelContextProps {
     minWidth?: number
     onCollapseChange?: (collapsed: boolean) => void
     onWidthChange?: (width: number) => void
+    onWidthChangeEnd?: (width: number) => void
     width?: number
 }
 
@@ -37,6 +38,7 @@ export const PanelContext = ({
     minWidth = 64,
     onCollapseChange,
     onWidthChange,
+    onWidthChangeEnd,
     width,
 }: PanelContextProps) => {
     const panelRef = useRef<HTMLElement>(null)
@@ -64,9 +66,12 @@ export const PanelContext = ({
             const startWidth = panel.offsetWidth
 
             const handleMouseMove = (e: MouseEvent) => {
+                // Disable transition immediately for smooth dragging
+                panel.style.transition = 'none'
                 const diff = startX - e.clientX // Reversed because we're resizing from the left edge
                 let newWidth = startWidth + diff
 
+                // Clamp to min/max width - prevent dragging beyond constraints
                 if (minWidth && newWidth < minWidth) {
                     newWidth = minWidth
                 }
@@ -74,14 +79,24 @@ export const PanelContext = ({
                     newWidth = maxWidth
                 }
 
+                // Update width immediately for seamless layout updates during dragging
                 panel.style.width = `${newWidth}px`
+                // Update state during dragging so layout switches smoothly
+                onWidthChange(newWidth)
             }
 
             const handleMouseUp = () => {
                 setIsResizing(false)
+                // Re-enable transition after resizing is complete
                 if (panelRef.current) {
+                    panelRef.current.style.transition = ''
                     const finalWidth = panelRef.current.offsetWidth
+                    // Final update on mouse up (state already updated during drag, but this ensures consistency)
                     onWidthChange(finalWidth)
+                    // Call onWidthChangeEnd if provided (for saving to store, etc.)
+                    if (onWidthChangeEnd) {
+                        onWidthChangeEnd(finalWidth)
+                    }
                 }
                 document.removeEventListener('mousemove', handleMouseMove)
                 document.removeEventListener('mouseup', handleMouseUp)
@@ -96,7 +111,7 @@ export const PanelContext = ({
         return () => {
             resizer.removeEventListener('mousedown', handleMouseDown)
         }
-    }, [onWidthChange, minWidth, maxWidth, collapsed])
+    }, [onWidthChange, onWidthChangeEnd, minWidth, maxWidth, collapsed])
 
     return (
         <aside
@@ -113,7 +128,7 @@ export const PanelContext = ({
             <div class="content">
                 {children}
             </div>
-            {onCollapseChange && (
+            {onCollapseChange && !(Array.isArray(className) ? className.some(c => c?.includes('c-panel-context-conference')) : className?.includes('c-panel-context-conference')) && (
                 <Button
                     icon={collapsed ? 'chevron_left' : 'chevron_right'}
                     onClick={() => onCollapseChange(!collapsed)}

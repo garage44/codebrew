@@ -2,11 +2,21 @@
 
 Organized modular rules for the Garage44 monorepo AI assistant.
 
-## ⚠️ CRITICAL: Linting Requirements
+## Linting Strategy
 
-**BEFORE making any code changes, read `.cursor/rules/linting.mdc` - it contains mandatory linting requirements.**
+**Linting is handled automatically by hooks** - agents should NOT manually lint after each change.
 
-All code MUST pass linting checks (`bun run lint:ts` and `bun run lint:css`) before being committed. Agents should fix linting errors proactively, not rely on git hooks.
+- **After file edits**: Auto-formatting via `.cursor/hooks/format.sh`
+- **Before commits**: Lefthook runs `lint-staged` to auto-fix issues
+- **Commit messages**: Commitlint validates conventional commit format
+
+See `.cursor/rules/linting.mdc` for details and TypeScript inference strategy.
+
+## Commands
+
+- `/commit` - Create conventional commit, commit changes, and push
+- `/fix-lint` - Fix linting issues in changed files only (optimized)
+- `/lint-workspace [package]` - Lint entire workspace or specific package
 
 ## Rule Organization
 
@@ -14,7 +24,7 @@ Cursor rules are organized in the `.cursor/rules/` directory for better modulari
 
 ```
 .cursor/rules/
-├── linting.mdc      # 🚨 CRITICAL: Mandatory linting requirements (READ FIRST)
+├── linting.mdc      # Linting workflow and TypeScript inference strategy
 ├── adr.mdc          # Architecture Decision Records consultation workflow
 ├── backend.mdc      # Backend development (Bun.serve, WebSocket server, CLI)
 ├── frontend.mdc     # Frontend development (Preact, DeepSignal, WebSocket client)
@@ -23,7 +33,7 @@ Cursor rules are organized in the `.cursor/rules/` directory for better modulari
 
 ## Quick Reference
 
-- **🚨 LINTING (READ FIRST)**: See `.cursor/rules/linting.mdc` - mandatory linting requirements
+- **Linting**: See `.cursor/rules/linting.mdc` - hook-based workflow and TypeScript fix strategy
 - **Architecture & Decisions**: See `.cursor/rules/adr.mdc` and `adr/README.md`
 - **Backend Development**: See `.cursor/rules/backend.mdc`
 - **Frontend Development**: See `.cursor/rules/frontend.mdc`

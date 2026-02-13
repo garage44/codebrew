@@ -4,13 +4,13 @@
  */
 
 export interface CodeChunk {
+    endLine: number
+    filePath: string
     index: number
+    name?: string
+    startLine: number
     text: string
     type: 'function' | 'class' | 'interface' | 'type' | 'constant' | 'other'
-    name?: string
-    filePath: string
-    startLine: number
-    endLine: number
 }
 
 /**
@@ -21,33 +21,34 @@ export interface CodeChunk {
 export function chunkCode(
     code: string,
     filePath: string,
-    maxChunkSize: number = 1000
+    // eslint-disable-next-line @typescript-eslint/no-inferrable-types
+    maxChunkSize: number = 1000,
 ): CodeChunk[] {
     const chunks: CodeChunk[] = []
     const lines = code.split('\n')
-    let currentChunk: CodeChunk | null = null
+    const currentChunk = null as CodeChunk | null
     let chunkIndex = 0
 
     // Extract functions
     const functionRegex = /^(export\s+)?(async\s+)?function\s+(\w+)/gm
-    let match
+    let match: RegExpExecArray | null = null
     while ((match = functionRegex.exec(code)) !== null) {
         const funcName = match[3]
         const startPos = match.index
-        const startLine = code.substring(0, startPos).split('\n').length
+        const startLine = code.slice(0, startPos).split('\n').length
 
         // Find function end (simplified - looks for closing brace)
         let braceCount = 0
         let inFunction = false
         let endPos = startPos
 
-        for (let i = startPos; i < code.length; i++) {
+        for (let i = startPos; i < code.length; i += 1) {
             const char = code[i]
             if (char === '{') {
-                braceCount++
+                braceCount += 1
                 inFunction = true
             } else if (char === '}') {
-                braceCount--
+                braceCount -= 1
                 if (inFunction && braceCount === 0) {
                     endPos = i + 1
                     break
@@ -55,17 +56,17 @@ export function chunkCode(
             }
         }
 
-        const endLine = code.substring(0, endPos).split('\n').length
-        const funcText = code.substring(startPos, endPos)
+        const endLine = code.slice(0, endPos).split('\n').length
+        const funcText = code.slice(startPos, endPos)
 
         chunks.push({
-            index: chunkIndex++,
+            endLine,
+            filePath,
+            index: chunkIndex += 1,
+            name: funcName,
+            startLine,
             text: funcText,
             type: 'function',
-            name: funcName,
-            filePath,
-            startLine,
-            endLine,
         })
     }
 
@@ -74,19 +75,19 @@ export function chunkCode(
     while ((match = classRegex.exec(code)) !== null) {
         const className = match[2]
         const startPos = match.index
-        const startLine = code.substring(0, startPos).split('\n').length
+        const startLine = code.slice(0, startPos).split('\n').length
 
         let braceCount = 0
         let inClass = false
         let endPos = startPos
 
-        for (let i = startPos; i < code.length; i++) {
+        for (let i = startPos; i < code.length; i += 1) {
             const char = code[i]
             if (char === '{') {
-                braceCount++
+                braceCount += 1
                 inClass = true
             } else if (char === '}') {
-                braceCount--
+                braceCount -= 1
                 if (inClass && braceCount === 0) {
                     endPos = i + 1
                     break
@@ -94,17 +95,17 @@ export function chunkCode(
             }
         }
 
-        const endLine = code.substring(0, endPos).split('\n').length
-        const classText = code.substring(startPos, endPos)
+        const endLine = code.slice(0, endPos).split('\n').length
+        const classText = code.slice(startPos, endPos)
 
         chunks.push({
-            index: chunkIndex++,
+            endLine,
+            filePath,
+            index: chunkIndex += 1,
+            name: className,
+            startLine,
             text: classText,
             type: 'class',
-            name: className,
-            filePath,
-            startLine,
-            endLine,
         })
     }
 
@@ -113,19 +114,19 @@ export function chunkCode(
     while ((match = interfaceRegex.exec(code)) !== null) {
         const interfaceName = match[2]
         const startPos = match.index
-        const startLine = code.substring(0, startPos).split('\n').length
+        const startLine = code.slice(0, startPos).split('\n').length
 
         let braceCount = 0
         let inInterface = false
         let endPos = startPos
 
-        for (let i = startPos; i < code.length; i++) {
+        for (let i = startPos; i < code.length; i += 1) {
             const char = code[i]
             if (char === '{') {
-                braceCount++
+                braceCount += 1
                 inInterface = true
             } else if (char === '}') {
-                braceCount--
+                braceCount -= 1
                 if (inInterface && braceCount === 0) {
                     endPos = i + 1
                     break
@@ -133,33 +134,33 @@ export function chunkCode(
             }
         }
 
-        const endLine = code.substring(0, endPos).split('\n').length
-        const interfaceText = code.substring(startPos, endPos)
+        const endLine = code.slice(0, endPos).split('\n').length
+        const interfaceText = code.slice(startPos, endPos)
 
         chunks.push({
-            index: chunkIndex++,
+            endLine,
+            filePath,
+            index: chunkIndex += 1,
+            name: interfaceName,
+            startLine,
             text: interfaceText,
             type: 'interface',
-            name: interfaceName,
-            filePath,
-            startLine,
-            endLine,
         })
     }
 
     // If no semantic units found, chunk by lines
     if (chunks.length === 0) {
         const lineChunks = Math.ceil(lines.length / maxChunkSize)
-        for (let i = 0; i < lineChunks; i++) {
+        for (let i = 0; i < lineChunks; i += 1) {
             const start = i * maxChunkSize
             const end = Math.min(start + maxChunkSize, lines.length)
             chunks.push({
-                index: chunkIndex++,
+                endLine: end,
+                filePath,
+                index: chunkIndex += 1,
+                startLine: start + 1,
                 text: lines.slice(start, end).join('\n'),
                 type: 'other',
-                filePath,
-                startLine: start + 1,
-                endLine: end,
             })
         }
     }

@@ -51,3 +51,8 @@
     font-size: var(--font-s);
     margin: 0;
 }
+
+.c-device-settings__section-intro {
+    margin-bottom: var(--spacer-2);
+    margin-top: 0;
+}

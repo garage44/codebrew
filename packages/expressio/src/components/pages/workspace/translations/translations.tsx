@@ -1,13 +1,15 @@
-import {$s} from '@/app'
 import {ws} from '@garage44/common/app'
-import {pathCreate, pathDelete, pathUpdate} from '@garage44/common/lib/paths.ts'
-import type {EnolaTag} from '../../../../../lib/enola/types.ts'
-import {GroupActions} from '@/components/elements/group-actions/group-actions'
-import {Button, FieldText, Icon} from '@garage44/common/components'
-import {TranslationGroup} from '@/components/elements'
-import classnames from 'classnames'
 import {events} from '@garage44/common/app'
+import {Button, FieldText, Icon} from '@garage44/common/components'
+import {pathCreate, pathDelete, pathUpdate} from '@garage44/common/lib/paths.ts'
+import classnames from 'classnames'
 import {useEffect} from 'preact/hooks'
+
+import {$s} from '@/app'
+import {TranslationGroup} from '@/components/elements'
+import {GroupActions} from '@/components/elements/group-actions/group-actions'
+
+import type {EnolaTag} from '../../../../../lib/enola/types.ts'
 
 // Define interface for the tag object
 interface TagData {
@@ -65,53 +67,41 @@ export function WorkspaceTranslations() {
     }, [])
 
     return (
-<div class='c-translations'>
-        <div className={classnames('workspace-info', {disabled: !$s.workspace})}>
-            <GroupActions className='horizontal' group={$s.workspace.i18n} path={[]} />
-            <div className='history-actions'>
-                <Icon
-                    name='chevron_left'
-                    onClick={async() => {
-                        ws.post(`/api/workspaces/${$s.workspace.config.workspace_id}/undo`, {})
-                    }}
-                    tip='History'
-                    type='info'
-                />
-                <Icon
-                    name='history'
-                    tip='History'
-                    type='info'
-                />
-                <Icon
-                    name='chevron_right'
-                    onClick={async() => {
-                        ws.post(`/api/workspaces/${$s.workspace.config.workspace_id}/redo`, {})
-                    }}
-                    tip='History'
-                    type='info'
-                />
+        <div class='c-translations'>
+            <div className={classnames('workspace-info', {disabled: !$s.workspace})}>
+                <GroupActions className='horizontal' group={$s.workspace.i18n} path={[]} />
+                <div className='history-actions'>
+                    <Icon
+                        name='chevron_left'
+                        onClick={async () => {
+                            ws.post(`/api/workspaces/${$s.workspace.config.workspace_id}/undo`, {})
+                        }}
+                        tip='History'
+                        type='info'
+                    />
+                    <Icon name='history' tip='History' type='info' />
+                    <Icon
+                        name='chevron_right'
+                        onClick={async () => {
+                            ws.post(`/api/workspaces/${$s.workspace.config.workspace_id}/redo`, {})
+                        }}
+                        tip='History'
+                        type='info'
+                    />
+                </div>
+                <div className='translation-controls'>
+                    <FieldText model={$s.$filter} placeholder='Filter tag, translation or group...' />
+                    <Button
+                        icon={$s.sort === 'asc' ? 'arrow_up_circle_ouline' : 'arrow_down_circle_outline'}
+                        label={`Sort: ${$s.sort === 'asc' ? 'A-Z' : 'Z-A'}`}
+                        onClick={() => ($s.sort = $s.sort === 'asc' ? 'desc' : 'asc')}
+                        type='info'
+                    />
+                </div>
             </div>
-            <div className='translation-controls'>
-                <FieldText
-                    model={$s.$filter}
-                    placeholder='Filter tag, translation or group...'
-                />
-                <Button
-                    icon={$s.sort === 'asc' ? 'arrow_up_circle_ouline' : 'arrow_down_circle_outline'}
-                    label={`Sort: ${$s.sort === 'asc' ? 'A-Z' : 'Z-A'}`}
-                    onClick={() => $s.sort = ($s.sort === 'asc' ? 'desc' : 'asc')}
-                    type='info'
-                />
-            </div>
-        </div>
 
-        <TranslationGroup
-            filter={$s.filter}
-            group={{_id: 'root', ...$s.workspace.i18n}}
-            path={[]}
-            sort={$s.sort}
-        />
-</div>
+            <TranslationGroup filter={$s.filter} group={{_id: 'root', ...$s.workspace.i18n}} path={[]} sort={$s.sort} />
+        </div>
     )
 }
 
@@ -119,9 +109,9 @@ events.on('app:init', () => {
     ws.on('/i18n/sync', ({create_tags, delete_tags, modify_tags}) => {
         for (const tag of create_tags) {
             const {path, value}: TagData = tag
-            const targetLanguagesArray = Array.isArray($s.workspace.config.languages.target) ?
-                    Array.from($s.workspace.config.languages.target) :
-                    []
+            const targetLanguagesArray = Array.isArray($s.workspace.config.languages.target)
+                ? Array.from($s.workspace.config.languages.target)
+                : []
             const targetLanguages = targetLanguagesArray as unknown as Array<{
                 engine: 'anthropic' | 'deepl'
                 formality: 'default' | 'more' | 'less'

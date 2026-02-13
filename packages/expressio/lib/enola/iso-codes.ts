@@ -14,185 +14,364 @@
  * German: 'deu' (terminological, from "Deutsch") maps to 'de' (ISO 639-1)
  */
 const ISO_639_2_TO_1: Record<string, string> = {
-    aar: 'aa', // Afar
-    abk: 'ab', // Abkhazian
-    afr: 'af', // Afrikaans
-    aka: 'ak', // Akan
-    amh: 'am', // Amharic
-    ara: 'ar', // Arabic
-    arg: 'an', // Aragonese
-    asm: 'as', // Assamese
-    ava: 'av', // Avaric
-    ave: 'ae', // Avestan
-    aym: 'ay', // Aymara
-    aze: 'az', // Azerbaijani
-    bam: 'bm', // Bambara
-    bel: 'be', // Belarusian
-    ben: 'bn', // Bengali
-    bih: 'bh', // Bihari languages
-    bis: 'bi', // Bislama
-    bod: 'bo', // Tibetan
-    bos: 'bs', // Bosnian
-    bre: 'br', // Breton
-    bul: 'bg', // Bulgarian
-    cat: 'ca', // Catalan
-    ces: 'cs', // Czech
-    cha: 'ch', // Chamorro
-    che: 'ce', // Chechen
-    chu: 'cu', // Church Slavic
-    chv: 'cv', // Chuvash
-    cor: 'kw', // Cornish
-    cos: 'co', // Corsican
-    cre: 'cr', // Cree
-    cym: 'cy', // Welsh
-    dan: 'da', // Danish
-    deu: 'de', // German
-    div: 'dv', // Divehi
-    dzo: 'dz', // Dzongkha
-    ell: 'el', // Greek
-    eng: 'en', // English
-    epo: 'eo', // Esperanto
-    est: 'et', // Estonian
-    eus: 'eu', // Basque
-    ewe: 'ee', // Ewe
-    fao: 'fo', // Faroese
-    fas: 'fa', // Persian
-    fij: 'fj', // Fijian
-    fin: 'fi', // Finnish
-    fra: 'fr', // French
-    ful: 'ff', // Fulah
-    gla: 'gd', // Gaelic
-    gle: 'ga', // Irish
-    glg: 'gl', // Galician
-    glv: 'gv', // Manx
-    grn: 'gn', // Guarani
-    guj: 'gu', // Gujarati
-    hat: 'ht', // Haitian
-    hau: 'ha', // Hausa
-    heb: 'he', // Hebrew
-    her: 'hz', // Herero
-    hin: 'hi', // Hindi
-    hmo: 'ho', // Hiri Motu
-    hun: 'hu', // Hungarian
-    hye: 'hy', // Armenian
-    ido: 'io', // Ido
-    iii: 'ii', // Sichuan Yi
-    iku: 'iu', // Inuktitut
-    ile: 'ie', // Interlingue
-    ina: 'ia', // Interlingua
-    ind: 'id', // Indonesian
-    ipk: 'ik', // Inupiaq
-    isl: 'is', // Icelandic
-    ita: 'it', // Italian
-    jav: 'jv', // Javanese
-    jpn: 'ja', // Japanese
-    kal: 'kl', // Kalaallisut
-    kan: 'kn', // Kannada
-    kas: 'ks', // Kashmiri
-    kat: 'ka', // Georgian
-    kau: 'kr', // Kanuri
-    kaz: 'kk', // Kazakh
-    khm: 'km', // Central Khmer
-    kik: 'ki', // Kikuyu
-    kin: 'rw', // Kinyarwanda
-    kir: 'ky', // Kirghiz
-    kom: 'kv', // Komi
-    kon: 'kg', // Kongo
-    kor: 'ko', // Korean
-    kua: 'kj', // Kuanyama
-    kur: 'ku', // Kurdish
-    lao: 'lo', // Lao
-    lat: 'la', // Latin
-    lav: 'lv', // Latvian
-    lim: 'li', // Limburgan
-    lin: 'ln', // Lingala
-    lit: 'lt', // Lithuanian
-    lub: 'lu', // Luba-Katanga
-    lug: 'lg', // Ganda
-    mah: 'mh', // Marshallese
-    mal: 'ml', // Malayalam
-    mar: 'mr', // Marathi
-    mkd: 'mk', // Macedonian
-    mlg: 'mg', // Malagasy
-    mlt: 'mt', // Maltese
-    mon: 'mn', // Mongolian
-    mri: 'mi', // Maori
-    msa: 'ms', // Malay
-    mya: 'my', // Burmese
-    nau: 'na', // Nauru
-    nav: 'nv', // Navajo
-    nbl: 'nr', // South Ndebele
-    nde: 'nd', // North Ndebele
-    ndo: 'ng', // Ndonga
-    nep: 'ne', // Nepali
-    nld: 'nl', // Dutch
-    nno: 'nn', // Norwegian Nynorsk
-    nob: 'nb', // Norwegian Bokmål
-    nor: 'no', // Norwegian
-    nya: 'ny', // Chichewa
-    oci: 'oc', // Occitan
-    oji: 'oj', // Ojibwa
-    ori: 'or', // Oriya
-    orm: 'om', // Oromo
-    oss: 'os', // Ossetian
-    pan: 'pa', // Panjabi
-    pli: 'pi', // Pali
-    pol: 'pl', // Polish
-    por: 'pt', // Portuguese
-    pus: 'ps', // Pushto
-    que: 'qu', // Quechua
-    roh: 'rm', // Romansh
-    ron: 'ro', // Romanian
-    run: 'rn', // Rundi
-    rus: 'ru', // Russian
-    sag: 'sg', // Sango
-    san: 'sa', // Sanskrit
-    sin: 'si', // Sinhala
-    slk: 'sk', // Slovak
-    slv: 'sl', // Slovenian
-    sme: 'se', // Northern Sami
-    smo: 'sm', // Samoan
-    sna: 'sn', // Shona
-    snd: 'sd', // Sindhi
-    som: 'so', // Somali
-    sot: 'st', // Southern Sotho
-    spa: 'es', // Spanish
-    sqi: 'sq', // Albanian
-    srd: 'sc', // Sardinian
-    srp: 'sr', // Serbian
-    ssw: 'ss', // Swati
-    sun: 'su', // Sundanese
-    swa: 'sw', // Swahili
-    swe: 'sv', // Swedish
-    tah: 'ty', // Tahitian
-    tam: 'ta', // Tamil
-    tat: 'tt', // Tatar
-    tel: 'te', // Telugu
-    tgk: 'tg', // Tajik
-    tgl: 'tl', // Tagalog
-    tha: 'th', // Thai
-    tir: 'ti', // Tigrinya
-    ton: 'to', // Tonga
-    tsn: 'tn', // Tswana
-    tso: 'ts', // Tsonga
-    tuk: 'tk', // Turkmen
-    tur: 'tr', // Turkish
-    twi: 'tw', // Twi
-    uig: 'ug', // Uighur
-    ukr: 'uk', // Ukrainian
-    urd: 'ur', // Urdu
-    uzb: 'uz', // Uzbek
-    ven: 've', // Venda
-    vie: 'vi', // Vietnamese
-    vol: 'vo', // Volapük
-    wln: 'wa', // Walloon
-    wol: 'wo', // Wolof
-    xho: 'xh', // Xhosa
-    yid: 'yi', // Yiddish
-    yor: 'yo', // Yoruba
-    zha: 'za', // Zhuang
-    zho: 'zh', // Chinese
-    zul: 'zu', // Zulu
+    // Afar
+    aar: 'aa',
+    // Abkhazian
+    abk: 'ab',
+    // Afrikaans
+    afr: 'af',
+    // Akan
+    aka: 'ak',
+    // Amharic
+    amh: 'am',
+    // Arabic
+    ara: 'ar',
+    // Aragonese
+    arg: 'an',
+    // Assamese
+    asm: 'as',
+    // Avaric
+    ava: 'av',
+    // Avestan
+    ave: 'ae',
+    // Aymara
+    aym: 'ay',
+    // Azerbaijani
+    aze: 'az',
+    // Bambara
+    bam: 'bm',
+    // Belarusian
+    bel: 'be',
+    // Bengali
+    ben: 'bn',
+    // Bihari languages
+    bih: 'bh',
+    // Bislama
+    bis: 'bi',
+    // Tibetan
+    bod: 'bo',
+    // Bosnian
+    bos: 'bs',
+    // Breton
+    bre: 'br',
+    // Bulgarian
+    bul: 'bg',
+    // Catalan
+    cat: 'ca',
+    // Czech
+    ces: 'cs',
+    // Chamorro
+    cha: 'ch',
+    // Chechen
+    che: 'ce',
+    // Church Slavic
+    chu: 'cu',
+    // Chuvash
+    chv: 'cv',
+    // Cornish
+    cor: 'kw',
+    // Corsican
+    cos: 'co',
+    // Cree
+    cre: 'cr',
+    // Welsh
+    cym: 'cy',
+    // Danish
+    dan: 'da',
+    // German
+    deu: 'de',
+    // Divehi
+    div: 'dv',
+    // Dzongkha
+    dzo: 'dz',
+    // Greek
+    ell: 'el',
+    // English
+    eng: 'en',
+    // Esperanto
+    epo: 'eo',
+    // Estonian
+    est: 'et',
+    // Basque
+    eus: 'eu',
+    // Ewe
+    ewe: 'ee',
+    // Faroese
+    fao: 'fo',
+    // Persian
+    fas: 'fa',
+    // Fijian
+    fij: 'fj',
+    // Finnish
+    fin: 'fi',
+    // French
+    fra: 'fr',
+    // Fulah
+    ful: 'ff',
+    // Gaelic
+    gla: 'gd',
+    // Irish
+    gle: 'ga',
+    // Galician
+    glg: 'gl',
+    // Manx
+    glv: 'gv',
+    // Guarani
+    grn: 'gn',
+    // Gujarati
+    guj: 'gu',
+    // Haitian
+    hat: 'ht',
+    // Hausa
+    hau: 'ha',
+    // Hebrew
+    heb: 'he',
+    // Herero
+    her: 'hz',
+    // Hindi
+    hin: 'hi',
+    // Hiri Motu
+    hmo: 'ho',
+    // Hungarian
+    hun: 'hu',
+    // Armenian
+    hye: 'hy',
+    // Ido
+    ido: 'io',
+    // Sichuan Yi
+    iii: 'ii',
+    // Inuktitut
+    iku: 'iu',
+    // Interlingue
+    ile: 'ie',
+    // Interlingua
+    ina: 'ia',
+    // Indonesian
+    ind: 'id',
+    // Inupiaq
+    ipk: 'ik',
+    // Icelandic
+    isl: 'is',
+    // Italian
+    ita: 'it',
+    // Javanese
+    jav: 'jv',
+    // Japanese
+    jpn: 'ja',
+    // Kalaallisut
+    kal: 'kl',
+    // Kannada
+    kan: 'kn',
+    // Kashmiri
+    kas: 'ks',
+    // Georgian
+    kat: 'ka',
+    // Kanuri
+    kau: 'kr',
+    // Kazakh
+    kaz: 'kk',
+    // Central Khmer
+    khm: 'km',
+    // Kikuyu
+    kik: 'ki',
+    // Kinyarwanda
+    kin: 'rw',
+    // Kirghiz
+    kir: 'ky',
+    // Komi
+    kom: 'kv',
+    // Kongo
+    kon: 'kg',
+    // Korean
+    kor: 'ko',
+    // Kuanyama
+    kua: 'kj',
+    // Kurdish
+    kur: 'ku',
+    // Lao
+    lao: 'lo',
+    // Latin
+    lat: 'la',
+    // Latvian
+    lav: 'lv',
+    // Limburgan
+    lim: 'li',
+    // Lingala
+    lin: 'ln',
+    // Lithuanian
+    lit: 'lt',
+    // Luba-Katanga
+    lub: 'lu',
+    // Ganda
+    lug: 'lg',
+    // Marshallese
+    mah: 'mh',
+    // Malayalam
+    mal: 'ml',
+    // Marathi
+    mar: 'mr',
+    // Macedonian
+    mkd: 'mk',
+    // Malagasy
+    mlg: 'mg',
+    // Maltese
+    mlt: 'mt',
+    // Mongolian
+    mon: 'mn',
+    // Maori
+    mri: 'mi',
+    // Malay
+    msa: 'ms',
+    // Burmese
+    mya: 'my',
+    // Nauru
+    nau: 'na',
+    // Navajo
+    nav: 'nv',
+    // South Ndebele
+    nbl: 'nr',
+    // North Ndebele
+    nde: 'nd',
+    // Ndonga
+    ndo: 'ng',
+    // Nepali
+    nep: 'ne',
+    // Dutch
+    nld: 'nl',
+    // Norwegian Nynorsk
+    nno: 'nn',
+    // Norwegian Bokmål
+    nob: 'nb',
+    // Norwegian
+    nor: 'no',
+    // Chichewa
+    nya: 'ny',
+    // Occitan
+    oci: 'oc',
+    // Ojibwa
+    oji: 'oj',
+    // Oriya
+    ori: 'or',
+    // Oromo
+    orm: 'om',
+    // Ossetian
+    oss: 'os',
+    // Panjabi
+    pan: 'pa',
+    // Pali
+    pli: 'pi',
+    // Polish
+    pol: 'pl',
+    // Portuguese
+    por: 'pt',
+    // Pushto
+    pus: 'ps',
+    // Quechua
+    que: 'qu',
+    // Romansh
+    roh: 'rm',
+    // Romanian
+    ron: 'ro',
+    // Rundi
+    run: 'rn',
+    // Russian
+    rus: 'ru',
+    // Sango
+    sag: 'sg',
+    // Sanskrit
+    san: 'sa',
+    // Sinhala
+    sin: 'si',
+    // Slovak
+    slk: 'sk',
+    // Slovenian
+    slv: 'sl',
+    // Northern Sami
+    sme: 'se',
+    // Samoan
+    smo: 'sm',
+    // Shona
+    sna: 'sn',
+    // Sindhi
+    snd: 'sd',
+    // Somali
+    som: 'so',
+    // Southern Sotho
+    sot: 'st',
+    // Spanish
+    spa: 'es',
+    // Albanian
+    sqi: 'sq',
+    // Sardinian
+    srd: 'sc',
+    // Serbian
+    srp: 'sr',
+    // Swati
+    ssw: 'ss',
+    // Sundanese
+    sun: 'su',
+    // Swahili
+    swa: 'sw',
+    // Swedish
+    swe: 'sv',
+    // Tahitian
+    tah: 'ty',
+    // Tamil
+    tam: 'ta',
+    // Tatar
+    tat: 'tt',
+    // Telugu
+    tel: 'te',
+    // Tajik
+    tgk: 'tg',
+    // Tagalog
+    tgl: 'tl',
+    // Thai
+    tha: 'th',
+    // Tigrinya
+    tir: 'ti',
+    // Tonga
+    ton: 'to',
+    // Tswana
+    tsn: 'tn',
+    // Tsonga
+    tso: 'ts',
+    // Turkmen
+    tuk: 'tk',
+    // Turkish
+    tur: 'tr',
+    // Twi
+    twi: 'tw',
+    // Uighur
+    uig: 'ug',
+    // Ukrainian
+    ukr: 'uk',
+    // Urdu
+    urd: 'ur',
+    // Uzbek
+    uzb: 'uz',
+    // Venda
+    ven: 've',
+    // Vietnamese
+    vie: 'vi',
+    // Volapük
+    vol: 'vo',
+    // Walloon
+    wln: 'wa',
+    // Wolof
+    wol: 'wo',
+    // Xhosa
+    xho: 'xh',
+    // Yiddish
+    yid: 'yi',
+    // Yoruba
+    yor: 'yo',
+    // Zhuang
+    zha: 'za',
+    // Chinese
+    zho: 'zh',
+    // Zulu
+    zul: 'zu',
 }
 
 /**
@@ -212,12 +391,18 @@ function iso6391ToIso6392(iso6391Code: string): string | null {
  * Maps from provider-specific codes to ISO language codes
  */
 const EXTENDED_LANGUAGE_CODES = {
-    'en-gb': 'eng-gbr', // British English
-    'en-us': 'eng-usa', // American English
-    'pt-br': 'por-bra', // Brazilian Portuguese
-    'pt-pt': 'por-prt', // European Portuguese
-    zh: 'zho', // Chinese (macrolanguage)
-    'zh-hans': 'zho-hans', // Simplified Chinese (Han Simplified)
+    // British English
+    'en-gb': 'eng-gbr',
+    // American English
+    'en-us': 'eng-usa',
+    // Brazilian Portuguese
+    'pt-br': 'por-bra',
+    // European Portuguese
+    'pt-pt': 'por-prt',
+    // Chinese (macrolanguage)
+    zh: 'zho',
+    // Simplified Chinese (Han Simplified)
+    'zh-hans': 'zho-hans',
 }
 
 function toIso6391(iso6392Code: string | null | undefined): string | null {

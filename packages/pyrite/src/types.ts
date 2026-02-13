@@ -34,6 +34,7 @@ export interface PyriteState extends CommonState {
                 id: string
                 members?: Record<string, {avatar: string}>
                 messages: Array<Record<string, unknown>>
+                name?: string
                 typing?: {
                     [userId: string]: {
                         timestamp: number
@@ -107,6 +108,10 @@ export interface PyriteState extends CommonState {
             collapsed: boolean
             width?: number
         }
+        conferenceMode?: boolean
+        context: CommonState['panels']['context'] & {
+            expanded?: boolean
+        }
     }
     permissions: {
         op: boolean
@@ -124,15 +129,18 @@ export interface PyriteState extends CommonState {
             name: string
             recording: boolean
         }
-        channels: Record<string, {
-            audio: boolean
-            clientCount?: number
-            comment?: string
-            connected?: boolean
-            description?: string
-            locked?: boolean
-            video: boolean
-        }>
+        channels: Record<
+            string,
+            {
+                audio: boolean
+                clientCount?: number
+                comment?: string
+                connected?: boolean
+                description?: string
+                locked?: boolean
+                video: boolean
+            }
+        >
         profile: {
             // Galene-specific user data
             availability: {id: string; name: string}

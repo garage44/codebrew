@@ -1,13 +1,15 @@
-import {$s} from '@/app'
 import {ws} from '@garage44/common/app'
 import {FieldText} from '@garage44/common/components'
-import {GroupActions} from '../group-actions/group-actions'
-import {Translation} from '@/components/elements'
 import {pathHas} from '@garage44/common/lib/paths'
-import {tag_updated} from '@/lib/ui'
-import classnames from 'classnames'
 import {signal} from '@preact/signals'
+import classnames from 'classnames'
 import {useRef} from 'preact/hooks'
+
+import {$s} from '@/app'
+import {Translation} from '@/components/elements'
+import {tag_updated} from '@/lib/ui'
+
+import {GroupActions} from '../group-actions/group-actions'
 
 interface TranslationGroupType {
     [key: string]: unknown
@@ -53,7 +55,7 @@ function GroupIdField({group, path}: {group: TranslationGroupType; path: string[
         <FieldText
             className='group-field'
             model={idSignalRef.current}
-            onBlur={async() => {
+            onBlur={async () => {
                 const oldPath = path
                 const newPath = [...path.slice(0, -1), idSignalRef.current.value]
                 if (oldPath.join('.') !== newPath.join('.')) {
@@ -69,7 +71,13 @@ function GroupIdField({group, path}: {group: TranslationGroupType; path: string[
     )
 }
 
-export function TranslationGroup({filter = '', group, level = 0, path, sort = 'asc'}: {
+export function TranslationGroup({
+    filter = '',
+    group,
+    level = 0,
+    path,
+    sort = 'asc',
+}: {
     filter?: string
     group: TranslationGroupType
     level?: number
@@ -77,7 +85,7 @@ export function TranslationGroup({filter = '', group, level = 0, path, sort = 'a
     sort?: 'asc' | 'desc'
 }) {
     // Determine if this group matches the filter
-    const groupItselfMatches = filter ? groupMatchesFilter(group, group._id || path[path.length - 1] || '', filter) : true
+    const groupItselfMatches = filter ? groupMatchesFilter(group, group._id || path.at(-1) || '', filter) : true
 
     // At each level, only show entries that match or have matching descendants
     let entries: [string, unknown][] = Object.entries(group)
@@ -104,43 +112,39 @@ export function TranslationGroup({filter = '', group, level = 0, path, sort = 'a
     const collapsed = autoExpand ? false : group._collapsed
 
     return (
-<div class={classnames('c-translation-group', `level-${level}`, {
-    collapsed,
-    'has-redundant': pathHas($s.workspace.i18n, path, '_redundant'),
-    'has-soft': pathHas($s.workspace.i18n, path, '_soft'),
-    'tag-updated': $s.tags.updated === path.join('.'),
-})}
->
-        {level > 0 &&
-            <div class='group-id'>
-            <GroupActions className='vertical' group={group} path={path} />
-            {path.length > 0 && <GroupIdField group={group} path={path} />}
-            </div>}
-        <div class='group-value'>
-            {entries.map(([id, subGroup]) => {
-                const typedSubGroup = subGroup as TranslationGroupType
-                if ('source' in typedSubGroup) {
-                    return (
-<Translation
-    group={typedSubGroup}
-    key={id}
-    path={[...path, id]}
-/>
-                    )
-                }
-
-                return (
-<TranslationGroup
-    filter={filter}
-    group={typedSubGroup}
-    key={id}
-    level={level + 1}
-    path={[...path, id]}
-    sort={sort}
-/>
-                )
+        <div
+            class={classnames('c-translation-group', `level-${level}`, {
+                collapsed,
+                'has-redundant': pathHas($s.workspace.i18n, path, '_redundant'),
+                'has-soft': pathHas($s.workspace.i18n, path, '_soft'),
+                'tag-updated': $s.tags.updated === path.join('.'),
             })}
+        >
+            {level > 0 && (
+                <div class='group-id'>
+                    <GroupActions className='vertical' group={group} path={path} />
+                    {path.length > 0 && <GroupIdField group={group} path={path} />}
+                </div>
+            )}
+            <div class='group-value'>
+                {entries.map(([id, subGroup]) => {
+                    const typedSubGroup = subGroup as TranslationGroupType
+                    if ('source' in typedSubGroup) {
+                        return <Translation group={typedSubGroup} key={id} path={[...path, id]} />
+                    }
+
+                    return (
+                        <TranslationGroup
+                            filter={filter}
+                            group={typedSubGroup}
+                            key={id}
+                            level={level + 1}
+                            path={[...path, id]}
+                            sort={sort}
+                        />
+                    )
+                })}
+            </div>
         </div>
-</div>
     )
 }

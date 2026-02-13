@@ -1,19 +1,22 @@
-import {userManager} from '@garage44/common/service'
-import {createAvatarRoutes, getAvatarStoragePath} from '@garage44/common/lib/avatar-routes'
-import {logger, runtime} from '../service.ts'
-import {syncUsers} from '../lib/sync.ts'
-import path from 'node:path'
-import fs from 'fs-extra'
-import type {Router, Session} from '../lib/middleware.ts'
 import type {User} from '@garage44/common/lib/user-manager'
+
+import {createAvatarRoutes, getAvatarStoragePath} from '@garage44/common/lib/avatar-routes'
+import {userManager} from '@garage44/common/service'
+import fs from 'fs-extra'
+import path from 'node:path'
+
+import type {Router, Session} from '../lib/middleware.ts'
+
 import {validateRequest} from '../lib/api/validate.ts'
 import {UserIdPathSchema, UserPresenceRequestSchema, UserDataSchema} from '../lib/schemas/users.ts'
+import {syncUsers} from '../lib/sync.ts'
+import {logger, runtime} from '../service.ts'
 
 // Helper functions using UserManager
 const loadUser = (userId: string) => userManager.getUser(userId)
 const loadUsers = () => userManager.listUsers()
 const saveUser = (userId: string, data: unknown) => userManager.updateUser(userId, data)
-const saveUsers = async(users: User[]) => {
+const saveUsers = async (users: User[]) => {
     for (const user of users) {
         const userId = user.id || user.username
         await userManager.updateUser(userId, user)
@@ -43,7 +46,7 @@ export function registerUsersWebSocketApiRoutes(wsManager: WebSocketServerManage
     const apiWs = wsManager.api
 
     // WebSocket API for user presence updates
-    apiWs.post('/api/users/presence', async(context, request) => {
+    apiWs.post('/api/users/presence', async (context, request) => {
         const {status, userid} = validateRequest(UserPresenceRequestSchema, request.data)
 
         // Broadcast user presence changes
@@ -57,7 +60,7 @@ export function registerUsersWebSocketApiRoutes(wsManager: WebSocketServerManage
     })
 }
 
-export default function(router: Router) {
+export default function (router: Router) {
     // Register common avatar routes (placeholder images and uploaded avatars)
     const avatarRoutes = createAvatarRoutes({
         appName: 'pyrite',
@@ -67,14 +70,14 @@ export default function(router: Router) {
     avatarRoutes.registerPlaceholderRoute(router)
     avatarRoutes.registerAvatarRoute(router)
 
-    router.get('/api/users', async(_req: Request, _params: Record<string, string>, _session: Session) => {
+    router.get('/api/users', async (_req: Request, _params: Record<string, string>, _session: Session) => {
         const users = await loadUsers()
         return new Response(JSON.stringify(users), {
             headers: {'Content-Type': 'application/json'},
         })
     })
 
-    router.get('/api/users/template', async(_req: Request, _params: Record<string, string>, _session: Session) => {
+    router.get('/api/users/template', async (_req: Request, _params: Record<string, string>, _session: Session) => {
         return new Response(JSON.stringify(userTemplate()), {
             headers: {'Content-Type': 'application/json'},
         })
@@ -85,7 +88,7 @@ export default function(router: Router) {
      * GET /api/users/me
      * IMPORTANT: This must be registered BEFORE /api/users/:userid to avoid route matching issues
      */
-    router.get('/api/users/me', async(_req: Request, _params: Record<string, string>, session: Session) => {
+    router.get('/api/users/me', async (_req: Request, _params: Record<string, string>, session: Session) => {
         logger.info('[Users API] /api/users/me - HANDLER CALLED')
         logger.info(`[Users API] /api/users/me - session exists: ${!!session}, type: ${typeof session}`)
         logger.info(`[Users API] /api/users/me - session.userid: ${session?.userid || 'undefined/null'}`)
@@ -132,7 +135,7 @@ export default function(router: Router) {
             return new Response(JSON.stringify(user), {
                 headers: {'Content-Type': 'application/json'},
             })
-        } catch(error) {
+        } catch (error) {
             logger.error('[Users API] Error getting current user:', error)
             return new Response(JSON.stringify({error: 'failed to get user'}), {
                 headers: {'Content-Type': 'application/json'},
@@ -141,7 +144,7 @@ export default function(router: Router) {
         }
     })
 
-    router.get('/api/users/:userid', async(_req: Request, params: Record<string, string>, _session: Session) => {
+    router.get('/api/users/:userid', async (_req: Request, params: Record<string, string>, _session: Session) => {
         const {param0: userId} = validateRequest(UserIdPathSchema, params)
         // Basic path traversal protection
         if (userId.match(/\.\.\//g) !== null) {
@@ -165,7 +168,7 @@ export default function(router: Router) {
         })
     })
 
-    router.post('/api/users/:userid', async(req: Request, params: Record<string, string>, _session: Session) => {
+    router.post('/api/users/:userid', async (req: Request, params: Record<string, string>, _session: Session) => {
         const {param0: userId} = validateRequest(UserIdPathSchema, params)
         const userData = validateRequest(UserDataSchema, await req.json())
 
@@ -200,7 +203,7 @@ export default function(router: Router) {
         })
     })
 
-    router.get('/api/users/:userid/delete', async(_req: Request, params: Record<string, string>, _session: Session) => {
+    router.get('/api/users/:userid/delete', async (_req: Request, params: Record<string, string>, _session: Session) => {
         const {param0: userId} = validateRequest(UserIdPathSchema, params)
         const users = await loadUsers()
         for (let [index, user] of users.entries()) {
@@ -217,7 +220,7 @@ export default function(router: Router) {
         })
     })
 
-    router.post('/api/users/:userid/avatar', async(req: Request, params: Record<string, string>, _session: Session) => {
+    router.post('/api/users/:userid/avatar', async (req: Request, params: Record<string, string>, _session: Session) => {
         const {param0: userId} = validateRequest(UserIdPathSchema, params)
 
         logger.info(`[Users API] POST /api/users/:userid/avatar - userId from params: ${userId}`)
@@ -333,14 +336,17 @@ export default function(router: Router) {
             }
 
             // Return success with avatar URL
-            return new Response(JSON.stringify({
-                avatar: avatarFilename,
-                success: true,
-                url: `/avatars/${avatarFilename}`,
-            }), {
-                headers: {'Content-Type': 'application/json'},
-            })
-        } catch(error) {
+            return new Response(
+                JSON.stringify({
+                    avatar: avatarFilename,
+                    success: true,
+                    url: `/avatars/${avatarFilename}`,
+                }),
+                {
+                    headers: {'Content-Type': 'application/json'},
+                },
+            )
+        } catch (error) {
             logger.error(`[Users API] Error uploading avatar for user ${userId}:`, error)
             return new Response(JSON.stringify({error: 'failed to upload avatar'}), {
                 headers: {'Content-Type': 'application/json'},

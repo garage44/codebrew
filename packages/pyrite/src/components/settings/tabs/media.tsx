@@ -1,9 +1,10 @@
+import {$t} from '@garage44/common/app'
 import {FieldSelect} from '@garage44/common/components'
-import {useEffect, useRef} from 'preact/hooks'
 import {signal, type Signal} from '@preact/signals'
 import {effect} from '@preact/signals'
+import {useEffect, useRef} from 'preact/hooks'
+
 import {$s} from '@/app'
-import {$t} from '@garage44/common/app'
 
 export default function TabMedia() {
     // Create writable signals for media IDs that sync with DeepSignal
@@ -21,9 +22,8 @@ export default function TabMedia() {
         }
         const updateResolutionId = () => {
             const resolution = $s.devices.cam.resolution
-            const id = typeof resolution === 'object' && resolution !== null && 'id' in resolution ?
-                    String(resolution.id || '') :
-                ''
+            const id =
+                typeof resolution === 'object' && resolution !== null && 'id' in resolution ? String(resolution.id || '') : ''
             if (resolutionIdSignalRef.current.value !== id) {
                 resolutionIdSignalRef.current.value = id
             }

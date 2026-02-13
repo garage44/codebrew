@@ -1,3 +1,5 @@
+import {deepSignal} from 'deepsignal'
+
 import {
     Button,
     ButtonGroup,
@@ -13,8 +15,6 @@ import {
     FieldUpload,
     Icon,
 } from '@/components'
-import {deepSignal} from 'deepsignal'
-
 
 // Form data model
 const formData = deepSignal({
@@ -46,7 +46,7 @@ const formData = deepSignal({
 })
 
 // Form submission handler
-const handleSubmit = async(e: Event) => {
+const handleSubmit = async (e: Event) => {
     e.preventDefault()
 
     // Basic validation
@@ -95,8 +95,8 @@ export const Forms = () => {
         <div class='styleguide-page'>
             <h1>Forms</h1>
             <p>
-                Comprehensive form showcase demonstrating all field components with best
-                practices for form layout and user experience.
+                Comprehensive form showcase demonstrating all field components with best practices for form layout and user
+                experience.
             </p>
 
             <div class='form-demo'>
@@ -130,7 +130,7 @@ export const Forms = () => {
                                 <FieldNumber
                                     help='Please enter your age'
                                     label='Age'
-                                    onChange={(v) => formData.age = v}
+                                    onChange={(v) => (formData.age = v)}
                                     value={formData.age}
                                 />
                             </div>
@@ -158,10 +158,7 @@ export const Forms = () => {
                                 />
                             </div>
                             <div class='form-row'>
-                                <FieldCheckbox
-                                    label='I accept the terms and conditions'
-                                    model={formData.$termsAccepted}
-                                />
+                                <FieldCheckbox label='I accept the terms and conditions' model={formData.$termsAccepted} />
                             </div>
                         </div>
                     </fieldset>
@@ -173,7 +170,7 @@ export const Forms = () => {
                             <div class='form-row'>
                                 <FieldRadioGroup
                                     label='Theme Preference'
-                                    onChange={(v) => formData.themePreference = v}
+                                    onChange={(v) => (formData.themePreference = v)}
                                     options={[
                                         ['light', 'Light'],
                                         ['dark', 'Dark'],
@@ -196,7 +193,7 @@ export const Forms = () => {
                             <div class='form-row'>
                                 <FieldMultiSelect
                                     label='Interests'
-                                    onChange={(v) => formData.interests = v}
+                                    onChange={(v) => (formData.interests = v)}
                                     options={[
                                         {id: 'tech', name: 'Technology'},
                                         {id: 'design', name: 'Design'},
@@ -218,7 +215,7 @@ export const Forms = () => {
                             <div class='form-row'>
                                 <FieldTextarea
                                     label='Bio'
-                                    onChange={(v) => formData.bio = v}
+                                    onChange={(v) => (formData.bio = v)}
                                     placeholder='Tell us about yourself...'
                                     value={formData.bio}
                                 />
@@ -247,10 +244,7 @@ export const Forms = () => {
                                         value={{...formData.experienceLevel, locked: formData.experienceLevel.locked ?? false}}
                                     />
                                 </div>
-                                <FieldUpload
-                                    label='Profile Picture'
-                                    model={[formData, 'profilePicture']}
-                                />
+                                <FieldUpload label='Profile Picture' model={[formData, 'profilePicture']} />
                             </div>
                         </div>
                     </fieldset>
@@ -258,23 +252,12 @@ export const Forms = () => {
                     {/* Form Actions */}
                     <div class='form-actions'>
                         <ButtonGroup active={false}>
-                            <Button
-                                icon='save'
-                                label='Submit Form'
-                                onClick={handleSubmit}
-                                type='success'
-                            />
-                            <Button
-                                icon='refresh'
-                                label='Reset Form'
-                                onClick={handleReset}
-                                type='default'
-                            />
+                            <Button icon='save' label='Submit Form' onClick={handleSubmit} type='success' />
+                            <Button icon='refresh' label='Reset Form' onClick={handleReset} type='default' />
                         </ButtonGroup>
                     </div>
                 </form>
             </div>
-
         </div>
     )
 }

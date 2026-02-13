@@ -1,17 +1,19 @@
-import {$s} from '@/app'
 import {api, notifier, ws} from '@garage44/common/app'
 import {Button, FieldSelect, FieldText} from '@garage44/common/components'
 import {deepSignal} from 'deepsignal'
 import {useRef, useState} from 'preact/hooks'
 
+import {$s} from '@/app'
+
 // State defined outside component for stability
-const createFormState = () => deepSignal({
-    loading: false,
-    name: '',
-    path: '',
-    platform: 'local' as 'github' | 'gitlab' | 'local',
-    remote_url: '',
-})
+const createFormState = () =>
+    deepSignal({
+        loading: false,
+        name: '',
+        path: '',
+        platform: 'local' as 'github' | 'gitlab' | 'local',
+        remote_url: '',
+    })
 
 export function Repositories() {
     const formStateRef = useRef(createFormState())
@@ -20,7 +22,7 @@ export function Repositories() {
     const [discoveredRepos, setDiscoveredRepos] = useState<Array<{name: string; path: string}>>([])
     const [searchPath, _setSearchPath] = useState('')
 
-    const handleAddRepository = async() => {
+    const handleAddRepository = async () => {
         if (!formState.name || !formState.path) {
             notifier.notify({
                 icon: 'error',
@@ -57,7 +59,7 @@ export function Repositories() {
                 formState.platform = 'local'
                 formState.remote_url = ''
             }
-        } catch(error) {
+        } catch (error) {
             notifier.notify({
                 icon: 'error',
                 message: error instanceof Error ? error.message : 'Failed to add repository',
@@ -68,7 +70,7 @@ export function Repositories() {
         }
     }
 
-    const handleDeleteRepository = async(repoId: string) => {
+    const handleDeleteRepository = async (repoId: string) => {
         if (!confirm('Are you sure you want to delete this repository?')) {
             return
         }
@@ -86,7 +88,7 @@ export function Repositories() {
                 message: 'Repository deleted successfully',
                 type: 'success',
             })
-        } catch(error) {
+        } catch (error) {
             notifier.notify({
                 icon: 'error',
                 message: error instanceof Error ? error.message : 'Failed to delete repository',
@@ -95,7 +97,7 @@ export function Repositories() {
         }
     }
 
-    const handleDiscoverRepositories = async() => {
+    const handleDiscoverRepositories = async () => {
         setDiscovering(true)
         setDiscoveredRepos([])
 
@@ -112,7 +114,7 @@ export function Repositories() {
                     type: 'success',
                 })
             }
-        } catch(error) {
+        } catch (error) {
             notifier.notify({
                 icon: 'error',
                 message: error instanceof Error ? error.message : 'Failed to discover repositories',
@@ -123,7 +125,7 @@ export function Repositories() {
         }
     }
 
-    const handleAddDiscoveredRepository = async(repo: {name: string; path: string}) => {
+    const handleAddDiscoveredRepository = async (repo: {name: string; path: string}) => {
         formState.name = repo.name
         formState.path = repo.path
         formState.platform = 'local'
@@ -161,11 +163,12 @@ export function Repositories() {
                             variant='menu'
                         />
                     </div>
-                    {discoveredRepos.length > 0 &&
+                    {discoveredRepos.length > 0 && (
                         <div class='discovered-repos'>
                             <h3>Discovered Repositories</h3>
                             <div class='discovered-repos-list'>
-                                {discoveredRepos.map((repo) => <div class='discovered-repo-item' key={repo.path}>
+                                {discoveredRepos.map((repo) => (
+                                    <div class='discovered-repo-item' key={repo.path}>
                                         <div class='discovered-repo-info'>
                                             <strong>{repo.name}</strong>
                                             <span class='discovered-repo-path'>{repo.path}</span>
@@ -176,20 +179,18 @@ export function Repositories() {
                                             tip='Add repository'
                                             variant='toggle'
                                         />
-                                </div>)}
+                                    </div>
+                                ))}
                             </div>
-                        </div>}
+                        </div>
+                    )}
                 </div>
             </div>
 
             <div class='section'>
                 <h2 class='section-title'>Add Repository</h2>
                 <div class='form'>
-                    <FieldText
-                        label='Name'
-                        model={formState.$name}
-                        placeholder='Repository name'
-                    />
+                    <FieldText label='Name' model={formState.$name} placeholder='Repository name' />
                     <FieldText
                         help='Path to git repository'
                         label='Path'
@@ -222,34 +223,35 @@ export function Repositories() {
 
             <div class='section'>
                 <h2 class='section-title'>Repositories</h2>
-                {$s.repositories.length === 0 ?
-
-                            <div class='empty-state'>
-                                <p>No repositories added yet.</p>
-                            </div> :
-
-                        <div class='repositories-list'>
-                            {$s.repositories.map((repo) => <div class='repository-item' key={repo.id}>
-                                    <div class='repository-info'>
-                                        <h3 class='repository-name'>{repo.name}</h3>
-                                        <p class='repository-path'>{repo.path}</p>
-                                        <div class='repository-meta'>
-                                            <span class='platform-badge'>{repo.platform}</span>
-                                            {repo.remote_url &&
-                                                <span class='remote-url'>{repo.remote_url}</span>}
-                                        </div>
+                {$s.repositories.length === 0 ? (
+                    <div class='empty-state'>
+                        <p>No repositories added yet.</p>
+                    </div>
+                ) : (
+                    <div class='repositories-list'>
+                        {$s.repositories.map((repo) => (
+                            <div class='repository-item' key={repo.id}>
+                                <div class='repository-info'>
+                                    <h3 class='repository-name'>{repo.name}</h3>
+                                    <p class='repository-path'>{repo.path}</p>
+                                    <div class='repository-meta'>
+                                        <span class='platform-badge'>{repo.platform}</span>
+                                        {repo.remote_url && <span class='remote-url'>{repo.remote_url}</span>}
                                     </div>
-                                    <div class='repository-actions'>
-                                        <Button
-                                            icon='trash'
-                                            onClick={() => handleDeleteRepository(repo.id)}
-                                            tip='Delete repository'
-                                            type='danger'
-                                            variant='toggle'
-                                        />
-                                    </div>
-                            </div>)}
-                        </div>}
+                                </div>
+                                <div class='repository-actions'>
+                                    <Button
+                                        icon='trash'
+                                        onClick={() => handleDeleteRepository(repo.id)}
+                                        tip='Delete repository'
+                                        type='danger'
+                                        variant='toggle'
+                                    />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
             </div>
         </section>
     )

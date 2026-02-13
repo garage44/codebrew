@@ -1,7 +1,9 @@
 import type {LanguageUI, TargetLanguage} from '@garage44/common/types'
 import type {DeepSignal} from 'deepsignal'
-import type {EnolaConfig} from '../lib/enola/types.ts'
+
 import workspace from '@/.expressio.json'
+
+import type {EnolaConfig} from '../lib/enola/types.ts'
 
 type TranslationTarget = Record<string, string>
 

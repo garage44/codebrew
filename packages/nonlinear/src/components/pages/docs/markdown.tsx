@@ -1,4 +1,5 @@
 import {marked} from 'marked'
+
 import './markdown.css'
 
 interface MarkdownProps {
@@ -37,7 +38,10 @@ function parseFrontmatter(content: string): {body: string; frontmatter: Frontmat
 
         // Check if this is an array item (starts with -)
         if (trimmed.startsWith('-')) {
-            const arrayValue = trimmed.slice(1).trim().replace(/^["']|["']$/g, '')
+            const arrayValue = trimmed
+                .slice(1)
+                .trim()
+                .replaceAll(/^["']|["']$/g, '')
             if (currentKey && currentArray) {
                 currentArray.push(arrayValue)
             } else if (currentKey) {
@@ -99,17 +103,20 @@ export const Markdown = ({content}: MarkdownProps) => {
 
     return (
         <div class='markdown-content'>
-            {frontmatter &&
+            {frontmatter && (
                 <div class='doc-metadata'>
                     <table>
                         <tbody>
-                            {Object.entries(frontmatter).map(([key, value]) => <tr key={key}>
+                            {Object.entries(frontmatter).map(([key, value]) => (
+                                <tr key={key}>
                                     <td class='metadata-key'>{key}:</td>
                                     <td class='metadata-value'>{formatFrontmatterValue(value)}</td>
-                            </tr>)}
+                                </tr>
+                            ))}
                         </tbody>
                     </table>
-                </div>}
+                </div>
+            )}
             <div dangerouslySetInnerHTML={{__html: html}} />
         </div>
     )

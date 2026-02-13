@@ -1,7 +1,9 @@
 import {collectSource, pathRef} from '@garage44/common/lib/paths.ts'
-import type {EnolaTag} from './enola/types.ts'
-import {enola} from '../service.ts'
 import {hash} from '@garage44/common/lib/utils.ts'
+
+import type {EnolaTag} from './enola/types.ts'
+
+import {enola} from '../service.ts'
 
 // 1 second delay between languages
 const LANGUAGE_PROCESSING_DELAY = 100
@@ -38,7 +40,7 @@ async function translate_tag(workspace, tagPath: string[], sourceText: string, p
             if (workspace.config.languages.target.indexOf(language) < workspace.config.languages.target.length - 1) {
                 await new Promise((resolve) => setTimeout(resolve, LANGUAGE_PROCESSING_DELAY))
             }
-        } catch(error) {
+        } catch (error) {
             if (error.response?.status === 429) {
                 const retryAfter = error.response.headers['retry-after'] || 60
                 await new Promise((resolve) => setTimeout(resolve, retryAfter * 1000))
@@ -87,7 +89,7 @@ async function translate_path(workspace, tagPath: string[], ignore_cache) {
             if (workspace.config.languages.target.indexOf(language) < workspace.config.languages.target.length - 1) {
                 await new Promise((resolve) => setTimeout(resolve, LANGUAGE_PROCESSING_DELAY))
             }
-        } catch(error) {
+        } catch (error) {
             const errorData = error as {response?: {headers?: Record<string, string>; status?: number}}
             if (errorData.response?.status === 429) {
                 const retryAfter = errorData.response.headers?.['retry-after'] || '60'
@@ -115,7 +117,4 @@ async function translate_path(workspace, tagPath: string[], ignore_cache) {
     return {cached, targets, translations}
 }
 
-export {
-    translate_tag,
-    translate_path,
-}
+export {translate_tag, translate_path}

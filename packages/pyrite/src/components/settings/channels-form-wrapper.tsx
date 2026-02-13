@@ -1,5 +1,5 @@
-import {ChannelsForm} from '@garage44/common/components'
 import {$t} from '@garage44/common/app'
+import {ChannelsForm} from '@garage44/common/components'
 
 interface ChannelsFormWrapperProps {
     channelId?: string

@@ -13,4 +13,28 @@ body {
     width: 100vw;
 }
 
+/* Ensure chat maintains minimum width of 350px on desktop when panel expands */
+.c-app-layout > .content {
+    min-width: 350px;
+}
+
+/* Conference mode: Adjust grid to give more space to video panel */
+.c-conference-app.c-conference-mode .c-app-layout {
+    grid-template-columns:
+        [menu] auto
+        [content] minmax(350px, 1fr)
+        [context] auto;
+}
+
+/* Ensure chat panel always maintains 350px minimum width */
+.c-conference-app .c-app-layout > .content {
+    min-width: 350px;
+}
+
+@media (max-width: 1024px) {
+    .c-app-layout > .content {
+        min-width: 0; /* Allow smaller on mobile/tablet */
+    }
+}
+
 /* Theme classes will be managed by the unified theme system */

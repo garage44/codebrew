@@ -6,9 +6,9 @@
 import {db} from '../database.ts'
 
 export interface ParsedMention {
-    type: 'agent' | 'human'
     name: string
     original: string
+    type: 'agent' | 'human'
 }
 
 /**
@@ -18,7 +18,7 @@ export interface ParsedMention {
 export function parseMentions(content: string): ParsedMention[] {
     const mentions: ParsedMention[] = []
     const mentionRegex = /@(\w+)/g
-    let match
+    let match: RegExpExecArray | null = null
 
     while ((match = mentionRegex.exec(content)) !== null) {
         const name = match[1]
@@ -58,8 +58,8 @@ export function parseMentions(content: string): ParsedMention[] {
  * Validate mentioned agents exist and are enabled
  */
 export function validateMentions(mentions: ParsedMention[]): {
-    valid: ParsedMention[]
     invalid: ParsedMention[]
+    valid: ParsedMention[]
 } {
     const valid: ParsedMention[] = []
     const invalid: ParsedMention[] = []

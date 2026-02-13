@@ -12,6 +12,7 @@ import {tmpdir} from 'node:os'
 // Mock BaseAgent
 class MockAgent {
     name = 'TestAgent'
+
     type = 'developer' as const
 }
 
@@ -19,19 +20,19 @@ describe('File Tools', () => {
     let testDir: string
     let testFile: string
 
-    beforeEach(async () => {
+    beforeEach(async() => {
         testDir = path.join(tmpdir(), `nonlinear-test-${Date.now()}`)
         await Bun.write(testDir, '')
         testFile = path.join(testDir, 'test.txt')
     })
 
-    test('read_file reads file content', async () => {
+    test('read_file reads file content', async() => {
         const content = 'Hello, World!'
         await Bun.write(testFile, content)
 
         const context = {
-            repositoryPath: testDir,
             agent: new MockAgent() as unknown as BaseAgent,
+            repositoryPath: testDir,
         }
 
         const result = await fileTools.read_file.execute({path: 'test.txt'}, context)
@@ -40,10 +41,10 @@ describe('File Tools', () => {
         expect(result.data).toBe(content)
     })
 
-    test('read_file returns error for invalid path', async () => {
+    test('read_file returns error for invalid path', async() => {
         const context = {
-            repositoryPath: testDir,
             agent: new MockAgent() as unknown as BaseAgent,
+            repositoryPath: testDir,
         }
 
         const result = await fileTools.read_file.execute({path: '../../etc/passwd'}, context)
@@ -52,16 +53,16 @@ describe('File Tools', () => {
         expect(result.error).toBeDefined()
     })
 
-    test('write_file writes file content', async () => {
+    test('write_file writes file content', async() => {
         const content = 'New content'
         const context = {
-            repositoryPath: testDir,
             agent: new MockAgent() as unknown as BaseAgent,
+            repositoryPath: testDir,
         }
 
         const result = await fileTools.write_file.execute({
-            path: 'new-file.txt',
             content,
+            path: 'new-file.txt',
         }, context)
 
         expect(result.success).toBe(true)
@@ -70,14 +71,14 @@ describe('File Tools', () => {
         expect(writtenContent).toBe(content)
     })
 
-    test('search_files finds files by pattern', async () => {
+    test('search_files finds files by pattern', async() => {
         await Bun.write(path.join(testDir, 'test1.ts'), 'content1')
         await Bun.write(path.join(testDir, 'test2.ts'), 'content2')
         await Bun.write(path.join(testDir, 'test.js'), 'content3')
 
         const context = {
-            repositoryPath: testDir,
             agent: new MockAgent() as unknown as BaseAgent,
+            repositoryPath: testDir,
         }
 
         const result = await fileTools.search_files.execute({
@@ -88,6 +89,6 @@ describe('File Tools', () => {
         expect(Array.isArray(result.data)).toBe(true)
         const files = result.data as Array<{path: string}>
         expect(files.length).toBeGreaterThan(0)
-        expect(files.every(f => f.path.endsWith('.ts'))).toBe(true)
+        expect(files.every((f) => f.path.endsWith('.ts'))).toBe(true)
     })
 })

@@ -1,8 +1,9 @@
 import {EventEmitter} from 'node:events'
-import {constructMessage, type WebSocketMessage} from './ws-client'
+import {match} from 'path-to-regexp'
+
 import {devContext} from './dev-context'
 import {logger} from './logger'
-import {match} from 'path-to-regexp'
+import {constructMessage, type WebSocketMessage} from './ws-client'
 
 // Core types for the middleware system
 type MessageData = Record<string, unknown>
@@ -54,11 +55,13 @@ interface WebSocketServerOptions {
 /**
  * WebSocket Server Manager - handles a single WebSocket endpoint
  */
-type WebSocketConnection = WebSocket | {
-    close: (code?: number, reason?: string) => void
-    readyState: number
-    send: (data: string) => void
-}
+type WebSocketConnection =
+    | WebSocket
+    | {
+          close: (code?: number, reason?: string) => void
+          readyState: number
+          send: (data: string) => void
+      }
 
 class WebSocketServerManager extends EventEmitter {
     connections = new Set<WebSocketConnection>()
@@ -78,19 +81,19 @@ class WebSocketServerManager extends EventEmitter {
     // Global middlewares that will be applied to all routes
     globalMiddlewares: Middleware[] = [
         // Logging middleware
-        async(ctx, next) => {
+        async (ctx, next) => {
             const startTime = Date.now()
             try {
                 const result = await next(ctx)
                 logger.debug(`${ctx.method} ${ctx.url} - ${Date.now() - startTime}ms`)
                 return result
-            } catch(error) {
+            } catch (error) {
                 // Suppress error logs during tests (expected errors from error handling tests)
-                const isTest = typeof process !== 'undefined' && (
-                    process.env.NODE_ENV === 'test' ||
-                    process.env.BUN_ENV === 'test' ||
-                    process.argv.some((arg) => arg.includes('test'))
-                )
+                const isTest =
+                    typeof process !== 'undefined' &&
+                    (process.env.NODE_ENV === 'test' ||
+                        process.env.BUN_ENV === 'test' ||
+                        process.argv.some((arg) => arg.includes('test')))
                 if (!isTest) {
                     logger.error(`${ctx.method} ${ctx.url} - Failed: ${error.message}`)
                 }
@@ -136,9 +139,7 @@ class WebSocketServerManager extends EventEmitter {
                 }
                 index = _index
 
-                const middleware = _index === middlewares.length ?
-                        (ctx) => handler(ctx, request) :
-                    middlewares[_index]
+                const middleware = _index === middlewares.length ? (ctx) => handler(ctx, request) : middlewares[_index]
 
                 return middleware(ctx, (_ctx) => dispatch(_index + 1))
             }
@@ -236,7 +237,7 @@ class WebSocketServerManager extends EventEmitter {
             if (ws.readyState === 1) {
                 try {
                     ws.send(messageStr)
-                } catch(error) {
+                } catch (error) {
                     logger.debug(`[WS] Failed to send broadcast to connection: ${error}`)
                     deadConnections.push(ws)
                 }
@@ -263,7 +264,7 @@ class WebSocketServerManager extends EventEmitter {
                 if (ws.readyState === 1) {
                     try {
                         ws.send(messageStr)
-                    } catch(error) {
+                    } catch (error) {
                         logger.debug(`[WS] Failed to send event to subscribed connection: ${error}`)
                         deadConnections.push(ws)
                     }
@@ -321,11 +322,18 @@ class WebSocketServerManager extends EventEmitter {
     }
 
     // Handle WebSocket connection close
-    close(ws: WebSocketConnection) {
+    close(ws: WebSocketConnection & {data?: {session?: {userid?: string}}}) {
         logger.debug(`[WS] connection closed: ${this.endpoint}`)
         try {
             devContext.addWs({endpoint: this.endpoint, ts: Date.now(), type: 'close'})
         } catch {}
+
+        // Emit close event with session data for cleanup (e.g., presence)
+        const userid = ws.data?.session?.userid
+        if (userid) {
+            this.emit('connection:close', {userid})
+        }
+
         this.connections.delete(ws)
         this.cleanupSubscriptions(ws)
         // Clean up any other dead connections while we're at it
@@ -340,7 +348,7 @@ class WebSocketServerManager extends EventEmitter {
         try {
             parsedMessage = JSON.parse(message)
             _messageId = parsedMessage.id
-        } catch(error) {
+        } catch (error) {
             // Send error response if we can
             try {
                 const errorMsg = constructMessage('/error', {
@@ -358,9 +366,13 @@ class WebSocketServerManager extends EventEmitter {
         // Validate required fields
         if (!url) {
             try {
-                const errorMsg = constructMessage('/error', {
-                    error: 'Missing required field: url',
-                }, id)
+                const errorMsg = constructMessage(
+                    '/error',
+                    {
+                        error: 'Missing required field: url',
+                    },
+                    id,
+                )
                 ws.send(JSON.stringify(errorMsg))
             } catch {}
             // Log at debug level - this is expected for malformed messages
@@ -388,7 +400,7 @@ class WebSocketServerManager extends EventEmitter {
             pathname = urlObj.pathname
             // URLSearchParams automatically decodes values
             queryParams = Object.fromEntries(urlObj.searchParams.entries())
-        } catch(_error) {
+        } catch (_error) {
             // If URL parsing fails, try to extract query string manually
             const queryMatch = url.match(/^([^?]+)(\?.+)?$/)
             if (queryMatch) {
@@ -433,11 +445,11 @@ class WebSocketServerManager extends EventEmitter {
                         try {
                             const response = constructMessage(url, (result as MessageData) || null, id)
                             ws.send(JSON.stringify(response))
-                        } catch(sendError) {
+                        } catch (sendError) {
                             logger.error('[WS] Failed to send response:', sendError)
                         }
                     }
-                } catch(error) {
+                } catch (error) {
                     try {
                         const errorResponse = constructMessage(
                             url,
@@ -445,15 +457,15 @@ class WebSocketServerManager extends EventEmitter {
                             id,
                         )
                         ws.send(JSON.stringify(errorResponse))
-                    } catch(sendError) {
+                    } catch (sendError) {
                         logger.error('[WS] Failed to send error response:', sendError)
                     }
                     // Suppress handler error logs during tests (expected errors from error handling tests)
-                    const isTest = typeof process !== 'undefined' && (
-                        process.env.NODE_ENV === 'test' ||
-                        process.env.BUN_ENV === 'test' ||
-                        process.argv.some((arg) => arg.includes('test'))
-                    )
+                    const isTest =
+                        typeof process !== 'undefined' &&
+                        (process.env.NODE_ENV === 'test' ||
+                            process.env.BUN_ENV === 'test' ||
+                            process.argv.some((arg) => arg.includes('test')))
                     if (!isTest) {
                         logger.error('handler error:', error)
                     }
@@ -465,11 +477,15 @@ class WebSocketServerManager extends EventEmitter {
         if (!matched && id) {
             // Send error response for unmatched routes
             try {
-                const errorResponse = constructMessage(url, {
-                    error: `No route matched for: ${method} ${url}`,
-                }, id)
+                const errorResponse = constructMessage(
+                    url,
+                    {
+                        error: `No route matched for: ${method} ${url}`,
+                    },
+                    id,
+                )
                 ws.send(JSON.stringify(errorResponse))
-            } catch(sendError) {
+            } catch (sendError) {
                 logger.error('[WS] Failed to send no-route error:', sendError)
             }
         } else if (!matched) {
@@ -486,7 +502,7 @@ function createBunWebSocketHandler(managers: Map<string, WebSocketServerManager>
             if (ws.data?.proxy && ws.data?.upstream) {
                 try {
                     ws.data.upstream.close()
-                } catch(error) {
+                } catch (error) {
                     logger.debug(`[WS Proxy] Error closing upstream connection: ${error}`)
                 }
                 return
@@ -495,7 +511,7 @@ function createBunWebSocketHandler(managers: Map<string, WebSocketServerManager>
             const endpoint = ws.data?.endpoint
             const manager = managers.get(endpoint)
             if (manager) {
-                manager.close(ws)
+                manager.close(ws as WebSocketConnection & {data?: {session?: {userid?: string}}})
             }
         },
         message: (
@@ -506,7 +522,7 @@ function createBunWebSocketHandler(managers: Map<string, WebSocketServerManager>
             if (ws.data?.proxy && ws.data?.upstream) {
                 try {
                     ws.data.upstream.send(message)
-                } catch(error) {
+                } catch (error) {
                     logger.error(`[WS Proxy] Error forwarding message: ${error}`)
                 }
                 return
@@ -530,7 +546,7 @@ function createBunWebSocketHandler(managers: Map<string, WebSocketServerManager>
                         if (ws.readyState === 1) {
                             ws.send(event.data)
                         }
-                    } catch(error) {
+                    } catch (error) {
                         logger.error(`[WS Proxy] Error forwarding message from upstream: ${error}`)
                     }
                 }
@@ -540,7 +556,7 @@ function createBunWebSocketHandler(managers: Map<string, WebSocketServerManager>
                     logger.error(`[WS Proxy] Upstream connection error: ${error}`)
                     try {
                         ws.close(1011, 'Upstream Error')
-                    } catch(_e) {
+                    } catch (_e) {
                         // Connection may already be closed
                     }
                 }
@@ -549,7 +565,7 @@ function createBunWebSocketHandler(managers: Map<string, WebSocketServerManager>
                     logger.debug(`[WS Proxy] Upstream connection closed: ${event.code} ${event.reason}`)
                     try {
                         ws.close(event.code || 1000, event.reason || 'Upstream Closed')
-                    } catch(_e) {
+                    } catch (_e) {
                         // Connection may already be closed
                     }
                 }

@@ -1,6 +1,7 @@
 .c-tabs {
+    border-bottom: 1px solid var(--surface-3);
     display: flex;
-    gap: var(--spacer-1);
+    gap: 0;
     list-style: none;
     margin: 0;
     padding: 0;
@@ -10,19 +11,25 @@
     align-items: center;
     background: transparent;
     border: none;
+    border-bottom: 2px solid transparent;
     color: var(--surface-6);
     cursor: pointer;
     display: flex;
-    gap: var(--spacer-1);
-    padding: var(--spacer-1) var(--spacer-2);
+    flex-direction: column;
+    gap: var(--spacer-05);
+    padding: var(--spacer-2) var(--spacer-3);
+    position: relative;
     text-decoration: none;
-    transition: color 0.2s;
+    transition: all 0.2s ease;
 
     &:hover:not(.is-disabled) {
+        background: var(--surface-2);
         color: var(--surface-7);
     }
 
     &.is-active {
+        background: transparent;
+        border-bottom-color: var(--primary-6);
         color: var(--surface-8);
         font-weight: var(--font-weight-semibold, 600);
     }

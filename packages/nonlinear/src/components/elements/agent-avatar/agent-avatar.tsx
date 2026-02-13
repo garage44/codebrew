@@ -1,5 +1,5 @@
-import {getAvatarUrl} from '@garage44/common/lib/avatar'
 import {Icon} from '@garage44/common/components'
+import {getAvatarUrl} from '@garage44/common/lib/avatar'
 import classnames from 'classnames'
 
 interface AgentAvatarProps {
@@ -35,11 +35,9 @@ export const AgentAvatar = ({agent, showStatus = true, showType = false, size = 
         <div class={classnames('c-agent-avatar', `size-${size}`)}>
             <div class={classnames('avatar-container', statusClass)}>
                 <img alt={agent.displayName} class='avatar' src={avatarUrl} />
-                {showStatus &&
-                    <span class={classnames('status-indicator', statusClass)} />}
+                {showStatus && <span class={classnames('status-indicator', statusClass)} />}
             </div>
-            {showType &&
-                <Icon className='type-icon' name={typeIcon} size='s' type='info' />}
+            {showType && <Icon className='type-icon' name={typeIcon} size='s' type='info' />}
         </div>
     )
 }

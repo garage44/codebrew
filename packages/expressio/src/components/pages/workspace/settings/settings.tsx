@@ -1,11 +1,12 @@
-import {$s, i18n} from '@/app'
 import {api, notifier, store} from '@garage44/common/app'
-import {$t} from '@garage44/expressio'
 import {Button, FieldCheckbox, FieldSelect, FieldText} from '@garage44/common/components'
 import {createValidator, required} from '@garage44/common/lib/validation'
+import {$t} from '@garage44/expressio'
 import classnames from 'classnames'
 import {deepSignal} from 'deepsignal'
 import {useEffect} from 'preact/hooks'
+
+import {$s, i18n} from '@/app'
 
 const state = deepSignal({
     formality: [
@@ -20,30 +21,34 @@ export function WorkspaceSettings() {
         if (!$s.workspace) {
             return
         }
-        state.target_languages.splice(0, state.target_languages.length, ...$s.enola.languages.target.map((language) => {
-            const selected = $s.workspace.config.languages.target.find((i) => i.id === language.id)
+        state.target_languages.splice(
+            0,
+            state.target_languages.length,
+            ...$s.enola.languages.target.map((language) => {
+                const selected = $s.workspace.config.languages.target.find((i) => i.id === language.id)
 
-            /*
-             * formality_supported should be an array of engine names that support formality
-             * If language.formality is true, use all available engine names
-             * Note: This is a simplification - ideally we'd check which specific engines support formality for each language
-             */
-            const availableEngineNames = Object.values($s.enola.engines).map((engine) => {
-                const engineConfig = engine as {name: string}
-                return engineConfig.name
-            })
-            const formalitySupported = language.formality ? availableEngineNames : []
-            return {
-                engine: selected ? selected.engine : '',
-                engines: availableEngineNames,
-                formality: selected ? selected.formality : 'less',
-                formality_supported: formalitySupported,
-                id: language.id,
-                name: language.name,
-                selected: !!selected,
-                transcription: null,
-            }
-        }))
+                /*
+                 * formality_supported should be an array of engine names that support formality
+                 * If language.formality is true, use all available engine names
+                 * Note: This is a simplification - ideally we'd check which specific engines support formality for each language
+                 */
+                const availableEngineNames = Object.values($s.enola.engines).map((engine) => {
+                    const engineConfig = engine as {name: string}
+                    return engineConfig.name
+                })
+                const formalitySupported = language.formality ? availableEngineNames : []
+                return {
+                    engine: selected ? selected.engine : '',
+                    engines: availableEngineNames,
+                    formality: selected ? selected.formality : 'less',
+                    formality_supported: formalitySupported,
+                    id: language.id,
+                    name: language.name,
+                    selected: !!selected,
+                    transcription: null,
+                }
+            }),
+        )
     }, [])
 
     if (!$s.workspace) {
@@ -51,28 +56,34 @@ export function WorkspaceSettings() {
     }
     // Updated validator usage
     const {errors, isValid, validation} = createValidator({
-        source: [
-            $s.workspace.config.languages.$source,
-            required('Source language is required'),
-        ],
-        ...Object.fromEntries(state.target_languages.flatMap((language) => [
-            [`target_${language.id}_engine`, [
-                language.$engine,
-                {
-                    message: `Translation engine required for ${language.name}`,
-                    test: (v) => !language.selected || (language.selected && !!v),
-                },
-            ]],
-            [`target_${language.id}_formality`, [
-                language.$formality,
-                {
-                    message: `Formality setting required for ${language.name}`,
-                    test: (v) => !language.selected ||
-                        !language.formality_supported.includes(language.engine) ||
-                        (language.selected && language.formality_supported.includes(language.engine) && !!v),
-                },
-            ]],
-        ])),
+        source: [$s.workspace.config.languages.$source, required('Source language is required')],
+        ...Object.fromEntries(
+            state.target_languages.flatMap((language) => [
+                [
+                    `target_${language.id}_engine`,
+                    [
+                        language.$engine,
+                        {
+                            message: `Translation engine required for ${language.name}`,
+                            test: (v) => !language.selected || (language.selected && !!v),
+                        },
+                    ],
+                ],
+                [
+                    `target_${language.id}_formality`,
+                    [
+                        language.$formality,
+                        {
+                            message: `Formality setting required for ${language.name}`,
+                            test: (v) =>
+                                !language.selected ||
+                                !language.formality_supported.includes(language.engine) ||
+                                (language.selected && language.formality_supported.includes(language.engine) && !!v),
+                        },
+                    ],
+                ],
+            ]),
+        ),
     })
 
     return (
@@ -91,9 +102,7 @@ export function WorkspaceSettings() {
                     />
 
                     <div class='languages'>
-                        <div class='label'>
-                            {$t(i18n.settings.label.target_languages)}
-                        </div>
+                        <div class='label'>{$t(i18n.settings.label.target_languages)}</div>
                         <div className='options'>
                             {state.target_languages
                                 .toSorted((a, b) => a.name.localeCompare(b.name))
@@ -130,7 +139,7 @@ export function WorkspaceSettings() {
                                                     placeholder={$t(i18n.settings.placeholder.translation)}
                                                 />
                                             </div>
-                                            {language.formality_supported.includes(language.engine) &&
+                                            {language.formality_supported.includes(language.engine) && (
                                                 <div class='language-options'>
                                                     <FieldSelect
                                                         disabled={!language.selected}
@@ -139,20 +148,20 @@ export function WorkspaceSettings() {
                                                         options={state.formality}
                                                         placeholder={$t(i18n.settings.placeholder.formality)}
                                                     />
-                                                </div>}
+                                                </div>
+                                            )}
                                             {(!validation.value[`target_${language.id}_engine`].isValid ||
-                                                !validation.value[`target_${language.id}_formality`].isValid) &&
+                                                !validation.value[`target_${language.id}_formality`].isValid) && (
                                                 <div class='validation'>
                                                     {validation.value[`target_${language.id}_engine`].errors.join(', ')}
                                                     {validation.value[`target_${language.id}_formality`].errors.join(', ')}
-                                                </div>}
+                                                </div>
+                                            )}
                                         </div>
                                     )
                                 })}
                         </div>
-                        <div class='help'>
-                            {$t(i18n.settings.help.target_languages)}
-                        </div>
+                        <div class='help'>{$t(i18n.settings.help.target_languages)}</div>
                     </div>
                 </div>
             </div>
@@ -166,7 +175,7 @@ export function WorkspaceSettings() {
                         label={$t(i18n.settings.label.sync_enabled)}
                         model={$s.workspace.config.sync.$enabled}
                     />
-                    {$s.workspace.config.sync.enabled &&
+                    {$s.workspace.config.sync.enabled && (
                         <>
                             <FieldText
                                 help={$t(i18n.settings.help.sync_dir)}
@@ -178,7 +187,8 @@ export function WorkspaceSettings() {
                                 label={$t(i18n.settings.label.sync_suggestions)}
                                 model={$s.workspace.config.sync.$suggestions}
                             />
-                        </>}
+                        </>
+                    )}
                 </div>
             </div>
 
@@ -187,7 +197,7 @@ export function WorkspaceSettings() {
                 <Button
                     disabled={!isValid.value}
                     label={$t(i18n.settings.label.update_settings)}
-                    onClick={async() => {
+                    onClick={async () => {
                         if (!isValid.value) {
                             notifier.notify({message: 'Please fix validation errors', type: 'error'})
                             return

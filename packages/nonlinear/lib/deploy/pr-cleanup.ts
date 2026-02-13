@@ -1,6 +1,6 @@
 /* eslint-disable @stylistic/max-len */
 import {$} from 'bun'
-import {existsSync} from 'fs'
+import {existsSync} from 'node:fs'
 import {
     getPRDeployment,
     loadPRRegistry,
@@ -14,18 +14,22 @@ import {extractWorkspacePackages, isApplicationPackage} from './workspace'
  * This ensures nonlinear is running with the latest code
  */
 async function restartNonlinearService(): Promise<void> {
+    // eslint-disable-next-line no-console
     console.log('[pr-cleanup] Restarting main nonlinear service...')
     try {
         const restartResult = await $`sudo /usr/bin/systemctl restart nonlinear.service`.nothrow()
         if (restartResult.exitCode === 0) {
+            // eslint-disable-next-line no-console
             console.log('[pr-cleanup] Nonlinear service restarted successfully')
         } else {
             const stderr = restartResult.stderr?.toString() || ''
             const stdout = restartResult.stdout?.toString() || ''
+            // eslint-disable-next-line no-console
             console.warn(`[pr-cleanup] Failed to restart nonlinear service (non-fatal): ${stderr || stdout || 'Unknown error'}`)
         }
-    } catch(error) {
+    } catch(error: unknown) {
         const message = error instanceof Error ? error.message : String(error)
+        // eslint-disable-next-line no-console
         console.warn(`[pr-cleanup] Error restarting nonlinear service (non-fatal): ${message}`)
     }
 }
@@ -38,6 +42,7 @@ export async function cleanupPRDeployment(prNumber: number): Promise<{
     success: boolean
 }> {
     try {
+        // eslint-disable-next-line no-console
         console.log(`[pr-cleanup] Cleaning up PR #${prNumber}...`)
 
         const deployment = await getPRDeployment(prNumber)
@@ -52,18 +57,25 @@ export async function cleanupPRDeployment(prNumber: number): Promise<{
         await updatePRDeployment(prNumber, {status: 'cleaning'})
 
         // Find all PR services (use wildcard pattern)
+        // eslint-disable-next-line no-console
         console.log(`[pr-cleanup] Stopping all services for PR #${prNumber}...`)
         try {
             // First, disable services to prevent auto-restart (critical for Restart=always services)
             await $`sudo systemctl disable pr-${prNumber}-*.service 2>/dev/null || true`.quiet()
+            // eslint-disable-next-line no-console
             console.log('[pr-cleanup] Disabled all services')
 
             // Stop all services matching pattern
             await $`sudo systemctl stop pr-${prNumber}-*.service 2>/dev/null || true`.quiet()
+            // eslint-disable-next-line no-console
             console.log('[pr-cleanup] Stopped all services')
 
             // Wait a moment for processes to fully stop
-            await new Promise((resolve) => setTimeout(resolve, 1000))
+            await new Promise<void>((resolve): void => {
+                setTimeout((): void => {
+                    resolve()
+                }, 1000)
+            })
 
             /*
              * Kill any remaining processes that might be holding ports
@@ -74,7 +86,7 @@ export async function cleanupPRDeployment(prNumber: number): Promise<{
 
             if (existsSync(repoDir)) {
                 const allPackages = extractWorkspacePackages(repoDir)
-                const appPackages = allPackages.filter((pkg) => isApplicationPackage(pkg))
+                const appPackages = allPackages.filter((pkg): boolean => isApplicationPackage(pkg))
                 // Always include nonlinear
                 packagesToClean = [...appPackages, 'nonlinear']
             } else {
@@ -92,10 +104,13 @@ export async function cleanupPRDeployment(prNumber: number): Promise<{
             for (const packageName of packagesToClean) {
                 const port = portMap[packageName as keyof typeof portMap] || deployment.ports.nonlinear
                 // Try to kill processes on the port (fuser might not be available, so use nothrow)
+                // eslint-disable-next-line no-await-in-loop
                 await $`sudo fuser -k ${port}/tcp 2>/dev/null || true`.quiet().nothrow()
             }
+            // eslint-disable-next-line no-console
             console.log('[pr-cleanup] Killed any remaining processes on PR ports')
-        } catch(error) {
+        } catch(error: unknown) {
+            // eslint-disable-next-line no-console
             console.warn('[pr-cleanup] Failed to stop services:', error)
         }
 
@@ -103,17 +118,21 @@ export async function cleanupPRDeployment(prNumber: number): Promise<{
         try {
             const rmResult = await $`sudo rm -f /etc/systemd/system/pr-${prNumber}-*.service`.quiet().nothrow()
             if (rmResult.exitCode === 0) {
+                // eslint-disable-next-line no-console
                 console.log('[pr-cleanup] Removed all systemd units')
             } else {
                 const stderr = rmResult.stderr?.toString() || ''
                 // Check if it's just a "no matches" error (non-fatal)
                 if (stderr.includes('no matches found')) {
+                    // eslint-disable-next-line no-console
                     console.warn(`[pr-cleanup] No systemd units found for PR #${prNumber} (may have been removed already)`)
                 } else {
+                    // eslint-disable-next-line no-console
                     console.warn('[pr-cleanup] Failed to remove systemd units:', stderr)
                 }
             }
-        } catch(error) {
+        } catch(error: unknown) {
+            // eslint-disable-next-line no-console
             console.warn('[pr-cleanup] Failed to remove systemd units:', error)
         }
 
@@ -128,7 +147,7 @@ export async function cleanupPRDeployment(prNumber: number): Promise<{
 
             if (existsSync(repoDir)) {
                 const allPackages = extractWorkspacePackages(repoDir)
-                const appPackages = allPackages.filter((pkg) => isApplicationPackage(pkg))
+                const appPackages = allPackages.filter((pkg): boolean => isApplicationPackage(pkg))
                 // Always include nonlinear
                 packagesToClean = [...appPackages, 'nonlinear']
             } else {
@@ -183,34 +202,42 @@ server {
 
                 // Write the "removed" config
                 const tempFile = `/tmp/pr-${prNumber}-${packageName}-removed.nginx.conf`
+                // eslint-disable-next-line no-await-in-loop
                 await Bun.write(tempFile, removedContent)
+                // eslint-disable-next-line no-await-in-loop
                 await $`sudo mv ${tempFile} ${configFile}`.quiet()
 
                 // Ensure symlink exists
                 if (!existsSync(enabledLink)) {
+                    // eslint-disable-next-line no-await-in-loop
                     await $`sudo ln -s ${configFile} ${enabledLink}`.quiet()
                 }
             }
 
             await $`sudo nginx -s reload`.quiet()
+            // eslint-disable-next-line no-console
             console.log(
                 `[pr-cleanup] Updated nginx configurations to show "deployment removed" for ${packagesToClean.length} package(s)`,
             )
-        } catch(error) {
+        } catch(error: unknown) {
+            // eslint-disable-next-line no-console
             console.warn('[pr-cleanup] Failed to remove nginx configs:', error)
         }
 
         // Remove deployment directory
         try {
             await $`rm -rf ${deployment.directory}`.quiet()
+            // eslint-disable-next-line no-console
             console.log('[pr-cleanup] Removed deployment directory')
-        } catch(error) {
+        } catch(error: unknown) {
+            // eslint-disable-next-line no-console
             console.warn('[pr-cleanup] Failed to remove directory:', error)
         }
 
         // Remove from registry
         await removePRDeployment(prNumber)
 
+        // eslint-disable-next-line no-console
         console.log(`[pr-cleanup] PR #${prNumber} cleaned up successfully`)
 
         // Restart main nonlinear service after cleanup completes
@@ -220,8 +247,9 @@ server {
             message: `PR #${prNumber} cleaned up successfully`,
             success: true,
         }
-    } catch(error) {
+    } catch(error: unknown) {
         const message = error instanceof Error ? error.message : String(error)
+        // eslint-disable-next-line no-console
         console.error(`[pr-cleanup] Cleanup failed: ${message}`)
 
         // Restart main nonlinear service even on failure to ensure it's running
@@ -238,9 +266,10 @@ server {
  * Cleanup stale PR deployments (older than maxAge)
  */
 export async function cleanupStaleDeployments(
-    maxAgeDays: number = 7,
+    maxAgeDays = 7,
 ): Promise<{cleaned: number; message: string}> {
     try {
+        // eslint-disable-next-line no-console
         console.log(`[pr-cleanup] Checking for stale deployments (max age: ${maxAgeDays} days)...`)
 
         const registry = await loadPRRegistry()
@@ -251,10 +280,12 @@ export async function cleanupStaleDeployments(
         for (const [prNumber, deployment] of Object.entries(registry)) {
             const age = now - deployment.created
             if (age > maxAge) {
-                console.log(`[pr-cleanup] PR #${prNumber} is stale (${Math.round(age / (24 * 60 * 60 * 1000))} days old)`)
+                // eslint-disable-next-line no-console
+                console.log(`[pr-cleanup] PR #${prNumber} is stale (${Math.round(age / (24 * 60 * 60 * 1000)) as number} days old)`)
+                // eslint-disable-next-line no-await-in-loop
                 const result = await cleanupPRDeployment(Number(prNumber))
                 if (result.success) {
-                    cleaned++
+                    cleaned += 1
                 }
             }
         }
@@ -263,11 +294,13 @@ export async function cleanupStaleDeployments(
             `Cleaned up ${cleaned} stale deployment(s)` :
             'No stale deployments found'
 
+        // eslint-disable-next-line no-console
         console.log(`[pr-cleanup] ${message}`)
 
         return {cleaned, message}
-    } catch(error) {
+    } catch(error: unknown) {
         const message = error instanceof Error ? error.message : String(error)
+        // eslint-disable-next-line no-console
         console.error(`[pr-cleanup] Stale cleanup failed: ${message}`)
         return {cleaned: 0, message: `Cleanup failed: ${message}`}
     }
@@ -281,10 +314,12 @@ export async function listPRDeployments(): Promise<void> {
     const deployments = Object.values(registry)
 
     if (deployments.length === 0) {
+        // eslint-disable-next-line no-console
         console.log('No active PR deployments')
         return
     }
 
+    // eslint-disable-next-line no-console
     console.log(`\nActive PR Deployments (${deployments.length}):\n`)
 
     for (const deployment of deployments) {
@@ -296,7 +331,7 @@ export async function listPRDeployments(): Promise<void> {
 
         if (existsSync(repoDir)) {
             const allPackages = extractWorkspacePackages(repoDir)
-            const appPackages = allPackages.filter((pkg) => isApplicationPackage(pkg))
+            const appPackages = allPackages.filter((pkg): boolean => isApplicationPackage(pkg))
             // Always include nonlinear
             packagesToShow = [...appPackages, 'nonlinear']
         } else {
@@ -304,19 +339,27 @@ export async function listPRDeployments(): Promise<void> {
             packagesToShow = ['expressio', 'pyrite', 'nonlinear']
         }
 
+        // eslint-disable-next-line no-console
         console.log(`PR #${deployment.number}:`)
+        // eslint-disable-next-line no-console
         console.log(`  Branch: ${deployment.head_ref}`)
+        // eslint-disable-next-line no-console
         console.log(`  Author: ${deployment.author}`)
+        // eslint-disable-next-line no-console
         console.log(`  Age: ${ageHours} hours`)
 
         // Show URLs for each package
+        // eslint-disable-next-line no-console
         console.log('  URLs:')
         for (const packageName of packagesToShow) {
             const port = deployment.ports[packageName as keyof typeof deployment.ports] || deployment.ports.nonlinear
+            // eslint-disable-next-line no-console
             console.log(`    ${packageName}: https://pr-${deployment.number}-${packageName}.garage44.org (port ${port})`)
         }
 
+        // eslint-disable-next-line no-console
         console.log(`  Status: ${deployment.status}`)
+        // eslint-disable-next-line no-console
         console.log('')
     }
 }

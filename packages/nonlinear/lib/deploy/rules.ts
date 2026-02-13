@@ -1,5 +1,5 @@
-import {symlink, mkdir, rm, stat, lstat, readlink} from 'fs/promises'
-import {join, relative} from 'path'
+import {lstat, mkdir, readlink, rm, stat, symlink} from 'node:fs/promises'
+import {join, relative} from 'node:path'
 import {findWorkspaceRoot} from './workspace'
 
 /**
@@ -14,21 +14,27 @@ export async function rules(): Promise<void> {
     try {
         const stats = await stat(nonlinearRulesPath)
         if (!stats.isDirectory()) {
+            // eslint-disable-next-line no-console
             console.error(`❌ ${nonlinearRulesPath} is not a directory`)
+            // eslint-disable-next-line unicorn/no-process-exit
             process.exit(1)
         }
-    } catch(_error) {
-        console.error(`❌ Nonlinear rules directory not found: ${nonlinearRulesPath}`)
-        process.exit(1)
+    } catch(error: unknown) {
+            // eslint-disable-next-line no-console
+            console.error(`❌ Nonlinear rules directory not found: ${nonlinearRulesPath}`, error)
+            // eslint-disable-next-line unicorn/no-process-exit
+            process.exit(1)
     }
 
     // Create .cursor directory if it doesn't exist
     const cursorDir = join(workspaceRoot, '.cursor')
     try {
         await mkdir(cursorDir, {recursive: true})
-    } catch(error) {
-        console.error('❌ Failed to create .cursor directory:', error)
-        process.exit(1)
+    } catch(error: unknown) {
+            // eslint-disable-next-line no-console
+            console.error('❌ Failed to create .cursor directory:', error)
+            // eslint-disable-next-line unicorn/no-process-exit
+            process.exit(1)
     }
 
     /*
@@ -41,18 +47,24 @@ export async function rules(): Promise<void> {
         try {
             await rm(cursorRulesPath, {force: true, recursive: true})
             if (stats.isSymbolicLink()) {
+                // eslint-disable-next-line no-console
                 console.log('ℹ️  Removed existing symlink')
             } else if (stats.isDirectory()) {
+                // eslint-disable-next-line no-console
                 console.log('ℹ️  Removed existing directory')
             } else {
+                // eslint-disable-next-line no-console
                 console.log('ℹ️  Removed existing file')
             }
-        } catch(error) {
+        } catch(error: unknown) {
+            // eslint-disable-next-line no-console
             console.error('❌ Failed to remove existing file/directory/symlink:', error)
+            // eslint-disable-next-line unicorn/no-process-exit
             process.exit(1)
         }
-    } catch {
+    } catch{
         // Doesn't exist, we'll create it
+        // Ignore error
     }
 
     /*
@@ -67,18 +79,26 @@ export async function rules(): Promise<void> {
         try {
             const linkStats = await lstat(cursorRulesPath)
             if (!linkStats.isSymbolicLink()) {
+                // eslint-disable-next-line no-console
                 console.error('❌ Created symlink but verification failed: not a symlink')
+                // eslint-disable-next-line unicorn/no-process-exit
                 process.exit(1)
             }
             const target = await readlink(cursorRulesPath)
+            // eslint-disable-next-line no-console
             console.log(`✅ Created symlink: ${cursorRulesPath} → ${target}`)
+            // eslint-disable-next-line no-console
             console.log(`   (points to: ${nonlinearRulesPath})`)
-        } catch(error) {
+        } catch(error: unknown) {
+            // eslint-disable-next-line no-console
             console.error('❌ Failed to verify symlink:', error)
+            // eslint-disable-next-line unicorn/no-process-exit
             process.exit(1)
         }
-    } catch(error) {
+    } catch(error: unknown) {
+        // eslint-disable-next-line no-console
         console.error('❌ Failed to create symlink:', error)
+        // eslint-disable-next-line unicorn/no-process-exit
         process.exit(1)
     }
 }

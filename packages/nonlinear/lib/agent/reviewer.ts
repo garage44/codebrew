@@ -3,14 +3,14 @@
  * Reviews merge requests and provides feedback
  */
 
-import {BaseAgent, type AgentContext, type AgentResponse} from './base.ts'
-import {db, type Repository} from '../database.ts'
+import {type AgentContext, type AgentResponse, BaseAgent} from './base.ts'
+import {type Repository, db} from '../database.ts'
 import {logger} from '../../service.ts'
 import {createGitPlatform} from '../git/index.ts'
 import {addAgentComment} from './comments.ts'
 
 export class ReviewerAgent extends BaseAgent {
-    constructor(agentConfig?: {tools?: string[]; skills?: string[]}) {
+    constructor(agentConfig?: {skills?: string[]; tools?: string[]}) {
         super('Reviewer', 'reviewer', agentConfig)
     }
 
@@ -26,39 +26,43 @@ export class ReviewerAgent extends BaseAgent {
                 ORDER BY t.updated_at ASC
                 LIMIT 1
             `).get() as {
-                id: string
-                repository_id: string
-                title: string
-                description: string | null
                 branch_name: string | null
+                config: string
+                description: string | null
+                id: string
                 merge_request_id: string | null
                 path: string
                 platform: 'github' | 'gitlab' | 'local'
                 remote_url: string | null
-                config: string
+                repository_id: string
+                title: string
             } | undefined
 
             if (!ticket || !ticket.merge_request_id || !ticket.branch_name) {
                 this.log('No tickets in review status found')
                 return {
-                    success: true,
                     message: 'No tickets to review',
+                    success: true,
                 }
             }
 
             this.log(`Reviewing ticket ${ticket.id}: ${ticket.title}`)
 
+            // Get repository details
+            const repository = db
+                .prepare('SELECT * FROM repositories WHERE id = ?')
+                .get(ticket.repository_id) as Repository | undefined
+
+            if (!repository) {
+                this.log(`Repository ${ticket.repository_id} not found`, 'warn')
+                return {
+                    message: 'Repository not found',
+                    success: false,
+                }
+            }
+
             // Get git platform adapter
-            const repo = {
-                id: ticket.repository_id,
-                path: ticket.path,
-                platform: ticket.platform,
-                remote_url: ticket.remote_url,
-                config: ticket.config,
-                created_at: 0,
-                name: '',
-                updated_at: 0,
-            } as Repository
+            const repo: Repository = repository
 
             const gitPlatform = createGitPlatform(repo)
 
@@ -68,8 +72,8 @@ export class ReviewerAgent extends BaseAgent {
             if (!mrStatus) {
                 this.log(`MR not found for ticket ${ticket.id}`, 'warn')
                 return {
-                    success: false,
                     message: 'Merge request not found',
+                    success: false,
                 }
             }
 
@@ -78,13 +82,13 @@ export class ReviewerAgent extends BaseAgent {
                 SELECT * FROM comments
                 WHERE ticket_id = ?
                 ORDER BY created_at ASC
-            `).all(ticket.id) as Array<{
-                id: string
-                author_type: string
+            `).all(ticket.id) as {
                 author_id: string
+                author_type: string
                 content: string
                 created_at: number
-            }>
+                id: string
+            }[]
 
             // Review the MR using LLM
             const systemPrompt = `You are a code review AI agent for a Bun/TypeScript project.
@@ -110,7 +114,7 @@ MR Status: ${mrStatus.state}
 MR URL: ${mrStatus.url}
 
 Previous Comments:
-${comments.map(c => `- ${c.author_type} (${c.author_id}): ${c.content}`).join('\n')}
+${comments.map((c): string => `- ${c.author_type} (${c.author_id}): ${c.content}`).join('\n')}
 
 Please review the changes and provide feedback.`
 
@@ -119,21 +123,24 @@ Please review the changes and provide feedback.`
             // Parse review response
             let review: {
                 approved: boolean
-                feedback: Array<{type: string; message: string}>
-                issues?: Array<string>
-                suggestions?: Array<string>
+                feedback: {message: string; type: string}[]
+                issues?: string[]
+                suggestions?: string[]
+            } = {
+                approved: false,
+                feedback: [],
             }
 
             try {
                 const jsonMatch = response.match(/```json\n([\s\S]*?)\n```/) || response.match(/```\n([\s\S]*?)\n```/)
                 const jsonStr = jsonMatch ? jsonMatch[1] : response
                 review = JSON.parse(jsonStr)
-            } catch (error) {
+            } catch(error) {
                 this.log(`Failed to parse review response: ${error}`, 'error')
                 return {
-                    success: false,
-                    message: 'Failed to parse review response',
                     error: String(error),
+                    message: 'Failed to parse review response',
+                    success: false,
                 }
             }
 
@@ -170,28 +177,28 @@ Please review the changes and provide feedback.`
             }
 
             return {
-                success: true,
-                message: review.approved ? 'MR approved' : 'MR needs fixes',
                 data: {
                     approved: review.approved,
                     issues: review.issues?.length || 0,
                 },
+                message: review.approved ? 'MR approved' : 'MR needs fixes',
+                success: true,
             }
-        } catch (error) {
+        } catch(error) {
             this.log(`Error during review: ${error}`, 'error')
             return {
-                success: false,
-                message: 'Review failed',
                 error: error instanceof Error ? error.message : String(error),
+                message: 'Review failed',
+                success: false,
             }
         }
     }
 
     private formatReviewComment(review: {
         approved: boolean
-        feedback: Array<{type: string; message: string}>
-        issues?: Array<string>
-        suggestions?: Array<string>
+        feedback: {message: string; type: string}[]
+        issues?: string[]
+        suggestions?: string[]
     }): string {
         const lines: string[] = []
 
@@ -251,17 +258,16 @@ Provide constructive feedback and check for code quality, tests, and adherence t
         try {
             const response = await this.respondWithTools(systemPrompt, instruction, 4096, agentContext as AgentContext)
             return {
-                success: true,
                 message: response,
+                success: true,
             }
         } catch(error) {
             const errorMsg = error instanceof Error ? error.message : String(error)
             return {
-                success: false,
-                message: 'Failed to execute instruction',
                 error: errorMsg,
+                message: 'Failed to execute instruction',
+                success: false,
             }
         }
     }
-
 }

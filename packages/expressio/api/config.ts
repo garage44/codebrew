@@ -1,13 +1,14 @@
 import {userManager} from '@garage44/common/service'
-import {config, saveConfig} from '../lib/config.ts'
-import {enola, logger, workspaces} from '../service.ts'
-import {validateRequest} from '../lib/api/validate.ts'
-import {UpdateConfigRequestSchema, GetConfigResponseSchema} from '../lib/schemas/config.ts'
 import {z} from 'zod'
+
+import {validateRequest} from '../lib/api/validate.ts'
+import {config, saveConfig} from '../lib/config.ts'
+import {UpdateConfigRequestSchema, GetConfigResponseSchema} from '../lib/schemas/config.ts'
+import {enola, logger, workspaces} from '../service.ts'
 
 export default function apiConfig(router) {
     // HTTP API endpoints using familiar Express-like pattern
-    router.get('/api/config', async() => {
+    router.get('/api/config', async () => {
         /*
          * For now, assume admin user since we don't have session context here
          * In a real implementation, you'd get the user from the session
@@ -28,7 +29,7 @@ export default function apiConfig(router) {
         })
     })
 
-    router.post('/api/config', async(req) => {
+    router.post('/api/config', async (req) => {
         // For now, assume admin user since we don't have session context here
         const user = await userManager.getUserByUsername('admin')
         if (!user?.permissions.admin) {
@@ -90,7 +91,7 @@ export default function apiConfig(router) {
             return new Response(JSON.stringify(response), {
                 headers: {'Content-Type': 'application/json'},
             })
-        } catch(error) {
+        } catch (error) {
             if (error instanceof z.ZodError) {
                 return new Response(JSON.stringify({error: error.errors}), {
                     headers: {'Content-Type': 'application/json'},

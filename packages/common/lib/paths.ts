@@ -1,6 +1,6 @@
-import {hash, keyMod, keyPath, mergeDeep} from './utils'
-import {logger} from './logger'
 import {I18N_PATH_SYMBOL} from './i18n'
+import {logger} from './logger'
+import {hash, keyMod, keyPath, mergeDeep} from './utils'
 
 interface Tag {
     cache?: string
@@ -183,7 +183,7 @@ function pathToggle(
                     const isTag = 'source' in value
 
                     // Apply based on mode and node type
-                    if ((mode === 'all') || (!isTag && mode === 'groups')) {
+                    if (mode === 'all' || (!isTag && mode === 'groups')) {
                         mergeDeep(value, modifier)
                     }
 
@@ -207,7 +207,7 @@ function pathToggle(
                     const isTag = 'source' in value
 
                     // Apply based on mode and node type
-                    const shouldApply = (mode === 'all') || (!isTag && mode === 'groups')
+                    const shouldApply = mode === 'all' || (!isTag && mode === 'groups')
                     if (shouldApply) {
                         mergeDeep(value, modifier)
                     }
@@ -254,11 +254,7 @@ function pathToggle(
     }
 }
 
-function pathUpdate(
-    source: Record<string, unknown>,
-    path: string[],
-    value: Record<string, unknown>,
-): void {
+function pathUpdate(source: Record<string, unknown>, path: string[], value: Record<string, unknown>): void {
     const {id, ref} = pathRef(source, path)
 
     if (!id) {
@@ -285,11 +281,7 @@ function pathUpdate(
  * @param {*} oldPath
  * @param {*} newPath
  */
-function pathMove(
-    source: Record<string, unknown>,
-    oldPath: string[],
-    newPath: string[],
-): void {
+function pathMove(source: Record<string, unknown>, oldPath: string[], newPath: string[]): void {
     logger.info(`move path: ${oldPath} - ${newPath}`)
     const oldId = oldPath.at(-1)
     const oldRefPath = oldPath.slice(0, -1)
@@ -338,13 +330,4 @@ function pathRef(
     }
 }
 
-export {
-    collectSource,
-    pathCreate,
-    pathDelete,
-    pathHas,
-    pathMove,
-    pathRef,
-    pathToggle,
-    pathUpdate,
-}
+export {collectSource, pathCreate, pathDelete, pathHas, pathMove, pathRef, pathToggle, pathUpdate}

@@ -1,11 +1,13 @@
-import classnames from 'classnames'
-import {getAvatarUrl} from '@garage44/common/lib/avatar'
-import {Link, route} from 'preact-router'
-import {useEffect, useMemo, useRef} from 'preact/hooks'
-import {$s} from '@/app'
 import {$t, ws, logger} from '@garage44/common/app'
-import {loadGlobalUsers} from '@/models/chat'
 import {Icon} from '@garage44/common/components'
+import {getAvatarUrl} from '@garage44/common/lib/avatar'
+import classnames from 'classnames'
+import {Link, route} from 'preact-router'
+import {useEffect} from 'preact/hooks'
+
+import {$s} from '@/app'
+import {loadGlobalUsers} from '@/models/chat'
+
 import type {Channel} from '../../types.ts'
 
 // Helper function outside component to avoid recreation
@@ -14,15 +16,13 @@ const channelLink = (channelSlug: string) => {
 }
 
 export default function ChannelsContext() {
-    const intervalRef = useRef<number | null>(null)
+    /*
+     * Compute currentChannel directly - DeepSignal is reactive, so accessing
+     * $s.chat.activeChannelSlug and $s.channels in render makes it reactive
+     */
+    const currentChannel = $s.chat.activeChannelSlug ? $s.channels.find((c) => c.slug === $s.chat.activeChannelSlug) : null
 
-    // DeepSignal is reactive - no need for useMemo dependencies
-    const currentChannel = useMemo(() => {
-        if (!$s.chat.activeChannelSlug) return null
-        return $s.channels.find((c) => c.slug === $s.chat.activeChannelSlug)
-    }, [])
-
-    const pollChannels = async() => {
+    const loadChannels = async () => {
         try {
             const response = await ws.get('/channels')
             if (response.success) {
@@ -30,8 +30,8 @@ export default function ChannelsContext() {
                 // Load all users globally after channels are loaded
                 await loadGlobalUsers()
             }
-        } catch(error) {
-            logger.error('[ChannelsContext] Error polling channels:', error)
+        } catch (error) {
+            logger.error('[ChannelsContext] Error loading channels:', error)
         }
     }
 
@@ -52,8 +52,16 @@ export default function ChannelsContext() {
         }
 
         if ($s.chat.activeChannelSlug) {
-            // Update the channel route when the user sets the active channel
-            route(`/channels/${$s.chat.activeChannelSlug}`, true)
+            // Check if current path already includes /devices
+            const hasDevicesSuffix = currentPath.includes('/devices')
+            const targetRoute = hasDevicesSuffix
+                ? `/channels/${$s.chat.activeChannelSlug}/devices`
+                : `/channels/${$s.chat.activeChannelSlug}`
+
+            // Only redirect if the route would actually change
+            if (currentPath !== targetRoute) {
+                route(targetRoute, true)
+            }
         } else if (currentPath === '/' || currentPath.startsWith('/channels/')) {
             /*
              * Only redirect to home if we're already on home or a channel route
@@ -75,16 +83,9 @@ export default function ChannelsContext() {
         }
     }, [])
 
-    // Setup polling
+    // Load channels on initial mount - WebSocket subscriptions handle updates
     useEffect(() => {
-        intervalRef.current = setInterval(pollChannels, 3000) as unknown as number
-        pollChannels()
-
-        return () => {
-            if (intervalRef.current !== null) {
-                clearInterval(intervalRef.current)
-            }
-        }
+        loadChannels()
     }, [])
 
     return (
@@ -117,25 +118,18 @@ export default function ChannelsContext() {
                             >
                                 <Icon name='chat' type='info' />
                                 <div class='flex-column'>
-                                    <div class='name'>
-                                        #
-{channel.name}
-                                    </div>
-                                    {channel.description &&
-                                        <div class='item-properties'>
-                                            {channel.description}
-                                        </div>}
+                                    <div class='name'>#{channel.name}</div>
+                                    {channel.description && <div class='item-properties'>{channel.description}</div>}
                                 </div>
                             </Link>
                         )
                     })}
 
-                    {!$s.channels.length &&
+                    {!$s.channels.length && (
                         <div class='channel item no-presence'>
-                            <div class='name'>
-                                {$t('channel.no_channels')}
-                            </div>
-                        </div>}
+                            <div class='name'>{$t('channel.no_channels')}</div>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -149,14 +143,37 @@ export default function ChannelsContext() {
                         // Get all chat users from global users map and deduplicate by ID
                         const chatUsers = $s.chat.users ? Object.entries($s.chat.users) : []
 
-                        // Deduplicate by converting IDs to strings and using a Set
+                        // Normalize and deduplicate by ID (trim whitespace to catch edge cases)
                         const seenIds = new Set<string>()
-                        const uniqueUsers = chatUsers.filter(([userId, _userInfo]) => {
-                            const idStr = String(userId)
+                        const seenUsernames = new Set<string>()
+                        const uniqueUsers = chatUsers.filter(([userId, userInfo]) => {
+                            // Normalize ID
+                            const idStr = String(userId).trim()
+                            if (!idStr) return false
+
+                            // Extract username for fallback deduplication
+                            const user =
+                                typeof userInfo === 'object' && userInfo !== null && 'username' in userInfo
+                                    ? (userInfo as {username?: string})
+                                    : {username: ''}
+                            const username = String(user.username || '')
+                                .trim()
+                                .toLowerCase()
+
+                            // Check ID first (primary deduplication)
                             if (seenIds.has(idStr)) {
                                 return false
                             }
+
+                            // Fallback: if same username already seen, skip (prevents duplicates from different ID formats)
+                            if (username && seenUsernames.has(username)) {
+                                return false
+                            }
+
                             seenIds.add(idStr)
+                            if (username) {
+                                seenUsernames.add(username)
+                            }
                             return true
                         })
 
@@ -170,30 +187,27 @@ export default function ChannelsContext() {
 
                         return uniqueUsers.map(([userId, userInfo]) => {
                             // Extract user info - handle both Signal and plain object types
-                            const user = typeof userInfo === 'object' && userInfo !== null &&
-                                'avatar' in userInfo && 'username' in userInfo ?
-                                userInfo as {avatar: string; status?: 'busy' | 'offline' | 'online'; username: string} :
-                                    {avatar: '', status: 'offline' as const, username: ''}
+                            const user =
+                                typeof userInfo === 'object' &&
+                                userInfo !== null &&
+                                'avatar' in userInfo &&
+                                'username' in userInfo
+                                    ? (userInfo as {avatar: string; status?: 'busy' | 'offline' | 'online'; username: string})
+                                    : {avatar: '', status: 'offline' as const, username: ''}
                             const avatarUrl = getAvatarUrl(user.avatar, String(userId))
                             const isCurrentUser = String($s.profile.id) === String(userId)
                             const status = user.status || 'offline'
                             const statusClass = status === 'online' ? 'online' : status === 'busy' ? 'busy' : 'offline'
 
                             return (
-<div class='person item' key={String(userId)}>
-                                <span class={`status-indicator ${statusClass}`} />
-                                <img alt={user.username} class='person-avatar' src={avatarUrl} />
-                                <span class='person-name'>
-                                    {user.username || $t('user.anonymous')}
-                                    {isCurrentUser &&
-                                        <span class='you-label'>
-{' '}
-(
-{$t('user.you')}
-)
-                                        </span>}
-                                </span>
-</div>
+                                <div class='person item' key={String(userId)}>
+                                    <span class={`status-indicator ${statusClass}`} />
+                                    <img alt={user.username} class='person-avatar' src={avatarUrl} />
+                                    <span class='person-name'>
+                                        {user.username || $t('user.anonymous')}
+                                        {isCurrentUser && <span class='you-label'> ({$t('user.you')})</span>}
+                                    </span>
+                                </div>
                             )
                         })
                     })()}

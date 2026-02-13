@@ -5,8 +5,8 @@
 
 import {db} from '../database.ts'
 import {logger} from '../../service.ts'
-import {updateAgentStatus, getAgentStatus} from './status.ts'
-import {type AgentContext} from './base.ts'
+import {getAgentStatus, updateAgentStatus} from './status.ts'
+import type {AgentContext} from './base.ts'
 import {getAgentById} from './index.ts'
 
 /**
@@ -14,7 +14,7 @@ import {getAgentById} from './index.ts'
  * @deprecated Agents should be started via AgentService or CLI commands
  * This function is kept for backward compatibility but does nothing
  */
-export async function initAgentScheduler() {
+export async function initAgentScheduler(): Promise<void> {
     logger.warn('[Agent Scheduler] initAgentScheduler() is deprecated. Use AgentService or CLI commands to start agents.')
 }
 
@@ -47,12 +47,14 @@ export async function runAgent(agentId: string, context: Record<string, unknown>
     }
 
     // Check if this is a task-based trigger (has task_id)
-    const isTaskTrigger = !!context.task_id
+    const isTaskTrigger = Boolean(context.task_id)
     const taskId = context.task_id as string | undefined
 
-    // If task-based, check if task is already completed or failed (skip those)
-    // Note: We allow "processing" status because AgentService marks tasks as processing
-    // before calling the scheduler, and AgentService ensures single-task processing
+    /*
+     * If task-based, check if task is already completed or failed (skip those)
+     * Note: We allow "processing" status because AgentService marks tasks as processing
+     * before calling the scheduler, and AgentService ensures single-task processing
+     */
     if (isTaskTrigger && taskId) {
         const task = db.prepare(`
             SELECT status FROM agent_tasks WHERE id = ?
@@ -65,7 +67,7 @@ export async function runAgent(agentId: string, context: Record<string, unknown>
     }
 
     // Check if this is a mention trigger (has comment_id) - allow it even if agent is working
-    const isMentionTrigger = !!context.comment_id
+    const isMentionTrigger = Boolean(context.comment_id)
 
     // Check agent status (skip unless it's a mention/task trigger)
     const status = getAgentStatus(agentId)
@@ -99,7 +101,7 @@ export async function runAgent(agentId: string, context: Record<string, unknown>
             updateAgentStatus(agentId, 'error', null, result.error || 'Unknown error')
             logger.error(`[Agent Scheduler] Agent ${agentRecord.name} failed: ${result.message}`)
         }
-    } catch (error) {
+    } catch(error) {
         const errorMsg = error instanceof Error ? error.message : String(error)
         updateAgentStatus(agentId, 'error', null, errorMsg)
         logger.error(`[Agent Scheduler] Agent ${agentRecord.name} error: ${error}`)

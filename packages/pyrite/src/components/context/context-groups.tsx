@@ -1,30 +1,30 @@
-import classnames from 'classnames'
+import {$t, api, logger} from '@garage44/common/app'
 import {Icon} from '@garage44/common/components'
+import classnames from 'classnames'
 import {Link, route} from 'preact-router'
 import {useEffect, useMemo, useRef} from 'preact/hooks'
+
 import {$s} from '@/app'
-import {$t, api, logger} from '@garage44/common/app'
 import {currentGroup} from '@/models/group'
 
 export default function GroupsContext() {
     const intervalRef = useRef<number | null>(null)
 
-    const currentGroupData = useMemo(() => currentGroup(), [$s.sfu.channel.name, $s.chat.activeChannelSlug, $s.sfu.channels])
+    const currentGroupData = useMemo(() => currentGroup(), [$s.sfu.channel.name])
 
     const isListedGroup = useMemo(() => {
         const groupName = $s.sfu.channel.name
         return groupName ? !!$s.sfu.channels[groupName] : false
-    }, [$s.sfu.channel.name, $s.sfu.channels])
+    }, [])
 
     const groupLink = (groupId: string) => {
         if ($s.sfu.channel && $s.sfu.channel.name === groupId) {
             return '/'
-        } else {
-            return `/groups/${groupId}`
         }
+        return `/groups/${groupId}`
     }
 
-    const pollGroups = async() => {
+    const pollGroups = async () => {
         const groups = await api.get('/api/groups/public')
 
         // Store groups in sfu.channels (channel slug = group name)
@@ -45,7 +45,7 @@ export default function GroupsContext() {
                             Object.assign(existing, channelEntry)
                         } else {
                             // Create new entry - TypeScript will infer the correct type
-                            ($s.sfu.channels as Record<string, typeof channelEntry>)[channelSlug] = channelEntry
+                            ;($s.sfu.channels as Record<string, typeof channelEntry>)[channelSlug] = channelEntry
                         }
                     }
                 }
@@ -98,7 +98,7 @@ export default function GroupsContext() {
     useEffect(() => {
         logger.debug(`updating group route: ${$s.sfu.channel.name}`)
         updateRoute()
-    }, [$s.sfu.channel.name])
+    }, [])
 
     // Setup polling
     useEffect(() => {
@@ -123,35 +123,35 @@ export default function GroupsContext() {
                 >
                     <Icon className='icon item-icon icon-d' name='incognito' />
                     <div class='flex-column'>
-                        {isListedGroup || !$s.sfu.channel.name ?
-                            <div class='name'>...</div> :
-                            <div class='name'>{$s.sfu.channel.name}</div>}
+                        {isListedGroup || !$s.sfu.channel.name ? (
+                            <div class='name'>...</div>
+                        ) : (
+                            <div class='name'>{$s.sfu.channel.name}</div>
+                        )}
                     </div>
                 </div>
             </div>
             {Object.entries($s.sfu.channels).map(([channelSlug, channelData]) => {
                 // Extract channel data from DeepSignal - access properties directly
-                const channel = typeof channelData === 'object' && channelData !== null &&
-                    'audio' in channelData ?
-                    channelData as {
-                        audio: boolean
-                        clientCount?: number
-                        comment?: string
-                        connected?: boolean
-                        description?: string
-                        locked?: boolean
-                        video: boolean
-                    } :
-                        {audio: false, video: false}
+                const channel =
+                    typeof channelData === 'object' && channelData !== null && 'audio' in channelData
+                        ? (channelData as {
+                              audio: boolean
+                              clientCount?: number
+                              comment?: string
+                              connected?: boolean
+                              description?: string
+                              locked?: boolean
+                              video: boolean
+                          })
+                        : {audio: false, video: false}
 
                 /*
                  * Only show channels that have group metadata (from public groups API)
                  * A channel with group metadata has at least one of: description, comment, clientCount defined
                  */
                 const hasGroupMetadata =
-                    channel.description !== undefined ||
-                    channel.comment !== undefined ||
-                    channel.clientCount !== undefined
+                    channel.description !== undefined || channel.comment !== undefined || channel.clientCount !== undefined
 
                 if (!hasGroupMetadata) {
                     return null
@@ -166,19 +166,11 @@ export default function GroupsContext() {
                         } as Record<string, unknown>)}
                         key={channelSlug}
                     >
-                        <Icon
-                            className='icon item-icon icon-d'
-                            name={channel.locked ? 'GroupLocked' : 'Group'}
-                        />
+                        <Icon className='icon item-icon icon-d' name={channel.locked ? 'GroupLocked' : 'Group'} />
 
                         <div class='flex-column'>
-                            <div class='name'>
-                                {channelSlug}
-                            </div>
-                            {channel.description &&
-                                <div class='item-properties'>
-                                    {channel.description}
-                                </div>}
+                            <div class='name'>{channelSlug}</div>
+                            {channel.description && <div class='item-properties'>{channel.description}</div>}
                         </div>
 
                         <div class={classnames('stats', {active: (channel.clientCount || 0) > 0})}>
@@ -189,13 +181,12 @@ export default function GroupsContext() {
                 )
             })}
 
-            {Object.keys($s.sfu.channels).length === 0 &&
+            {Object.keys($s.sfu.channels).length === 0 && (
                 <div class='group item no-presence'>
                     <Icon className='item-icon icon-d' name='group' />
-                    <div class='name'>
-                        {$t('group.no_groups_public')}
-                    </div>
-                </div>}
+                    <div class='name'>{$t('group.no_groups_public')}</div>
+                </div>
+            )}
         </section>
     )
 }

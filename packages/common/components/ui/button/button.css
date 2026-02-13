@@ -47,8 +47,18 @@
         --btn-bg: var(--surface-3);
         --btn-text: var(--surface-8);
         --btn-hover: var(--surface-5);
-        --btn-active: var(--surface-2);
-        --btn-active-hover: var(--surface-1);
+        --btn-active: var(--primary-4);
+        --btn-active-hover: var(--primary-5);
+        --btn-active-text: var(--primary-8);
+
+        &.active {
+            background: var(--btn-active);
+            color: var(--btn-active-text);
+
+            &:hover {
+                background: var(--btn-active-hover);
+            }
+        }
     }
 
     &.type-warning {
@@ -79,8 +89,18 @@
         --btn-bg: var(--info-3);
         --btn-text: var(--info-8);
         --btn-hover: var(--info-5);
-        --btn-active: var(--info-2);
-        --btn-active-hover: var(--info-1);
+        --btn-active: var(--info-4);
+        --btn-active-hover: var(--info-5);
+        --btn-active-text: var(--info-8);
+
+        &.active {
+            background: var(--btn-active);
+            color: var(--btn-active-text);
+
+            &:hover {
+                background: var(--btn-active-hover);
+            }
+        }
     }
 
     &.type-success {
@@ -122,6 +142,15 @@
 
         .c-icon {
             display: block;
+        }
+    }
+
+    &.variant-toggle.active {
+        background: var(--btn-active);
+        color: var(--btn-active-text, var(--btn-text));
+
+        &:hover {
+            background: var(--btn-active-hover);
         }
     }
 

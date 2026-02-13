@@ -1,17 +1,18 @@
-import {$s} from '@/app'
 import {ws, notifier} from '@garage44/common/app'
-import {AgentBadge} from '@/components/elements'
-import {UserBadge} from '@/components/elements/user-badge/user-badge'
-import {MentionAutocomplete} from '@/components/elements/mention-autocomplete/mention-autocomplete'
 import {Button, FieldSelect, FieldText, FieldTextarea, Icon} from '@garage44/common/components'
 import {deepSignal} from 'deepsignal'
-import {useEffect, useRef, useState} from 'preact/hooks'
-import {route} from 'preact-router'
-import {renderMarkdown} from '@/lib/markdown.ts'
 import mermaid from 'mermaid'
+import {route} from 'preact-router'
+import {useEffect, useRef, useState} from 'preact/hooks'
+
+import {$s} from '@/app'
+import {AgentBadge} from '@/components/elements'
+import {MentionAutocomplete} from '@/components/elements/mention-autocomplete/mention-autocomplete'
+import {UserBadge} from '@/components/elements/user-badge/user-badge'
+import {renderMarkdown} from '@/lib/markdown.ts'
 
 // Load label definitions on component mount
-const loadLabelDefinitions = async() => {
+const loadLabelDefinitions = async () => {
     try {
         const result = await ws.get('/api/labels')
         if (result.labels) {
@@ -26,20 +27,23 @@ const commentState = deepSignal({
     content: '',
 })
 
-const createEditState = () => deepSignal({
-    description: '',
-    title: '',
-})
+const createEditState = () =>
+    deepSignal({
+        description: '',
+        title: '',
+    })
 
-const createAssigneeState = () => deepSignal({
-    assignee_id: '',
-    assignee_type: '' as '' | 'agent' | 'human',
-})
+const createAssigneeState = () =>
+    deepSignal({
+        assignee_id: '',
+        assignee_type: '' as '' | 'agent' | 'human',
+    })
 
-const createLabelsState = () => deepSignal({
-    labels: [] as string[],
-    newLabel: '',
-})
+const createLabelsState = () =>
+    deepSignal({
+        labels: [] as string[],
+        newLabel: '',
+    })
 
 interface TicketDetailProps {
     ticketId?: string
@@ -48,7 +52,7 @@ interface TicketDetailProps {
 interface Ticket {
     assignee_id: string | null
     assignee_type: 'agent' | 'human' | null
-    assignees: Array<{assignee_id: string; assignee_type: 'agent' | 'human'}>
+    assignees: {assignee_id: string; assignee_type: 'agent' | 'human'}[]
     description: string | null
     id: string
     labels: string[]
@@ -100,11 +104,7 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
         // Listen for comment updates and ticket updates
         const handleUpdate = (data: {comment?: Comment; ticket?: Ticket; ticketId?: string; type: string}) => {
             const currentTicketId =
-                ticketId ||
-                $s.selectedTicket ||
-                (typeof window !== 'undefined' ?
-                        window.location.pathname.split('/').pop() :
-                    '')
+                ticketId || $s.selectedTicket || (typeof window !== 'undefined' ? window.location.pathname.split('/').pop() : '')
             if (data.ticketId === currentTicketId || (data.ticket && data.ticket.id === currentTicketId)) {
                 if (data.type === 'comment:created' && data.comment) {
                     // Add new comment (including placeholder comments with generating status)
@@ -118,16 +118,12 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
                     })
                 } else if (data.type === 'comment:updated' && data.comment) {
                     // Update existing comment content (streaming update)
-                    setComments((prev) => prev.map((c) => {
-                        return c.id === data.comment!.id ? {...c, ...data.comment!} : c
-                    }))
+                    setComments((prev) => prev.map((c) => (c.id === data.comment!.id ? {...c, ...data.comment!} : c)))
                 } else if (data.type === 'comment:completed' && data.comment) {
                     // Finalize comment (mark as completed)
-                    setComments((prev) => prev.map((c) => {
-                        return c.id === data.comment!.id ?
-                                {...c, ...data.comment!, status: 'completed' as const} :
-                            c
-                    }))
+                    setComments((prev) =>
+                        prev.map((c) => (c.id === data.comment!.id ? {...c, ...data.comment!, status: 'completed' as const} : c)),
+                    )
                 } else if (data.type === 'ticket:updated' && data.ticket) {
                     // Update ticket in state
                     setTicket(data.ticket)
@@ -153,11 +149,14 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
         const timeoutId = setTimeout(() => {
             const mermaidElements = document.querySelectorAll('.c-ticket-detail .mermaid')
             if (mermaidElements && mermaidElements.length > 0) {
-                mermaid.run({
-                    nodes: Array.from(mermaidElements) as HTMLElement[],
-                }).catch((err) => {
-                    console.error('Error rendering mermaid diagrams:', err)
-                })
+                mermaid
+                    .run({
+                        nodes: [...mermaidElements] as HTMLElement[],
+                    })
+                    .catch((error) => {
+                        // eslint-disable-next-line no-console
+                        console.error('Error rendering mermaid diagrams:', error)
+                    })
             }
         }, 100)
 
@@ -166,7 +165,7 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
         }
     }, [comments, ticket])
 
-    const loadTicket = async(id: string) => {
+    const loadTicket = async (id: string) => {
         setLoading(true)
         try {
             const result = await ws.get(`/api/tickets/${id}`)
@@ -184,7 +183,7 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
             if (result.comments) {
                 setComments(result.comments as Comment[])
             }
-        } catch(error) {
+        } catch (error) {
             notifier.notify({
                 message: `Failed to load ticket: ${error instanceof Error ? error.message : String(error)}`,
                 type: 'error',
@@ -194,8 +193,10 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
         }
     }
 
-    const handleAddComment = async() => {
-        if (!commentState.content.trim() || !ticket) return
+    const handleAddComment = async () => {
+        if (!commentState.content.trim() || !ticket) {
+            return
+        }
 
         // Extract @mentions from comment
         const mentionRegex = /@(\w+)/g
@@ -220,7 +221,7 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
                 message: 'Comment added',
                 type: 'success',
             })
-        } catch(error) {
+        } catch (error) {
             notifier.notify({
                 message: `Failed to add comment: ${error instanceof Error ? error.message : String(error)}`,
                 type: 'error',
@@ -228,8 +229,10 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
         }
     }
 
-    const handleApprove = async() => {
-        if (!ticket) return
+    const handleApprove = async () => {
+        if (!ticket) {
+            return
+        }
 
         try {
             await ws.post(`/api/tickets/${ticket.id}/approve`, {})
@@ -240,7 +243,7 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
             })
 
             await loadTicket(ticket.id)
-        } catch(error) {
+        } catch (error) {
             notifier.notify({
                 message: `Failed to approve ticket: ${error instanceof Error ? error.message : String(error)}`,
                 type: 'error',
@@ -248,11 +251,15 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
         }
     }
 
-    const handleReopen = async() => {
-        if (!ticket) return
+    const handleReopen = async () => {
+        if (!ticket) {
+            return
+        }
 
         const reason = prompt('Why are you reopening this ticket?')
-        if (!reason) return
+        if (!reason) {
+            return
+        }
 
         try {
             await ws.post(`/api/tickets/${ticket.id}/reopen`, {
@@ -265,7 +272,7 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
             })
 
             await loadTicket(ticket.id)
-        } catch(error) {
+        } catch (error) {
             notifier.notify({
                 message: `Failed to reopen ticket: ${error instanceof Error ? error.message : String(error)}`,
                 type: 'error',
@@ -273,8 +280,10 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
         }
     }
 
-    const handleRequestRefinement = async() => {
-        if (!ticket) return
+    const handleRequestRefinement = async () => {
+        if (!ticket) {
+            return
+        }
 
         // Find PlannerAgent
         const plannerAgent = $s.agents.find((a) => a.type === 'planner' && a.enabled === 1)
@@ -296,7 +305,7 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
                 message: 'Refinement requested. The PlannerAgent will analyze and update the ticket shortly.',
                 type: 'success',
             })
-        } catch(error) {
+        } catch (error) {
             notifier.notify({
                 message: `Failed to trigger refinement: ${error instanceof Error ? error.message : String(error)}`,
                 type: 'error',
@@ -305,18 +314,20 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
     }
 
     const getAssigneeOptions = () => {
-        if (!ticket) return []
+        if (!ticket) {
+            return []
+        }
 
         // Get currently assigned IDs to filter them out
-        const currentAssigneeIds = new Set(
-            (ticket.assignees || []).map((a) => a.assignee_id),
-        )
+        const currentAssigneeIds = new Set((ticket.assignees || []).map((a) => a.assignee_id))
 
         if (assigneeState.assignee_type === 'agent') {
             return $s.agents
                 .filter((agent) => {
                     // Filter out disabled agents
-                    if (agent.enabled !== 1) return false
+                    if (agent.enabled !== 1) {
+                        return false
+                    }
                     // Filter out already assigned agents (agents use their name as assignee_id)
                     return !currentAssigneeIds.has(agent.name) && !currentAssigneeIds.has(agent.id)
                 })
@@ -335,18 +346,24 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
 
     const getLabelSuggestions = () => {
         const query = labelsState.newLabel.trim().toLowerCase()
-        if (!query) return $s.labelDefinitions
+        if (!query) {
+            return $s.labelDefinitions
+        }
 
         return $s.labelDefinitions.filter(
             (def) => def.name.toLowerCase().includes(query) && !labelsState.labels.includes(def.name),
         )
     }
 
-    const handleAddLabel = async(labelName?: string) => {
-        if (!ticket) return
+    const handleAddLabel = async (labelName?: string) => {
+        if (!ticket) {
+            return
+        }
 
         const labelToAdd = (labelName || labelsState.newLabel.trim()).toLowerCase()
-        if (!labelToAdd) return
+        if (!labelToAdd) {
+            return
+        }
 
         // Check if label definition exists, if not create it
         let labelDef = $s.labelDefinitions.find((def) => def.name.toLowerCase() === labelToAdd)
@@ -361,7 +378,7 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
                     $s.labelDefinitions = [...$s.labelDefinitions, result.label]
                     labelDef = result.label
                 }
-            } catch(error) {
+            } catch (error) {
                 notifier.notify({
                     message: `Failed to create label definition: ${error instanceof Error ? error.message : String(error)}`,
                     type: 'error',
@@ -393,7 +410,7 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
                 message: 'Label added',
                 type: 'success',
             })
-        } catch(error) {
+        } catch (error) {
             notifier.notify({
                 message: `Failed to add label: ${error instanceof Error ? error.message : String(error)}`,
                 type: 'error',
@@ -401,8 +418,10 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
         }
     }
 
-    const handleRemoveLabel = async(label: string) => {
-        if (!ticket) return
+    const handleRemoveLabel = async (label: string) => {
+        if (!ticket) {
+            return
+        }
 
         try {
             const updatedLabels = labelsState.labels.filter((l) => l !== label)
@@ -416,7 +435,7 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
                 message: 'Label removed',
                 type: 'success',
             })
-        } catch(error) {
+        } catch (error) {
             notifier.notify({
                 message: `Failed to remove label: ${error instanceof Error ? error.message : String(error)}`,
                 type: 'error',
@@ -424,14 +443,14 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
         }
     }
 
-    const handleAddAssignee = async(assigneeType: 'agent' | 'human', assigneeId: string) => {
-        if (!ticket) return
+    const handleAddAssignee = async (assigneeType: 'agent' | 'human', assigneeId: string) => {
+        if (!ticket) {
+            return
+        }
 
         try {
             const currentAssignees = ticket.assignees || []
-            const exists = currentAssignees.some(
-                (a) => a.assignee_type === assigneeType && a.assignee_id === assigneeId,
-            )
+            const exists = currentAssignees.some((a) => a.assignee_type === assigneeType && a.assignee_id === assigneeId)
 
             if (exists) {
                 notifier.notify({
@@ -466,7 +485,7 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
                 message: 'Assignee added',
                 type: 'success',
             })
-        } catch(error) {
+        } catch (error) {
             notifier.notify({
                 message: `Failed to add assignee: ${error instanceof Error ? error.message : String(error)}`,
                 type: 'error',
@@ -474,8 +493,10 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
         }
     }
 
-    const handleRemoveAssignee = async(assigneeType: 'agent' | 'human', assigneeId: string) => {
-        if (!ticket) return
+    const handleRemoveAssignee = async (assigneeType: 'agent' | 'human', assigneeId: string) => {
+        if (!ticket) {
+            return
+        }
 
         try {
             const currentAssignees = ticket.assignees || []
@@ -493,7 +514,7 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
                 message: 'Assignee removed',
                 type: 'success',
             })
-        } catch(error) {
+        } catch (error) {
             notifier.notify({
                 message: `Failed to remove assignee: ${error instanceof Error ? error.message : String(error)}`,
                 type: 'error',
@@ -501,8 +522,10 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
         }
     }
 
-    const handleSaveEdit = async() => {
-        if (!ticket) return
+    const handleSaveEdit = async () => {
+        if (!ticket) {
+            return
+        }
 
         try {
             await ws.put(`/api/tickets/${ticket.id}`, {
@@ -517,7 +540,7 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
 
             setIsEditing(false)
             await loadTicket(ticket.id)
-        } catch(error) {
+        } catch (error) {
             notifier.notify({
                 message: `Failed to update ticket: ${error instanceof Error ? error.message : String(error)}`,
                 type: 'error',
@@ -532,7 +555,6 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
         }
         setIsEditing(false)
     }
-
 
     if (loading) {
         return <div class='c-ticket-detail'>Loading...</div>
@@ -550,7 +572,7 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
                         <Icon name='chevron_left' size='c' type='info' />
                         Back to Board
                     </Button>
-                    {!isEditing &&
+                    {!isEditing && (
                         <div class='header-actions'>
                             <Button onClick={handleRequestRefinement} type='default'>
                                 <Icon name='refresh' size='c' type='info' />
@@ -560,21 +582,20 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
                                 <Icon name='edit' size='c' type='info' />
                                 Edit
                             </Button>
-                        </div>}
+                        </div>
+                    )}
                 </div>
-                {isEditing ?
+                {isEditing ? (
                     <div class='edit-title'>
-                        <FieldText
-                            autofocus
-                            model={editState.$title}
-                            placeholder='Enter ticket title'
-                        />
-                    </div> :
-                    <h1>{ticket.title}</h1>}
+                        <FieldText autofocus model={editState.$title} placeholder='Enter ticket title' />
+                    </div>
+                ) : (
+                    <h1>{ticket.title}</h1>
+                )}
                 <div class='status'>
                     <span class={`status-badge status-${ticket.status}`}>{ticket.status}</span>
                 </div>
-                {ticket.labels && ticket.labels.length > 0 &&
+                {ticket.labels && ticket.labels.length > 0 && (
                     <div class='labels'>
                         {ticket.labels.map((label) => {
                             const labelDef = $s.labelDefinitions.find((def) => def.name === label)
@@ -589,16 +610,12 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
                                     }}
                                 >
                                     {label}
-                                    <Icon
-                                        name='close'
-                                        onClick={() => handleRemoveLabel(label)}
-                                        size='c'
-                                        type='info'
-                                    />
+                                    <Icon name='close' onClick={() => handleRemoveLabel(label)} size='c' type='info' />
                                 </span>
                             )
                         })}
-                    </div>}
+                    </div>
+                )}
             </div>
 
             <div class='content'>
@@ -619,12 +636,7 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
                                         }}
                                     >
                                         {label}
-                                        <Icon
-                                            name='close'
-                                            onClick={() => handleRemoveLabel(label)}
-                                            size='c'
-                                            type='info'
-                                        />
+                                        <Icon name='close' onClick={() => handleRemoveLabel(label)} size='c' type='info' />
                                     </span>
                                 )
                             })}
@@ -640,25 +652,30 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
                                     }}
                                     placeholder='Type to search or add new label'
                                 />
-                                {labelsState.newLabel.trim() && getLabelSuggestions().length > 0 &&
+                                {labelsState.newLabel.trim() && getLabelSuggestions().length > 0 && (
                                     <div class='label-suggestions'>
-                                        {getLabelSuggestions().slice(0, 5).map((def) => <button
-                                            class='suggestion-item'
-                                            key={def.id}
-                                            onClick={() => handleAddLabel(def.name)}
-                                            type='button'
-                                        >
-                                                <span
-                                                    class='suggestion-badge'
-                                                    style={{
-                                                        backgroundColor: def.color,
-                                                        borderColor: def.color,
-                                                    }}
+                                        {getLabelSuggestions()
+                                            .slice(0, 5)
+                                            .map((def) => (
+                                                <button
+                                                    class='suggestion-item'
+                                                    key={def.id}
+                                                    onClick={() => handleAddLabel(def.name)}
+                                                    type='button'
                                                 >
-                                                    {def.name}
-                                                </span>
-                                        </button>)}
-                                    </div>}
+                                                    <span
+                                                        class='suggestion-badge'
+                                                        style={{
+                                                            backgroundColor: def.color,
+                                                            borderColor: def.color,
+                                                        }}
+                                                    >
+                                                        {def.name}
+                                                    </span>
+                                                </button>
+                                            ))}
+                                    </div>
+                                )}
                             </div>
                             <Button onClick={() => handleAddLabel()} type='default'>
                                 Add
@@ -675,7 +692,7 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
                                 const agent = $s.agents.find(
                                     (a) => a.id === assignee.assignee_id || a.name === assignee.assignee_id,
                                 )
-                                return agent ?
+                                return agent ? (
                                     <div class='assignee-item' key={`${assignee.assignee_type}-${assignee.assignee_id}`}>
                                         <AgentBadge
                                             agent={{
@@ -684,11 +701,9 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
                                                 id: agent.id,
                                                 name: agent.name,
                                                 status: (agent.status || 'idle') as 'idle' | 'working' | 'error' | 'offline',
-                                                type: (
-                                                    (agent.type as string | undefined) === 'prioritizer' ?
-                                                        'planner' :
-                                                        agent.type || 'developer'
-                                                ) as 'developer' | 'planner' | 'reviewer',
+                                                type: ((agent.type as string | undefined) === 'prioritizer'
+                                                    ? 'planner'
+                                                    : agent.type || 'developer') as 'developer' | 'planner' | 'reviewer',
                                             }}
                                             size='d'
                                         />
@@ -698,7 +713,8 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
                                             size='c'
                                             type='info'
                                         />
-                                    </div> :
+                                    </div>
+                                ) : (
                                     <div class='assignee-item' key={`${assignee.assignee_type}-${assignee.assignee_id}`}>
                                         <span>{assignee.assignee_id}</span>
                                         <Icon
@@ -708,6 +724,7 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
                                             type='info'
                                         />
                                     </div>
+                                )
                             }
                             return (
                                 <div class='assignee-item' key={`${assignee.assignee_type}-${assignee.assignee_id}`}>
@@ -737,7 +754,7 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
                                 ]}
                                 placeholder='Select assignee type'
                             />
-                            {assigneeState.assignee_type &&
+                            {assigneeState.assignee_type && (
                                 <>
                                     <FieldSelect
                                         label='Select Assignee'
@@ -747,7 +764,7 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
                                             getAssigneeOptions().length === 0 ? 'No available assignees' : 'Select assignee'
                                         }
                                     />
-                                    {assigneeState.assignee_id &&
+                                    {assigneeState.assignee_id && (
                                         <Button
                                             onClick={() => {
                                                 if (assigneeState.assignee_id) {
@@ -762,15 +779,17 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
                                             type='default'
                                         >
                                             Add Assignee
-                                        </Button>}
-                                </>}
+                                        </Button>
+                                    )}
+                                </>
+                            )}
                         </div>
                     </div>
                 </div>
 
                 <div class='description'>
                     <h2>Description</h2>
-                    {isEditing ?
+                    {isEditing ? (
                         <div class='edit-description'>
                             <FieldTextarea
                                 onChange={(value) => {
@@ -787,18 +806,20 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
                                     Cancel
                                 </Button>
                             </div>
-                        </div> :
-                        ticket.description ?
-                            <div
-                                class='description-content'
-                                dangerouslySetInnerHTML={{
-                                    __html: renderMarkdown(ticket.description),
-                                }}
-                            /> :
-                            <p class='no-description'>No description provided</p>}
+                        </div>
+                    ) : (ticket.description ? (
+                        <div
+                            class='description-content'
+                            dangerouslySetInnerHTML={{
+                                __html: renderMarkdown(ticket.description),
+                            }}
+                        />
+                    ) : (
+                        <p class='no-description'>No description provided</p>
+                    ))}
                 </div>
 
-                {ticket.status === 'closed' &&
+                {ticket.status === 'closed' && (
                     <div class='actions'>
                         <Button onClick={handleApprove} type='success'>
                             Approve & Close
@@ -806,92 +827,94 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
                         <Button onClick={handleReopen} type='default'>
                             Reopen
                         </Button>
-                    </div>}
+                    </div>
+                )}
 
                 <div class='comments'>
                     <h2>Comments</h2>
-                    {comments.length === 0 ?
+                    {comments.length === 0 ? (
+                        <p class='no-comments'>No comments yet</p>
+                    ) : (
+                        <div class='comments-list'>
+                            {comments.map((comment) => {
+                                const isGenerating = comment.status === 'generating'
+                                const hasContent = comment.content && comment.content.trim().length > 0
 
-                            <p class='no-comments'>No comments yet</p> :
-
-                            <div class='comments-list'>
-                                {comments.map((comment) => {
-                                    const isGenerating = comment.status === 'generating'
-                                    const hasContent = comment.content && comment.content.trim().length > 0
-
-                                    return (
-                                        <div class={`comment ${isGenerating ? 'comment--generating' : ''}`} key={comment.id}>
-                                            <div class='comment-header'>
-                                                {comment.author_type === 'agent' ?
-                                                        (() => {
-                                                            const agent = $s.agents.find(
-                                                                (a) => a.id === comment.author_id || a.name === comment.author_id,
-                                                            )
-                                                            return agent ?
-                                                            <AgentBadge
-                                                                agent={{
-                                                                    avatar: agent.avatar || 'placeholder-1.png',
-                                                                    displayName: agent.display_name || agent.name,
-                                                                    id: agent.id,
-                                                                    name: agent.name,
-                                                                    status: (
-                                                                        agent.status || 'idle'
-                                                                    ) as 'idle' | 'working' | 'error' | 'offline',
-                                                                    type: (
-                                                                        (agent.type as string | undefined) === 'prioritizer' ?
-                                                                            'planner' :
-                                                                            agent.type || 'developer'
-                                                                    ) as 'developer' | 'planner' | 'reviewer',
-                                                                }}
-                                                                size='d'
-                                                            /> :
-                                                            <UserBadge
-                                                                displayName={comment.author_id}
-                                                                userId={comment.author_id}
-                                                            />
-                                                        })() :
-                                                    <UserBadge
-                                                        avatar={
-                                                            comment.author_id === $s.profile.username ?
-                                                                $s.profile.avatar :
-                                                                undefined
-                                                        }
-                                                        displayName={
-                                                            comment.author_id === $s.profile.username ?
-                                                                $s.profile.displayName :
-                                                                comment.author_id
-                                                        }
-                                                        userId={comment.author_id}
-                                                    />}
-                                                <span class='comment-time'>
-                                                    {new Date(comment.created_at).toLocaleString()}
+                                return (
+                                    <div class={`comment ${isGenerating ? 'comment--generating' : ''}`} key={comment.id}>
+                                        <div class='comment-header'>
+                                            {comment.author_type === 'agent' ? (
+                                                (() => {
+                                                    const agent = $s.agents.find(
+                                                        (a) => a.id === comment.author_id || a.name === comment.author_id,
+                                                    )
+                                                    return agent ? (
+                                                        <AgentBadge
+                                                            agent={{
+                                                                avatar: agent.avatar || 'placeholder-1.png',
+                                                                displayName: agent.display_name || agent.name,
+                                                                id: agent.id,
+                                                                name: agent.name,
+                                                                status: (agent.status || 'idle') as
+                                                                    | 'idle'
+                                                                    | 'working'
+                                                                    | 'error'
+                                                                    | 'offline',
+                                                                type: ((agent.type as string | undefined) === 'prioritizer'
+                                                                    ? 'planner'
+                                                                    : agent.type || 'developer') as
+                                                                    | 'developer'
+                                                                    | 'planner'
+                                                                    | 'reviewer',
+                                                            }}
+                                                            size='d'
+                                                        />
+                                                    ) : (
+                                                        <UserBadge displayName={comment.author_id} userId={comment.author_id} />
+                                                    )
+                                                })()
+                                            ) : (
+                                                <UserBadge
+                                                    avatar={
+                                                        comment.author_id === $s.profile.username ? $s.profile.avatar : undefined
+                                                    }
+                                                    displayName={
+                                                        comment.author_id === $s.profile.username
+                                                            ? $s.profile.displayName
+                                                            : comment.author_id
+                                                    }
+                                                    userId={comment.author_id}
+                                                />
+                                            )}
+                                            <span class='comment-time'>{new Date(comment.created_at).toLocaleString()}</span>
+                                            {isGenerating && (
+                                                <span class='comment-status'>
+                                                    <Icon name='more_horiz' size='d' />
+                                                    <span>Agent is thinking...</span>
                                                 </span>
-                                                {isGenerating &&
-                                                    <span class='comment-status'>
-                                                        <Icon name='more_horiz' size='d' />
-                                                        <span>Agent is thinking...</span>
-                                                    </span>}
-                                            </div>
-                                            {hasContent ?
-                                                <div
-                                                    class='comment-content'
-                                                    dangerouslySetInnerHTML={{
-                                                        __html: renderMarkdown(comment.content),
-                                                    }}
-                                                /> :
-                                                isGenerating ?
-                                                <div class='comment-content comment-content--placeholder'>
-                                                    <span class='typing-indicator'>
-                                                        <span />
-                                                        <span />
-                                                        <span />
-                                                    </span>
-                                                </div> :
-                                                    null}
+                                            )}
                                         </div>
-                                    )
-                                })}
-                            </div>}
+                                        {hasContent ? (
+                                            <div
+                                                class='comment-content'
+                                                dangerouslySetInnerHTML={{
+                                                    __html: renderMarkdown(comment.content),
+                                                }}
+                                            />
+                                        ) : (isGenerating ? (
+                                            <div class='comment-content comment-content--placeholder'>
+                                                <span class='typing-indicator'>
+                                                    <span />
+                                                    <span />
+                                                    <span />
+                                                </span>
+                                            </div>
+                                        ) : null)}
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    )}
 
                     <div class='add-comment'>
                         <div class='comment-input-wrapper'>

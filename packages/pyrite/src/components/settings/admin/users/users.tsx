@@ -1,8 +1,9 @@
-import {Splash} from '@garage44/common/components'
-import {useEffect} from 'preact/hooks'
-import {ComponentChildren} from 'preact'
-import {$s} from '@/app'
 import {logger, $t, api} from '@garage44/common/app'
+import {Splash} from '@garage44/common/components'
+import {ComponentChildren} from 'preact'
+import {useEffect} from 'preact/hooks'
+
+import {$s} from '@/app'
 
 interface UsersProps {
     children?: ComponentChildren
@@ -15,20 +16,22 @@ interface UsersProps {
  * don't have to.
  */
 export const Users = ({children, userId}: UsersProps) => {
-    const loadUser = async(userId: string) => {
+    const loadUser = async (userId: string) => {
         logger.debug(`load user ${userId}`)
         const user = $s.admin.users.find((i) => {
             const userIdNum = typeof i.id === 'number' ? i.id : parseInt(String(i.id || '0'), 10)
             return userIdNum === parseInt(userId, 10)
         })
-        if (user && ((typeof user._unsaved !== 'undefined' && user._unsaved) ||
-            (typeof user._delete !== 'undefined' && user._delete))) {
+        if (
+            user &&
+            ((typeof user._unsaved !== 'undefined' && user._unsaved) || (typeof user._delete !== 'undefined' && user._delete))
+        ) {
             Object.assign($s.admin.user || {}, user)
             if (!$s.admin.user) {
                 $s.admin.user = user as typeof $s.admin.user
             }
         } else {
-            const apiUser = await api.get(`/api/users/${encodeURIComponent(userId)}`) as Record<string, unknown>
+            const apiUser = (await api.get(`/api/users/${encodeURIComponent(userId)}`)) as Record<string, unknown>
             Object.assign($s.admin.user || {}, apiUser)
             if (!$s.admin.user) {
                 $s.admin.user = apiUser as typeof $s.admin.user
@@ -36,7 +39,7 @@ export const Users = ({children, userId}: UsersProps) => {
         }
     }
 
-    const loadUsers = async() => {
+    const loadUsers = async () => {
         $s.admin.users = await api.get('/api/users')
     }
 

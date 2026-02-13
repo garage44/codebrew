@@ -13,9 +13,9 @@ interface TokenUsageState {
     loading: boolean
 }
 
-let tokenUsage: TokenUsageState = {
+const tokenUsage: TokenUsageState = {
     count: 0,
-    limit: config.anthropic.tokenLimit || 1000000,
+    limit: config.anthropic.tokenLimit || 1_000_000,
     loading: false,
 }
 
@@ -24,7 +24,7 @@ let wsManager: WebSocketServerManager | null = null
 /**
  * Initialize token usage tracking
  */
-export function initTokenUsageTracking(manager: WebSocketServerManager) {
+export function initTokenUsageTracking(manager: WebSocketServerManager): void {
     wsManager = manager
     logger.info('[Token Usage] Initialized token usage tracking (usage retrieved from API response headers)')
 }
@@ -37,10 +37,10 @@ export function updateUsageFromHeaders(headers: {
     limit?: number
     remaining?: number
     reset?: string
-}) {
+}): void {
     logger.debug(`[Token Usage] updateUsageFromHeaders called with: ${JSON.stringify(headers)}`)
 
-    if (headers.limit !== undefined && headers.remaining !== undefined) {
+    if (headers.limit !== null && headers.remaining !== null) {
         const used = headers.limit - headers.remaining
         const oldCount = tokenUsage.count
         const oldLimit = tokenUsage.limit
@@ -49,7 +49,10 @@ export function updateUsageFromHeaders(headers: {
         tokenUsage.limit = headers.limit
         tokenUsage.loading = false
 
-        logger.info(`[Token Usage] Updated: ${oldCount}/${oldLimit} -> ${tokenUsage.count}/${tokenUsage.limit} (${headers.remaining} remaining)`)
+        logger.info(
+            `[Token Usage] Updated: ${oldCount}/${oldLimit} -> ${tokenUsage.count}/${tokenUsage.limit} ` +
+            `(${headers.remaining} remaining)`,
+        )
 
         // Broadcast usage update
         if (wsManager) {
@@ -61,7 +64,7 @@ export function updateUsageFromHeaders(headers: {
                     loading: false,
                 },
             })
-            logger.debug(`[Token Usage] Broadcasted usage update via WebSocket`)
+            logger.debug('[Token Usage] Broadcasted usage update via WebSocket')
         } else {
             logger.warn('[Token Usage] WebSocket manager not initialized, cannot broadcast')
         }
@@ -80,11 +83,11 @@ export function updateUsageFromResponse(response: {
         input_tokens: number
         output_tokens: number
     }
-}) {
+}): void {
     // Try to extract rate limit headers if available
     if (response.headers) {
-        const limit = parseInt(response.headers.get('anthropic-ratelimit-tokens-limit') || '0', 10)
-        const remaining = parseInt(response.headers.get('anthropic-ratelimit-tokens-remaining') || '0', 10)
+        const limit = Number.parseInt(response.headers.get('anthropic-ratelimit-tokens-limit') || '0', 10)
+        const remaining = Number.parseInt(response.headers.get('anthropic-ratelimit-tokens-remaining') || '0', 10)
 
         if (limit > 0 && remaining >= 0) {
             const used = limit - remaining

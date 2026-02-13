@@ -4,19 +4,17 @@
  */
 
 import type {WebSocketServerManager} from '@garage44/common/lib/ws-server'
-import {deployPR, type PRMetadata} from '../lib/deploy/pr-deploy'
-import {cleanupPRDeployment} from '../lib/deploy/pr-cleanup'
-import {getPRDeployment} from '../lib/deploy/pr-registry'
-import {logger} from '../service.ts'
-import {
-    DeployPRNumberParamsSchema,
-    DeployPRRequestSchema,
-} from '../lib/schemas/deploy.ts'
+
 import {validateRequest} from '../lib/api/validate.ts'
+import {cleanupPRDeployment} from '../lib/deploy/pr-cleanup'
+import {deployPR, type PRMetadata} from '../lib/deploy/pr-deploy'
+import {getPRDeployment} from '../lib/deploy/pr-registry'
+import {DeployPRNumberParamsSchema, DeployPRRequestSchema} from '../lib/schemas/deploy.ts'
+import {logger} from '../service.ts'
 
 export function registerDeployWebSocketApiRoutes(wsManager: WebSocketServerManager) {
     // Deploy a PR (agent-controlled)
-    wsManager.api.post('/api/deploy/pr', async(ctx, req) => {
+    wsManager.api.post('/api/deploy/pr', async (ctx, req) => {
         const userId = ctx.session?.userid
         if (!userId) {
             return {error: 'Unauthorized'}
@@ -57,7 +55,7 @@ export function registerDeployWebSocketApiRoutes(wsManager: WebSocketServerManag
                 error: result.message,
                 success: false,
             }
-        } catch(error) {
+        } catch (error) {
             logger.error('[Deploy API] Deployment error:', error)
             return {
                 error: error instanceof Error ? error.message : String(error),
@@ -67,7 +65,7 @@ export function registerDeployWebSocketApiRoutes(wsManager: WebSocketServerManag
     })
 
     // Get deployment status
-    wsManager.api.get('/api/deploy/status/:prNumber', async(ctx, req) => {
+    wsManager.api.get('/api/deploy/status/:prNumber', async (ctx, req) => {
         const userId = ctx.session?.userid
         if (!userId) {
             return {error: 'Unauthorized'}
@@ -99,7 +97,7 @@ export function registerDeployWebSocketApiRoutes(wsManager: WebSocketServerManag
                 },
                 success: true,
             }
-        } catch(error) {
+        } catch (error) {
             logger.error('[Deploy API] Status check error:', error)
             return {
                 error: error instanceof Error ? error.message : String(error),
@@ -109,7 +107,7 @@ export function registerDeployWebSocketApiRoutes(wsManager: WebSocketServerManag
     })
 
     // Cleanup deployment
-    wsManager.api.post('/api/deploy/cleanup/:prNumber', async(ctx, req) => {
+    wsManager.api.post('/api/deploy/cleanup/:prNumber', async (ctx, req) => {
         const userId = ctx.session?.userid
         if (!userId) {
             return {error: 'Unauthorized'}
@@ -125,7 +123,7 @@ export function registerDeployWebSocketApiRoutes(wsManager: WebSocketServerManag
                 message: result.message,
                 success: result.success,
             }
-        } catch(error) {
+        } catch (error) {
             logger.error('[Deploy API] Cleanup error:', error)
             return {
                 error: error instanceof Error ? error.message : String(error),

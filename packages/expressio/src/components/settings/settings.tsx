@@ -1,9 +1,10 @@
-import {$s, i18n} from '@/app'
 import {store, notifier} from '@garage44/common/app'
-import {$t} from '@garage44/expressio'
+import {UsersManagement} from '@garage44/common/components'
 import {Settings as CommonSettings} from '@garage44/common/components/ui/settings/settings'
 import {Profile} from '@garage44/common/components/ui/settings/tabs/profile'
-import {UsersManagement} from '@garage44/common/components'
+import {$t} from '@garage44/expressio'
+
+import {$s, i18n} from '@/app'
 import {Config} from '@/components/pages/config/config'
 
 interface SettingsProps {
@@ -21,11 +22,13 @@ export function Settings({tabId}: SettingsProps) {
      * Accessing $s.env.url directly makes this reactive to URL changes
      */
     const url = $s.env.url
-    const activeTabId = tabId || (() => {
-        const match = url.match(/[?&]tab=([^&]+)/)
-        return match ? match[1] : undefined
-    })()
-    const saveSettings = async() => {
+    const activeTabId =
+        tabId ||
+        (() => {
+            const match = url.match(/[?&]tab=([^&]+)/)
+            return match ? match[1] : undefined
+        })()
+    const saveSettings = async () => {
         store.save()
         notifier.notify({icon: 'Settings', message: $t(i18n.ui.settings.action.saved), type: 'info'})
     }
@@ -47,24 +50,24 @@ export function Settings({tabId}: SettingsProps) {
          * - Users: user management
          * - Admin: translation engine config, UI language, workspace management
          */
-        ...isAdmin ?
-                [
-                    {
-                        component: <UsersManagement $t={$t} />,
-                        icon: 'account',
-                        id: 'users',
-                        label: $t(i18n.ui.settings.users.name),
-                        tip: $t(i18n.ui.settings.users.name),
-                    },
-                    {
-                        component: <Config />,
-                        icon: 'Workspace',
-                        id: 'admin',
-                        label: $t(i18n.ui.settings.workspaces.name),
-                        tip: $t(i18n.ui.settings.workspaces.name),
-                    },
-                ] :
-                [],
+        ...(isAdmin
+            ? [
+                  {
+                      component: <UsersManagement $t={$t} />,
+                      icon: 'account',
+                      id: 'users',
+                      label: $t(i18n.ui.settings.users.name),
+                      tip: $t(i18n.ui.settings.users.name),
+                  },
+                  {
+                      component: <Config />,
+                      icon: 'Workspace',
+                      id: 'admin',
+                      label: $t(i18n.ui.settings.workspaces.name),
+                      tip: $t(i18n.ui.settings.workspaces.name),
+                  },
+              ]
+            : []),
     ]
 
     return (

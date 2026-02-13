@@ -24,23 +24,23 @@ describe('Tool Registry', () => {
 
     test('toolToAnthropic converts tool to Anthropic format', () => {
         const tool = {
-            name: 'test_tool',
             description: 'Test tool',
+            execute: async() => ({success: true}),
+            name: 'test_tool',
             parameters: [
                 {
-                    name: 'param1',
-                    type: 'string',
                     description: 'Parameter 1',
+                    name: 'param1',
                     required: true,
+                    type: 'string',
                 },
                 {
-                    name: 'param2',
-                    type: 'number',
                     description: 'Parameter 2',
+                    name: 'param2',
                     required: false,
+                    type: 'number',
                 },
             ],
-            execute: async () => ({success: true}),
         }
 
         const anthropicTool = toolToAnthropic(tool)

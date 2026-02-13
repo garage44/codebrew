@@ -1,4 +1,4 @@
-import type {EnolaConfig, EnolaEngine, EnolaLogger, EnolaTag, TargetLanguage} from './types.ts'
+import type {EnolaConfig, EnolaEngine, EnolaEngineConfig, EnolaLogger, EnolaTag, TargetLanguage} from './types.ts'
 import {copyObject, keyMod} from '@garage44/common/lib/utils.ts'
 import {source, target} from './languages.ts'
 import Anthropic from './engines/anthropic.ts'
@@ -9,12 +9,11 @@ import Deepl from './engines/deepl.ts'
  * exposing a common interface for translation software like Expressio to use.
  */
 export class Enola {
-
-    config:EnolaConfig = {
-        engines:{},
+    config: EnolaConfig = {
+        engines: {},
         languages: {
             source,
-            target: target.map((lang) => ({
+            target: target.map((lang): {formality: boolean; id: string; name: string} => ({
                 formality: Array.isArray(lang.formality) && lang.formality.length > 0,
                 id: lang.id,
                 name: lang.name,
@@ -28,29 +27,30 @@ export class Enola {
 
     serviceKeyException = new Error('API translator key required for auto-translate')
 
-    async init(enolaConfig, logger) {
+    async init(enolaConfig: EnolaConfig, logger: EnolaLogger): Promise<void> {
         this.logger = logger
-        const available_services = {
+        const available_services: Record<string, new() => EnolaEngine> = {
             anthropic: Anthropic,
             deepl: Deepl,
         }
 
-        for (const [engine, options] of Object.entries(enolaConfig.engines)) {
+        const initPromises = Object.entries(enolaConfig.engines).map(async([engine, options]): Promise<void> => {
             this.engines[engine] = new available_services[engine]()
             await this.engines[engine].init(options as {api_key: string; base_url: string}, this.logger)
             this.config.engines[engine] = this.engines[engine].config
-        }
+        })
+        await Promise.all(initPromises)
     }
 
-    getConfig(admin = false) {
+    getConfig(admin = false): {engines: Record<string, EnolaEngineConfig>; languages: EnolaConfig['languages']} {
         const engines = copyObject(this.config.engines)
         // Make sure not to expose API keys to non-admin users.
-        Object.values(engines).forEach((engine) => {
+        for (const engine of Object.values(engines)) {
             if (!admin) {
                 delete engine.api_key
                 delete engine.base_url
             }
-        })
+        }
 
         return {
             engines,
@@ -58,22 +58,27 @@ export class Enola {
         }
     }
 
-    async suggestion(engine, i18n, tagPath, sourceText) {
+    async suggestion(engine: string, i18n: Record<string, unknown>, tagPath: string[], sourceText: string): Promise<string> {
         // Gather example translations only from the same group
         const parentPath = tagPath.slice(0, -1)
         const parentGroup = parentPath.join('.')
-        const similarTranslations = []
-        keyMod(i18n, (ref, _id, refPath) => {
+        const similarTranslations: {path: string[]; source: string}[] = []
+        keyMod(i18n, (ref: unknown, _id: string, refPath: string[]): void => {
             const refGroup = refPath.slice(0, -1).join('.')
             if (ref &&
+                typeof ref === 'object' &&
+                ref !== null &&
                 'source' in ref &&
-                !ref._redundant &&
-                !ref._soft &&
+                typeof (ref as Record<string, unknown>)._redundant !== 'boolean' &&
+                typeof (ref as Record<string, unknown>)._soft !== 'boolean' &&
                 refGroup === parentGroup) {
-                similarTranslations.push({
-                    path: refPath,
-                    source: ref.source,
-                })
+                const refRecord = ref as Record<string, unknown>
+                if (typeof refRecord.source === 'string') {
+                    similarTranslations.push({
+                        path: refPath,
+                        source: refRecord.source,
+                    })
+                }
             }
         })
         const engineInstance = this.engines[engine]
@@ -83,15 +88,15 @@ export class Enola {
         throw new Error(`Engine ${engine} does not support suggestions`)
     }
 
-    async translate(engine, tag:EnolaTag, targetLanguage:TargetLanguage) {
+    async translate(engine: string, tag: EnolaTag, targetLanguage: TargetLanguage): Promise<string> {
         return await this.engines[engine].translate(tag, targetLanguage)
     }
 
-    async translateBatch(engine, tags:EnolaTag[], targetLanguage:TargetLanguage) {
+    async translateBatch(engine: string, tags: EnolaTag[], targetLanguage: TargetLanguage): Promise<string[]> {
         return await this.engines[engine].translateBatch(tags, targetLanguage)
     }
 
-    async usage(engine) {
+    async usage(engine: string): Promise<{count: number; limit: number}> {
         return await this.engines[engine].usage()
     }
 }

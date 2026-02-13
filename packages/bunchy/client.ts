@@ -7,7 +7,7 @@ const pendingStylesheetUpdates = new Set<string>()
 // Exception page state
 let exceptionOverlay: HTMLElement | null = null
 
-function updateStylesheet(filename: string, publicPath: string) {
+function updateStylesheet(filename: string, publicPath: string): void {
     // Skip if this stylesheet is already being updated
     if (pendingStylesheetUpdates.has(filename)) {
         return
@@ -18,12 +18,12 @@ function updateStylesheet(filename: string, publicPath: string) {
 
     // Get all stylesheet links
     const allLinks = [...document.querySelectorAll('link[rel=stylesheet]')]
-        .map((link) => link as HTMLLinkElement)
+        .map((link: Element): HTMLLinkElement => link as HTMLLinkElement)
 
     // Find matching stylesheet by base name (without hash)
     const baseFileName = filename.split('.')[0] // Extract 'app' from 'app.axuasllor.css'
-    const linkElements = allLinks.filter((link) => {
-        const href = link.href
+    const linkElements = allLinks.filter((link: HTMLLinkElement): boolean => {
+        const {href} = link
         // Match /public/app.*.css or /public/components.*.css pattern
         const pattern = new RegExp(`/public/${baseFileName}\\.[^/]*\\.css`)
         return pattern.test(href)
@@ -39,17 +39,18 @@ function updateStylesheet(filename: string, publicPath: string) {
     newLink.rel = 'stylesheet'
     newLink.href = `/public/${filename}?${Date.now()}`
 
-    // When the new stylesheet loads, remove all old ones
-    newLink.onload = () => {
+        // When the new stylesheet loads, remove all old ones
+    newLink.onload = (): void => {
         // Remove all matching old stylesheets
-        linkElements.forEach((oldLink) => {
+        for (const oldLink of linkElements) {
             oldLink.remove()
-        })
+        }
         pendingStylesheetUpdates.delete(filename)
     }
 
     // Handle loading errors
-    newLink.onerror = () => {
+    newLink.onerror = (): void => {
+        // eslint-disable-next-line no-console
         console.error(`Failed to load stylesheet: ${newLink.href}`)
         pendingStylesheetUpdates.delete(filename)
     }
@@ -64,7 +65,7 @@ function updateStylesheet(filename: string, publicPath: string) {
     }
 }
 
-function showExceptionPage(task: string, error: string, details: string, timestamp: string) {
+function showExceptionPage(task: string, error: string, details: string, timestamp: string): void {
     // Remove existing exception overlay if it exists
     if (exceptionOverlay) {
         exceptionOverlay.remove()
@@ -213,7 +214,7 @@ function showExceptionPage(task: string, error: string, details: string, timesta
     document.body.append(exceptionOverlay)
 
     // Add escape key handler
-    const escapeHandler = (event: KeyboardEvent) => {
+    const escapeHandler = (event: KeyboardEvent): void => {
         if (event.key === 'Escape' && exceptionOverlay) {
             exceptionOverlay.remove()
             document.removeEventListener('keydown', escapeHandler)
@@ -222,22 +223,28 @@ function showExceptionPage(task: string, error: string, details: string, timesta
     document.addEventListener('keydown', escapeHandler)
 }
 
-function hideExceptionPage() {
+function hideExceptionPage(): void {
     if (exceptionOverlay) {
         exceptionOverlay.remove()
         exceptionOverlay = null
     }
 }
 
-async function handleHMRUpdate(_filePath: string, timestamp: number) {
-    const g = globalThis as any
+async function handleHMRUpdate(_filePath: string, timestamp: number): Promise<void> {
+    const g = globalThis as unknown as {
+        __HMR_STATE__?: unknown
+        __HMR_COMPONENT_STATES__?: Record<string, unknown>
+        __HMR_REGISTRY__?: Record<string, unknown>
+        __HMR_UPDATING__?: boolean
+        __HMR_MAIN_COMPONENT__?: unknown
+    }
     try {
         hideExceptionPage()
 
         // Initialize HMR state storage if not exists
-        if (!g.__HMR_STATE__) g.__HMR_STATE__ = null
-        if (!g.__HMR_COMPONENT_STATES__) g.__HMR_COMPONENT_STATES__ = {}
-        if (!g.__HMR_REGISTRY__) g.__HMR_REGISTRY__ = {}
+        if (!g.__HMR_STATE__) {g.__HMR_STATE__ = null}
+        if (!g.__HMR_COMPONENT_STATES__) {g.__HMR_COMPONENT_STATES__ = {}}
+        if (!g.__HMR_REGISTRY__) {g.__HMR_REGISTRY__ = {}}
 
         // Save global store state
         try {
@@ -245,7 +252,8 @@ async function handleHMRUpdate(_filePath: string, timestamp: number) {
             if (store?.state) {
                 g.__HMR_STATE__ = JSON.parse(JSON.stringify(store.state))
             }
-        } catch (error) {
+        } catch(error) {
+            // eslint-disable-next-line no-console
             console.warn('[Bunchy HMR] Could not access store state:', error)
         }
 
@@ -256,6 +264,7 @@ async function handleHMRUpdate(_filePath: string, timestamp: number) {
             try {
                 componentStates[key] = JSON.parse(JSON.stringify(state))
             } catch {
+                // eslint-disable-next-line no-console
                 console.warn(`[Bunchy HMR] Could not serialize state for ${key}`)
             }
         }
@@ -263,12 +272,13 @@ async function handleHMRUpdate(_filePath: string, timestamp: number) {
 
         // Find and reload the app script
         const scriptTags = [...document.querySelectorAll('script[type="module"]')] as HTMLScriptElement[]
-        const appScript = scriptTags.find((script) => {
+        const appScript = scriptTags.find((script: HTMLScriptElement): boolean => {
             const src = script.src.split('?')[0]
             return src.includes('/public/app.') && /\/public\/app\.[^/]+\.js$/.test(src)
         })
 
         if (!appScript) {
+            // eslint-disable-next-line no-console
             console.error('[Bunchy HMR] Could not find app script tag')
             globalThis.location.reload()
             return
@@ -277,14 +287,18 @@ async function handleHMRUpdate(_filePath: string, timestamp: number) {
         const originalSrc = appScript.src.split('?')[0]
         appScript.remove()
 
-        // Set HMR update flag BEFORE creating/loading the script
-        // This is critical - ES modules execute immediately when appended
+        /*
+         * Set HMR update flag BEFORE creating/loading the script
+         * This is critical - ES modules execute immediately when appended
+         */
         g.__HMR_UPDATING__ = true
 
         // Set data attribute on html and body BEFORE script loads to disable CSS animations
-        document.documentElement.setAttribute('data-hmr-updating', 'true')
-        document.body.setAttribute('data-hmr-updating', 'true')
-        void document.body.offsetHeight // Force reflow
+        document.documentElement.dataset.hmrUpdating = 'true'
+        document.body.dataset.hmrUpdating = 'true'
+        // Force reflow
+        // eslint-disable-next-line no-void
+        void document.body.offsetHeight
 
         // Create new script with cache busting
         const newScript = document.createElement('script')
@@ -292,57 +306,71 @@ async function handleHMRUpdate(_filePath: string, timestamp: number) {
         newScript.src = `${originalSrc}?t=${timestamp}`
 
         // Wait for script to load
-        newScript.onload = async () => {
-            // The new script will execute and call app.init() with HMR flag set
-            // app.init() will detect HMR and re-initialize services, then re-render
-            // Wait a brief moment for the module to execute
-            await new Promise((resolve) => setTimeout(resolve, 10))
+        newScript.onload = async(): Promise<void> => {
+            /*
+             * The new script will execute and call app.init() with HMR flag set
+             * app.init() will detect HMR and re-initialize services, then re-render
+             * Wait a brief moment for the module to execute
+             */
+            await new Promise<void>((resolve): void => {
+                setTimeout((): void => {
+                    resolve()
+                }, 10)
+            })
 
             // Verify the Main component was updated
             if (!g.__HMR_MAIN_COMPONENT__) {
+                // eslint-disable-next-line no-console
                 console.error('[Bunchy HMR] Main component not found after script load')
                 globalThis.location.reload()
                 return
             }
         }
 
-        newScript.onerror = () => {
+        newScript.onerror = (): void => {
+            // eslint-disable-next-line no-console
             console.error('[Bunchy HMR] Failed to load new script')
             globalThis.location.reload()
         }
 
         // Insert new script - this will cause it to execute immediately
         document.head.append(newScript)
-    } catch (error) {
+    } catch(error) {
+        // eslint-disable-next-line no-console
         console.error('[Bunchy HMR] Failed:', error)
         globalThis.location.reload()
     }
 }
 
-// Helper function to initialize Bunchy
-// Only initialize once to prevent multiple connections
-function initializeBunchy() {
-    if ((globalThis as any).__BUNCHY_INITIALIZED__) {
+/*
+ * Helper function to initialize Bunchy
+ * Only initialize once to prevent multiple connections
+ */
+function initializeBunchy(): BunchyClient | undefined {
+    const g = globalThis as unknown as {__BUNCHY_INITIALIZED__?: boolean}
+    if (g.__BUNCHY_INITIALIZED__) {
         return
     }
-    ;(globalThis as any).__BUNCHY_INITIALIZED__ = true
+    g.__BUNCHY_INITIALIZED__ = true
     return new BunchyClient()
 }
 
-function setupLoggerForwarding(client: WebSocketClient) {
+function setupLoggerForwarding(client: WebSocketClient): void {
     // Set up log forwarding for the browser logger
-    if (typeof (logger as any).setLogForwarder === 'function') {
-
+    const loggerWithForwarder = logger as unknown as {setLogForwarder?: (forwarder: (logLevel: string, msg: string, args: unknown[]) => void) => void}
+    if (typeof loggerWithForwarder.setLogForwarder === 'function') {
+        // eslint-disable-next-line no-console
         console.log('[Bunchy] Setting up log forwarder')
         let isForwarding = false
-        ;(logger as any).setLogForwarder((logLevel: any, msg: string, args: any[]) => {
+        loggerWithForwarder.setLogForwarder((logLevel: string, msg: string, args: unknown[]): void => {
             // Prevent recursive forwarding caused by logs emitted during forwarding (e.g., ws-client debug)
             if (isForwarding) {
                 return
             }
             // Only forward if we're connected
-            if ((client as any).isConnected && (client as any).isConnected()) {
-                const serializedArgs = args.map((arg) => {
+            const clientWithConnection = client as unknown as {isConnected?: () => boolean}
+            if (clientWithConnection.isConnected && clientWithConnection.isConnected()) {
+                const serializedArgs = args.map((arg: unknown): string => {
                     try {
                         return typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
                     } catch {
@@ -359,17 +387,17 @@ function setupLoggerForwarding(client: WebSocketClient) {
                         source: 'client',
                         timestamp: new Date().toISOString(),
                     })
-                    .catch((error: any) => {
-
+                    .catch((error: unknown): void => {
+                        // eslint-disable-next-line no-console
                         console.warn('[Bunchy] Failed to forward log:', error)
                     })
-                    .finally(() => {
+                    .finally((): void => {
                         isForwarding = false
                     })
             }
         })
     } else {
-
+        // eslint-disable-next-line no-console
         console.warn('[Bunchy] logger.setLogForwarder is not available')
     }
 }
@@ -377,23 +405,29 @@ function setupLoggerForwarding(client: WebSocketClient) {
 // Helper function to construct WebSocket URL based on current protocol
 function getWebSocketUrl(path: string): string {
     const protocol = globalThis.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const hostname = globalThis.location.hostname
-    const port = (globalThis as any).location.port
-    // Only include port if it's explicitly set and not the default (80 for HTTP, 443 for HTTPS)
-    // When behind Nginx with SSL, the port will be empty (defaults to 443) and Nginx will proxy to backend
+    const {hostname} = globalThis.location
+    const {port} = (globalThis.location as {port?: string})
+
+    /*
+     * Only include port if it's explicitly set and not the default (80 for HTTP, 443 for HTTPS)
+     * When behind Nginx with SSL, the port will be empty (defaults to 443) and Nginx will proxy to backend
+     */
     const portSuffix = port && port !== '80' && port !== '443' ? `:${port}` : ''
     return `${protocol}//${hostname}${portSuffix}${path}`
 }
 
 class BunchyClient extends WebSocketClient {
     constructor() {
-        // Use the full path to prevent WebSocketClient from appending /ws
-        // The endpoint should match the path provided in the server configuration
-        // Detect HTTP/HTTPS and use ws:// or wss:// accordingly
+        /*
+         * Use the full path to prevent WebSocketClient from appending /ws
+         * The endpoint should match the path provided in the server configuration
+         * Detect HTTP/HTTPS and use ws:// or wss:// accordingly
+         */
         const url = getWebSocketUrl('/bunchy')
 
         super(url)
 
+        // eslint-disable-next-line no-console
         console.log('[Bunchy] Client initialized')
 
         // Set up route handlers BEFORE connecting to avoid race condition
@@ -402,60 +436,62 @@ class BunchyClient extends WebSocketClient {
         setupLoggerForwarding(this)
 
         // Hook into the open event to override message handling
-        this.on('open', () => {
+        this.on('open', (): void => {
             // WebSocket opened, handlers registered
         })
 
         // Small delay to ensure handlers are fully registered before connecting
-        setTimeout(() => {
+        setTimeout((): void => {
             this.connect()
         }, 100)
     }
 
-    setupRouter() {
+    setupRouter(): void {
         // Using URL-based routing method for handling bunchy task messages
-        this.onRoute('/tasks/code_frontend', () => {
+        this.onRoute('/tasks/code_frontend', (): void => {
             hideExceptionPage()
             globalThis.location.reload()
         })
 
-        this.onRoute('/tasks/html', () => {
+        this.onRoute('/tasks/html', (): void => {
             hideExceptionPage()
             globalThis.location.reload()
         })
 
-        this.onRoute('/tasks/styles/app', (data) => {
+        this.onRoute('/tasks/styles/app', (data: unknown): void => {
             const {filename, publicPath} = data as {filename: string; publicPath: string}
             hideExceptionPage()
             updateStylesheet(filename, publicPath)
         })
 
-        this.onRoute('/tasks/styles/components', (data) => {
+        this.onRoute('/tasks/styles/components', (data: unknown): void => {
             const {filename, publicPath} = data as {filename: string; publicPath: string}
             hideExceptionPage()
             updateStylesheet(filename, publicPath)
         })
 
-        this.onRoute('/tasks/error', (data) => {
+        this.onRoute('/tasks/error', (data: unknown): void => {
             const {details, error, task, timestamp} = data as {details: string; error: string; task: string; timestamp: string}
             showExceptionPage(task, error, details, timestamp)
         })
 
-        this.onRoute('/tasks/hmr', (data) => {
+        this.onRoute('/tasks/hmr', (data: unknown): void => {
             const {filePath, timestamp} = data as {filePath: string; timestamp: number}
             handleHMRUpdate(filePath, timestamp)
         })
     }
 
     // Backwards compatible method (delegates to generic function)
-    setupLogForwarding() {
+    setupLogForwarding(): void {
         setupLoggerForwarding(this)
     }
 }
 
-// Auto-initialize when script loads (after BunchyClient is defined)
-// Since this script is only included in development mode (see index.html template),
-// we can always initialize it
+/*
+ * Auto-initialize when script loads (after BunchyClient is defined)
+ * Since this script is only included in development mode (see index.html template),
+ * we can always initialize it
+ */
 initializeBunchy()
 
 export {initializeBunchy, setupLoggerForwarding, BunchyClient}

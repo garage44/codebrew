@@ -1,5 +1,9 @@
 import {z} from 'zod'
-import {UserIdPathSchema, UserIdSchema} from './common.ts'
+
+import {
+    UserIdPathSchema,
+    UserIdSchema,
+} from './common.ts'
 
 /**
  * User schemas for user management and presence

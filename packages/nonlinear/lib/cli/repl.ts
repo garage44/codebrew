@@ -9,12 +9,12 @@ import path from 'node:path'
 import readline from 'node:readline'
 
 export interface REPLOptions {
-    prompt: string
-    onInput: (input: string) => Promise<void>
-    onExit?: () => void
-    welcomeMessage?: string
     helpMessage?: string
     historyFile?: string
+    onExit?: () => void
+    onInput: (input: string) => Promise<void>
+    prompt: string
+    welcomeMessage?: string
 }
 
 export class REPL {
@@ -34,10 +34,10 @@ export class REPL {
         this.historyFilePath = options.historyFile || envHistoryPath || path.join(homedir(), '.nonlinear_history')
 
         this.rl = readline.createInterface({
+            historySize: 1000,
             input: process.stdin,
             output: process.stdout,
             prompt: options.prompt,
-            historySize: 1000,
         })
 
         // Load history from file
@@ -50,16 +50,17 @@ export class REPL {
     private async loadHistory(): Promise<void> {
         try {
             if (await fs.pathExists(this.historyFilePath)) {
-                const content = await fs.readFile(this.historyFilePath, 'utf-8')
+                const content = await fs.readFile(this.historyFilePath, 'utf8')
                 this.history = content.split('\n')
-                    .map((line) => line.trim())
-                    .filter((line) => line.length > 0)
-                    .slice(-1000) // Keep last 1000 entries
+                    .map((line: string): string => line.trim())
+                    .filter((line: string): boolean => line.length > 0)
+                    .slice(-1000)
+                // Keep last 1000 entries
 
                 // Load history into readline
-                ;(this.rl as unknown as {history: string[]}).history = this.history.slice()
+                ;(this.rl as unknown as {history: string[]}).history = [...this.history]
             }
-        } catch(error) {
+        } catch{
             // Ignore errors loading history (file might not exist yet)
         }
     }
@@ -77,8 +78,8 @@ export class REPL {
             const limitedHistory = historyToSave.slice(-1000)
 
             // Write to file
-            await fs.writeFile(this.historyFilePath, limitedHistory.join('\n') + '\n', 'utf-8')
-        } catch(error) {
+            await fs.writeFile(this.historyFilePath, limitedHistory.join('\n') + '\n', 'utf8')
+        } catch{
             // Ignore errors saving history (permissions, etc.)
         }
     }
@@ -93,7 +94,7 @@ export class REPL {
         }
 
         // Remove if it's a duplicate of the last entry
-        if (this.history.length > 0 && this.history[this.history.length - 1] === command) {
+        if (this.history.length > 0 && this.history.at(-1) === command) {
             return
         }
 
@@ -106,7 +107,7 @@ export class REPL {
         }
 
         // Update readline history
-        ;(this.rl as unknown as {history: string[]}).history = this.history.slice()
+        (this.rl as unknown as {history: string[]}).history = [...this.history]
     }
 
     /**
@@ -115,16 +116,18 @@ export class REPL {
     start(): void {
         // Show welcome message
         if (this.options.welcomeMessage) {
+            // eslint-disable-next-line no-console
             console.log(this.options.welcomeMessage)
         }
 
         // Show help message
         if (this.options.helpMessage) {
+            // eslint-disable-next-line no-console
             console.log(this.options.helpMessage)
         }
 
         // Set up event handlers
-        this.rl.on('line', async(input) => {
+        this.rl.on('line', async(input: string): Promise<void> => {
             const trimmed = input.trim()
 
             // Handle empty input
@@ -141,6 +144,7 @@ export class REPL {
 
             if (trimmed === 'help' || trimmed === 'h') {
                 if (this.options.helpMessage) {
+                    // eslint-disable-next-line no-console
                     console.log(this.options.helpMessage)
                 }
                 this.rl.prompt()
@@ -148,6 +152,7 @@ export class REPL {
             }
 
             if (trimmed === 'clear' || trimmed === 'cls') {
+                // eslint-disable-next-line no-console
                 console.clear()
                 this.rl.prompt()
                 return
@@ -159,8 +164,9 @@ export class REPL {
             // Process input
             try {
                 await this.options.onInput(trimmed)
-            } catch(error) {
+            } catch(error: unknown) {
                 const errorMsg = error instanceof Error ? error.message : String(error)
+                // eslint-disable-next-line no-console
                 console.error(`\n❌ Error: ${errorMsg}\n`)
             }
 
@@ -169,19 +175,20 @@ export class REPL {
         })
 
         // Handle Ctrl+C
-        this.rl.on('SIGINT', async() => {
+        this.rl.on('SIGINT', async(): Promise<void> => {
             const pc = await import('picocolors')
+            // eslint-disable-next-line no-console
             console.log(`\n\n${pc.gray('Exiting...')}`)
             await this.exit()
         })
 
         // Save history on process exit
-        process.on('exit', () => {
+        process.on('exit', (): void => {
             // Sync save (process is exiting)
             try {
                 const currentHistory = (this.rl as {history?: string[]}).history || []
                 const limitedHistory = currentHistory.slice(-1000)
-                fs.writeFileSync(this.historyFilePath, limitedHistory.join('\n') + '\n', 'utf-8')
+                fs.writeFileSync(this.historyFilePath, limitedHistory.join('\n') + '\n', 'utf8')
             } catch {
                 // Ignore errors
             }
@@ -202,7 +209,7 @@ export class REPL {
             this.options.onExit()
         }
         this.rl.close()
-        process.exit(0)
+        throw new Error('REPL exited')
     }
 
     /**
@@ -217,6 +224,7 @@ export class REPL {
      * Write line (for agent responses)
      */
     writeline(message: string): void {
+        // eslint-disable-next-line no-console
         console.log(message)
     }
 }

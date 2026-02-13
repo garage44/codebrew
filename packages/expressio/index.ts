@@ -1,5 +1,5 @@
 import {Store} from '@garage44/common/lib/store'
-import {create$t, I18N_PATH_SYMBOL, i18nFormat} from './lib/i18n'
+import {I18N_PATH_SYMBOL, create$t, i18nFormat} from './lib/i18n'
 import {keyMod, keyPath} from '@garage44/common/lib/utils'
 import {persistantState, volatileState} from './src/lib/state'
 import type {ExpressioState} from './src/types'
@@ -23,11 +23,11 @@ function createTypedI18n<T extends {i18n: Record<string, unknown>}>(workspace: T
     const i18n = {...workspace.i18n}
 
     // Attach path symbols to translation objects
-    keyMod(i18n, (_srcRef, _id, refPath) => {
+    keyMod(i18n, (_srcRef: unknown, _id: string, refPath: string[]): void => {
         const sourceRef = keyPath(i18n, refPath)
         if (typeof sourceRef === 'object' && sourceRef !== null && 'source' in sourceRef && refPath.length > 0) {
-            const pathString = `i18n.${refPath.join('.')}`
-            ;(sourceRef as Record<symbol, string>)[I18N_PATH_SYMBOL] = pathString
+            const pathString = `i18n.${refPath.join('.')}`;
+            (sourceRef as Record<symbol, string>)[I18N_PATH_SYMBOL] = pathString
         }
     })
 

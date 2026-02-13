@@ -53,21 +53,21 @@ export function loadTools(agentConfig?: {tools?: string[]}): Record<string, Tool
  * Convert Tool interface to Anthropic tool format
  */
 export function toolToAnthropic(tool: Tool): {
-    name: string
     description: string
     input_schema: {
-        type: 'object'
-        properties: Record<string, {type: string; description?: string}>
+        properties: Record<string, {description?: string; type: string}>
         required?: string[]
+        type: 'object'
     }
+    name: string
 } {
-    const properties: Record<string, {type: string; description?: string}> = {}
+    const properties: Record<string, {description?: string; type: string}> = {}
     const required: string[] = []
 
     for (const param of tool.parameters) {
         properties[param.name] = {
-            type: param.type,
             description: param.description,
+            type: param.type,
         }
         if (param.required) {
             required.push(param.name)
@@ -75,12 +75,12 @@ export function toolToAnthropic(tool: Tool): {
     }
 
     return {
-        name: tool.name,
         description: tool.description,
         input_schema: {
-            type: 'object',
             properties,
             required: required.length > 0 ? required : undefined,
+            type: 'object',
         },
+        name: tool.name,
     }
 }

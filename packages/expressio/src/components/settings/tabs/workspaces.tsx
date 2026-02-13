@@ -1,14 +1,15 @@
-import {$s, i18n} from '@/app'
 import {api, notifier, store} from '@garage44/common/app'
-import {$t} from '@garage44/expressio'
 import {Button} from '@garage44/common/components'
+import {$t} from '@garage44/expressio'
+import {useEffect} from 'preact/hooks'
+
+import {$s, i18n} from '@/app'
 import {WorkspaceSelector} from '@/components/elements'
 import {loadConfig} from '@/lib/config'
-import {useEffect} from 'preact/hooks'
 
 export default function TabWorkspaces() {
     useEffect(() => {
-        (async() => {
+        ;(async () => {
             await loadConfig()
         })()
     }, [])
@@ -19,7 +20,7 @@ export default function TabWorkspaces() {
 
             <Button
                 label={$t(i18n.config.label.update_config)}
-                onClick={async() => {
+                onClick={async () => {
                     store.save()
                     await api.post('/api/config', {
                         enola: $s.enola,

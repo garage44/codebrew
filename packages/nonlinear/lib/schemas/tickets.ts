@@ -28,7 +28,9 @@ export const TicketDbSchema = z.object({
     description: z.string().nullable(),
     id: IdSchema,
     merge_request_id: z.string().nullable(),
-    priority: z.number().int().min(0).max(100).nullable(),
+    priority: z.number().int().min(0)
+        .max(100)
+        .nullable(),
     repository_id: IdSchema,
     solution_plan: z.string().nullable(),
     status: TicketStatusSchema,
@@ -60,7 +62,9 @@ export const CreateTicketRequestSchema = z.object({
     assignees: z.array(TicketAssigneeSchema).optional(),
     description: z.string().optional(),
     labels: z.array(z.string()).optional(),
-    priority: z.number().int().min(0).max(100).optional(),
+    priority: z.number().int().min(0)
+        .max(100)
+        .optional(),
     repository_id: IdSchema,
     status: TicketStatusSchema.default('backlog'),
     title: z.string().min(1),
@@ -72,7 +76,9 @@ export const UpdateTicketRequestSchema = z.object({
     assignees: z.array(TicketAssigneeSchema).optional(),
     description: z.string().optional(),
     labels: z.array(z.string()).optional(),
-    priority: z.number().int().min(0).max(100).optional(),
+    priority: z.number().int().min(0)
+        .max(100)
+        .optional(),
     solution_plan: z.string().optional(),
     status: TicketStatusSchema.optional(),
     title: z.string().min(1).optional(),

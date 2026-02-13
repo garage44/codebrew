@@ -13,11 +13,11 @@ import {config} from '../config.ts'
 const logger = loggerTransports(config.logger as LoggerConfig, 'service')
 
 export interface IndexingJobInput {
-    type: 'code' | 'doc' | 'ticket'
-    repositoryId?: string
-    filePath?: string
     docId?: string
+    filePath?: string
+    repositoryId?: string
     ticketId?: string
+    type: 'code' | 'doc' | 'ticket'
 }
 
 /**
@@ -41,13 +41,13 @@ export async function queueIndexingJob(job: IndexingJobInput): Promise<string> {
             job.docId || null,
             job.ticketId || null,
             'pending',
-            Date.now()
+            Date.now(),
         )
 
         logger.debug(`[IndexingQueue] Queued job ${jobId} (${job.type})`)
         return jobId
-    } catch (error) {
-        logger.error(`[IndexingQueue] Failed to queue job:`, error)
+    } catch(error: unknown) {
+        logger.error('[IndexingQueue] Failed to queue job:', error)
         throw error
     }
 }
@@ -56,16 +56,13 @@ export async function queueIndexingJob(job: IndexingJobInput): Promise<string> {
  * Queue multiple code files for indexing
  */
 export async function queueCodeFiles(repositoryId: string, filePaths: string[]): Promise<string[]> {
-    const jobIds: string[] = []
-
-    for (const filePath of filePaths) {
-        const jobId = await queueIndexingJob({
-            type: 'code',
-            repositoryId,
+    const jobPromises = filePaths.map(async(filePath): Promise<string> => queueIndexingJob({
             filePath,
-        })
-        jobIds.push(jobId)
-    }
+            repositoryId,
+            type: 'code',
+        }))
+
+    const jobIds = await Promise.all(jobPromises)
 
     logger.info(`[IndexingQueue] Queued ${jobIds.length} code files for indexing`)
     return jobIds
@@ -75,22 +72,22 @@ export async function queueCodeFiles(repositoryId: string, filePaths: string[]):
  * Get indexing status for a repository
  */
 export function getIndexingStatus(repositoryId: string): {
-    total: number
     completed: number
-    processing: number
-    pending: number
     failed: number
+    pending: number
+    processing: number
+    total: number
 } {
     const jobs = db.prepare(`
         SELECT status FROM indexing_jobs
         WHERE repository_id = ?
-    `).all(repositoryId) as Array<{status: string}>
+    `).all(repositoryId) as {status: string}[]
 
     return {
-        completed: jobs.filter(j => j.status === 'completed').length,
-        failed: jobs.filter(j => j.status === 'failed').length,
-        pending: jobs.filter(j => j.status === 'pending').length,
-        processing: jobs.filter(j => j.status === 'processing').length,
+        completed: jobs.filter((j): boolean => j.status === 'completed').length,
+        failed: jobs.filter((j): boolean => j.status === 'failed').length,
+        pending: jobs.filter((j): boolean => j.status === 'pending').length,
+        processing: jobs.filter((j): boolean => j.status === 'processing').length,
         total: jobs.length,
     }
 }

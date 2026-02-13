@@ -1,5 +1,6 @@
-import {UserManager} from './user-manager'
 import path from 'node:path'
+
+import {UserManager} from './user-manager'
 
 // Configuration interface for package-specific middleware behavior
 export interface MiddlewareConfig {
@@ -15,6 +16,12 @@ export interface MiddlewareConfig {
 
 // Create a simple session store for Bun.serve
 const sessions = new Map()
+
+// Track which user index each session should get (for cycling through users in no-security mode)
+const sessionUserIndex = new Map<string, number>()
+
+// Track how many sessions have been created (for cycling through users)
+let sessionCounter = 0
 
 // Parse cookies from request
 const parseCookies = (request: Request) => {
@@ -49,59 +56,61 @@ const sessionMiddleware = (request: Request, sessionCookieName: string) => {
 }
 
 /*
- * Helper to populate session with user when GARAGE44_NO_SECURITY is enabled
- * Supports per-session override via GARAGE44_DEBUG_USER cookie or query parameter
+ * Cycle through users when GARAGE44_NO_SECURITY is enabled.
+ * First new session gets admin, second gets alice, third gets bob, etc.
+ * Resets on server restart (in-memory counter).
  */
-const populateNoSecuritySession = async(session: unknown, userManager: UserManager, request?: Request): Promise<void> => {
+const populateNoSecuritySession = async (session: unknown, sessionId: string, userManager: UserManager): Promise<void> => {
     const noSecurityValue = process.env.GARAGE44_NO_SECURITY
     if (!noSecurityValue) return
 
-    // Check for per-session override via cookie or query parameter
-    let targetUsername: string | null = null
-
-    if (request) {
-        // Check cookie first (persists across requests)
-        const cookies = parseCookies(request)
-        if (cookies.GARAGE44_DEBUG_USER) {
-            targetUsername = cookies.GARAGE44_DEBUG_USER
-        }
-
-        // Check query parameter (for initial setup)
-        if (!targetUsername) {
-            const url = new URL(request.url)
-            const debugUser = url.searchParams.get('debug_user')
-            if (debugUser) {
-                targetUsername = debugUser
-            }
-        }
-    }
-
-    // If no per-session override, use environment variable
-    if (!targetUsername && noSecurityValue !== '1' && noSecurityValue.toLowerCase() !== 'true') {
-        // If GARAGE44_NO_SECURITY is set to a username (not '1' or 'true'), try to log in as that user
-        targetUsername = noSecurityValue
-    }
-
-    // Try to find the target user
-    if (targetUsername) {
-        const user = await userManager.getUserByUsername(targetUsername)
+    // If GARAGE44_NO_SECURITY is set to a specific username (not '1' or 'true'), use that user
+    if (noSecurityValue !== '1' && noSecurityValue.toLowerCase() !== 'true') {
+        const user = await userManager.getUserByUsername(noSecurityValue)
         if (user) {
-            (session as {userid?: string}).userid = user.username
+            ;(session as {userid?: string}).userid = user.username
             return
         }
-        // If username not found, fall through to find admin user
     }
 
-    // Default behavior: find the first admin user
+    // Cycle through users: admin first, then alice, bob, charlie, etc.
     const users = await userManager.listUsers()
-    const adminUser = users.find((user) => user.permissions?.admin)
-    if (adminUser) {
-        (session as {userid?: string}).userid = adminUser.username
+
+    // Sort users: admin first, then others by creation order
+    const sortedUsers = users.toSorted((a, b) => {
+        if (a.permissions?.admin && !b.permissions?.admin) return -1
+        if (!a.permissions?.admin && b.permissions?.admin) return 1
+        return a.createdAt.localeCompare(b.createdAt)
+    })
+
+    if (sortedUsers.length === 0) {
+        return
+    }
+
+    // Get or assign user index for this session
+    let userIndex: number
+    if (sessionUserIndex.has(sessionId)) {
+        userIndex = sessionUserIndex.get(sessionId)!
+    } else {
+        userIndex = sessionCounter % sortedUsers.length
+        sessionUserIndex.set(sessionId, userIndex)
+        sessionCounter++
+    }
+
+    const assignedUser = sortedUsers[userIndex]
+    if (assignedUser) {
+        ;(session as {userid?: string}).userid = assignedUser.username
     }
 }
 
 // Auth middleware for Bun.serve
-const authMiddleware = async(request: Request, session: unknown, userManager: UserManager, endpointAllowList: string[] = []) => {
+const authMiddleware = async (
+    request: Request,
+    session: unknown,
+    sessionId: string,
+    userManager: UserManager,
+    endpointAllowList: string[] = [],
+) => {
     const url = new URL(request.url)
 
     if (!url.pathname.startsWith('/api')) {
@@ -141,7 +150,7 @@ const authMiddleware = async(request: Request, session: unknown, userManager: Us
     }
 
     if (process.env.GARAGE44_NO_SECURITY) {
-        await populateNoSecuritySession(session, userManager, request)
+        await populateNoSecuritySession(session, sessionId, userManager)
         return true
     }
 
@@ -181,11 +190,10 @@ const handleWebSocket = (_ws: unknown, _request: Request) => {
      */
 }
 
-
 // Create unified middleware with package-specific configuration
 export const createMiddleware = (config: MiddlewareConfig, userManager: UserManager) => {
     return {
-        handleRequest: async(
+        handleRequest: async (
             request: Request,
             server?: unknown,
             _logger?: unknown,
@@ -206,11 +214,12 @@ export const createMiddleware = (config: MiddlewareConfig, userManager: UserMana
             if (url.pathname === '/ws' || url.pathname === '/bunchy') {
                 if (server && typeof (server as {upgrade?: unknown}).upgrade === 'function') {
                     // Get session before upgrade so it's available in WebSocket handlers
-                    const {session} = sessionMiddleware(request, config.sessionCookieName)
+                    const {session, sessionId} = sessionMiddleware(request, config.sessionCookieName)
 
                     // Populate session with user if GARAGE44_NO_SECURITY is enabled
                     if (process.env.GARAGE44_NO_SECURITY && !(session as {userid?: string}).userid) {
-                        await populateNoSecuritySession(session, userManager, request)
+                        await populateNoSecuritySession(session, sessionId, userManager)
+                        sessions.set(sessionId, session)
                     }
 
                     const success = (server as {upgrade: (req: Request, data: unknown) => boolean}).upgrade(request, {
@@ -228,9 +237,9 @@ export const createMiddleware = (config: MiddlewareConfig, userManager: UserMana
             }
 
             // Handle session and auth
-            const {session} = sessionMiddleware(request, config.sessionCookieName)
+            const {session, sessionId} = sessionMiddleware(request, config.sessionCookieName)
 
-            if (!await authMiddleware(request, session, userManager, config.endpointAllowList)) {
+            if (!(await authMiddleware(request, session, sessionId, userManager, config.endpointAllowList))) {
                 return new Response('Unauthorized', {status: 401})
             }
 
@@ -239,15 +248,11 @@ export const createMiddleware = (config: MiddlewareConfig, userManager: UserMana
         },
         handleWebSocket,
         sessionMiddleware: (request: Request) => sessionMiddleware(request, config.sessionCookieName),
-        setSessionCookie: (
-            response: Response,
-            sessionId: string,
-            request?: Request,
-        ) => setSessionCookie(response, sessionId, config.sessionCookieName, request),
+        setSessionCookie: (response: Response, sessionId: string, request?: Request) =>
+            setSessionCookie(response, sessionId, config.sessionCookieName, request),
         userManager,
     }
 }
-
 
 // Create unified final request handler with common patterns
 export const createFinalHandler = (config: {
@@ -278,45 +283,56 @@ export const createFinalHandler = (config: {
     sessionCookieName: string
     userManager: UserManager
 }) => {
-    const unifiedMiddleware = createMiddleware({
-        configPath: config.configPath,
-        customWebSocketHandlers: config.customWebSocketHandlers,
-        endpointAllowList: config.endpointAllowList,
-        packageName: config.packageName,
-        sessionCookieName: config.sessionCookieName,
-    }, config.userManager)
+    const unifiedMiddleware = createMiddleware(
+        {
+            configPath: config.configPath,
+            customWebSocketHandlers: config.customWebSocketHandlers,
+            endpointAllowList: config.endpointAllowList,
+            packageName: config.packageName,
+            sessionCookieName: config.sessionCookieName,
+        },
+        config.userManager,
+    )
 
-    return async(request: Request, server?: unknown): Promise<Response | undefined> => {
+    return async (request: Request, server?: unknown): Promise<Response | undefined> => {
         const url = new URL(request.url)
 
         config.devContext.addHttp({method: request.method, ts: Date.now(), url: url.pathname})
 
-        // Get session early and populate it if needed (before unified middleware)
+        // Get session early
         let {session, sessionId} = unifiedMiddleware.sessionMiddleware(request)
 
-        // Populate session with user if GARAGE44_NO_SECURITY is enabled
-        if (process.env.GARAGE44_NO_SECURITY && !(session as {userid?: string}).userid) {
-            await populateNoSecuritySession(session, config.userManager, request)
-
-            /*
-             * Session is stored in Map, modifying it in place persists automatically
-             * But ensure it's set back in case of reference issues
-             */
-            sessions.set(sessionId, session)
-            const userId = (session as {userid?: string}).userid
-            if (userId) {
-                config.logger.debug(`[Middleware] Populated session ${sessionId} with userid: ${userId}`)
-            }
-
-            // Set cookie if query parameter was used (for persistence)
-            const url = new URL(request.url)
+        /*
+         * Handle ?debug_user=<username> override (only when GARAGE44_NO_SECURITY is set)
+         * This sets the session user and redirects without the query param.
+         * The session cookie persists the user across requests - no extra cookies needed.
+         */
+        if (process.env.GARAGE44_NO_SECURITY) {
             const debugUser = url.searchParams.get('debug_user')
             if (debugUser) {
-                // Return a response that sets the cookie and redirects
+                const user = await config.userManager.getUserByUsername(debugUser)
+                if (user) {
+                    ;(session as {userid?: string}).userid = user.username
+                    sessions.set(sessionId, session)
+                    config.logger.debug(`[Middleware] debug_user override: session ${sessionId} -> ${user.username}`)
+                }
+
+                // Redirect to same URL without the debug_user param
+                const cleanUrl = new URL(request.url)
+                cleanUrl.searchParams.delete('debug_user')
                 const response = new Response(null, {status: 302})
-                response.headers.set('Location', url.pathname + url.search.replace(/[?&]debug_user=[^&]*/, '').replace(/^&/, '?'))
-                response.headers.set('Set-Cookie', `GARAGE44_DEBUG_USER=${debugUser}; Path=/; SameSite=Strict; Max-Age=86400`)
-                return response
+                response.headers.set('Location', cleanUrl.pathname + cleanUrl.search)
+                return unifiedMiddleware.setSessionCookie(response, sessionId, request)
+            }
+
+            // If session has no user yet, cycle through users
+            if (!(session as {userid?: string}).userid) {
+                await populateNoSecuritySession(session, sessionId, config.userManager)
+                sessions.set(sessionId, session)
+                const userId = (session as {userid?: string}).userid
+                if (userId) {
+                    config.logger.debug(`[Middleware] Cycled session ${sessionId} -> ${userId}`)
+                }
             }
         }
 
@@ -337,59 +353,25 @@ export const createFinalHandler = (config: {
         const finalSession = session
         const finalSessionId = sessionId
 
-        // Populate session with user if GARAGE44_NO_SECURITY is enabled (again, in case unified middleware created a new session)
-        if (process.env.GARAGE44_NO_SECURITY && !(finalSession as {userid?: string}).userid) {
-            await populateNoSecuritySession(finalSession, config.userManager, request)
-            sessions.set(finalSessionId, finalSession)
-            const userId = (finalSession as {userid?: string}).userid
-            if (userId) {
-                config.logger.debug(`[Middleware] Re-populated session ${finalSessionId} with userid: ${userId}`)
-            }
-        }
-
         // Handle /api/context - requires authentication to check session state
         if (url.pathname === '/api/context') {
             let context = null
 
             if (process.env.GARAGE44_NO_SECURITY) {
-                const baseContext = await Promise.resolve(config.contextFunctions.adminContext())
-                // Get user profile for the user specified in GARAGE44_NO_SECURITY, cookie, query param, or admin
-                const noSecurityValue = process.env.GARAGE44_NO_SECURITY
-                let targetUser = null
-                let targetUsername: string | null = null
+                // Use the user from the session (already set by cycling or debug_user)
+                const sessionUserId = (finalSession as {userid?: string})?.userid
+                let targetUser = sessionUserId ? await config.userManager.getUserByUsername(sessionUserId) : null
 
-                // Check for per-session override via cookie or query parameter
-                const cookies = parseCookies(request)
-                if (cookies.GARAGE44_DEBUG_USER) {
-                    targetUsername = cookies.GARAGE44_DEBUG_USER
-                }
-
-                if (!targetUsername) {
-                    const url = new URL(request.url)
-                    const debugUser = url.searchParams.get('debug_user')
-                    if (debugUser) {
-                        targetUsername = debugUser
-                    }
-                }
-
-                // If no per-session override, use environment variable
-                if (!targetUsername && noSecurityValue !== '1' && noSecurityValue.toLowerCase() !== 'true') {
-                    targetUsername = noSecurityValue
-                }
-
-                // Try to find the target user
-                if (targetUsername) {
-                    targetUser = await config.userManager.getUserByUsername(targetUsername)
-                }
-
-                // If username not found or not specified, find first admin user
+                // Fallback to first admin user if session has no user
                 if (!targetUser) {
                     const users = await config.userManager.listUsers()
                     targetUser = users.find((user) => user.permissions?.admin)
                 }
 
+                // Use adminContext for all no-security users (full access in dev mode)
+                const baseContext = await Promise.resolve(config.contextFunctions.adminContext())
+
                 if (targetUser) {
-                    // Include password for SFU auth (will encrypt later)
                     context = {
                         ...(baseContext as Record<string, unknown>),
                         id: targetUser.id,
@@ -406,7 +388,6 @@ export const createFinalHandler = (config: {
                 const noSecurityResponse = new Response(JSON.stringify(context), {
                     headers: {'Content-Type': 'application/json'},
                 })
-                // Set session cookie (with Secure flag for HTTPS)
                 return unifiedMiddleware.setSessionCookie(noSecurityResponse, finalSessionId, request)
             }
 
@@ -414,9 +395,9 @@ export const createFinalHandler = (config: {
             if ((finalSession as {userid?: string})?.userid) {
                 const user = await config.userManager.getUserByUsername((finalSession as {userid: string}).userid)
                 if (user) {
-                    const baseContext = user.permissions?.admin ?
-                            await Promise.resolve(config.contextFunctions.adminContext()) :
-                            await Promise.resolve(config.contextFunctions.userContext())
+                    const baseContext = user.permissions?.admin
+                        ? await Promise.resolve(config.contextFunctions.adminContext())
+                        : await Promise.resolve(config.contextFunctions.userContext())
 
                     /*
                      * Include full user profile in context
@@ -442,7 +423,6 @@ export const createFinalHandler = (config: {
             const contextResponse = new Response(JSON.stringify(context), {
                 headers: {'Content-Type': 'application/json'},
             })
-            // Set session cookie (with Secure flag for HTTPS)
             return unifiedMiddleware.setSessionCookie(contextResponse, finalSessionId, request)
         }
 
@@ -466,17 +446,19 @@ export const createFinalHandler = (config: {
             }
 
             // Return user data in the format expected by the frontend
-            const userMeResponse = new Response(JSON.stringify({
-                id: user.id,
-                profile: {
-                    avatar: user.profile.avatar || 'placeholder-1.png',
-                    displayName: user.profile.displayName || user.username,
+            const userMeResponse = new Response(
+                JSON.stringify({
+                    id: user.id,
+                    profile: {
+                        avatar: user.profile.avatar || 'placeholder-1.png',
+                        displayName: user.profile.displayName || user.username,
+                    },
+                    username: user.username,
+                }),
+                {
+                    headers: {'Content-Type': 'application/json'},
                 },
-                username: user.username,
-            }), {
-                headers: {'Content-Type': 'application/json'},
-            })
-            // Set session cookie (with Secure flag for HTTPS)
+            )
             return unifiedMiddleware.setSessionCookie(userMeResponse, finalSessionId, request)
         }
 
@@ -493,7 +475,7 @@ export const createFinalHandler = (config: {
                  * Use finalSession and finalSessionId to ensure we're modifying the session that will be used
                  * Set the user in session
                  */
-                (finalSession as {userid: string}).userid = user.username
+                ;(finalSession as {userid: string}).userid = user.username
 
                 /*
                  * Explicitly save the session to ensure it persists
@@ -502,9 +484,9 @@ export const createFinalHandler = (config: {
                  */
                 sessions.set(finalSessionId, finalSession)
 
-                const baseContext = user.permissions?.admin ?
-                        await Promise.resolve(config.contextFunctions.adminContext()) :
-                        await Promise.resolve(config.contextFunctions.userContext())
+                const baseContext = user.permissions?.admin
+                    ? await Promise.resolve(config.contextFunctions.adminContext())
+                    : await Promise.resolve(config.contextFunctions.userContext())
 
                 /*
                  * Include full user profile in context
@@ -538,7 +520,7 @@ export const createFinalHandler = (config: {
         if (url.pathname === '/api/logout' && request.method === 'GET') {
             // Clear the session - use finalSession to ensure we're modifying the correct session
             if (finalSession) {
-                (finalSession as {userid: string | null}).userid = null
+                ;(finalSession as {userid: string | null}).userid = null
                 sessions.set(finalSessionId, finalSession)
             }
 
@@ -570,7 +552,7 @@ export const createFinalHandler = (config: {
 
                     return new Response(file)
                 }
-            } catch(error) {
+            } catch (error) {
                 // File doesn't exist, continue to next handler
                 config.logger.debug(`[HTTP] static file not found: ${filePath} (${error})`)
             }
@@ -595,7 +577,7 @@ export const createFinalHandler = (config: {
                 config.devContext.addHttp({method: request.method, status: 200, ts: Date.now(), url: url.pathname})
                 return unifiedMiddleware.setSessionCookie(response, sessionId, request)
             }
-        } catch(error) {
+        } catch (error) {
             // index.html doesn't exist
             config.logger.debug(`[HTTP] SPA fallback index.html not found: ${error}`)
         }
@@ -608,6 +590,4 @@ export const createFinalHandler = (config: {
     }
 }
 
-export {
-    handleWebSocket,
-}
+export {handleWebSocket}

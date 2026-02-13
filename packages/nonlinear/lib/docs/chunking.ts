@@ -4,16 +4,16 @@
  */
 
 export interface Chunk {
+    heading?: string
     index: number
     text: string
-    heading?: string
 }
 
 /**
  * Chunk markdown content by headings
  * Preserves heading context in each chunk
  */
-export function chunkMarkdown(content: string, maxChunkSize: number = 1000, chunkOverlap: number = 200): Chunk[] {
+export function chunkMarkdown(content: string, maxChunkSize = 1000, chunkOverlap = 200): Chunk[] {
     const chunks: Chunk[] = []
 
     // Split by headings (##, ###, ####)
@@ -21,11 +21,10 @@ export function chunkMarkdown(content: string, maxChunkSize: number = 1000, chun
     const lines = content.split('\n')
 
     let currentChunk: string[] = []
-    let currentHeading: string | undefined
+    let currentHeading: string | undefined = null as unknown as string | undefined
     let chunkIndex = 0
 
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i]
+    for (const line of lines) {
         const headingMatch = line.match(headingRegex)
 
         if (headingMatch && headingMatch[2]) {
@@ -36,10 +35,11 @@ export function chunkMarkdown(content: string, maxChunkSize: number = 1000, chun
             if (currentChunk.length > 0) {
                 const chunkText = currentChunk.join('\n').trim()
                 if (chunkText.length > 0) {
+                    chunkIndex += 1
                     chunks.push({
-                        index: chunkIndex++,
-                        text: chunkText,
                         heading: currentHeading,
+                        index: chunkIndex,
+                        text: chunkText,
                     })
                 }
             }
@@ -56,15 +56,19 @@ export function chunkMarkdown(content: string, maxChunkSize: number = 1000, chun
                 // Split current chunk
                 const textToChunk = currentChunk.slice(0, -1).join('\n').trim()
                 if (textToChunk.length > 0) {
+                    chunkIndex += 1
                     chunks.push({
-                        index: chunkIndex++,
-                        text: textToChunk,
                         heading: currentHeading,
+                        index: chunkIndex,
+                        text: textToChunk,
                     })
                 }
 
-                // Keep overlap at start of new chunk
-                const overlapLines = Math.floor(chunkOverlap / 50) // Rough estimate
+                /*
+                 * Keep overlap at start of new chunk
+                 * Rough estimate
+                 */
+                const overlapLines = Math.floor(chunkOverlap / 50)
                 currentChunk = currentChunk.slice(-overlapLines)
             }
         }
@@ -74,10 +78,11 @@ export function chunkMarkdown(content: string, maxChunkSize: number = 1000, chun
     if (currentChunk.length > 0) {
         const chunkText = currentChunk.join('\n').trim()
         if (chunkText.length > 0) {
+            chunkIndex += 1
             chunks.push({
-                index: chunkIndex++,
-                text: chunkText,
                 heading: currentHeading,
+                index: chunkIndex,
+                text: chunkText,
             })
         }
     }

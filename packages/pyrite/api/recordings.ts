@@ -1,6 +1,6 @@
 import {deleteRecording, loadRecordings, recordingPath} from '../lib/recording.ts'
 
-export default function(router: unknown) {
+export default function (router: unknown) {
     const routerTyped = router as {
         get: (
             path: string,
@@ -8,7 +8,7 @@ export default function(router: unknown) {
         ) => void
     }
 
-    routerTyped.get('/api/recordings/:groupid', async(_req: Request, params: Record<string, string>, _session: unknown) => {
+    routerTyped.get('/api/recordings/:groupid', async (_req: Request, params: Record<string, string>, _session: unknown) => {
         const groupId = params.param0
         const recordings = await loadRecordings(groupId)
         return new Response(JSON.stringify(recordings), {
@@ -18,7 +18,7 @@ export default function(router: unknown) {
 
     routerTyped.get(
         '/api/recordings/:groupid/:recording',
-        async(_req: Request, params: Record<string, string>, _session: unknown) => {
+        async (_req: Request, params: Record<string, string>, _session: unknown) => {
             const groupId = params.param0
             const recording = params.param1
             const recordingTarget = recordingPath(groupId, recording)
@@ -44,7 +44,7 @@ export default function(router: unknown) {
 
     routerTyped.get(
         '/api/recordings/:groupid/:recording/delete',
-        async(_req: Request, params: Record<string, string>, _session: unknown) => {
+        async (_req: Request, params: Record<string, string>, _session: unknown) => {
             const groupId = params.param0
             const recording = params.param1
 

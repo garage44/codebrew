@@ -4,9 +4,9 @@
  */
 
 export interface Skill {
-    name: string
     description: string
-    systemPrompt: string
-    guidelines: string[]
     examples: string[]
+    guidelines: string[]
+    name: string
+    systemPrompt: string
 }

@@ -3,8 +3,6 @@ import {
     volatileState as commonVolatileState,
 } from '@garage44/common/lib/state'
 import {mergeDeep} from '@garage44/common/lib/utils'
-
-// Pyrite state management using DeepSignal pattern
 import type {PyriteState} from '../types.ts'
 
 export const persistantState = mergeDeep({
@@ -20,7 +18,6 @@ export const persistantState = mergeDeep({
             selected: {id: null, name: ''},
         },
         cam: {
-            enabled: true,
             options: [],
             resolution: {id: 'default', name: ''},
             selected: {id: null, name: ''},
@@ -40,6 +37,12 @@ export const persistantState = mergeDeep({
         chat: {
             collapsed: false,
             width: 375,
+        },
+        conferenceMode: false,
+        context: {
+            collapsed: false,
+            expanded: false,
+            width: 350,
         },
     },
 }, commonPersistantState as Record<string, unknown>) as Partial<PyriteState>
@@ -72,6 +75,11 @@ export const volatileState = mergeDeep({
         message: '',
         width: 375,
     },
+    devices: {
+        cam: {
+            enabled: false,
+        },
+    },
     files: {
         playing: [],
         upload: [],
@@ -81,10 +89,25 @@ export const volatileState = mergeDeep({
     },
     mediaReady: false,
     notifications: [],
+    panels: {
+        chat: {
+            collapsed: false,
+            width: 375,
+        },
+        conferenceMode: false,
+        context: {
+            collapsed: false,
+            expanded: false,
+            width: 350,
+        },
+    },
     permissions: {
         op: false,
-        // Assume present permission before connecting,
-        // so send can be modified in Settings.
+
+        /*
+         * Assume present permission before connecting,
+         * so send can be modified in Settings.
+         */
         present: true,
         record: false,
     },
@@ -123,10 +146,4 @@ export const volatileState = mergeDeep({
         video: [],
     },
     users: [],
-    panels: {
-        chat: {
-            collapsed: false,
-            width: 375,
-        },
-    },
 }, commonVolatileState) as Partial<PyriteState>

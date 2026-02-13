@@ -1,9 +1,10 @@
 import {Database} from 'bun:sqlite'
-import {logger} from '../service.ts'
-import {groupTemplate, loadGroup} from './group.ts'
-import {config} from './config.ts'
 import fs from 'fs-extra'
 import path from 'node:path'
+
+import {logger} from '../service.ts'
+import {config} from './config.ts'
+import {groupTemplate, loadGroup} from './group.ts'
 
 /**
  * Channel Manager for Pyrite
@@ -289,10 +290,17 @@ export class ChannelManager {
     }
 
     /**
-     * Check if user can access channel (is member)
+     * Check if user can access channel
+     * Channels are public by default - all authenticated users can access them
+     * Membership is still tracked for role/permission purposes
      */
     canAccessChannel(channelId: number, userId: string): boolean {
-        return this.isMember(channelId, userId)
+        /*
+         * All authenticated users can access channels (public by default)
+         * Membership is still tracked for roles/permissions within channels
+         */
+        if (!userId) return false
+        return true
     }
 
     /**
@@ -348,7 +356,7 @@ export class ChannelManager {
             await this.saveGroupNativeGalene(groupName, groupData)
             logger.info(`[ChannelManager] Successfully synced channel "${channel.name}" to Galene group "${groupName}"`)
             return true
-        } catch(error) {
+        } catch (error) {
             logger.error(`[ChannelManager] Failed to sync channel "${channel.name}" to Galene:`, error)
             // Log the actual error message for debugging
             if (error instanceof Error) {
@@ -382,7 +390,7 @@ export class ChannelManager {
 
             logger.info(`[ChannelManager] Sync complete: ${success} succeeded, ${failed} failed`)
             return {failed, success}
-        } catch(error) {
+        } catch (error) {
             logger.error('[ChannelManager] Failed to sync channels to Galene:', error)
             return {failed: 0, success: 0}
         }
@@ -488,7 +496,7 @@ export class ChannelManager {
             }
             logger.warn(`[ChannelManager] Galene group file not found: ${groupFile}`)
             return false
-        } catch(error) {
+        } catch (error) {
             logger.error(`[ChannelManager] Failed to delete Galene group file for slug "${slug}":`, error)
             return false
         }

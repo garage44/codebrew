@@ -9,14 +9,7 @@ export const StreamControls = () => {
                     </span>
                     <span class='volume' title='Volume'>
                         <i aria-hidden='true' class='fas fa-volume-up volume-mute' />
-                        <input
-                            class='volume-slider'
-                            max='100'
-                            min='0'
-                            step='5'
-                            type='range'
-                            value='100'
-                        />
+                        <input class='volume-slider' max='100' min='0' step='5' type='range' value='100' />
                     </span>
                 </div>
                 <div class='controls-button controls-right'>

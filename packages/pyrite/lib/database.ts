@@ -1,8 +1,9 @@
-import {Database} from 'bun:sqlite'
 import {initDatabase as initCommonDatabase} from '@garage44/common/lib/database'
-import {logger} from '../service.ts'
-import path from 'node:path'
+import {Database} from 'bun:sqlite'
 import {homedir} from 'node:os'
+import path from 'node:path'
+
+import {logger} from '../service.ts'
 
 /**
  * SQLite Database for Pyrite
@@ -95,7 +96,7 @@ function createPyriteTables() {
             db.exec('ALTER TABLE channels ADD COLUMN is_default INTEGER NOT NULL DEFAULT 0')
             logger.info('[Database] Added is_default column to channels table')
         }
-    } catch(alterError) {
+    } catch (alterError) {
         logger.warn('[Database] Failed to check/add is_default column:', alterError)
     }
 
@@ -219,7 +220,7 @@ export async function initializeDefaultData() {
                 if (syncResult.failed > 0) {
                     logger.warn(`[Database] Failed to sync ${syncResult.failed} channel(s) to Galene`)
                 }
-            } catch(syncError) {
+            } catch (syncError) {
                 logger.error('[Database] Failed to sync default channels to Galene (non-fatal):', syncError)
                 // Don't fail initialization if sync fails - channels are still created
             }
@@ -229,7 +230,7 @@ export async function initializeDefaultData() {
                 const {syncUsersToGalene} = await import('./sync.ts')
                 await syncUsersToGalene()
                 logger.info('[Database] Synced users to Galene (global config and group files)')
-            } catch(syncError) {
+            } catch (syncError) {
                 logger.error('[Database] Failed to sync users to Galene (non-fatal):', syncError)
                 // Don't fail initialization if sync fails - users can be synced later
             }
@@ -238,7 +239,7 @@ export async function initializeDefaultData() {
         } else {
             logger.info(`[Database] Channels already exist (${channelCount.count}), skipping default data initialization`)
         }
-    } catch(error) {
+    } catch (error) {
         logger.error('[Database] Error initializing Pyrite default data:', error)
         throw error
     }
