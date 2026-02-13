@@ -28,14 +28,14 @@
  * @param {number[]|Uint8Array} array - the array to format
  * @returns {string} - the hexadecimal representation of array
  */
-function toHex(array: Uint8Array): string {
+function toHex(array) {
     const a = new Uint8Array(array)
-    function hex(x: number): string {
+    function hex(x) {
         let h = x.toString(16)
         if (h.length < 2) {h = '0' + h}
         return h
     }
-    return a.reduce((x: string, y: number): string => x + hex(y), '')
+    return a.reduce((x, y) => x + hex(y), '')
 }
 
 /**
@@ -43,7 +43,7 @@ function toHex(array: Uint8Array): string {
  *
  * @returns {string}
  */
-export function newRandomId(): string {
+export function newRandomId() {
     const a = new Uint8Array(16)
     crypto.getRandomValues(a)
     return toHex(a)
@@ -56,9 +56,9 @@ let localIdCounter = 0
  *
  * @returns {string}
  */
-function newLocalId(): string {
+function newLocalId() {
     const id = `${localIdCounter}`
-    localIdCounter += 1
+    localIdCounter++
     return id
 }
 
@@ -75,7 +75,7 @@ function newLocalId(): string {
  * all the associated streams.
  * @constructor
  */
-export function ServerConnection(): ServerConnection {
+export function ServerConnection() {
     /**
      * The id of this connection.
      *
@@ -268,7 +268,7 @@ export function ServerConnection(): ServerConnection {
  * Close forcibly closes a server connection.  The onclose callback will
  * be called when the connection is effectively closed.
  */
-ServerConnection.prototype.close = function close(): void {
+ServerConnection.prototype.close = function close() {
     this.socket && this.socket.close(1000, 'Close requested by client')
     this.socket = null
 }
@@ -277,7 +277,7 @@ ServerConnection.prototype.close = function close(): void {
  * Send sends a message to the server.
  * @param {message} m - the message to send.
  */
-ServerConnection.prototype.send = function send(m: unknown): void {
+ServerConnection.prototype.send = function send(m) {
     if (!this.socket || this.socket.readyState !== this.socket.OPEN) {
         // Send on a closed socket doesn't throw
         throw new Error('Connection is not open')
@@ -292,7 +292,7 @@ ServerConnection.prototype.send = function send(m: unknown): void {
  * @returns {Promise<ServerConnection>}
  * @function
  */
-ServerConnection.prototype.connect = async function connect(url: string): Promise<void> {
+ServerConnection.prototype.connect = async function connect(url) {
     const sc = this
     console.log('[SFU Protocol] connect() called with URL:', url)
     console.log('[SFU Protocol] Current socket state:', sc.socket ? `exists (readyState: ${sc.socket.readyState})` : 'null')
@@ -308,14 +308,14 @@ ServerConnection.prototype.connect = async function connect(url: string): Promis
     console.log('[SFU Protocol] WebSocket created, initial readyState:', sc.socket.readyState)
 
     return await new Promise((resolve, reject) => {
-        this.socket.onerror = function onerror(e: Event): void {
+        this.socket.onerror = function onerror(e) {
             if (sc.socket === null) {return}
             console.error('[SFU Protocol] WebSocket error event:', e)
             console.error('[SFU Protocol] WebSocket error - readyState:', sc.socket?.readyState ?? 'socket null')
             console.error('[SFU Protocol] WebSocket error - URL:', url)
             reject(e)
         }
-        this.socket.onopen = function onopen(e: Event): void {
+        this.socket.onopen = function onopen(e) {
             console.log('[SFU Protocol] WebSocket opened successfully')
             console.log('[SFU Protocol] Sending handshake message')
             sc.send({
@@ -329,7 +329,7 @@ ServerConnection.prototype.connect = async function connect(url: string): Promis
             }
             resolve(sc)
         }
-        this.socket.onclose = function onclose(e: CloseEvent): void {
+        this.socket.onclose = function onclose(e) {
             console.log('[SFU Protocol] WebSocket closed:', e.code, e.reason || 'no reason')
             console.log('[SFU Protocol] Close was clean:', e.wasClean)
             sc.permissions = []
@@ -351,7 +351,7 @@ ServerConnection.prototype.connect = async function connect(url: string): Promis
             if (sc.onclose) {sc.onclose.call(sc, e.code, e.reason)}
             reject(new Error('websocket close ' + e.code + ' ' + e.reason))
         }
-        this.socket.onmessage = function onmessage(e: MessageEvent): void {
+        this.socket.onmessage = function onmessage(e) {
             const m = JSON.parse(e.data)
             switch (m.type) {
                 case 'handshake': {
@@ -484,7 +484,7 @@ ServerConnection.prototype.connect = async function connect(url: string): Promis
  * @param {string|Object} credentials - password or authServer.
  * @param {Object<string,any>} [data] - the initial associated data.
  */
-ServerConnection.prototype.join = async function join(group: string, username: string, credentials: unknown, data: unknown): Promise<void> {
+ServerConnection.prototype.join = async function join(group, username, credentials, data) {
     const m: {
         data?: any
         group: any
@@ -568,7 +568,7 @@ ServerConnection.prototype.join = async function join(group: string, username: s
  *
  * @param {string} group - The name of the group to join.
  */
-ServerConnection.prototype.leave = function leave(group: string): void {
+ServerConnection.prototype.leave = function leave(group) {
     this.send({
         group: group,
         kind: 'leave',
@@ -583,7 +583,7 @@ ServerConnection.prototype.leave = function leave(group: string): void {
  *     - A dictionary that maps labels to a sequence of 'audio', 'video'
  *       or 'video-low.  An entry with an empty label '' provides the default.
  */
-ServerConnection.prototype.request = function request(what: Record<string, string[]>): void {
+ServerConnection.prototype.request = function request(what) {
     this.send({
         request: what,
         type: 'request',
@@ -597,7 +597,7 @@ ServerConnection.prototype.request = function request(what: Record<string, strin
  * @param {string} localId
  * @returns {Stream}
  */
-ServerConnection.prototype.findByLocalId = function findByLocalId(localId: string): Stream | null {
+ServerConnection.prototype.findByLocalId = function findByLocalId(localId) {
     if (!localId) {return null}
 
     const sc = this
@@ -616,7 +616,7 @@ ServerConnection.prototype.findByLocalId = function findByLocalId(localId: strin
  *
  * @returns {RTCConfiguration}
  */
-ServerConnection.prototype.getRTCConfiguration = function getRTCConfiguration(): RTCConfiguration {
+ServerConnection.prototype.getRTCConfiguration = function getRTCConfiguration() {
     if (this.onpeerconnection) {
         const conf = this.onpeerconnection.call(this)
         if (conf !== null) {return conf}
@@ -632,7 +632,7 @@ ServerConnection.prototype.getRTCConfiguration = function getRTCConfiguration():
  *     the same local id, it is replaced with the new stream.
  * @returns {Stream}
  */
-ServerConnection.prototype.newUpStream = function newUpStream(localId?: string): Stream {
+ServerConnection.prototype.newUpStream = function newUpStream(localId) {
     const sc = this
     const id = newRandomId()
     if (sc.up[id]) {throw new Error('Eek!')}
@@ -681,7 +681,7 @@ ServerConnection.prototype.newUpStream = function newUpStream(localId?: string):
  * @param {string} dest - The id to send the message to, empty for broadcast.
  * @param {string} value - The text of the message.
  */
-ServerConnection.prototype.chat = function chat(kind: string, dest: string, value: string): void {
+ServerConnection.prototype.chat = function chat(kind, dest, value) {
     this.send({
         dest: dest,
         kind: kind,
@@ -699,7 +699,7 @@ ServerConnection.prototype.chat = function chat(kind: string, dest: string, valu
  * @param {string} dest - The id of the user to act upon.
  * @param {any} [value] - An action-dependent parameter.
  */
-ServerConnection.prototype.userAction = function userAction(kind: string, dest: string, value: unknown): void {
+ServerConnection.prototype.userAction = function userAction(kind, dest, value) {
     this.send({
         dest: dest,
         kind: kind,
@@ -719,7 +719,7 @@ ServerConnection.prototype.userAction = function userAction(kind: string, dest: 
  * @param {unknown} [value] - An optional parameter.
  * @param {boolean} [noecho] - If set, don't echo back the message to the sender.
  */
-ServerConnection.prototype.userMessage = function userMessage(kind: string, dest: string, value: unknown, noecho?: boolean): void {
+ServerConnection.prototype.userMessage = function userMessage(kind, dest, value, noecho) {
     this.send({
         dest: dest,
         kind: kind,
@@ -738,7 +738,7 @@ ServerConnection.prototype.userMessage = function userMessage(kind: string, dest
  *     - One of 'clearchat', 'lock', 'unlock', 'record' or 'unrecord'.
  * @param {string} [message] - An optional user-readable message.
  */
-ServerConnection.prototype.groupAction = function groupAction(kind: string, message?: string): void {
+ServerConnection.prototype.groupAction = function groupAction(kind, message) {
     this.send({
         kind: kind,
         source: this.id,
@@ -759,7 +759,7 @@ ServerConnection.prototype.groupAction = function groupAction(kind: string, mess
  * @param {string} replace
  * @function
  */
-ServerConnection.prototype.gotOffer = async function gotOffer(id: string, label: string, source: string, username: string, sdp: string, replace?: string): Promise<void> {
+ServerConnection.prototype.gotOffer = async function gotOffer(id, label, source, username, sdp, replace) {
     const sc = this
 
     if (sc.up[id]) {
@@ -800,7 +800,7 @@ ServerConnection.prototype.gotOffer = async function gotOffer(id: string, label:
         c.label = label
         sc.down[id] = c
 
-        c.pc.onicecandidate = function onicecandidate(e: RTCPeerConnectionIceEvent): void {
+        c.pc.onicecandidate = function onicecandidate(e) {
             if (!e.candidate) {return}
             c.gotLocalIce(e.candidate)
         }
@@ -815,7 +815,7 @@ ServerConnection.prototype.gotOffer = async function gotOffer(id: string, label:
             }
         }
 
-        c.pc.ontrack = function ontrack(e: RTCTrackEvent): void {
+        c.pc.ontrack = function ontrack(e) {
             if (e.streams.length < 1) {
                 console.error('Got track with no stream')
                 return
@@ -874,7 +874,7 @@ ServerConnection.prototype.gotOffer = async function gotOffer(id: string, label:
  * @param {string} sdp
  * @function
  */
-ServerConnection.prototype.gotAnswer = async function gotAnswer(id: string, sdp: string): Promise<void> {
+ServerConnection.prototype.gotAnswer = async function gotAnswer(id, sdp) {
     const c = this.up[id]
     if (!c) {throw new Error('unknown up stream')}
     try {
@@ -901,7 +901,7 @@ ServerConnection.prototype.gotAnswer = async function gotAnswer(id: string, sdp:
  * @param {string} id
  * @function
  */
-ServerConnection.prototype.gotRenegotiate = function gotRenegotiate(id: string): void {
+ServerConnection.prototype.gotRenegotiate = function gotRenegotiate(id) {
     const c = this.up[id]
     if (!c) {throw new Error('unknown up stream')}
     c.restartIce()
@@ -913,7 +913,7 @@ ServerConnection.prototype.gotRenegotiate = function gotRenegotiate(id: string):
  *
  * @param {string} id
  */
-ServerConnection.prototype.gotClose = function gotClose(id: string): void {
+ServerConnection.prototype.gotClose = function gotClose(id) {
     const c = this.down[id]
     if (!c) {
         console.warn('unknown down stream', id)
@@ -939,7 +939,7 @@ ServerConnection.prototype.gotClose = function gotClose(id: string): void {
  *
  * @param {string} id
  */
-ServerConnection.prototype.gotAbort = function gotAbort(id: string): void {
+ServerConnection.prototype.gotAbort = function gotAbort(id) {
     const c = this.up[id]
     if (!c) {throw new Error('unknown up stream')}
     c.close()
@@ -953,7 +953,7 @@ ServerConnection.prototype.gotAbort = function gotAbort(id: string): void {
  * @param {RTCIceCandidate} candidate
  * @function
  */
-ServerConnection.prototype.gotRemoteIce = async function gotRemoteIce(id: string, candidate: RTCIceCandidate): Promise<void> {
+ServerConnection.prototype.gotRemoteIce = async function gotRemoteIce(id, candidate) {
     let c = this.up[id]
     if (!c) {c = this.down[id]}
     if (!c) {
@@ -986,7 +986,7 @@ ServerConnection.prototype.gotRemoteIce = async function gotRemoteIce(id: string
  *
  * @constructor
  */
-function Stream(sc: ServerConnection, id: string, localId: string, pc: RTCPeerConnection, up: boolean): Stream {
+function Stream(sc, id, localId, pc, up) {
     /**
      * The associated ServerConnection.
      *
@@ -1166,7 +1166,7 @@ function Stream(sc: ServerConnection, id: string, localId: string, pc: RTCPeerCo
  *
  * @param {MediaStream} stream
  */
-Stream.prototype.setStream = function setStream(stream: MediaStream): void {
+Stream.prototype.setStream = function setStream(stream) {
     const c = this
     c.stream = stream
     const changed = recomputeUserStreams(c.sc, c.sc.id)
@@ -1183,7 +1183,7 @@ Stream.prototype.setStream = function setStream(stream: MediaStream): void {
  * @param {boolean} [replace]
  *    - true if the stream is being replaced by another one with the same id
  */
-Stream.prototype.close = function close(replace?: boolean): void {
+Stream.prototype.close = function close(replace) {
     const c = this
 
     if (!c.sc) {
@@ -1210,18 +1210,11 @@ Stream.prototype.close = function close(replace?: boolean): void {
     let userid
     if (c.up) {
         userid = c.sc.id
-        if (c.sc.up[c.id] === c) {
-            // eslint-disable-next-line no-dynamic-delete
-            delete c.sc.up[c.id]
-        } else {
-            console.warn('Closing unknown stream')
-        }
+        if (c.sc.up[c.id] === c) {delete c.sc.up[c.id]}
+        else {console.warn('Closing unknown stream')}
     } else {
         userid = c.source
-        if (c.sc.down[c.id] === c) {
-            // eslint-disable-next-line no-dynamic-delete
-            delete c.sc.down[c.id]
-        }
+        if (c.sc.down[c.id] === c) {delete c.sc.down[c.id]}
         else {console.warn('Closing unknown stream')}
     }
     const changed = recomputeUserStreams(c.sc, userid)
@@ -1243,7 +1236,7 @@ Stream.prototype.close = function close(replace?: boolean): void {
  * @param {string} id
  * @returns {boolean}
  */
-function recomputeUserStreams(sc: ServerConnection, id: string): boolean {
+function recomputeUserStreams(sc, id) {
     const user = sc.users[id]
     if (!user) {
         console.warn('recomputing streams for unknown user')
@@ -1257,7 +1250,7 @@ function recomputeUserStreams(sc: ServerConnection, id: string): boolean {
         const c = streams[id]
         if (!c.stream) {continue}
         if (!user.streams[c.label]) {user.streams[c.label] = {}}
-        c.stream.getTracks().forEach((t): void => {
+        c.stream.getTracks().forEach((t) => {
             user.streams[c.label][t.kind] = true
         })
     }
@@ -1268,7 +1261,7 @@ function recomputeUserStreams(sc: ServerConnection, id: string): boolean {
 /**
  * Abort requests that the server close a down stream.
  */
-Stream.prototype.abort = function abort(): void {
+Stream.prototype.abort = function abort() {
     const c = this
     if (c.up) {throw new Error('Abort called on an up stream')}
     c.sc.send({
@@ -1283,7 +1276,7 @@ Stream.prototype.abort = function abort(): void {
  * @param {RTCIceCandidate} candidate
  * @function
  */
-Stream.prototype.gotLocalIce = function gotLocalIce(candidate: RTCIceCandidate): void {
+Stream.prototype.gotLocalIce = function gotLocalIce(candidate) {
     const c = this
     if (c.localDescriptionSent) {c.sc.send({
         candidate: candidate,
@@ -1299,7 +1292,7 @@ Stream.prototype.gotLocalIce = function gotLocalIce(candidate: RTCIceCandidate):
  *
  * @function
  */
-Stream.prototype.flushLocalIceCandidates = function flushLocalIceCandidates(): void {
+Stream.prototype.flushLocalIceCandidates = function flushLocalIceCandidates() {
     const c = this
     const candidates = c.localIceCandidates
     c.localIceCandidates = []
@@ -1323,14 +1316,14 @@ Stream.prototype.flushLocalIceCandidates = function flushLocalIceCandidates(): v
  *
  * @function
  */
-Stream.prototype.flushRemoteIceCandidates = async function flushRemoteIceCandidates(): Promise<void[]> {
+Stream.prototype.flushRemoteIceCandidates = async function flushRemoteIceCandidates() {
     const c = this
     const candidates = c.remoteIceCandidates
     c.remoteIceCandidates = []
 
     /** @type {Array.<Promise<void>>} */
     const promises = []
-    candidates.forEach((candidate): void => {
+    candidates.forEach((candidate) => {
         promises.push(c.pc.addIceCandidate(candidate).catch(console.warn))
     })
     return await Promise.all(promises)
@@ -1345,7 +1338,7 @@ Stream.prototype.flushRemoteIceCandidates = async function flushRemoteIceCandida
  * @function
  * @param {boolean} [restartIce] - Whether to restart ICE.
  */
-Stream.prototype.negotiate = async function negotiate(restartIce?: boolean): Promise<void> {
+Stream.prototype.negotiate = async function negotiate(restartIce) {
     const c = this
     if (!c.up) {throw new Error('not an up stream')}
 
@@ -1378,7 +1371,7 @@ Stream.prototype.negotiate = async function negotiate(restartIce?: boolean): Pro
  * it returns immediately, negotiation will happen asynchronously.
  */
 
-Stream.prototype.restartIce = function restartIce(): void {
+Stream.prototype.restartIce = function restartIce() {
     const c = this
     if (!c.up) {
         c.sc.send({
@@ -1407,7 +1400,7 @@ Stream.prototype.restartIce = function restartIce(): void {
  *
  * @param {Array<string>} what - a sequence of 'audio', 'video' or 'video-low'.
  */
-Stream.prototype.request = function request(what: string[]): void {
+Stream.prototype.request = function request(what) {
     const c = this
     c.sc.send({
         id: c.id,
@@ -1422,7 +1415,7 @@ Stream.prototype.request = function request(what: string[]): void {
  *
  * @function
  */
-Stream.prototype.updateStats = async function updateStats(): Promise<void> {
+Stream.prototype.updateStats = async function updateStats() {
     const c = this
     const old = c.stats
 
@@ -1500,7 +1493,7 @@ Stream.prototype.updateStats = async function updateStats(): Promise<void> {
  *
  * @param {number} ms - The interval in milliseconds.
  */
-Stream.prototype.setStatsInterval = function setStatsInterval(ms: number): void {
+Stream.prototype.setStatsInterval = function setStatsInterval(ms) {
     const c = this
     if (c.statsHandler) {
         clearInterval(c.statsHandler)
@@ -1509,7 +1502,7 @@ Stream.prototype.setStatsInterval = function setStatsInterval(ms: number): void 
 
     if (ms <= 0) {return}
 
-    c.statsHandler = setInterval((): void => {
+    c.statsHandler = setInterval(() => {
         c.updateStats()
     }, ms)
 }
@@ -1534,7 +1527,7 @@ Stream.prototype.setStatsInterval = function setStatsInterval(ms: number): void 
  * @parm {number} size
  * @constructor
  */
-function TransferredFile(sc: ServerConnection, userid: string, id: string, up: boolean, username: string, name: string, mimetype: string, size: number): TransferredFile {
+function TransferredFile(sc, userid, id, up, username, name, mimetype, size) {
     /**
      * The server connection this file is associated with.
      *
@@ -1659,7 +1652,7 @@ function TransferredFile(sc: ServerConnection, userid: string, id: string, up: b
  * The full id of this file transfer, used as a key in the transferredFiles
  * dictionary.
  */
-TransferredFile.prototype.fullid = function fullid(): string {
+TransferredFile.prototype.fullid = function fullid() {
     return this.userid + (this.up ? '+' : '-') + this.id
 }
 
@@ -1671,7 +1664,7 @@ TransferredFile.prototype.fullid = function fullid(): string {
  * @param {boolean} up
  * @returns {TransferredFile}
  */
-ServerConnection.prototype.getTransferredFile = function getTransferredFile(userid: string, fileid: string, up: boolean): TransferredFile | undefined {
+ServerConnection.prototype.getTransferredFile = function getTransferredFile(userid, fileid, up) {
     return this.transferredFiles[userid + (up ? '+' : '-') + fileid]
 }
 
@@ -1679,7 +1672,7 @@ ServerConnection.prototype.getTransferredFile = function getTransferredFile(user
  * Close a file transfer and remove it from the transferredFiles dictionary.
  * Do not call this, call 'cancel' instead.
  */
-TransferredFile.prototype.close = function close(): void {
+TransferredFile.prototype.close = function close() {
     const f = this
     if (f.state === 'closed') {return}
     if (f.state !== 'done' && f.state !== 'cancelled') {console.warn(
@@ -1704,7 +1697,7 @@ TransferredFile.prototype.close = function close(): void {
  *
  * @param {Blob|ArrayBuffer} data
  */
-TransferredFile.prototype.bufferData = function bufferData(data: Uint8Array): void {
+TransferredFile.prototype.bufferData = function bufferData(data) {
     const f = this
     if (f.up) {throw new Error('buffering data in the wrong direction')}
     if (data instanceof Blob) {
@@ -1722,7 +1715,7 @@ TransferredFile.prototype.bufferData = function bufferData(data: Uint8Array): vo
  *
  * @returns {Blob}
  */
-TransferredFile.prototype.getBufferedData = function getBufferedData(): Uint8Array {
+TransferredFile.prototype.getBufferedData = function getBufferedData() {
     const f = this
     if (f.up) {throw new Error('buffering data in wrong direction')}
     const blob = new Blob(f.data, {type: f.mimetype})
@@ -1741,7 +1734,7 @@ TransferredFile.prototype.getBufferedData = function getBufferedData(): Uint8Arr
  * @param {string} state
  * @param {any} [data]
  */
-TransferredFile.prototype.event = function event(state: string, data: unknown): void {
+TransferredFile.prototype.event = function event(state, data) {
     const f = this
     f.state = state
     if (f.onevent) {f.onevent.call(f, state, data)}
@@ -1756,7 +1749,7 @@ TransferredFile.prototype.event = function event(state: string, data: unknown): 
  *
  * @param {string|Error} [data]
  */
-TransferredFile.prototype.cancel = function cancel(data: unknown): void {
+TransferredFile.prototype.cancel = function cancel(data) {
     const f = this
     if (f.state === 'closed') {return}
     if (f.state !== '' && f.state !== 'done' && f.state !== 'cancelled') {
@@ -1783,7 +1776,7 @@ TransferredFile.prototype.cancel = function cancel(data: unknown): void {
  *
  * @param {string|Error} [data]
  */
-TransferredFile.prototype.fail = function fail(data: unknown): void {
+TransferredFile.prototype.fail = function fail(data) {
     const f = this
     if (f.state === 'done' || f.state === 'cancelled' || f.state === 'closed') {return}
     f.event('cancelled', data)
@@ -1799,7 +1792,7 @@ TransferredFile.prototype.fail = function fail(data: unknown): void {
  * @param {string} id
  * @param {File} file
  */
-ServerConnection.prototype.sendFile = function sendFile(id: string, file: File): void {
+ServerConnection.prototype.sendFile = function sendFile(id, file) {
     const sc = this
     const fileid = newRandomId()
     const user = sc.users[id]
@@ -1835,7 +1828,7 @@ ServerConnection.prototype.sendFile = function sendFile(id: string, file: File):
  * file (up field set to false).  If you wish to reject the file transfer,
  * call cancel instead.
  */
-TransferredFile.prototype.receive = async function receive(): Promise<void> {
+TransferredFile.prototype.receive = async function receive() {
     const f = this
     if (f.up) {throw new Error('Receiving in wrong direction')}
     if (f.pc) {throw new Error('Download already in progress')}
@@ -1849,15 +1842,13 @@ TransferredFile.prototype.receive = async function receive(): Promise<void> {
     f.event('connecting')
 
     f.candidates = []
-    pc.onsignalingstatechange = function onsignalingstatechange(e: Event): void {
+    pc.onsignalingstatechange = function onsignalingstatechange(e) {
         if (pc.signalingState === 'stable') {
-            f.candidates.forEach((c): void => {
-                pc.addIceCandidate(c).catch(console.warn)
-            })
+            f.candidates.forEach((c) => pc.addIceCandidate(c).catch(console.warn))
             f.candidates = []
         }
     }
-    pc.onicecandidate = function onicecandidate(e: RTCPeerConnectionIceEvent): void {
+    pc.onicecandidate = function onicecandidate(e) {
         f.sc.userMessage('filetransfer', f.userid, {
             candidate: e.candidate,
             id: f.id,
@@ -1867,15 +1858,13 @@ TransferredFile.prototype.receive = async function receive(): Promise<void> {
     f.dc = pc.createDataChannel('file')
     f.data = []
     f.datalen = 0
-    f.dc.onclose = function onclose(e: Event): void {
+    f.dc.onclose = function onclose(e) {
         f.cancel('remote peer closed connection')
     }
-    f.dc.onmessage = function onmessage(e: MessageEvent): void {
-        f.receiveData(e.data).catch((error: unknown): void => {
-            f.cancel(error)
-        })
+    f.dc.onmessage = function onmessage(e) {
+        f.receiveData(e.data).catch((error) => f.cancel(error))
     }
-    f.dc.onerror = function onerror(e: Event): void {
+    f.dc.onerror = function onerror(e) {
         const err = e.error
         f.cancel(err)
     }
@@ -1897,7 +1886,7 @@ TransferredFile.prototype.receive = async function receive(): Promise<void> {
  *
  * @param {string} sdp
  */
-TransferredFile.prototype.answer = async function(sdp: string): Promise<void> {
+TransferredFile.prototype.answer = async function(sdp) {
     const f = this
     if (!f.up) {throw new Error('Sending file in wrong direction')}
     if (f.pc) {throw new Error('Transfer already in progress')}
@@ -1911,35 +1900,33 @@ TransferredFile.prototype.answer = async function(sdp: string): Promise<void> {
     f.event('connecting')
 
     f.candidates = []
-    pc.onicecandidate = function onicecandidate(e: RTCPeerConnectionIceEvent): void {
+    pc.onicecandidate = function onicecandidate(e) {
         f.sc.userMessage('filetransfer', f.userid, {
             candidate: e.candidate,
             id: f.id,
             type: 'upice',
         })
     }
-    pc.onsignalingstatechange = function onsignalingstatechange(e: Event): void {
+    pc.onsignalingstatechange = function onsignalingstatechange(e) {
         if (pc.signalingState === 'stable') {
-            f.candidates.forEach((c): void => {
-                pc.addIceCandidate(c).catch(console.warn)
-            })
+            f.candidates.forEach((c) => pc.addIceCandidate(c).catch(console.warn))
             f.candidates = []
         }
     }
-    pc.ondatachannel = function ondatachannel(e: RTCDataChannelEvent): void {
+    pc.ondatachannel = function ondatachannel(e) {
         if (f.dc) {
             f.cancel(new Error('Duplicate datachannel'))
             return
         }
         f.dc = /** @type{RTCDataChannel} */e.channel
-        f.dc.onclose = function onclose(e: Event): void {
+        f.dc.onclose = function onclose(e) {
             f.cancel('remote peer closed connection')
         }
-        f.dc.onerror = function onerror(e: Event): void {
+        f.dc.onerror = function onerror(e) {
             const err = e.error
             f.cancel(err)
         }
-        f.dc.onmessage = function onmessage(e: MessageEvent): void {
+        f.dc.onmessage = function onmessage(e) {
             if (e.data === 'done' && f.datalen === f.size) {
                 f.event('done')
                 f.dc.onclose = null
@@ -1949,9 +1936,7 @@ TransferredFile.prototype.answer = async function(sdp: string): Promise<void> {
                 f.cancel(new Error('unexpected data from receiver'))
             }
         }
-        f.send().catch((error: unknown): void => {
-            f.cancel(error)
-        })
+        f.send().catch((error) => f.cancel(error))
     }
 
     await pc.setRemoteDescription({
@@ -1975,21 +1960,21 @@ TransferredFile.prototype.answer = async function(sdp: string): Promise<void> {
  * Transfer file data.  Don't call this, it is called automatically
  * after negotiation completes.
  */
-TransferredFile.prototype.send = async function send(): Promise<void> {
+TransferredFile.prototype.send = async function send() {
     const f = this
     if (!f.up) {throw new Error('sending in wrong direction')}
     const r = f.file.stream().getReader()
 
     f.dc.bufferedAmountLowThreshold = 65_536
 
-    async function write(a: Uint8Array): Promise<void> {
+    async function write(a) {
         while (f.dc.bufferedAmount > f.dc.bufferedAmountLowThreshold) {
             await new Promise<void>((resolve, reject) => {
                 if (!f.dc) {
                     reject(new Error('File is closed.'))
                     return
                 }
-                f.dc.onbufferedamountlow = function onbufferedamountlow(e: Event): void {
+                f.dc.onbufferedamountlow = function onbufferedamountlow(e) {
                     if (!f.dc) {
                         reject(new Error('File is closed.'))
                         return
@@ -2038,7 +2023,7 @@ TransferredFile.prototype.send = async function send(): Promise<void> {
  *
  * @param {string} sdp
  */
-TransferredFile.prototype.receiveFile = async function receiveFile(sdp: string): Promise<void> {
+TransferredFile.prototype.receiveFile = async function receiveFile(sdp) {
     const f = this
     if (f.up) {throw new Error('Receiving in wrong direction')}
     await f.pc.setRemoteDescription({
@@ -2053,7 +2038,7 @@ TransferredFile.prototype.receiveFile = async function receiveFile(sdp: string):
  *
  * @param {Blob|ArrayBuffer} data
  */
-TransferredFile.prototype.receiveData = async function receiveData(data: Uint8Array): Promise<void> {
+TransferredFile.prototype.receiveData = async function receiveData(data) {
     const f = this
     if (f.up) {throw new Error('Receiving in wrong direction')}
     f.bufferData(data)
@@ -2074,14 +2059,14 @@ TransferredFile.prototype.receiveData = async function receiveData(data: Uint8Ar
     f.event('done', blob)
 
     await new Promise<void>((resolve, reject) => {
-        const timer = setTimeout(function(): void {
+        const timer = setTimeout(function(e) {
             resolve()
         }, 2000)
-        f.dc.onclose = function onclose(e: Event): void {
+        f.dc.onclose = function onclose(e) {
             clearTimeout(timer)
             resolve()
         }
-        f.dc.onerror = function onerror(e: Event): void {
+        f.dc.onerror = function onerror(e) {
             clearTimeout(timer)
             resolve()
         }
@@ -2130,9 +2115,7 @@ ServerConnection.prototype.fileTransfer = function fileTransfer(id, username, me
                 console.error('Unexpected offer for file transfer')
                 return
             }
-            f.answer(message.sdp).catch((error: unknown): void => {
-                f.cancel(error)
-            })
+            f.answer(message.sdp).catch((error) => f.cancel(error))
             break
         }
         case 'answer': {
@@ -2141,9 +2124,7 @@ ServerConnection.prototype.fileTransfer = function fileTransfer(id, username, me
                 console.error('Unexpected answer for file transfer')
                 return
             }
-            f.receiveFile(message.sdp).catch((error: unknown): void => {
-                f.cancel(error)
-            })
+            f.receiveFile(message.sdp).catch((error) => f.cancel(error))
             break
         }
         case 'downice':

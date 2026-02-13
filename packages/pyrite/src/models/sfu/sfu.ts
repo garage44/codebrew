@@ -57,13 +57,17 @@ export async function addFileMedia(file: File): Promise<unknown> {
         mirror: false,
         src: file,
     })
-    glnStream.label = 'video'
-    $s.upMedia[glnStream.label].push(glnStream.id)
-    glnStream.userdata.play = true
-    return glnStream
+    const typedGlnStream = glnStream as StreamObject & {userdata?: {play?: boolean}}
+    typedGlnStream.label = 'video'
+    $s.upMedia[typedGlnStream.label].push(typedGlnStream.id)
+    if (!typedGlnStream.userdata) {
+        typedGlnStream.userdata = {}
+    }
+    typedGlnStream.userdata.play = true
+    return typedGlnStream
 }
 
-export async function addShareMedia(): Promise<void> {
+export async function addShareMedia(): Promise<MediaStream> {
     logger.info('add share media')
 
     // Validate connection is ready
@@ -103,17 +107,19 @@ export async function addShareMedia(): Promise<void> {
             direction: 'up',
             mirror: false,
         })
-        ({ glnStream } = result)
-        ({ streamState } = result)
+        const {glnStream: resultGlnStream, streamState: resultStreamState} = result
+        glnStream = resultGlnStream as StreamObject
+        streamState = resultStreamState
     } catch(error) {
         // Clean up the stream if we failed to create upstream
         stream.getTracks().forEach((t) => t.stop())
         throw error
     }
 
-    glnStream.label = 'screenshare'
-    $s.upMedia[glnStream.label].push(glnStream.id)
-    glnStream.stream = stream
+    const typedGlnStream = glnStream as StreamObject
+    typedGlnStream.label = 'screenshare'
+    $s.upMedia[typedGlnStream.label!].push(typedGlnStream.id)
+    typedGlnStream.stream = stream
 
     stream.getTracks().forEach((t) => {
         if (t.kind === 'audio') {
@@ -122,7 +128,7 @@ export async function addShareMedia(): Promise<void> {
             streamState.hasVideo = true
         }
         try {
-            glnStream.pc.addTrack(t, stream)
+            typedGlnStream.pc!.addTrack(t, stream)
         } catch(error) {
             logger.error(`[SFU] addShareMedia: failed to add track: ${error}`)
             // Clean up on error
@@ -131,13 +137,13 @@ export async function addShareMedia(): Promise<void> {
             throw error
         }
         // Screensharing was stopped; e.g. through browser ui.
-        t.onended = () => {
+        t.onended = (): void => {
             logger.debug('[SFU] Screen share track ended, removing stream')
             delUpMedia(glnStream)
         }
     })
 
-    return glnStream
+    return stream
 }
 
 export async function addUserMedia(): Promise<void> {
@@ -200,12 +206,13 @@ export async function addUserMedia(): Promise<void> {
         direction: 'up',
         mirror: false,
     })
-    glnStream.label = 'camera'
-    glnStream.stream = localStream
-    localGlnStream = glnStream
+    const typedGlnStream = glnStream as StreamObject
+    typedGlnStream.label = 'camera'
+    typedGlnStream.stream = localStream
+    localGlnStream = typedGlnStream
 
-    logger.debug(`[sfu] upstream stream created: id=${glnStream.id}, label=${glnStream.label}`)
-    $s.upMedia[glnStream.label].push(glnStream.id)
+    logger.debug(`[sfu] upstream stream created: id=${typedGlnStream.id}, label=${typedGlnStream.label}`)
+    $s.upMedia[typedGlnStream.label!].push(typedGlnStream.id)
 
     logger.debug(`[sfu] adding tracks to peer connection: ${localStream.getTracks().map((t) => t.kind).join(', ')}`)
     localStream.getTracks().forEach((t) => {
@@ -221,24 +228,24 @@ export async function addUserMedia(): Promise<void> {
                 t.contentHint = 'detail'
             }
         }
-        glnStream.pc.addTrack(t, localStream)
+        typedGlnStream.pc!.addTrack(t, localStream)
     })
 
     logger.debug(`[sfu] streamState: hasAudio=${streamState.hasAudio}, hasVideo=${streamState.hasVideo}, id=${streamState.id}`)
     logger.debug('[sfu] waiting for negotiation to complete (stream will be added to $s.streams)')
 
     return new Promise<void>((resolve) => {
-        localGlnStream.onstatus = (status) => {
-            logger.debug(`[sfu] upstream stream ${glnStream.id} status: ${status}`)
+        typedGlnStream.onstatus = (status: string): void => {
+            logger.debug(`[sfu] upstream stream ${typedGlnStream.id} status: ${status}`)
             if (status === 'connected') {
-                logger.debug(`[sfu] upstream stream ${glnStream.id} connected successfully`)
+                logger.debug(`[sfu] upstream stream ${typedGlnStream.id} connected successfully`)
                 resolve()
             }
         }
     })
 }
 
-export async function connect(username?: string, password?: string): Promise<void> {
+export async function connect(username?: string, password?: string): Promise<string> {
     if (connection && connection.socket) {
         connection.close()
         await new Promise((r) => setTimeout(r, 150))
@@ -500,38 +507,40 @@ export function delMedia(id: string): void {
     logger.debug(`[sfu] delMedia: stream ${id} removed from $s.streams (remaining: ${$s.streams.length})`)
 }
 
-export function delUpMedia(c: unknown): void {
-    if (!c) {
+export function delUpMedia(c: StreamObject | unknown): void {
+    if (!c || typeof c !== 'object') {
         logger.warn('[SFU] delUpMedia: stream object is null or undefined')
         return
     }
 
-    if (!c.id) {
+    const streamObj = c as StreamObject & {close?: () => void}
+
+    if (!streamObj.id) {
         logger.warn('[SFU] delUpMedia: stream id is missing')
         return
     }
 
-    logger.debug(`[sfu] delUpMedia: removing upstream stream ${c.id}`)
+    logger.debug(`[sfu] delUpMedia: removing upstream stream ${streamObj.id}`)
+
+    delMedia(streamObj.id)
 
     try {
-        stopUpMedia(c)
+        stopUpMedia(streamObj)
     } catch(error) {
         logger.warn(`[SFU] delUpMedia: error stopping media: ${error}`)
     }
 
-    delMedia(c.id)
-
     try {
-        if (c.close) {
-            c.close()
+        if (streamObj.close) {
+            streamObj.close()
         }
     } catch(error) {
         logger.warn(`[SFU] delUpMedia: error closing stream: ${error}`)
     }
 
     if (connection && connection.up) {
-        // eslint-disable-next-line no-dynamic-delete
-        delete connection.up[c.id]
+        // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+        delete connection.up[streamObj.id]
     } else {
         logger.warn('[SFU] delUpMedia: connection or connection.up not available')
     }
@@ -657,8 +666,8 @@ function fileTransferEvent(this: any, state: string, data: any): void {
         }
         case 'done': {
             if (!f.up) {
-                let url = URL.createObjectURL(data)
-                let a = document.createElement('a')
+                const url = URL.createObjectURL(data)
+                const a = document.createElement('a')
                 a.href = url
                 a.textContent = f.name
                 a.download = f.name
@@ -734,24 +743,24 @@ function findUpMedia(label: string): string | null {
 function getMaxVideoThroughput(): number {
     switch ($s.media.upstream.id) {
         case 'lowest': {
-            return 150000
+            return 150_000
         }
         case 'low': {
-            return 300000
+            return 300_000
         }
         case 'normal': {
-            return 700000
+            return 700_000
         }
         case 'unlimited': {
             return null
         }
         default: {
-            return 700000
+            return 700_000
         }
     }
 }
 
-function mapRequest(what: string): string {
+function mapRequest(what: string): Record<string, string[]> {
     switch (what) {
         case '': {
             return {}
@@ -787,7 +796,7 @@ export function muteMicrophone(muted: boolean): void {
     }
 
     for (const id in connection.up) {
-        const glnStream = connection.up[id]
+        const glnStream = connection.up[id] as StreamObject | undefined
         if (!glnStream) {continue}
 
         if (glnStream.label === 'camera' && glnStream.stream) {
@@ -804,7 +813,19 @@ export function muteMicrophone(muted: boolean): void {
     }
 }
 
-function newUpStream(_id: string | null, state: unknown): {glnStream: unknown} {
+function newUpStream(_id: string | null, state: unknown): {glnStream: unknown; streamState: {
+    aspectRatio: number
+    direction: string
+    enlarged: boolean
+    hasAudio: boolean
+    hasVideo: boolean
+    id: string
+    mirror: boolean
+    playing: boolean
+    settings: {audio: Record<string, unknown>; video: Record<string, unknown>}
+    username: string
+    volume: {locked: boolean; value: number}
+}} {
     // Validate connection exists
     if (!connection) {
         const error = new Error('SFU connection not available')
@@ -818,9 +839,9 @@ function newUpStream(_id: string | null, state: unknown): {glnStream: unknown} {
         logger.warn('[SFU] newUpStream: RTC configuration not available, connection may not be ready')
     }
 
-    let glnStream
+    let glnStream: StreamObject
     try {
-        glnStream = connection.newUpStream(_id)
+        glnStream = connection.newUpStream(_id) as StreamObject
     } catch(error) {
         logger.error(`[SFU] newUpStream: failed to create upstream stream: ${error}`)
         throw error
@@ -854,17 +875,17 @@ function newUpStream(_id: string | null, state: unknown): {glnStream: unknown} {
         Object.assign(streamState, state)
     }
 
-    glnStream.onerror = (e) => {
+    glnStream.onerror = (e: unknown): void => {
         const errorMessage = String(e)
         logger.error(`[SFU] upstream stream ${glnStream.id} error: ${errorMessage}`)
         notifier.notify({message: `Stream error: ${errorMessage}`, type: 'error'})
         delUpMedia(glnStream)
     }
-    glnStream.onabort = () => {
+    glnStream.onabort = (): void => {
         logger.debug(`[SFU] upstream stream ${glnStream.id} aborted`)
         delUpMedia(glnStream)
     }
-    glnStream.onnegotiationcompleted = () => {
+    glnStream.onnegotiationcompleted = (): void => {
         logger.debug(`[sfu] negotiation completed for stream ${glnStream.id}, adding to $s.streams`)
         logger.debug(
             `[sfu] streamState: id=${streamState.id}, direction=${streamState.direction}, ` +
@@ -1005,22 +1026,29 @@ function onClose(code: number, reason: string): void {
     // App.router.push({name: 'conference-groups'}, {params: {groupId: $s.sfu.channel.name}})
 }
 
-function onDownStream(c: unknown): void {
-    logger.debug(`[sfu] onDownStream: received downstream stream ${c.id} from user ${c.username}`)
+function onDownStream(c: StreamObject | unknown): void {
+    if (!c || typeof c !== 'object' || !('id' in c)) {
+        logger.warn('[SFU] onDownStream: invalid stream object')
+        return
+    }
+
+    const streamObj = c as StreamObject
+
+    logger.debug(`[sfu] onDownStream: received downstream stream ${streamObj.id} from user ${streamObj.username || 'unknown'}`)
 
     // Validate connection is ready
     if (!connectionReady) {
-        logger.warn(`[SFU] Downstream stream ${c.id} received before connection ready, queuing...`)
-        pendingDownstreamStreams.push({stream: c, timestamp: Date.now()})
+        logger.warn(`[SFU] Downstream stream ${streamObj.id} received before connection ready, queuing...`)
+        pendingDownstreamStreams.push({stream: streamObj, timestamp: Date.now()})
         return
     }
 
     // Validate RTC configuration
     const rtcConfig = connection?.getRTCConfiguration?.() || connection?.rtcConfiguration
     if (!rtcConfig) {
-        logger.error(`[SFU] No RTC configuration available for downstream stream ${c.id}`)
+        logger.error(`[SFU] No RTC configuration available for downstream stream ${streamObj.id}`)
         // Queue and retry after a delay
-        pendingDownstreamStreams.push({stream: c, timestamp: Date.now()})
+        pendingDownstreamStreams.push({stream: streamObj, timestamp: Date.now()})
         setTimeout(() => {
             if (connection?.rtcConfiguration) {
                 connectionReady = true
@@ -1038,20 +1066,20 @@ function onDownStream(c: unknown): void {
      * When other-end Firefox replaces a stream (e.g. toggles webcam),
      * the onDownStream method is called twice.
      */
-    const existingStream = $s.streams.find((s) => s.id === c.id)
+    const existingStream = $s.streams.find((s): boolean => s.id === streamObj.id)
     if (!existingStream) {
-        logger.debug(`[sfu] onDownStream: creating new stream object for ${c.id}`)
+        logger.debug(`[sfu] onDownStream: creating new stream object for ${streamObj.id}`)
         const streamState = {
             aspectRatio: 4 / 3,
             direction: 'down',
             enlarged: false,
             hasAudio: false,
             hasVideo: false,
-            id: c.id,
+            id: streamObj.id,
             mirror: true,
             playing: false,
             settings: {audio: {}, video: {}},
-            username: c.username,
+            username: streamObj.username || '',
             volume: {
                 locked: false,
                 value: 100,
@@ -1059,9 +1087,9 @@ function onDownStream(c: unknown): void {
         }
         // Use array assignment to ensure DeepSignal reactivity
         $s.streams = [...$s.streams, streamState]
-        logger.debug(`[sfu] onDownStream: stream ${c.id} added to $s.streams (total: ${$s.streams.length})`)
+        logger.debug(`[sfu] onDownStream: stream ${streamObj.id} added to $s.streams (total: ${$s.streams.length})`)
     } else {
-        logger.debug(`[sfu] onDownStream: stream ${c.id} already exists in $s.streams (replacement)`)
+        logger.debug(`[sfu] onDownStream: stream ${streamObj.id} already exists in $s.streams (replacement)`)
     }
 
     /*
@@ -1072,27 +1100,27 @@ function onDownStream(c: unknown): void {
      * IMPORTANT: Only remove from state when stream is actually closed, not replaced
      * Component rendering is state-driven - when stream is removed from $s.streams, component unmounts
      */
-    const existingOnclose = c.onclose
-    c.onclose = (replace) => {
+    const existingOnclose = streamObj.onclose
+    streamObj.onclose = (replace: boolean): void => {
         // Call existing handler first if it exists (from component - shouldn't happen)
-        if (existingOnclose && existingOnclose !== c.onclose) {
-            existingOnclose.call(c, replace)
+        if (existingOnclose && existingOnclose !== streamObj.onclose) {
+            existingOnclose.call(streamObj, replace)
         }
 
         // Log detailed information about why stream is closing (helps debug Firefox canvas stream issues)
-        const iceState = c.pc ? c.pc.iceConnectionState : 'no pc'
-        const hasStream = Boolean(c.stream)
-        const trackCount = c.stream ? c.stream.getTracks().length : 0
+        const iceState = streamObj.pc ? streamObj.pc.iceConnectionState : 'no pc'
+        const hasStream = Boolean(streamObj.stream)
+        const trackCount = streamObj.stream ? streamObj.stream.getTracks().length : 0
         // Check if a new stream with same ID exists (replacement scenario)
-        const replacementExists = connection && connection.down && connection.down[c.id] && connection.down[c.id] !== c
+        const replacementExists = connection && connection.down && connection.down[streamObj.id] && connection.down[streamObj.id] !== streamObj
         // Log at info level to ensure it's visible (critical for debugging Firefox canvas stream issues)
-        logger.info(`[sfu] onDownStream: stream ${c.id} onclose called, replace=${replace}, ICE=${iceState}, hasStream=${hasStream}, tracks=${trackCount}, replacementExists=${replacementExists}`)
+        logger.info(`[sfu] onDownStream: stream ${streamObj.id} onclose called, replace=${replace}, ICE=${iceState}, hasStream=${hasStream}, tracks=${trackCount}, replacementExists=${replacementExists}`)
 
         // Also log stack trace to see what triggered the close
         const {stack} = new Error()
         if (stack) {
             const caller = stack.split('\n').slice(1, 4).join(' -> ')
-            logger.debug(`[sfu] onDownStream: stream ${c.id} onclose call stack: ${caller}`)
+            logger.debug(`[sfu] onDownStream: stream ${streamObj.id} onclose call stack: ${caller}`)
         }
 
         // Only remove from state if not a replacement (like original Galène gotDownStream line 507-510)
@@ -1102,28 +1130,28 @@ function onDownStream(c: unknown): void {
              * This can happen if gotOffer with replace=true creates new stream before old one closes
              */
             if (replacementExists) {
-                logger.debug(`[sfu] onDownStream: stream ${c.id} closed but replacement exists - treating as replacement`)
+                logger.debug(`[sfu] onDownStream: stream ${streamObj.id} closed but replacement exists - treating as replacement`)
                 // Don't remove - the replacement will use the same state entry
                 return
             }
 
             // Stream is really closing (not replaced)
-            logger.debug(`[sfu] onDownStream: stream ${c.id} closed (not replaced), removing from state`)
-            streamRetryCounts.delete(c.id)
-            delMedia(c.id)
+            logger.debug(`[sfu] onDownStream: stream ${streamObj.id} closed (not replaced), removing from state`)
+            streamRetryCounts.delete(streamObj.id)
+            delMedia(streamObj.id)
         } else {
-            logger.debug(`[sfu] onDownStream: stream ${c.id} closed (replaced), keeping in state - new stream will use same id`)
+            logger.debug(`[sfu] onDownStream: stream ${streamObj.id} closed (replaced), keeping in state - new stream will use same id`)
         }
     }
 
-    c.onerror = (error) => {
-        const message = `[sfu] onDownStream: error on downstream stream ${c.id}: ${error || 'unknown error'}`
+    streamObj.onerror = (error: unknown): void => {
+        const message = `[sfu] onDownStream: error on downstream stream ${streamObj.id}: ${error || 'unknown error'}`
         logger.error(message)
 
         // Don't notify user for every error - only for persistent failures
-        const retryCount = streamRetryCounts.get(c.id) || 0
+        const retryCount = streamRetryCounts.get(streamObj.id) || 0
         if (retryCount >= MAX_RETRIES) {
-            notifier.notify({message: `Failed to connect to ${c.username}'s stream after ${MAX_RETRIES} attempts`, type: 'error'})
+            notifier.notify({message: `Failed to connect to ${streamObj.username || 'user'}'s stream after ${MAX_RETRIES} attempts`, type: 'error'})
         }
     }
 
@@ -1133,33 +1161,33 @@ function onDownStream(c: unknown): void {
      * We need to ensure this handler is set up properly and triggers component updates
      * Store the existing handler if component has already set one
      */
-    const existingOndowntrack = c.ondowntrack
-    c.ondowntrack = (track: MediaStreamTrack, transceiver?: RTCRtpTransceiver, stream?: MediaStream) => {
+    const existingOndowntrack = streamObj.ondowntrack
+    streamObj.ondowntrack = (track: MediaStreamTrack, transceiver?: RTCRtpTransceiver, stream?: MediaStream): void => {
         // Call existing handler first if it exists (from component)
-        if (existingOndowntrack && existingOndowntrack !== c.ondowntrack) {
-            existingOndowntrack.call(c, track, transceiver, stream)
+        if (existingOndowntrack && existingOndowntrack !== streamObj.ondowntrack) {
+            existingOndowntrack.call(streamObj, track, transceiver, stream)
         }
 
         /*
          * Ensure stream is assigned (important for Firefox canvas streams)
-         * The protocol layer sets c.stream, but Firefox might handle this differently
+         * The protocol layer sets streamObj.stream, but Firefox might handle this differently
          */
-        if (stream && !c.stream) {
-            logger.debug(`[sfu] onDownStream: assigning stream to c.stream for ${c.id} (Firefox canvas stream?)`)
-            c.stream = stream
-        } else if (stream && c.stream !== stream) {
+        if (stream && !streamObj.stream) {
+            logger.debug(`[sfu] onDownStream: assigning stream to streamObj.stream for ${streamObj.id} (Firefox canvas stream?)`)
+            streamObj.stream = stream
+        } else if (stream && streamObj.stream !== stream) {
             // Stream changed (replacement) - ensure all tracks are in the stream
-            const existingTracks = c.stream.getTracks()
+            const existingTracks = streamObj.stream!.getTracks()
             const newTracks = stream.getTracks()
-            const missingTracks = newTracks.filter((t) => !existingTracks.includes(t))
+            const missingTracks = newTracks.filter((t): boolean => !existingTracks.includes(t))
             if (missingTracks.length > 0) {
-                logger.debug(`[sfu] onDownStream: adding ${missingTracks.length} tracks to existing stream for ${c.id}`)
-                missingTracks.forEach((t) => c.stream!.addTrack(t))
+                logger.debug(`[sfu] onDownStream: adding ${missingTracks.length} tracks to existing stream for ${streamObj.id}`)
+                missingTracks.forEach((t): void => streamObj.stream!.addTrack(t))
             }
         }
 
         // Update stream state when tracks arrive (like original Galène setMedia)
-        const streamState = $s.streams.find((s) => s.id === c.id)
+        const streamState = $s.streams.find((s): boolean => s.id === streamObj.id)
         if (streamState) {
             if (track.kind === 'audio') {
                 streamState.hasAudio = true
@@ -1170,7 +1198,7 @@ function onDownStream(c: unknown): void {
             $s.streams = [...$s.streams]
         }
 
-        logger.debug(`[sfu] onDownStream: track ${track.kind} arrived for stream ${c.id}, stream assigned: ${Boolean(c.stream)}, track readyState: ${track.readyState}`)
+        logger.debug(`[sfu] onDownStream: track ${track.kind} arrived for stream ${streamObj.id}, stream assigned: ${Boolean(streamObj.stream)}, track readyState: ${track.readyState}`)
     }
 
     /*
@@ -1179,55 +1207,70 @@ function onDownStream(c: unknown): void {
      * We can't call setMediaStatus here (component handles UI), but we handle retries
      * Store existing handler if component has already set one
      */
-    const existingOnstatus = c.onstatus
-    c.onstatus = (status: string) => {
+    const existingOnstatus = streamObj.onstatus
+    streamObj.onstatus = (status: string): void => {
         // Call existing handler first if it exists (from component)
-        if (existingOnstatus && existingOnstatus !== c.onstatus) {
-            existingOnstatus.call(c, status)
+        if (existingOnstatus && existingOnstatus !== streamObj.onstatus) {
+            existingOnstatus.call(streamObj, status)
         }
 
         // Handle ICE failures with retry logic (like original Galène protocol.js line 795-800)
         if (status === 'failed') {
-            const retryCount = streamRetryCounts.get(c.id) || 0
+            const retryCount = streamRetryCounts.get(streamObj.id) || 0
             if (retryCount < MAX_RETRIES) {
-                streamRetryCounts.set(c.id, retryCount + 1)
+                streamRetryCounts.set(streamObj.id, retryCount + 1)
                 const backoffDelay = 2 ** retryCount * 1000
-                setTimeout(() => {
-                    if (connection && connection.down && connection.down[c.id]) {
+                setTimeout((): void => {
+                    if (connection && connection.down && connection.down[streamObj.id]) {
                         // Original Galène sends renegotiate on ICE failure (protocol.js line 796-799)
-                        connection.send({id: c.id, type: 'renegotiate'})
+                        connection.send({id: streamObj.id, type: 'renegotiate'})
                     } else {
-                        streamRetryCounts.delete(c.id)
+                        streamRetryCounts.delete(streamObj.id)
                     }
                 }, backoffDelay)
             } else {
-                streamRetryCounts.delete(c.id)
+                streamRetryCounts.delete(streamObj.id)
             }
         } else if (status === 'connected' || status === 'completed') {
-            streamRetryCounts.delete(c.id)
+            streamRetryCounts.delete(streamObj.id)
             // Log successful connection for debugging
-            logger.debug(`[sfu] onDownStream: stream ${c.id} ICE status: ${status}`)
+            logger.debug(`[sfu] onDownStream: stream ${streamObj.id} ICE status: ${status}`)
         }
     }
 }
 
-async function onFileTransfer(f: unknown): Promise<void> {
-    f.onevent = fileTransferEvent
-    if (f.up) {
-        f.notifier = notifier.notify({
+interface FileTransferObject {
+    name: string
+    size: number
+    username: string
+    up?: boolean
+    onevent?: (this: unknown, state: string, data: unknown) => void
+    notifier?: unknown
+}
+
+async function onFileTransfer(f: FileTransferObject | unknown): Promise<void> {
+    if (!f || typeof f !== 'object' || !('name' in f) || !('size' in f) || !('username' in f)) {
+        logger.warn('[SFU] onFileTransfer: invalid file transfer object')
+        return
+    }
+
+    const fileTransfer = f as FileTransferObject
+    fileTransfer.onevent = fileTransferEvent
+    if (fileTransfer.up) {
+        fileTransfer.notifier = notifier.notify({
             message: $t('user.action.share_file.share_confirm', {
-                file: f.name,
-                size: formatBytes(f.size),
-                username: f.username,
+                file: fileTransfer.name,
+                size: formatBytes(fileTransfer.size),
+                username: fileTransfer.username,
             }),
             type: 'info',
         }, 0)
     } else {
-        f.notifier = notifier.notify({
+        fileTransfer.notifier = notifier.notify({
             message: $t('user.action.share_file.share_accept', {
-                file: f.name,
-                size: formatBytes(f.size),
-                username: f.username,
+                file: fileTransfer.name,
+                size: formatBytes(fileTransfer.size),
+                username: fileTransfer.username,
             }),
             type: 'info',
         }, 0)
@@ -1235,6 +1278,10 @@ async function onFileTransfer(f: unknown): Promise<void> {
 }
 
 async function onJoined(kind: string, group: string, permissions: unknown, status: unknown, data: unknown, message: string): Promise<void> {
+    // Type guard for permissions
+    const permissionsArray = Array.isArray(permissions) ? permissions as string[] : []
+    // Type guard for data
+    const dataObj = data && typeof data === 'object' ? data as {size?: number; username?: string} : {}
     logger.debug(`[onJoined] ${kind}/${group}: ${message}`)
     const currentGroupData = currentGroup()
     const _permissions = {}
@@ -1257,8 +1304,10 @@ async function onJoined(kind: string, group: string, permissions: unknown, statu
             return
         }
         case 'join': {
-            for (const permission of permissions) {
-                _permissions[permission] = true
+            if (Array.isArray(permissions)) {
+                for (const permission of permissions) {
+                    _permissions[permission] = true
+                }
             }
             const permissionsState = $s.permissions as {op: boolean; present: boolean; record: boolean}
             permissionsState.op = (_permissions as Record<string, boolean>).op || false
@@ -1310,16 +1359,16 @@ async function onJoined(kind: string, group: string, permissions: unknown, statu
             processExistingDownstreamStreams()
             // Re-add user media when switching channels with camera on - must run after connectionReady
             logger.debug(
-                `[SFU] Join complete: localStream=${!!localStream}, cam.enabled=${$s.devices.cam.enabled}`,
+                `[SFU] Join complete: localStream=${Boolean(localStream)}, cam.enabled=${$s.devices.cam.enabled}`,
             )
             if (localStream) {
                 logger.info('[SFU] Re-adding user media after channel join')
-                addUserMedia().catch((err) => logger.error('[SFU] Failed to re-add user media:', err))
+                addUserMedia().catch((error) => logger.error('[SFU] Failed to re-add user media:', error))
             } else if ($s.devices.cam.enabled) {
                 // Camera was on but localStream was cleared (e.g. during connection close) - restore it
                 logger.info('[SFU] Camera enabled but no localStream - calling getUserMedia to restore')
-                getUserMedia($s.devices).catch((err) => {
-                    logger.error('[SFU] Failed to restore user media after channel switch:', err)
+                getUserMedia($s.devices).catch((error) => {
+                    logger.error('[SFU] Failed to restore user media after channel switch:', error)
                 })
             }
 
@@ -1331,27 +1380,32 @@ async function onJoined(kind: string, group: string, permissions: unknown, statu
         }
         case 'change': {
 
-            for (const permission of permissions) {
-                _permissions[permission] = true
+            if (Array.isArray(permissions)) {
+                for (const permission of permissions) {
+                    _permissions[permission] = true
+                }
             }
             const permissionsStateChange = $s.permissions as {op: boolean; present: boolean; record: boolean}
             permissionsStateChange.op = (_permissions as Record<string, boolean>).op || false
             permissionsStateChange.present = (_permissions as Record<string, boolean>).present || false
             permissionsStateChange.record = (_permissions as Record<string, boolean>).record || false
 
-            if (status && status.locked) {
-                currentGroupData.locked = true
-                // A custom message is sent along:
-                let personal = null
-                if (status.locked !== true) personal = {group, message: status.locked}
-                notifier.notify({message: `Group ${group} is locked`, type: 'info'})
+            if (status && typeof status === 'object' && 'locked' in status) {
+                const statusObj = status as {locked: boolean | string}
+                if (statusObj.locked) {
+                    currentGroupData.locked = true
+                    // A custom message is sent along:
+                    let personal = null
+                    if (statusObj.locked !== true) {personal = {group, message: statusObj.locked}}
+                    notifier.notify({message: `Group ${group} is locked`, type: 'info'})
+                }
             } else if (currentGroupData.locked) {
                 currentGroupData.locked = false
                 notifier.notify({message: `Group ${group} is unlocked`, type: 'info'})
             }
 
             logger.debug(`permissions: ${JSON.stringify(permissions)}`)
-            if (kind === 'change') return
+            if (kind === 'change') {return}
             break
         }
         default: {
@@ -1489,23 +1543,42 @@ function onUserMessage(id: string, dest: string, username: string, time: number,
     }
 }
 
-export function removeTrack(glnStream: unknown, kind: string): void {
-    const tracks = glnStream.stream.getTracks()
+export function removeTrack(glnStream: StreamObject | unknown, kind: string): void {
+    if (!glnStream || typeof glnStream !== 'object' || !('stream' in glnStream) || !('id' in glnStream)) {
+        logger.warn('[SFU] removeTrack: invalid stream object')
+        return
+    }
+
+    const streamObj = glnStream as StreamObject
+    if (!streamObj.stream) {
+        logger.warn('[SFU] removeTrack: stream is missing')
+        return
+    }
+
+    const tracks = streamObj.stream.getTracks()
     tracks.forEach((track) => {
         if (track.kind === kind) {
             logger.debug(`stopping track ${track.id}`)
             track.stop()
 
-            const streamState = $s.streams.find((s) => s.id === glnStream.id)
-            streamState.hasVideo = false
+            const streamState = $s.streams.find((s): boolean => s.id === streamObj.id)
+            if (streamState) {
+                streamState.hasVideo = false
+            }
         }
     })
 }
 
-async function setMaxVideoThroughput(c: unknown, bps: number): Promise<void> {
+async function setMaxVideoThroughput(c: StreamObject | unknown, bps: number): Promise<void> {
     const unlimitedRate = 1_000_000_000
 
-    const senders = c.pc.getSenders()
+    if (!c || typeof c !== 'object' || !('pc' in c) || !(c.pc instanceof RTCPeerConnection)) {
+        logger.warn('[SFU] setMaxVideoThroughput: invalid stream object or missing peer connection')
+        return
+    }
+
+    const streamObj = c as StreamObject
+    const senders = streamObj.pc!.getSenders()
     for (let i = 0; i < senders.length; i++) {
         const s = senders[i]
         if (!s.track || s.track.kind !== 'video') {continue}
@@ -1520,23 +1593,41 @@ async function setMaxVideoThroughput(c: unknown, bps: number): Promise<void> {
     }
 }
 
-function stopUpMedia(c: unknown): void {
-    if (!c) {
+interface StreamObject {
+    id: string
+    label?: string
+    stream?: MediaStream
+    pc?: RTCPeerConnection
+    username?: string
+    onstatus?: (status: string) => void
+    onclose?: (replace: boolean) => void
+    onerror?: (error: unknown) => void
+    ondowntrack?: (track: MediaStreamTrack, transceiver?: RTCRtpTransceiver, stream?: MediaStream) => void
+    onabort?: () => void
+    onnegotiationcompleted?: () => void
+    close?: () => void
+    userdata?: Record<string, unknown>
+}
+
+function stopUpMedia(c: StreamObject | unknown): void {
+    if (!c || typeof c !== 'object') {
         logger.warn('[SFU] stopUpMedia: stream object is null or undefined')
         return
     }
 
-    if (!c.id) {
+    const streamObj = c as StreamObject
+
+    if (!streamObj.id) {
         logger.warn('[SFU] stopUpMedia: stream id is missing')
         return
     }
 
-    logger.debug(`stopping up-stream ${c.id}`)
+    logger.debug(`stopping up-stream ${streamObj.id}`)
 
     // Stop tracks safely
-    if (c.stream) {
+    if (streamObj.stream) {
         try {
-            c.stream.getTracks().forEach((t) => {
+            streamObj.stream.getTracks().forEach((t) => {
                 try {
                     t.stop()
                 } catch(error) {
@@ -1549,14 +1640,14 @@ function stopUpMedia(c: unknown): void {
     }
 
     // Remove from upMedia array safely
-    if (c.label && $s.upMedia[c.label]) {
-        const index = $s.upMedia[c.label].findIndex((i) => i.id === c.id)
+    if (streamObj.label && $s.upMedia[streamObj.label]) {
+        const index = $s.upMedia[streamObj.label].findIndex((i): boolean => i.id === streamObj.id)
         if (index !== -1) {
             // Use array assignment to ensure DeepSignal reactivity
-            $s.upMedia[c.label] = $s.upMedia[c.label].filter((i) => i.id !== c.id)
+            $s.upMedia[streamObj.label] = $s.upMedia[streamObj.label].filter((i): boolean => i.id !== streamObj.id)
         }
     }
 
     // Use array assignment to ensure DeepSignal reactivity
-    $s.streams = $s.streams.filter((s) => s.id !== c.id)
+    $s.streams = $s.streams.filter((s): boolean => s.id !== streamObj.id)
 }

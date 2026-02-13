@@ -13,15 +13,13 @@ interface ContextGroupsProps {
 }
 
 export default function ContextGroups({groupId, path}: ContextGroupsProps) {
-    const deletionGroups = useMemo(() => {
-        return $s.admin.groups.filter((i) => i._delete)
-    }, [])
+    const deletionGroups = useMemo(() => $s.admin.groups.filter((i) => i._delete), [])
 
     const orderedGroups = useMemo(() => {
         const groups = $s.admin.groups.filter((g) => g.public).concat($s.admin.groups.filter((g) => !g.public))
         return groups.toSorted((a, b) => {
-            if (a._name < b._name) return -1
-            if (a._name > b._name) return 1
+            if (a._name < b._name) {return -1}
+            if (a._name > b._name) {return 1}
             return 0
         })
     }, [])
@@ -66,9 +64,9 @@ export default function ContextGroups({groupId, path}: ContextGroupsProps) {
         return `/settings/groups/${groupId}/misc`
     }
 
-    const saveGroupAction = async () => {
-        if (!$s.admin.group) return
-        const groupId = $s.admin.group._name
+    const saveGroupAction = async (): Promise<void> => {
+        if (!$s.admin.group) {return}
+        const groupId = String($s.admin.group._name || '')
         const group = await saveGroup(groupId, $s.admin.group)
 
         // Select the next unsaved group to speed up group creation.
@@ -78,7 +76,7 @@ export default function ContextGroups({groupId, path}: ContextGroupsProps) {
                 const _groupName = typeof g._name === 'string' ? g._name : String(g._name || '')
                 return typeof g._unsaved !== 'undefined' && g._unsaved
             })
-            if (nextGroupIndex >= 0) {
+            if (nextGroupIndex !== -1) {
                 const nextGroup = orderedGroups[nextGroupIndex]
                 const nextGroupName = typeof nextGroup._name === 'string' ? nextGroup._name : String(nextGroup._name || '')
                 toggleSelection(nextGroupName)
@@ -91,9 +89,9 @@ export default function ContextGroups({groupId, path}: ContextGroupsProps) {
     }
 
     const toggleMarkDelete = async () => {
-        if (!$s.admin.group) return
+        if (!$s.admin.group) {return}
         $s.admin.group._delete = !$s.admin.group._delete
-        for (let group of $s.admin.groups) {
+        for (const group of $s.admin.groups) {
             if (group._name == $s.admin.group._name) {
                 group._delete = $s.admin.group._delete
             }
@@ -116,13 +114,11 @@ export default function ContextGroups({groupId, path}: ContextGroupsProps) {
         route(`/admin/groups/${groupId}/misc`)
     }
 
-    useEffect(() => {
-        return () => {
+    useEffect(() => () => {
             $s.admin.group = null
-        }
-    }, [])
+        }, [])
 
-    if (!($s.admin.authenticated && $s.admin.permission)) return null
+    if (!($s.admin.authenticated && $s.admin.permission)) {return null}
 
     return (
         <section class='c-admin-groups-context presence'>

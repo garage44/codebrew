@@ -13,15 +13,13 @@ interface ContextUsersProps {
 }
 
 export default function ContextUsers({path: _path, userId}: ContextUsersProps) {
-    const deletionUsers = useMemo(() => {
-        return $s.admin.users.filter((i) => i._delete)
-    }, [])
+    const deletionUsers = useMemo(() => $s.admin.users.filter((i) => i._delete), [])
 
     const orderedUsers = useMemo(() => {
         const users = $s.admin.users.filter((g) => g.admin).concat($s.admin.users.filter((g) => !g.admin))
         return users.toSorted((a, b) => {
-            if (a.name < b.name) return -1
-            if (a.name > b.name) return 1
+            if (a.name < b.name) {return -1}
+            if (a.name > b.name) {return 1}
             return 0
         })
     }, [])
@@ -57,24 +55,24 @@ export default function ContextUsers({path: _path, userId}: ContextUsersProps) {
         $s.admin.users = await api.get('/api/users')
     }
 
-    const saveUserAction = async () => {
-        if (!$s.admin.user) return
-        await saveUser($s.admin.user.id, $s.admin.user)
+    const saveUserAction = async (): Promise<void> => {
+        if (!$s.admin.user) {return}
+        await saveUser(String($s.admin.user.id), $s.admin.user)
         // Select the next unsaved user, when this user was unsaved to allow rapid user creation.
         if ($s.admin.user._unsaved) {
             const nextUnsavedUserIndex = orderedUsers.findIndex((i) => i._unsaved)
-            if (nextUnsavedUserIndex >= 0) {
+            if (nextUnsavedUserIndex !== -1) {
                 const nextUser = orderedUsers[nextUnsavedUserIndex]
-                const nextUserId = typeof nextUser.id === 'number' ? nextUser.id : parseInt(String(nextUser.id || '0'), 10)
+                const nextUserId = typeof nextUser.id === 'number' ? nextUser.id : Number.parseInt(String(nextUser.id || '0'), 10)
                 toggleSelection(nextUserId)
             }
         }
     }
 
     const toggleMarkDelete = async () => {
-        if (!$s.admin.user) return
+        if (!$s.admin.user) {return}
         $s.admin.user._delete = !$s.admin.user._delete
-        for (let user of $s.admin.users) {
+        for (const user of $s.admin.users) {
             if (user.name == $s.admin.user.name) {
                 user._delete = $s.admin.user._delete
             }
@@ -83,7 +81,7 @@ export default function ContextUsers({path: _path, userId}: ContextUsersProps) {
         const similarStateUsers = orderedUsers.filter((i) => i._delete !== $s.admin.user?._delete)
         if (similarStateUsers.length) {
             const nextUser = similarStateUsers[0]
-            const nextUserId = typeof nextUser.id === 'number' ? nextUser.id : parseInt(String(nextUser.id || '0'), 10)
+            const nextUserId = typeof nextUser.id === 'number' ? nextUser.id : Number.parseInt(String(nextUser.id || '0'), 10)
             toggleSelection(nextUserId)
         }
     }
@@ -133,12 +131,12 @@ export default function ContextUsers({path: _path, userId}: ContextUsersProps) {
                 </button>
             </div>
             {orderedUsers.map((user) => {
-                const userIdNum = typeof user.id === 'number' ? user.id : parseInt(String(user.id || '0'), 10)
+                const userIdNum = typeof user.id === 'number' ? user.id : Number.parseInt(String(user.id || '0'), 10)
                 return (
                     <Link
                         {...({
                             class: classnames('user item', {
-                                active: parseInt(userId || '0', 10) === userIdNum,
+                                active: Number.parseInt(userId || '0', 10) === userIdNum,
                             }),
                             href: userLink(userIdNum),
                         } as Record<string, unknown>)}

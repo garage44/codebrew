@@ -14,17 +14,15 @@ interface SettingsProps {
 }
 
 export default function Settings({tabId = 'misc', userId}: SettingsProps) {
-    const routeSettings = (tab: string) => {
-        return `/settings/users/${$s.admin.user.id}?tab=${tab}`
-    }
+    const routeSettings = (tab: string) => `/settings/users/${$s.admin.user.id}?tab=${tab}`
 
-    const saveUserAction = async () => {
+    const saveUserAction = async (): Promise<void> => {
         if (userId) {
-            await saveUser(parseInt(userId), $s.admin.user)
+            await saveUser(String(userId), $s.admin.user)
         }
     }
 
-    if (!$s.admin.user) return null
+    if (!$s.admin.user) {return null}
 
     return (
         <div class='c-admin-user content'>

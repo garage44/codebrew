@@ -1,3 +1,5 @@
+import type {h} from 'preact'
+
 import {store} from '@garage44/common/app'
 import {PanelContext} from '@garage44/common/components'
 import {useEffect, useMemo, useRef} from 'preact/hooks'
@@ -9,7 +11,7 @@ import {DeviceSettings} from './device-settings'
 import {VideoCanvas} from './video/video-canvas'
 import {VideoStrip} from './video/video-strip'
 
-export function PanelContextSfu(): JSX.Element {
+export function PanelContextSfu(): ReturnType<typeof h> {
     const canvasRef = useRef<HTMLDivElement>(null)
 
     /*
@@ -61,8 +63,7 @@ export function PanelContextSfu(): JSX.Element {
 
     // Calculate available space: viewport width - menu width - chat min-width (350px)
     const calculateAvailableWidth = (): number => {
-        // eslint-disable-next-line no-undefined
-        if (globalThis.window === undefined) {
+        if (!('window' in globalThis)) {
             return 350
         }
         const viewportWidth = globalThis.window.innerWidth

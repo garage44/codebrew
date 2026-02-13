@@ -1,7 +1,6 @@
 import {$s} from '@/app'
 import {api, events, notifier, ws} from '@garage44/common/app'
 import {logger} from '@garage44/common/lib/logger'
-import type {PyriteState} from '@/types'
 
 export function _events(): void {
     // Implement reactivity for panels.chat collapsed state
@@ -30,18 +29,16 @@ export function _events(): void {
             if ($s.chat.channel === user.id) {
                 selectChannel('main')
             }
-            const channels = $s.chat.channels as PyriteState['chat']['channels']
-            // eslint-disable-next-line no-dynamic-delete
-            delete channels[user.id]
+            // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+            delete $s.chat.channels[user.id]
         }
     })
 }
 
 export function closeChannel(channel: {id: string}): void {
     selectChannel('main')
-    const channels = $s.chat.channels as PyriteState['chat']['channels']
-    // eslint-disable-next-line no-dynamic-delete
-    delete channels[channel.id]
+    // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+    delete $s.chat.channels[channel.id]
 }
 
 export function clearChat(): void {
@@ -72,8 +69,7 @@ export async function onMessage(messageData: {
 }): Promise<void> {
     const {sourceId, destinationId, nick, time, privileged, history, kind: messageKind, message} = messageData
     const kind = messageKind || 'default'
-    // eslint-disable-next-line no-undefined
-    let channelId: string | undefined = undefined
+    let channelId = ''
     // Incoming message for the main channel
     if (!destinationId) {
         channelId = 'main'
@@ -106,37 +102,12 @@ export async function onMessage(messageData: {
         $s.chat.channels[$s.chat.channel] &&
         ((channelId !== $s.chat.channel) || $s.panels.chat.collapsed)
     ) {
-        const channels = $s.chat.channels as PyriteState['chat']['channels']
-        channels[channelId].unread += 1
+        $s.chat.channels[channelId].unread += 1
     }
 
 }
 
 export const emojiLookup = new Set()
-
-// Helper function to update user from member data
-function updateUserFromMember(member: {user_id: unknown, username?: string, avatar?: string}): void {
-    const userId = String(member.user_id)
-    if ($s.chat.users[userId]) {
-        // Update avatar/username if changed
-        if (member.avatar) {
-            $s.chat.users[userId].avatar = member.avatar
-        }
-        if (member.username) {
-            $s.chat.users[userId].username = member.username
-        }
-        // Mark as online if in channel
-        if (!$s.chat.users[userId].status) {
-            $s.chat.users[userId].status = 'online'
-        }
-    } else {
-        $s.chat.users[userId] = {
-            avatar: member.avatar,
-            status: 'online',
-            username: member.username, // Users in channels are online
-        }
-    }
-}
 
 export function selectChannel(channelSlug: string | number): void {
     // ChannelSlug can be a channel slug (string) or a legacy numeric ID (for backward compatibility during migration)
@@ -229,16 +200,36 @@ export async function loadGlobalUsers(): Promise<void> {
 
         // Also load members from all channels to get real-time presence and update avatars
         if ($s.channels.length) {
-            const channelPromises = $s.channels.map(async (channel): Promise<void> => {
+            const channelsArray = Array.isArray($s.channels) ? $s.channels : []
+            const channelPromises = channelsArray.map(async(channel): Promise<void> => {
                 const membersResponse = await ws.get(`/channels/${channel.slug}/members`)
                 if (membersResponse && typeof membersResponse === 'object' && 'success' in membersResponse && membersResponse.success && 'members' in membersResponse && Array.isArray(membersResponse.members)) {
                     for (const member of membersResponse.members) {
-                        if (member && typeof member === 'object' && 'user_id' in member && member.user_id) {
-                            updateUserFromMember({
-                                avatar: 'avatar' in member && typeof member.avatar === 'string' ? member.avatar : '',
-                                user_id: member.user_id,
-                                username: 'username' in member && typeof member.username === 'string' ? member.username : '',
-                            })
+                        // Update existing user or create if doesn't exist
+                        if (member.user_id) {
+                            // Normalize user ID to string to prevent duplicates
+                            const userId = String(member.user_id)
+                            if ($s.chat.users[userId]) {
+                                // Update avatar/username if changed
+                                if (member.avatar) {
+                                    $s.chat.users[userId].avatar = member.avatar
+                                }
+                                if (member.username) {
+                                    $s.chat.users[userId].username = member.username
+                                }
+                                // Mark as online if in channel
+                                if ($s.chat.users[userId].status) {
+                                    // Already has status
+                                } else {
+                                    $s.chat.users[userId].status = 'online'
+                                }
+                            } else {
+                                $s.chat.users[userId] = {
+                                    avatar: member.avatar,
+                                    status: 'online', // Users in channels are online
+                                    username: member.username,
+                                }
+                            }
                         }
                     }
                 }
@@ -286,20 +277,19 @@ export async function loadChannelHistory(channelSlug: string | number): Promise<
         const members: Record<string, {avatar: string}> = {}
 
         if (membersResponse && typeof membersResponse === 'object' && 'success' in membersResponse && membersResponse.success && 'members' in membersResponse && Array.isArray(membersResponse.members)) {
-            const chatUsers = $s.chat.users as PyriteState['chat']['users']
             for (const member of membersResponse.members) {
-                if (member && typeof member === 'object' && 'user_id' in member && member.user_id && 'avatar' in member) {
-                    const userId = String(member.user_id)
-                    members[userId] = {avatar: String(member.avatar)}
+                if (typeof member === 'object' && member !== null && 'user_id' in member && 'avatar' in member && 'username' in member) {
+                    const typedMember = member as {user_id: string; avatar: string; username: string}
+                    members[typedMember.user_id] = {avatar: typedMember.avatar}
 
                     // Also update global users
-                    if (!chatUsers) {
+                    if (!$s.chat.users) {
                         $s.chat.users = {}
                     }
-                    const updatedChatUsers = $s.chat.users as PyriteState['chat']['users']
-                    updatedChatUsers[userId] = {
-                        avatar: String(member.avatar),
-                        username: 'username' in member && typeof member.username === 'string' ? member.username : '',
+                    const users = $s.chat.users as Record<string, {avatar: string; username: string}>
+                    users[typedMember.user_id] = {
+                        avatar: typedMember.avatar,
+                        username: typedMember.username,
                     }
                 }
             }
@@ -307,11 +297,18 @@ export async function loadChannelHistory(channelSlug: string | number): Promise<
 
         const response = await ws.get(`/channels/${channelSlug}/messages`)
 
-        if (response && typeof response === 'object' && 'success' in response && response.success && 'messages' in response && Array.isArray(response.messages)) {
+        if (response && response.success && response.messages) {
             // Transform database message format to frontend format
             // DB format: {id, channel_id, user_id, username, message, timestamp, kind}
             // Frontend format: {kind, message, nick, time, user_id}
-            const transformedMessages = response.messages.map((msg: {kind?: string; message: string; username: string; timestamp: number; user_id: string}): {kind: string; message: string; nick: string; time: number; user_id: string} => ({
+            const messagesArray = Array.isArray(response.messages) ? response.messages : []
+            const transformedMessages = messagesArray.map((msg: {
+                kind?: string
+                message: string
+                timestamp: number
+                user_id: string
+                username: string
+            }): {kind: string; message: string; nick: string; time: number; user_id: string} => ({
                 kind: msg.kind || 'message',
                 message: msg.message,
                 nick: msg.username,
@@ -379,7 +376,7 @@ export async function sendMessage(message: string): Promise<void> {
             let cmd = ''
             let rest = ''
             const space = message.indexOf(' ')
-            if (space === -1) {
+            if (space < 0) {
                 cmd = message.slice(1)
                 rest = ''
             } else {
@@ -403,13 +400,14 @@ export async function sendMessage(message: string): Promise<void> {
     try {
         const response = await ws.post(`/channels/${$s.chat.activeChannelSlug}/messages`, {
             kind,
-            message
+            message,
         })
 
-        if (!response || typeof response !== 'object' || !('success' in response) || !response.success) {
+        if (!response.success) {
+            const errorMessage = (response as {error?: string}).error || 'Failed to send message'
             notifier.notify({
                 level: 'error',
-                message: (response && typeof response === 'object' && 'error' in response && typeof response.error === 'string' ? response.error : null) || 'Failed to send message'
+                message: errorMessage
             })
         }
     } catch (error) {
@@ -424,7 +422,7 @@ export async function sendMessage(message: string): Promise<void> {
 export function unreadMessages(): number {
     let unread = 0
 
-    const channels = $s.chat.channels as PyriteState['chat']['channels']
+    const channels = $s.chat.channels as Record<string, {unread: number}>
     for (const channel of Object.values(channels)) {
         unread += channel.unread
     }

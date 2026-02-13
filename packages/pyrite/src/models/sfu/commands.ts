@@ -23,26 +23,26 @@ import {connection} from './sfu.ts'
 function findUserId(username: string): string | null {
     for (const user of $s.users) {
         if (user.username === username) {
-            return user.id
+            return String(user.id)
         }
     }
     return null
 }
 
-function userCommand(c: unknown, r: unknown): void {
+function userCommand(c: string, r: string): void {
     const p = parseCommand(r)
-    if (!p[0]) {throw new Error(`/${c} requires parameters`)}
-    const id = findUserId(p[0])
-    if (!id) {throw new Error(`Unknown user ${p[0]}`)}
-    connection.userAction(c, id, p[1])
+    if (!p.cmd) {throw new Error(`/${c} requires parameters`)}
+    const id = findUserId(p.cmd)
+    if (!id) {throw new Error(`Unknown user ${p.cmd}`)}
+    connection.userAction(c, id, p.args.join(' '))
 }
 
-function userMessage(c: unknown, r: unknown): void {
+function userMessage(c: string, r: string): void {
     const p = parseCommand(r)
-    if (!p[0]) {throw new Error(`/${c} requires parameters`)}
-    const id = findUserId(p[0])
-    if (!id) {throw new Error(`Unknown user ${p[0]}`)}
-    connection.userMessage(c, id, p[1])
+    if (!p.cmd) {throw new Error(`/${c} requires parameters`)}
+    const id = findUserId(p.cmd)
+    if (!id) {throw new Error(`Unknown user ${p.cmd}`)}
+    connection.userMessage(c, id, p.args.join(' '))
 }
 
 interface Command {
@@ -54,13 +54,13 @@ interface Command {
 
 const commands: Record<string, Command> = {}
 
-function operatorPredicate(): boolean {
+function operatorPredicate(): string | null {
     if (connection && $s.permissions.op)
         {return null}
     return 'You are not an operator'
 }
 
-function recordingPredicate(): boolean {
+function recordingPredicate(): string | null {
     if (connection && $s.permissions.record)
         {return null}
     return 'You are not allowed to record'
@@ -77,13 +77,13 @@ commands.help = {
                 {continue}
             if (c.predicate && c.predicate())
                 {continue}
-            cs.push(`/${cmd}${c.parameters?' ' + c.parameters:''}: ${c.description}`)
+            cs.push(`/${cmd}${c.parameters ? ' ' + c.parameters : ''}: ${c.description}`)
         }
         cs.sort()
         let s = ''
         for (let i = 0; i < cs.length; i++)
             {s = s + cs[i] + '\n'}
-        $s.chat.channels.main.messages.push({message: s, nick: null, time: Date.now()})
+        $s.chat.channels.main.messages.push({kind: 'message', message: s, nick: null, time: Date.now()})
     },
 }
 
@@ -113,8 +113,8 @@ commands.clear = {
 
 commands.lock = {
     description: 'lock this group',
-    f: (c, r) => {
-        connection.groupAction('lock', r)
+    f: (_c: string | undefined, r: string | undefined): void => {
+        connection.groupAction('lock', r || '')
     },
     parameters: '[message]',
     predicate: operatorPredicate,
@@ -216,7 +216,8 @@ commands.muteall = {
 
 commands.warn = {
     description: 'send a warning to a user',
-    f: (c, r) => {
+    f: (_c: string | undefined, r: string | undefined): void => {
+        if (!r) {throw new Error('empty message')}
         userMessage('warning', r)
     },
     parameters: 'user message',
@@ -225,7 +226,7 @@ commands.warn = {
 
 commands.wall = {
     description: 'send a warning to all users',
-    f: (c, r) => {
+    f: (_c: string | undefined, r: string | undefined): void => {
         if (!r) {throw new Error('empty message')}
         connection.userMessage('warning', '', r)
     },
@@ -264,7 +265,9 @@ function parseCommand(line: string): {cmd: string; args: string[]} {
 
     while (i < line.length && line[i] === ' ')
         {i++}
-    return [first, line.slice(i)]
+    const rest = line.slice(i)
+    const args = rest ? rest.split(' ').filter((arg): boolean => arg.length > 0) : []
+    return {args, cmd: first}
 }
 
 export default commands

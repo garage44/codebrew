@@ -2,7 +2,7 @@ import {$s} from '@/app'
 
 import {$t, api, notifier} from '@garage44/common/app'
 
-export function currentGroup(): typeof $s.sfu.channel {
+export function currentGroup(): typeof $s.sfu.channel & {clientCount?: number} {
     /*
      * Use channel slug to find group data from sfu.channels
      * Channel slug maps 1:1 to Galene group name
@@ -11,12 +11,12 @@ export function currentGroup(): typeof $s.sfu.channel {
     const channelData = channelSlug ? $s.sfu.channels[channelSlug] : null
 
     // If channel data exists, merge with channel state
-    if (channelData) {
+    if (channelData && 'clientCount' in channelData) {
         return {
             ...$s.sfu.channel,
-            clientCount: channelData.clientCount,
-            comment: channelData.comment ?? $s.sfu.channel.comment,
-            locked: channelData.locked ?? $s.sfu.channel.locked,
+            clientCount: (channelData as {clientCount?: number}).clientCount,
+            comment: (channelData as {comment?: string}).comment ?? $s.sfu.channel.comment,
+            locked: (channelData as {locked?: boolean}).locked ?? $s.sfu.channel.locked,
         }
     }
 

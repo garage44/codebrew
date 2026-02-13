@@ -549,7 +549,8 @@ export async function getUserMedia(presence: unknown): Promise<MediaStream | nul
         logger.error(`[media] getUserMedia failed: ${error}`)
 
         // Handle NotFoundError - device ID doesn't exist or is invalid
-        if (error.name === 'NotFoundError' || error.name === 'NotReadableError' || error.message?.includes('not be found')) {
+        const errorObj = error instanceof Error ? error : {message: String(error), name: ''}
+        if (errorObj.name === 'NotFoundError' || errorObj.name === 'NotReadableError' || (typeof errorObj.message === 'string' && errorObj.message.includes('not be found'))) {
             logger.warn(`[media] selected device not found, falling back to browser default`)
 
             // Retry with browser default (no deviceId specified)
@@ -624,7 +625,8 @@ export async function getUserMedia(presence: unknown): Promise<MediaStream | nul
                                 (!$s.devices.mic.options.length && selectedAudioDevice)
 
             if (hasNoDevices && (selectedVideoDevice || selectedAudioDevice)) {
-                logger.info(`[media] No devices available (${error.name}), creating fake stream as fallback`)
+                const errorObj = error instanceof Error ? error : {name: String(error)}
+                logger.info(`[media] No devices available (${errorObj.name}), creating fake stream as fallback`)
                 try {
                     const width = selectedVideoDevice && typeof selectedVideoDevice === 'object' && selectedVideoDevice.width?.ideal || 640
                     const height = selectedVideoDevice && typeof selectedVideoDevice === 'object' && selectedVideoDevice.height?.ideal || 480
@@ -885,8 +887,13 @@ navigator.mediaDevices.ondevicechange = async(): Promise<void> => {
     let added: {id: string | null; name: string}[] = []
     let removed: {id: string | null; name: string}[] = []
     for (const deviceType of Object.keys($s.devices)) {
-        const _added = $s.devices[deviceType].options.filter((i): boolean => !oldDevices[deviceType].options.some((j): boolean => i.id === j.id))
-        const _removed = oldDevices[deviceType].options.filter((i): boolean => !$s.devices[deviceType].options.some((j): boolean => i.id === j.id))
+        const deviceKey = deviceType as 'audio' | 'cam' | 'mic'
+        const currentDevice = $s.devices[deviceKey]
+        const deviceOptions = Array.isArray(currentDevice.options) ? currentDevice.options as {id: string | null; name: string}[] : []
+        const oldDevice = oldDevices[deviceKey]
+        const oldDeviceOptions = Array.isArray(oldDevice?.options) ? oldDevice.options as {id: string | null; name: string}[] : []
+        const _added = deviceOptions.filter((i): boolean => !oldDeviceOptions.some((j): boolean => i.id === j.id))
+        const _removed = oldDeviceOptions.filter((i): boolean => !deviceOptions.some((j): boolean => i.id === j.id))
         if (_added.length) {added = [...added, ..._added]}
         if (_removed.length) {removed = [...removed, ..._removed]}
     }

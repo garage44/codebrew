@@ -1,11 +1,8 @@
 #!/usr/bin/env bun
-import {fileURLToPath, URL} from 'node:url'
-import path from 'node:path'
-import {
-    bunchyArgs,
-    bunchyService,
-} from '@garage44/bunchy'
+import {URL, fileURLToPath} from 'node:url'
 import {createBunWebSocketHandler} from '@garage44/common/lib/ws-server'
+import {bunchyArgs, bunchyService} from '@garage44/bunchy'
+import {config, initConfig} from './lib/config.ts'
 import {devContext} from '@garage44/common/lib/dev-context'
 import {
     createRuntime,
@@ -16,22 +13,14 @@ import {
     setupBunchyConfig,
 } from '@garage44/common/service'
 import {hideBin} from 'yargs/helpers'
-import yargs from 'yargs'
-import {
-    registerChannelsWebSocket,
-} from './api/ws-channels'
+import {initMiddleware} from './lib/middleware.ts'
+import path from 'node:path'
 import {registerChatWebSocket} from './api/ws-chat'
 import {registerGroupsWebSocket} from './api/ws-groups'
 import {registerPresenceWebSocket} from './api/ws-presence'
-import {
-    config,
-    initConfig,
-} from './lib/config.ts'
-import {
-    initDatabase,
-    initializeDefaultData,
-} from './lib/database.ts'
-import {initMiddleware} from './lib/middleware.ts'
+import {registerChannelsWebSocket} from './api/ws-channels'
+import {initDatabase, initializeDefaultData} from './lib/database.ts'
+import yargs from 'yargs'
 
 const pyriteDir = fileURLToPath(new URL('.', import.meta.url))
 
@@ -63,9 +52,10 @@ if (BUN_ENV === 'development') {
     bunchyArgs(cli, bunchyConfig)
 }
 
+// eslint-disable-next-line no-unused-expressions
 cli.usage('Usage: $0 [task]')
     .detectLocale(false)
-    .command('start', 'Start the Pyrite service', (yargs): yargs.Argv<Record<string, never>> => {
+    .command('start', 'Start the Pyrite service', (yargs): yargs.Argv => {
         // oxlint-disable-next-line no-console
         console.log(welcomeBanner())
         return yargs
@@ -156,7 +146,7 @@ cli.usage('Usage: $0 [task]')
 
         // Start Bun.serve server
         const server = Bun.serve({
-            fetch: (req, server): Promise<Response> | Response => {
+            fetch: async(req, server): Promise<Response> => {
                 const url = new URL(req.url)
                 if (url.pathname === '/dev/snapshot') {
                     return new Response(JSON.stringify(devContext.snapshot({
@@ -164,7 +154,7 @@ cli.usage('Usage: $0 [task]')
                         workspace: 'pyrite',
                     })), {headers: {'Content-Type': 'application/json'}})
                 }
-                return handleRequest(req, server)
+                return await handleRequest(req, server)
             },
             hostname: argv.host,
             port: argv.port,
@@ -181,7 +171,7 @@ cli.usage('Usage: $0 [task]')
     .demandCommand()
     .help('help')
     .showHelpOnFail(true)
-cli.parse()
+    .argv
 
 export {
     logger,
