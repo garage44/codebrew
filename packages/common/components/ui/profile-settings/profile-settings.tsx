@@ -1,8 +1,10 @@
 import {useEffect} from 'preact/hooks'
-import {Icon} from '@/components'
+
 import {api, notifier, logger, store} from '@/app'
-import {AvatarUpload} from '../avatar-upload/avatar-upload'
+import {Icon} from '@/components'
 import {FieldSelect, ThemeToggle} from '@/components'
+
+import {AvatarUpload} from '../avatar-upload/avatar-upload'
 
 interface ProfileSettingsProps {
     /**
@@ -67,7 +69,7 @@ export function ProfileSettings({
         logger.info(`setting theme color to ${themeColor} for theme ${currentTheme}`)
         const metaTheme = document.querySelector('meta[name="theme-color"]')
         if (metaTheme) {
-            (metaTheme as HTMLMetaElement).content = themeColor
+            ;(metaTheme as HTMLMetaElement).content = themeColor
         }
     }, [])
 
@@ -75,37 +77,37 @@ export function ProfileSettings({
     const languageSelection = state ? getLanguageSelection(state) : null
 
     return (
-        <div class="c-profile-settings content view">
-            <header class="settings-header">
-                <div class="notice" />
-                <div class="title">
+        <div class='c-profile-settings content view'>
+            <header class='settings-header'>
+                <div class='notice' />
+                <div class='title'>
                     <span>Settings</span>
-                    <Icon className="item-icon icon-regular" name="settings" />
+                    <Icon className='item-icon icon-regular' name='settings' />
                 </div>
             </header>
 
-            <div class="settings-content">
-                <section class="settings-section">
-                    <h2 class="section-title">Profile</h2>
+            <div class='settings-content'>
+                <section class='settings-section'>
+                    <h2 class='section-title'>Profile</h2>
                     <AvatarUpload state={state} userEndpoint={userEndpoint} />
                 </section>
 
-                <section class="settings-section">
-                    <h2 class="section-title">Appearance</h2>
-                    <div class="theme-toggle-wrapper">
+                <section class='settings-section'>
+                    <h2 class='section-title'>Appearance</h2>
+                    <div class='theme-toggle-wrapper'>
                         <label>Theme</label>
                         <ThemeToggle />
-                        <p class="help-text">Choose your preferred color scheme</p>
+                        <p class='help-text'>Choose your preferred color scheme</p>
                     </div>
                 </section>
 
                 {languageSelection && (
-                    <section class="settings-section">
-                        <h2 class="section-title">Language</h2>
+                    <section class='settings-section'>
+                        <h2 class='section-title'>Language</h2>
                         <FieldSelect
                             model={languageSelection}
-                            help="Select your preferred language"
-                            label="Interface Language"
+                            help='Select your preferred language'
+                            label='Interface Language'
                             options={languages}
                             onChange={(language) => {
                                 if (state) {
@@ -117,9 +119,9 @@ export function ProfileSettings({
                     </section>
                 )}
 
-                <div class="settings-actions">
-                    <button class="btn btn-primary" onClick={onSave}>
-                        <Icon name="save" type="info" />
+                <div class='settings-actions'>
+                    <button class='btn btn-primary' onClick={onSave}>
+                        <Icon name='save' type='info' />
                         Save Settings
                     </button>
                 </div>

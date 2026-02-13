@@ -1,9 +1,11 @@
-import classnames from 'classnames'
-import {useRef, useEffect} from 'preact/hooks'
 import type {ComponentChildren} from 'preact'
 import type {JSX} from 'preact'
-import {Button} from '../button/button'
+
+import classnames from 'classnames'
+import {useRef, useEffect} from 'preact/hooks'
 import tippy, {type Instance as TippyInstance} from 'tippy.js'
+
+import {Button} from '../button/button'
 
 interface PanelMenuProps {
     actions?: ComponentChildren
@@ -71,23 +73,26 @@ export const PanelMenu = ({
     }, [logoCommitHash])
 
     const renderLogo = () => {
-        const logoContent =
+        const logoContent = (
             <>
                 {logoSrc && <img alt={`${logoText} Logo`} src={logoSrc} />}
-                {LogoIcon &&
+                {LogoIcon && (
                     <svg class='icon' height='40' viewBox='0 0 24 24' width='40'>
                         <LogoIcon />
-                    </svg>}
-                {logoText &&
+                    </svg>
+                )}
+                {logoText && (
                     <div class='l-name'>
                         <span class='name logo-text'>{logoText}</span>
-                        {logoVersion &&
+                        {logoVersion && (
                             <span class='version' ref={versionRef}>
                                 {logoVersion}
-                            </span>}
-                    </div>}
+                            </span>
+                        )}
+                    </div>
+                )}
             </>
-
+        )
 
         if (LinkComponent && logoHref) {
             return (
@@ -107,21 +112,21 @@ export const PanelMenu = ({
             })}
             style={{gridColumn: 'menu'}}
         >
-            <header>
-                {renderLogo()}
-            </header>
+            <header>{renderLogo()}</header>
             <div class='content'>
-                {navigation &&
+                {navigation && (
                     <div class='navigation' data-collapsed={collapsed}>
                         {navigation}
-                    </div>}
-                {actions &&
+                    </div>
+                )}
+                {actions && (
                     <div class='actions' data-collapsed={collapsed}>
                         {actions}
-                    </div>}
+                    </div>
+                )}
                 {footer && <div class='footer'>{footer}</div>}
             </div>
-            {onCollapseChange &&
+            {onCollapseChange && (
                 <Button
                     icon={collapsed ? 'chevron_right' : 'chevron_left'}
                     onClick={() => onCollapseChange(!collapsed)}
@@ -129,7 +134,8 @@ export const PanelMenu = ({
                     tip={collapsed ? 'Expand panel' : 'Collapse panel'}
                     type='info'
                     variant='toggle'
-                />}
+                />
+            )}
         </aside>
     )
 }

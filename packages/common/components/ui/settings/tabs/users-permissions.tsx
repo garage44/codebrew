@@ -1,6 +1,7 @@
 import {useEffect} from 'preact/hooks'
-import {Icon} from '@/components'
+
 import {api} from '@/app'
+import {Icon} from '@/components'
 
 export interface UsersPermissionsTabProps {
     /**
@@ -14,7 +15,7 @@ export interface UsersPermissionsTabProps {
     /**
      * Groups array
      */
-    groups?: Array<{name: string}>
+    groups?: {name: string}[]
     /**
      * Function to load groups
      */
@@ -59,10 +60,12 @@ export function UsersPermissions({
     }
 
     const toggleCategory = (category: string) => {
-        if (!user || !groups) return
+        if (!user || !groups) {
+            return
+        }
 
         const allSelected = !groups.some((i) => !user._permissions?.[category]?.includes(i.name))
-        const newPermissions = {...(user._permissions || {})}
+        const newPermissions = {...user._permissions}
 
         if (allSelected) {
             newPermissions[category] = []
@@ -74,22 +77,28 @@ export function UsersPermissions({
     }
 
     const toggleGroup = (groupname: string) => {
-        if (!user || !groups) return
+        if (!user || !groups) {
+            return
+        }
 
         const allSelected = categories.every((c) => user._permissions?.[c]?.includes(groupname))
-        const newPermissions = {...(user._permissions || {})}
+        const newPermissions = {...user._permissions}
 
         if (allSelected) {
             for (const category of categories) {
-                if (!newPermissions[category]) newPermissions[category] = []
+                if (!newPermissions[category]) {
+                    newPermissions[category] = []
+                }
                 const groupIndex = newPermissions[category].indexOf(groupname)
-                if (groupIndex > -1) {
+                if (groupIndex !== -1) {
                     newPermissions[category].splice(groupIndex, 1)
                 }
             }
         } else {
             for (const category of categories) {
-                if (!newPermissions[category]) newPermissions[category] = []
+                if (!newPermissions[category]) {
+                    newPermissions[category] = []
+                }
                 if (!newPermissions[category].includes(groupname)) {
                     newPermissions[category].push(groupname)
                 }
@@ -99,15 +108,17 @@ export function UsersPermissions({
         onPermissionsChange?.(newPermissions)
     }
 
-    const isChecked = (category: string, groupname: string) => {
-        return user?._permissions?.[category]?.includes(groupname) || false
-    }
+    const isChecked = (category: string, groupname: string) => user?._permissions?.[category]?.includes(groupname) || false
 
     const handleCheckboxChange = (category: string, groupname: string, checked: boolean) => {
-        if (!user) return
+        if (!user) {
+            return
+        }
 
-        const newPermissions = {...(user._permissions || {})}
-        if (!newPermissions[category]) newPermissions[category] = []
+        const newPermissions = {...user._permissions}
+        if (!newPermissions[category]) {
+            newPermissions[category] = []
+        }
 
         if (checked) {
             if (!newPermissions[category].includes(groupname)) {
@@ -115,7 +126,7 @@ export function UsersPermissions({
             }
         } else {
             const index = newPermissions[category].indexOf(groupname)
-            if (index > -1) {
+            if (index !== -1) {
                 newPermissions[category].splice(index, 1)
             }
         }
@@ -130,59 +141,61 @@ export function UsersPermissions({
     }, [authenticated, hasPermission])
 
     return (
-        <section class="c-users-permissions-tab">
-            <div class="group">
-                <div class="group-name" />
-                <div class="categories">
+        <section class='c-users-permissions-tab'>
+            <div class='group'>
+                <div class='group-name' />
+                <div class='categories'>
                     <div
-                        class="category"
+                        class='category'
                         onClick={() => toggleCategory('op')}
                         onKeyPress={(e) => e.key === 'Enter' && toggleCategory('op')}
-                        role="button"
+                        role='button'
                         tabIndex={0}
                     >
-                        <Icon className="icon-d" name="operator" tip={$t('group.settings.permission.operator')} />
+                        <Icon className='icon-d' name='operator' tip={$t('group.settings.permission.operator')} />
                     </div>
                     <div
-                        class="category"
+                        class='category'
                         onClick={() => toggleCategory('presenter')}
                         onKeyPress={(e) => e.key === 'Enter' && toggleCategory('presenter')}
-                        role="button"
+                        role='button'
                         tabIndex={0}
                     >
-                        <Icon className="icon-d" name="present" tip={$t('group.settings.permission.presenter')} />
+                        <Icon className='icon-d' name='present' tip={$t('group.settings.permission.presenter')} />
                     </div>
                     <div
-                        class="category"
+                        class='category'
                         onClick={() => toggleCategory('other')}
                         onKeyPress={(e) => e.key === 'Enter' && toggleCategory('other')}
-                        role="button"
+                        role='button'
                         tabIndex={0}
                     >
-                        <Icon className="icon-d" name="otherpermissions" tip={$t('group.settings.permission.misc')} />
+                        <Icon className='icon-d' name='otherpermissions' tip={$t('group.settings.permission.misc')} />
                     </div>
                 </div>
             </div>
 
             {groups.map((group) => (
-                <div key={group.name} class="group item">
+                <div key={group.name} class='group item'>
                     <div
-                        class="group-name"
+                        class='group-name'
                         onClick={() => toggleGroup(group.name)}
                         onKeyPress={(e) => e.key === 'Enter' && toggleGroup(group.name)}
-                        role="button"
+                        role='button'
                         tabIndex={0}
                     >
                         {group.name}
                     </div>
 
-                    <div class="categories">
+                    <div class='categories'>
                         {categories.map((category) => (
-                            <div key={category} class="category">
+                            <div key={category} class='category'>
                                 <input
-                                    type="checkbox"
+                                    type='checkbox'
                                     checked={isChecked(category, group.name)}
-                                    onChange={(e) => handleCheckboxChange(category, group.name, (e.target as HTMLInputElement).checked)}
+                                    onChange={(e) =>
+                                        handleCheckboxChange(category, group.name, (e.target as HTMLInputElement).checked)
+                                    }
                                 />
                             </div>
                         ))}

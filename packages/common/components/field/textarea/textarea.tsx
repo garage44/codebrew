@@ -9,8 +9,8 @@ interface FieldTextareaProps {
     autofocus?: boolean
 }
 
-export const FieldTextarea = ({ value, onChange, label, placeholder = '', help, autofocus }: FieldTextareaProps) => {
-    const [uniqueId] = useState(() => Math.random().toString(36).substr(2, 9))
+export const FieldTextarea = ({value, onChange, label, placeholder = '', help, autofocus}: FieldTextareaProps) => {
+    const [uniqueId] = useState(() => Math.random().toString(36).slice(2, 9))
     const fieldRef = useRef<HTMLTextAreaElement>(null)
 
     const handleInput = (e: Event) => {
@@ -28,8 +28,8 @@ export const FieldTextarea = ({ value, onChange, label, placeholder = '', help, 
     }, [autofocus])
 
     return (
-        <div class="c-field-textarea field">
-            {label && <div class="label">{label}</div>}
+        <div class='c-field-textarea field'>
+            {label && <div class='label'>{label}</div>}
             <textarea
                 ref={fieldRef}
                 id={uniqueId}
@@ -38,7 +38,7 @@ export const FieldTextarea = ({ value, onChange, label, placeholder = '', help, 
                 onInput={handleInput}
                 onKeyDown={handleKeydown}
             />
-            {help && <div class="help">{help}</div>}
+            {help && <div class='help'>{help}</div>}
         </div>
     )
 }

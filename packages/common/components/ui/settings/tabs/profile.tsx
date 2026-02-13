@@ -1,10 +1,11 @@
 import {useEffect} from 'preact/hooks'
-import {AvatarUpload} from '../../avatar-upload/avatar-upload'
-import {FieldSelect, ThemeToggle} from '@/components'
+
 import {logger, store} from '@/app'
+import {FieldSelect, ThemeToggle} from '@/components'
+
+import {AvatarUpload} from '../../avatar-upload/avatar-upload'
 
 export interface ProfileTabProps {
-
     /**
      * User endpoint for avatar upload
      * @default '/api/users/me'
@@ -16,9 +17,7 @@ export interface ProfileTabProps {
  * Profile Settings Tab Component
  * Contains avatar upload, theme toggle, and language selection
  */
-export function Profile({
-    userEndpoint = '/api/users/me',
-}: ProfileTabProps = {}) {
+export function Profile({userEndpoint = '/api/users/me'}: ProfileTabProps = {}) {
     // Watch for theme changes
     useEffect(() => {
         const currentTheme = store.state.theme
@@ -28,7 +27,7 @@ export function Profile({
             logger.info(`setting theme color to ${themeColor} for theme ${currentTheme}`)
             const metaTheme = document.querySelector('meta[name="theme-color"]')
             if (metaTheme) {
-                (metaTheme as HTMLMetaElement).content = themeColor
+                ;(metaTheme as HTMLMetaElement).content = themeColor
             }
         }
     }, [])
@@ -51,7 +50,7 @@ export function Profile({
                 </div>
             </div>
 
-            {languageSelection && languages.length > 0 &&
+            {languageSelection && languages.length > 0 && (
                 <div class='section'>
                     <h2 class='section-title'>Language</h2>
                     <FieldSelect
@@ -67,7 +66,8 @@ export function Profile({
                         }}
                         options={languages}
                     />
-                </div>}
+                </div>
+            )}
         </section>
     )
 }

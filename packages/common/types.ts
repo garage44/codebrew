@@ -48,17 +48,10 @@ interface CommonState {
     theme: 'dark' | 'light' | 'system'
 }
 
-
 interface TargetLanguage {
     engine: 'anthropic' | 'deepl'
     formality: 'informal' | 'formal'
     id: string
 }
 
-export {
-    type CommonState,
-    type LanguageUI,
-    type LoggerConfig,
-    type LogLevel,
-    type TargetLanguage,
-}
+export {type CommonState, type LanguageUI, type LoggerConfig, type LogLevel, type TargetLanguage}

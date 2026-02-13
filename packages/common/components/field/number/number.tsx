@@ -8,21 +8,21 @@ interface FieldNumberProps {
     placeholder?: string
 }
 
-export const FieldNumber = ({ value, onChange, label = 'Label me', help = '', placeholder = '...' }: FieldNumberProps) => {
-    const [uniqueId] = useState(() => Math.random().toString(36).substr(2, 9))
+export const FieldNumber = ({value, onChange, label = 'Label me', help = '', placeholder = '...'}: FieldNumberProps) => {
+    const [uniqueId] = useState(() => Math.random().toString(36).slice(2, 9))
 
     return (
-        <div class="c-field-number field">
-            <div class="label">{label}</div>
+        <div class='c-field-number field'>
+            <div class='label'>{label}</div>
             <input
                 id={uniqueId}
                 value={value}
                 onInput={(e) => onChange(Number((e.target as HTMLInputElement).value))}
                 placeholder={placeholder}
-                type="number"
+                type='number'
             />
 
-            {help && <div class="help">{help}</div>}
+            {help && <div class='help'>{help}</div>}
         </div>
     )
 }

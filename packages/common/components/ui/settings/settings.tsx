@@ -1,6 +1,7 @@
 import type {ComponentChildren} from 'preact'
-import {Icon} from '../icon/icon'
+
 import {Button} from '../button/button'
+import {Icon} from '../icon/icon'
 import {Tabs, type TabConfig} from '../tabs/tabs'
 
 export interface SettingsTab {
@@ -119,30 +120,24 @@ export function Settings({
 
     return (
         <div class={`c-settings content ${classProp}`}>
-            <header class="header">
-                <div class="notice" />
+            <header class='header'>
+                <div class='notice' />
                 {header || (
-                    <div class="title">
+                    <div class='title'>
                         {title && <span>{title}</span>}
-                        {icon && <Icon className="item-icon icon-regular" name={icon} />}
+                        {icon && <Icon className='item-icon icon-regular' name={icon} />}
                     </div>
                 )}
             </header>
 
             <Tabs tabs={tabConfigs} activeTabId={currentTabId} />
 
-            <div class="content">
-                {activeTab && <div class="tab-content">{activeTab.component}</div>}
+            <div class='content'>
+                {activeTab && <div class='tab-content'>{activeTab.component}</div>}
 
                 {showSave && onSave && (
-                    <div class="actions">
-                        <Button
-                            icon="save"
-                            label={saveLabel}
-                            onClick={handleSave}
-                            tip="Save Settings"
-                            variant="menu"
-                        />
+                    <div class='actions'>
+                        <Button icon='save' label={saveLabel} onClick={handleSave} tip='Save Settings' variant='menu' />
                     </div>
                 )}
             </div>

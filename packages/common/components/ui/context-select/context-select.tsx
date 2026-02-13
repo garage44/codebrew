@@ -1,5 +1,6 @@
-import {Icon} from '../icon/icon'
 import {useState, useEffect, useRef} from 'preact/hooks'
+
+import {Icon} from '../icon/icon'
 
 interface ContextSelectProps {
     value: any
@@ -11,13 +12,13 @@ interface ContextSelectProps {
     FieldSelectComponent: any
 }
 
-export const ContextSelect = ({ value, onChange, icon, title, options, submit, FieldSelectComponent }: ContextSelectProps) => {
+export const ContextSelect = ({value, onChange, icon, title, options, submit, FieldSelectComponent}: ContextSelectProps) => {
     const [input, setInput] = useState(false)
     const [model, setModel] = useState(value)
     const selectRef = useRef<any>(null)
 
     const buttonAction = async () => {
-        setInput(prev => !prev)
+        setInput((prev) => !prev)
         if (selectRef.current?.toggleSelect) {
             selectRef.current.toggleSelect(null, null, true)
         }
@@ -39,23 +40,19 @@ export const ContextSelect = ({ value, onChange, icon, title, options, submit, F
     }, [model])
 
     return (
-        <div class="c-context-select">
-            <button class="action" onClick={(e) => {
-                e.stopPropagation()
-                buttonAction()
-            }}>
-                <Icon className="icon icon-s" name={icon} />
+        <div class='c-context-select'>
+            <button
+                class='action'
+                onClick={(e) => {
+                    e.stopPropagation()
+                    buttonAction()
+                }}
+            >
+                <Icon className='icon icon-s' name={icon} />
                 <span>{title}</span>
             </button>
 
-            {input && (
-                <FieldSelectComponent
-                    ref={selectRef}
-                    value={model}
-                    onChange={setModel}
-                    options={options}
-                />
-            )}
+            {input && <FieldSelectComponent ref={selectRef} value={model} onChange={setModel} options={options} />}
         </div>
     )
 }

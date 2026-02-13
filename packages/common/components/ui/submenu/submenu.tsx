@@ -1,4 +1,5 @@
-import {ComponentChildren} from 'preact'
+import type {ComponentChildren} from 'preact'
+
 import classnames from 'classnames'
 
 interface SubmenuItem {
@@ -41,7 +42,7 @@ export const Submenu = ({className = '', collapsed = false, items, level = 0}: S
     return (
         <nav class={classnames('c-submenu', `c-submenu--level-${level}`, className)}>
             {items.map((item) => (
-                <div key={item.id} class="c-submenu-item-wrapper">
+                <div key={item.id} class='c-submenu-item-wrapper'>
                     <button
                         class={classnames('c-submenu-item', {
                             active: item.active,
@@ -50,16 +51,12 @@ export const Submenu = ({className = '', collapsed = false, items, level = 0}: S
                         })}
                         disabled={item.disabled}
                         onClick={item.onClick}
-                        type="button"
+                        type='button'
                     >
                         {item.label}
                     </button>
                     {item.children && item.children.length > 0 && (
-                        <Submenu
-                            collapsed={collapsed}
-                            items={item.children}
-                            level={level + 1}
-                        />
+                        <Submenu collapsed={collapsed} items={item.children} level={level + 1} />
                     )}
                 </div>
             ))}

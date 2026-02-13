@@ -1,5 +1,6 @@
-import {useEffect, useMemo} from 'preact/hooks'
 import type {JSX} from 'preact'
+
+import {useEffect, useMemo} from 'preact/hooks'
 
 interface SplashProps {
     header?: string
@@ -8,21 +9,22 @@ interface SplashProps {
     onMount?: () => void
 }
 
-export const Splash = ({ header, instruction, IconComponent, onMount }: SplashProps) => {
+export const Splash = ({header, instruction, IconComponent, onMount}: SplashProps) => {
     const subtitle = useMemo(() => {
         if (instruction) {
-            if (typeof instruction === 'function') return instruction()
-            else return instruction
+            if (typeof instruction === 'function') {
+                return instruction()
+            }
+            return instruction
         }
-        else return ''
+        return ''
     }, [instruction])
 
     const title = useMemo(() => {
         if (header) {
             return header
-        } else {
-            return ''
         }
+        return ''
     }, [header])
 
     useEffect(() => {
@@ -32,22 +34,14 @@ export const Splash = ({ header, instruction, IconComponent, onMount }: SplashPr
     }, [])
 
     return (
-        <div class="c-splash">
+        <div class='c-splash'>
             {IconComponent && (
-                <svg class="icon logo-animated" viewBox="0 0 24 24" height="40" width="40">
+                <svg class='icon logo-animated' viewBox='0 0 24 24' height='40' width='40'>
                     <IconComponent />
                 </svg>
             )}
-            {title && (
-                <div class="title uca">
-                    {title}
-                </div>
-            )}
-            {subtitle && (
-                <div class="subtitle uca">
-                    {subtitle}
-                </div>
-            )}
+            {title && <div class='title uca'>{title}</div>}
+            {subtitle && <div class='subtitle uca'>{subtitle}</div>}
         </div>
     )
 }

@@ -3,13 +3,13 @@
 // The MIT License (MIT)
 // Copyright (c) 2014 Chris Wilson
 // Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
+// Of this software and associated documentation files (the "Software"), to deal
+// In the Software without restriction, including without limitation the rights
+// To use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// Copies of the Software, and to permit persons to whom the Software is
+// Furnished to do so, subject to the following conditions:
 // The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// Copies or substantial portions of the Software.
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -28,20 +28,22 @@ interface SoundMeterProps {
     class?: string
 }
 
-export const SoundMeter = ({ orientation = 'horizontal', stream, streamId, class: className }: SoundMeterProps) => {
+export const SoundMeter = ({orientation = 'horizontal', stream, streamId, class: className}: SoundMeterProps) => {
     const meterRef = useRef<HTMLCanvasElement>(null)
     const canvasContextRef = useRef<CanvasRenderingContext2D | null>(null)
     const audioContextRef = useRef<AudioContext | null>(null)
     const meterNodeRef = useRef<any>(null)
     const rafIDRef = useRef<number | null>(null)
-    const colorsRef = useRef<{ primary: string; warning: string }>({ primary: '', warning: '' })
+    const colorsRef = useRef<{primary: string; warning: string}>({primary: '', warning: ''})
 
     const drawLoop = () => {
         const meter = meterNodeRef.current
         const canvas = meterRef.current
         const ctx = canvasContextRef.current
 
-        if (!meter || !canvas || !ctx) return
+        if (!meter || !canvas || !ctx) {
+            return
+        }
 
         ctx.clearRect(0, 0, canvas.width, canvas.height)
 
@@ -61,7 +63,9 @@ export const SoundMeter = ({ orientation = 'horizontal', stream, streamId, class
     }
 
     const updateSoundmeter = async () => {
-        if (!stream.getAudioTracks().length) return
+        if (!stream.getAudioTracks().length) {
+            return
+        }
 
         audioContextRef.current = new AudioContext()
         const mediaStreamSource = audioContextRef.current.createMediaStreamSource(stream)
@@ -70,7 +74,9 @@ export const SoundMeter = ({ orientation = 'horizontal', stream, streamId, class
     }
 
     useEffect(() => {
-        if (!meterRef.current) return
+        if (!meterRef.current) {
+            return
+        }
 
         canvasContextRef.current = meterRef.current.getContext('2d')
         const computedStyle = getComputedStyle(document.querySelector('.app')!)
@@ -94,13 +100,7 @@ export const SoundMeter = ({ orientation = 'horizontal', stream, streamId, class
         updateSoundmeter()
     }, [streamId])
 
-    return (
-        <canvas
-            id="meter"
-            ref={meterRef}
-            class={classnames('c-soundmeter', {[orientation]: true}, className)}
-        />
-    )
+    return <canvas id='meter' ref={meterRef} class={classnames('c-soundmeter', {[orientation]: true}, className)} />
 }
 
 function volumeAudioProcess(this: any, event: AudioProcessingEvent) {
@@ -109,7 +109,7 @@ function volumeAudioProcess(this: any, event: AudioProcessingEvent) {
     let sum = 0
     let x
 
-    for (var i = 0; i < bufLength; i++) {
+    for (let i = 0; i < bufLength; i++) {
         x = buf[i]
         if (Math.abs(x) >= this.clipLevel) {
             this.clipping = true
@@ -132,18 +132,20 @@ function createAudioMeter(audioContext: AudioContext, clipLevel?: number, averag
     ;(processor as any).averaging = averaging || 0.95
     ;(processor as any).clipLag = clipLag || 750
 
-    // this will have no effect, since we don't copy the input to the output,
-    // but works around a current Chrome bug.
+    // This will have no effect, since we don't copy the input to the output,
+    // But works around a current Chrome bug.
     processor.connect(audioContext.destination)
-    ;(processor as any).checkClipping = function() {
-        if (!this.clipping) return false
-        if ((this.lastClip + this.clipLag) < window.performance.now()) {
+    ;(processor as any).checkClipping = function checkClipping() {
+        if (!this.clipping) {
+            return false
+        }
+        if (this.lastClip + this.clipLag < window.performance.now()) {
             this.clipping = false
         }
         return this.clipping
     }
 
-    ;(processor as any).shutdown = function() {
+    ;(processor as any).shutdown = function shutdown() {
         this.disconnect()
         this.onaudioprocess = null
     }

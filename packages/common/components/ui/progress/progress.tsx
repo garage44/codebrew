@@ -24,13 +24,10 @@ export function Progress({boundaries, iso6391, loading, percentage}: ProgressPro
                 <div class='bar' style={{width: `${Math.max(percentage * 100, 1)}%`}} />
             </div>
             <div class='info'>
-                <span class='percentage'>
-                    {loading ? '...' : intlPercentage.format(percentage)}
-                </span>
-                {boundaries.length > 0 &&
-                    <span class='boundaries'>
-                        {loading ? '...' : intlRange.formatRange(boundaries[0], boundaries[1])}
-                    </span>}
+                <span class='percentage'>{loading ? '...' : intlPercentage.format(percentage)}</span>
+                {boundaries.length > 0 && (
+                    <span class='boundaries'>{loading ? '...' : intlRange.formatRange(boundaries[0], boundaries[1])}</span>
+                )}
             </div>
         </div>
     )

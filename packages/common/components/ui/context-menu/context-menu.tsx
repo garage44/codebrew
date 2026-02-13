@@ -1,6 +1,7 @@
-import {useEffect, useRef, useState} from 'preact/hooks'
 import type {ComponentChildren} from 'preact'
+
 import classnames from 'classnames'
+import {useEffect, useRef, useState} from 'preact/hooks'
 
 interface ContextMenuProps {
     anchor: ComponentChildren
@@ -13,12 +14,7 @@ interface ContextMenuProps {
  * ContextMenu - Generic context menu component
  * Displays a menu when clicking on the anchor element
  */
-export const ContextMenu = ({
-    anchor,
-    children,
-    className = '',
-    position = 'bottom',
-}: ContextMenuProps) => {
+export const ContextMenu = ({anchor, children, className = '', position = 'bottom'}: ContextMenuProps) => {
     const [isOpen, setIsOpen] = useState(false)
     const containerRef = useRef<HTMLDivElement>(null)
     const menuRef = useRef<HTMLDivElement>(null)
@@ -45,7 +41,7 @@ export const ContextMenu = ({
 
     return (
         <div class={classnames('c-context-menu', className)} ref={containerRef}>
-            <div class="anchor" onClick={toggleMenu}>
+            <div class='anchor' onClick={toggleMenu}>
                 {anchor}
             </div>
             {isOpen && (

@@ -1,6 +1,6 @@
 import classnames from 'classnames'
-import {useRef, useEffect, useMemo} from 'preact/hooks'
 import {deepSignal} from 'deepsignal'
+import {useRef, useEffect, useMemo} from 'preact/hooks'
 
 interface SliderValue {
     locked?: boolean | null
@@ -18,17 +18,19 @@ export const FieldSlider = ({IconComponent, onChange, value}: FieldSliderProps) 
      * DeepSignal state - useRef ensures it's created once per component instance
      * Without useRef, deepSignal would be recreated on every render, losing state
      */
-    const $s = useRef(deepSignal({
-        currentValue: 100,
-        down: false,
-        dragStartY: null as number | null,
-        dragY: null as number | null,
-        isDragging: false,
-        modifierKeyPressed: false,
-        thumb: {height: 0, width: 0, y: 0},
-        timeoutId: null as number | null,
-        track: {height: 0, y: 0},
-    })).current
+    const $s = useRef(
+        deepSignal({
+            currentValue: 100,
+            down: false,
+            dragStartY: null as number | null,
+            dragY: null as number | null,
+            isDragging: false,
+            modifierKeyPressed: false,
+            thumb: {height: 0, width: 0, y: 0},
+            timeoutId: null as number | null,
+            track: {height: 0, y: 0},
+        }),
+    ).current
 
     const trackRef = useRef<HTMLDivElement>(null)
     const thumbRef = useRef<HTMLDivElement>(null)
@@ -45,19 +47,25 @@ export const FieldSlider = ({IconComponent, onChange, value}: FieldSliderProps) 
     }, [onChange, value, $s.isDragging])
 
     const marginTop = useMemo(() => {
-        if ($s.track.height === 0 || $s.thumb.height === 0) return 0
+        if ($s.track.height === 0 || $s.thumb.height === 0) {
+            return 0
+        }
         const minY = $s.thumb.height / 2
-        const maxY = $s.track.height - ($s.thumb.height / 2)
+        const maxY = $s.track.height - $s.thumb.height / 2
         const trackRange = maxY - minY
-        if (trackRange <= 0) return 0
+        if (trackRange <= 0) {
+            return 0
+        }
         const normalizedValue = (100 - value.value) / 100
-        const thumbCenterY = minY + (normalizedValue * trackRange)
-        return thumbCenterY - ($s.thumb.height / 2)
+        const thumbCenterY = minY + normalizedValue * trackRange
+        return thumbCenterY - $s.thumb.height / 2
     }, [$s.track.height, value.value, $s.thumb.height])
 
     // Calculate value from pageY position directly
     const pageYToValue = (pageY: number): number => {
-        if (!trackRef.current || !thumbRef.current) return value.value
+        if (!trackRef.current || !thumbRef.current) {
+            return value.value
+        }
 
         const trackEl = trackRef.current
         const thumbEl = thumbRef.current
@@ -65,24 +73,30 @@ export const FieldSlider = ({IconComponent, onChange, value}: FieldSliderProps) 
         const trackHeight = trackEl.offsetHeight
         const thumbHeight = thumbEl.offsetHeight
 
-        if (trackHeight === 0) return value.value
+        if (trackHeight === 0) {
+            return value.value
+        }
 
         const currentTrackY = trackEl.getBoundingClientRect().top + window.scrollY
         const relativeY = pageY - currentTrackY
 
         const minY = thumbHeight / 2
-        const maxY = trackHeight - (thumbHeight / 2)
+        const maxY = trackHeight - thumbHeight / 2
         const clampedY = Math.max(minY, Math.min(maxY, relativeY))
 
         const trackRange = maxY - minY
-        if (trackRange <= 0) return value.value
+        if (trackRange <= 0) {
+            return value.value
+        }
 
         const normalizedY = (clampedY - minY) / trackRange
-        return Math.round(100 - (normalizedY * 100))
+        return Math.round(100 - normalizedY * 100)
     }
 
     const onClick = (doubleClick: boolean) => {
-        if (value.locked === null) return
+        if (value.locked === null) {
+            return
+        }
 
         if (doubleClick) {
             if ($s.timeoutId) {
@@ -106,7 +120,9 @@ export const FieldSlider = ({IconComponent, onChange, value}: FieldSliderProps) 
     }
 
     const setPosition = (pageY: number, allowOutside = false) => {
-        if (!trackRef.current || !thumbRef.current) return
+        if (!trackRef.current || !thumbRef.current) {
+            return
+        }
 
         const trackHeight = trackRef.current.offsetHeight
         const thumbHeight = thumbRef.current.offsetHeight
@@ -115,7 +131,7 @@ export const FieldSlider = ({IconComponent, onChange, value}: FieldSliderProps) 
         const relativeY = pageY - currentTrackY
 
         const minY = thumbHeight / 2
-        const maxY = trackHeight - (thumbHeight / 2)
+        const maxY = trackHeight - thumbHeight / 2
 
         if (allowOutside) {
             // Allow dragging outside bounds when modifier key is pressed
@@ -132,17 +148,23 @@ export const FieldSlider = ({IconComponent, onChange, value}: FieldSliderProps) 
 
     // Sync thumb position with value prop when it changes externally
     useEffect(() => {
-        if ($s.isDragging) return
-        if (!trackRef.current || $s.track.height === 0 || $s.thumb.height === 0) return
+        if ($s.isDragging) {
+            return
+        }
+        if (!trackRef.current || $s.track.height === 0 || $s.thumb.height === 0) {
+            return
+        }
 
         const minY = $s.thumb.height / 2
-        const maxY = $s.track.height - ($s.thumb.height / 2)
+        const maxY = $s.track.height - $s.thumb.height / 2
         const trackRange = maxY - minY
 
-        if (trackRange <= 0) return
+        if (trackRange <= 0) {
+            return
+        }
 
         const normalizedValue = (100 - value.value) / 100
-        const expectedY = minY + (normalizedValue * trackRange)
+        const expectedY = minY + normalizedValue * trackRange
 
         if (Math.abs($s.thumb.y - expectedY) > 0.5) {
             $s.thumb.y = expectedY
@@ -153,7 +175,9 @@ export const FieldSlider = ({IconComponent, onChange, value}: FieldSliderProps) 
     useEffect(() => {
         const trackEl = trackRef.current
         const thumbEl = thumbRef.current
-        if (!trackEl || !thumbEl) return
+        if (!trackEl || !thumbEl) {
+            return
+        }
 
         const updateDimensions = () => {
             $s.track.height = trackEl.offsetHeight
@@ -182,7 +206,9 @@ export const FieldSlider = ({IconComponent, onChange, value}: FieldSliderProps) 
 
         const handleMove = (pageY: number) => {
             // Check current state directly (DeepSignal is reactive)
-            if (!$s.down) return
+            if (!$s.down) {
+                return
+            }
 
             // Only allow dragging outside bounds if modifier key is pressed
             if (!$s.modifierKeyPressed) {
@@ -227,7 +253,9 @@ export const FieldSlider = ({IconComponent, onChange, value}: FieldSliderProps) 
         }
 
         const handleMouseMove = (e: MouseEvent) => {
-            if (!$s.down) return
+            if (!$s.down) {
+                return
+            }
             // Update modifier key state during drag
             $s.modifierKeyPressed = e.shiftKey || e.ctrlKey || e.altKey || e.metaKey
             e.preventDefault()
@@ -248,7 +276,9 @@ export const FieldSlider = ({IconComponent, onChange, value}: FieldSliderProps) 
         }
 
         const handleTouchMove = (e: TouchEvent) => {
-            if (!$s.down) return
+            if (!$s.down) {
+                return
+            }
             e.preventDefault()
             const touch = e.touches[0]
             if (touch) {
@@ -304,11 +334,7 @@ export const FieldSlider = ({IconComponent, onChange, value}: FieldSliderProps) 
     return (
         <div class={classnames('c-field-slider', {active: $s.down})}>
             {value.locked && IconComponent && (
-                <IconComponent
-                    class='icon icon-xs locked'
-                    name='lock'
-                    onClick={() => onClick(false)}
-                />
+                <IconComponent class='icon icon-xs locked' name='lock' onClick={() => onClick(false)} />
             )}
 
             <div
@@ -338,11 +364,7 @@ export const FieldSlider = ({IconComponent, onChange, value}: FieldSliderProps) 
                 ref={trackRef}
             >
                 <div class='thumb' ref={thumbRef} style={{marginTop: `${marginTop}px`}} />
-                {$s.down && (
-                    <div class='volume-popup'>
-                        {$s.currentValue}%
-                    </div>
-                )}
+                {$s.down && <div class='volume-popup'>{$s.currentValue}%</div>}
             </div>
         </div>
     )

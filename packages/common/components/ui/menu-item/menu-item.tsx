@@ -1,6 +1,8 @@
-import {ComponentChildren} from 'preact'
-import {Icon} from '../icon/icon'
+import type {ComponentChildren} from 'preact'
+
 import classnames from 'classnames'
+
+import {Icon} from '../icon/icon'
 
 interface MenuItemProps {
     active?: boolean
@@ -55,7 +57,7 @@ export const MenuItem = ({
     }
 
     return (
-        <button class={classes} disabled={disabled} onClick={onClick} type="button">
+        <button class={classes} disabled={disabled} onClick={onClick} type='button'>
             {content}
         </button>
     )

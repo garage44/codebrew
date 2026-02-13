@@ -1,5 +1,4 @@
-import {ComponentChildren} from 'preact'
-
+import type {ComponentChildren} from 'preact'
 
 export interface CollectionColumn {
     /**
@@ -98,40 +97,35 @@ export interface CollectionViewProps {
  *   emptyMessage="No users found"
  * />
  */
-export function CollectionView({
-    className = '',
-    columns,
-    emptyMessage,
-    getKey,
-    items,
-    row_actions,
-}: CollectionViewProps) {
+export function CollectionView({className = '', columns, emptyMessage, getKey, items, row_actions}: CollectionViewProps) {
     const getItemKey = (item: any, index: number) => {
-        if (getKey) return getKey(item, index)
+        if (getKey) {
+            return getKey(item, index)
+        }
         return item.id ?? item._id ?? index
     }
 
     // Add actions column if row_actions is provided
     const allColumns: CollectionColumn[] = row_actions
         ? [
-            ...columns,
-            {
-                className: 'collection-actions-column',
-                label: '',
-                render: () => null, // Actions column doesn't render in cells
-                width: '140px',
-                minWidth: '140px',
-            } satisfies CollectionColumn,
-        ]
+              ...columns,
+              {
+                  className: 'collection-actions-column',
+                  label: '',
+                  render: () => null, // Actions column doesn't render in cells
+                  width: '140px',
+                  minWidth: '140px',
+              } satisfies CollectionColumn,
+          ]
         : columns
 
     return (
         <div class={`c-collection-view ${className}`}>
             {items.length === 0 && emptyMessage ? (
-                <div class="collection-empty-state">{emptyMessage}</div>
+                <div class='collection-empty-state'>{emptyMessage}</div>
             ) : (
                 <>
-                    <div class="collection-header">
+                    <div class='collection-header'>
                         {allColumns.map((column, index) => (
                             <div
                                 key={index}
@@ -148,10 +142,7 @@ export function CollectionView({
                         ))}
                     </div>
                     {items.map((item, index) => (
-                        <div
-                            key={getItemKey(item, index)}
-                            class={`collection-row ${index % 2 === 0 ? 'even' : 'odd'}`}
-                        >
+                        <div key={getItemKey(item, index)} class={`collection-row ${index % 2 === 0 ? 'even' : 'odd'}`}>
                             {allColumns.map((column, colIndex) => {
                                 const isActionsColumn = colIndex === allColumns.length - 1 && row_actions
                                 return (
@@ -166,7 +157,7 @@ export function CollectionView({
                                         }}
                                     >
                                         {isActionsColumn ? (
-                                            <div class="collection-row-actions">{row_actions(item)}</div>
+                                            <div class='collection-row-actions'>{row_actions(item)}</div>
                                         ) : (
                                             column.render(item, index)
                                         )}

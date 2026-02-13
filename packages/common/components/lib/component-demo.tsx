@@ -16,9 +16,7 @@ export const ComponentDemo = ({children, component, title}: ComponentDemoProps):
                 <h2 class='title'>{title}</h2>
                 <code class='component-name'>{component}</code>
             </header>
-            <div class='content'>
-                {children}
-            </div>
+            <div class='content'>{children}</div>
         </section>
     )
 }

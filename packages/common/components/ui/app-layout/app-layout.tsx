@@ -1,9 +1,11 @@
-import {useEffect} from 'preact/hooks'
 import type {ComponentChildren} from 'preact'
+
+import classnames from 'classnames'
+import {useEffect} from 'preact/hooks'
+
 import {$t} from '@/app'
 import {store} from '@/app'
 import {Icon} from '@/components'
-import classnames from 'classnames'
 
 interface AppLayoutProps {
     children: ComponentChildren
@@ -43,7 +45,9 @@ export const AppLayout = ({children, context, menu}: AppLayoutProps) => {
 
     // Unified toggle handler - cycles: Closed → Menu → Context → Closed
     const handleUnifiedToggle = () => {
-        if (!isMobile) return
+        if (!isMobile) {
+            return
+        }
 
         const menuCollapsed = store.state?.panels?.menu?.collapsed ?? true
         const contextCollapsed = store.state?.panels?.context?.collapsed ?? true
@@ -82,7 +86,9 @@ export const AppLayout = ({children, context, menu}: AppLayoutProps) => {
     }
 
     const handleClosePanel = () => {
-        if (!isMobile) return
+        if (!isMobile) {
+            return
+        }
 
         const menuCollapsed = store.state?.panels?.menu?.collapsed ?? true
         const contextCollapsed = store.state?.panels?.context?.collapsed ?? true
@@ -98,7 +104,9 @@ export const AppLayout = ({children, context, menu}: AppLayoutProps) => {
     }
 
     const handleSwitchToMenu = () => {
-        if (!isMobile) return
+        if (!isMobile) {
+            return
+        }
         if (store.state?.panels?.menu) {
             store.state.panels.menu.collapsed = false
         }
@@ -109,7 +117,9 @@ export const AppLayout = ({children, context, menu}: AppLayoutProps) => {
     }
 
     const handleSwitchToContext = () => {
-        if (!isMobile) return
+        if (!isMobile) {
+            return
+        }
         if (store.state?.panels?.menu) {
             store.state.panels.menu.collapsed = true
         }
@@ -142,46 +152,36 @@ export const AppLayout = ({children, context, menu}: AppLayoutProps) => {
     const isContextExpanded = context && !contextCollapsed
 
     return (
-        <div class="c-app-layout">
+        <div class='c-app-layout'>
             <div style={{position: 'absolute', visibility: 'hidden'}}>{$t('direction_helper')}</div>
             {menu}
-            {isMobile && isAnyPanelOpen && (
-                <div class="c-panel-backdrop" onClick={handleBackdropClick} aria-hidden="true" />
-            )}
+            {isMobile && isAnyPanelOpen && <div class='c-panel-backdrop' onClick={handleBackdropClick} aria-hidden='true' />}
             {isContextExpanded && (
-                <div class="c-panel-backdrop c-panel-backdrop--context" onClick={handleBackdropClick} aria-hidden="true" />
+                <div class='c-panel-backdrop c-panel-backdrop--context' onClick={handleBackdropClick} aria-hidden='true' />
             )}
-            <main class="content">
+            <main class='content'>
                 {/* Unified toggle button - positioned top-left */}
                 {/* Show when at least one panel exists and both are closed */}
                 {isMobile && hasAnyPanel && menuCollapsed && contextCollapsed && (
-                    <button
-                        class="c-mobile-panel-toggle"
-                        onClick={handleUnifiedToggle}
-                        aria-label="Open panel"
-                    >
-                        <Icon name="menu_hamburger" size="d" />
+                    <button class='c-mobile-panel-toggle' onClick={handleUnifiedToggle} aria-label='Open panel'>
+                        <Icon name='menu_hamburger' size='d' />
                     </button>
                 )}
                 {/* Close button - show when any panel is open */}
                 {isMobile && isAnyPanelOpen && (
-                    <button
-                        class="c-mobile-panel-close"
-                        onClick={handleClosePanel}
-                        aria-label="Close panel"
-                    >
-                        <Icon name="close_x" size="d" />
+                    <button class='c-mobile-panel-close' onClick={handleClosePanel} aria-label='Close panel'>
+                        <Icon name='close_x' size='d' />
                     </button>
                 )}
                 {/* Panel switcher tabs - show when both panels exist and one is open */}
                 {isMobile && menu && context && isAnyPanelOpen && (
-                    <div class="c-panel-switcher">
+                    <div class='c-panel-switcher'>
                         <button
                             class={classnames('c-panel-switcher-tab', {
                                 'is-active': !menuCollapsed,
                             })}
                             onClick={handleSwitchToMenu}
-                            aria-label="Switch to menu"
+                            aria-label='Switch to menu'
                         >
                             Menu
                         </button>
@@ -190,7 +190,7 @@ export const AppLayout = ({children, context, menu}: AppLayoutProps) => {
                                 'is-active': !contextCollapsed,
                             })}
                             onClick={handleSwitchToContext}
-                            aria-label="Switch to context"
+                            aria-label='Switch to context'
                         >
                             Context
                         </button>

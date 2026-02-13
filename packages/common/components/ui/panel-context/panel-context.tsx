@@ -1,6 +1,8 @@
+import type {ComponentChildren} from 'preact'
+
 import classnames from 'classnames'
-import {ComponentChildren} from 'preact'
 import {useEffect, useRef, useState} from 'preact/hooks'
+
 import {Button} from '../button/button'
 
 interface PanelContextProps {
@@ -48,7 +50,9 @@ export const PanelContext = ({
 
     useEffect(() => {
         // Only enable resizing when not collapsed and onWidthChange is provided
-        if (!panelRef.current || !resizerRef.current || !onWidthChange || collapsed) return
+        if (!panelRef.current || !resizerRef.current || !onWidthChange || collapsed) {
+            return
+        }
 
         const panel = panelRef.current
         const resizer = resizerRef.current
@@ -122,22 +126,21 @@ export const PanelContext = ({
                 width: collapsed ? `${minWidth}px` : `${currentWidth}px`,
             }}
         >
-            {onWidthChange && !collapsed && (
-                <div ref={resizerRef} class="resize-handle" aria-label="Resize panel" />
-            )}
-            <div class="content">
-                {children}
-            </div>
-            {onCollapseChange && !(Array.isArray(className) ? className.some(c => c?.includes('c-panel-context-conference')) : className?.includes('c-panel-context-conference')) && (
-                <Button
-                    icon={collapsed ? 'chevron_left' : 'chevron_right'}
-                    onClick={() => onCollapseChange(!collapsed)}
-                    size="s"
-                    tip={collapsed ? 'Expand panel' : 'Collapse panel'}
-                    type="info"
-                    variant="toggle"
-                />
-            )}
+            {onWidthChange && !collapsed && <div ref={resizerRef} class='resize-handle' aria-label='Resize panel' />}
+            <div class='content'>{children}</div>
+            {onCollapseChange &&
+                !(Array.isArray(className)
+                    ? className.some((c) => c?.includes('c-panel-context-conference'))
+                    : className?.includes('c-panel-context-conference')) && (
+                    <Button
+                        icon={collapsed ? 'chevron_left' : 'chevron_right'}
+                        onClick={() => onCollapseChange(!collapsed)}
+                        size='s'
+                        tip={collapsed ? 'Expand panel' : 'Collapse panel'}
+                        type='info'
+                        variant='toggle'
+                    />
+                )}
         </aside>
     )
 }

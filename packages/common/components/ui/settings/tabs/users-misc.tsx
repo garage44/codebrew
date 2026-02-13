@@ -31,27 +31,21 @@ export interface UsersMiscTabProps {
  * User Misc Settings Tab Component
  * Contains username, password, and admin checkbox
  */
-export function UsersMisc({
-    user,
-    onNameChange,
-    onPasswordChange,
-    onAdminChange,
-    $t = (key: string) => key,
-}: UsersMiscTabProps) {
+export function UsersMisc({user, onNameChange, onPasswordChange, onAdminChange, $t = (key: string) => key}: UsersMiscTabProps) {
     return (
-        <section class="c-settings-tab-users-misc tab-content active">
+        <section class='c-settings-tab-users-misc tab-content active'>
             <FieldText
                 value={user?.name || ''}
                 onChange={(value) => onNameChange?.(value)}
                 label={$t('user.settings.misc.username_label')}
-                placeholder="..."
+                placeholder='...'
             />
             <FieldText
                 value={user?.password || ''}
                 onChange={(value) => onPasswordChange?.(value)}
                 label={$t('user.settings.misc.password_label')}
-                placeholder="..."
-                type="password"
+                placeholder='...'
+                type='password'
             />
             <FieldCheckbox
                 value={user?.admin || false}
