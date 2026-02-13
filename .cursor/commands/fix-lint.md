@@ -11,8 +11,8 @@ Fix linting errors in changed files only.
 ## Workflow
 
 1. **Get changed files**: `git diff --name-only HEAD | grep -E '\.(ts|tsx|css)$'`
-2. **Auto-fix**: Run `--fix` on changed files
-3. **Get errors**: Run linter once on changed files, read output
+2. **Auto-fix**: Run lint commands in package directory (lint:ts auto-fixes style, then syntax)
+3. **Get errors**: Run linter once, read output
 4. **Fix errors**: Process files, don't re-run linter until done
 5. **Verify**: Run linter once at end
 
@@ -24,15 +24,12 @@ git diff --name-only HEAD | grep -E '\.(ts|tsx|css)$'
 
 # Auto-fix (in package directory)
 cd packages/{package}
-bun run lint:ts-syntax -- --fix <files>
-bun run lint:ts-style -- --fix <files>
-bun run lint:css -- --fix <files>
+bun run lint:ts  # Runs lint:ts-style (auto-fixes), lint:ts-syntax (auto-fixes), lint:ts-types
+bun run lint:css -- --fix
 
 # Check errors (run ONCE)
-bun run lint:ts-syntax <files>
-bun run lint:ts-style <files>
-bun run lint:css <files>
-bun run lint:ts-types
+bun run lint:ts  # Runs all TypeScript linting (style, syntax, types)
+bun run lint:css
 ```
 
 ## Rules

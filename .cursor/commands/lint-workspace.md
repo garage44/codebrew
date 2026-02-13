@@ -10,7 +10,7 @@ Lint entire workspace or specific package.
 
 ## Workflow
 
-1. **Auto-fix first**: Run `--fix` in each package directory
+1. **Auto-fix first**: Run lint commands in each package directory (`lint:ts` auto-fixes style, then syntax)
 2. **Get errors**: Run linter once, read text output
 3. **Fix errors**: Process files, don't re-run linter until done
 4. **Verify**: Run linter once at end to confirm
@@ -21,15 +21,12 @@ Lint entire workspace or specific package.
 cd packages/{package}
 
 # Auto-fix
-bun run lint:ts-syntax -- --fix
-bun run lint:ts-style -- --fix  
+bun run lint:ts  # Runs lint:ts-style (auto-fixes), lint:ts-syntax (auto-fixes), lint:ts-types
 bun run lint:css -- --fix
 
 # Check remaining errors (run ONCE, read output)
-bun run lint:ts-syntax
-bun run lint:ts-style
+bun run lint:ts  # Runs all TypeScript linting (style, syntax, types)
 bun run lint:css
-bun run lint:ts-types
 ```
 
 ## Rules

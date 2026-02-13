@@ -4,9 +4,10 @@
     "correctness": "error",
     "suspicious": "error",
     "pedantic": "error",
-    "style": "off",
-    "restriction": "off",
-    "nursery": "off"
+    "perf": "error",
+    "style": "error",
+    "restriction": "error",
+    "nursery": "error"
   },
   "plugins": ["react", "jsx-a11y", "typescript", "unicorn"],
   "rules": {

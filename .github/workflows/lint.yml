@@ -23,11 +23,11 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Lint TypeScript style (oxfmt)
+        run: bun run lint:ts-style
+
       - name: Lint TypeScript syntax (oxlint)
         run: bun run lint:ts-syntax
-
-      - name: Lint TypeScript style (eslint)
-        run: bun run lint:ts-style
 
       - name: Lint TypeScript types (tsgo)
         run: bun run lint:ts-types
