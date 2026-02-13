@@ -39,7 +39,7 @@ class Router {
         path: string,
         handler: (req: Request, params: Record<string, string>, session?: Session) => Promise<Response>,
     ): void {
-        const regex = new RegExp('^' + path.replaceAll(/:[^/]+/g, '([^/]+)') + '$')
+        const regex = new RegExp(`^${path.replaceAll(/:[^/]+/g, '([^/]+)')}$`)
         this.routes.push({handler, method, path: regex})
     }
 
