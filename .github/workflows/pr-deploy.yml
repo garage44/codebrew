@@ -85,7 +85,7 @@ jobs:
 
             const body = `🚀 **PR Deployment Available**\n\n` +
               `Your changes have been deployed and are publicly accessible:\n\n` +
-              `- **Malkovich**: https://pr-${prNumber}-malkovich.${baseDomain}\n` +
+              `- **Nonlinear**: https://pr-${prNumber}-nonlinear.${baseDomain}\n` +
               `- **Expressio**: https://pr-${prNumber}-expressio.${baseDomain}\n` +
               `- **Pyrite**: https://pr-${prNumber}-pyrite.${baseDomain}\n\n` +
               `_This deployment will be automatically cleaned up when the PR is closed or after 7 days._`;

@@ -28,4 +28,4 @@ cd packages/pyrite && bun run dev
 
 ---
 
-[GitHub](https://github.com/garage44)
+[GitHub](https://github.com/garage44/codebrew)

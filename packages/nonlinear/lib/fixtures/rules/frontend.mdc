@@ -10,7 +10,7 @@ globs:
 alwaysApply: true
 ---
 
-# Garage44 Frontend Development Rules
+# Codebrew Frontend Development Rules
 
 Frontend development guidelines for the Expressio AI-powered i18n tooling project.
 

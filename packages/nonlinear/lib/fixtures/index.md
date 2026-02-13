@@ -1,12 +1,12 @@
-# Malkovich
+# Nonlinear
 
-Platform documentation and deployment tool for the Garage44 monorepo. Provides unified documentation hub, component styleguide, and automated PR deployment system.
+Platform documentation and deployment tool for the Codebrew monorepo. Provides unified documentation hub, component styleguide, and automated PR deployment system.
 
 **🌐 Live:** [garage44.org](https://garage44.org)
 
 ## Overview
 
-Malkovich serves as the central platform for:
+Nonlinear serves as the central platform for:
 
 - **Documentation Hub**: Unified entry point for project documentation, ADRs, and development rules
 - **Component Styleguide**: Interactive showcase of design system components
@@ -23,7 +23,7 @@ Malkovich serves as the central platform for:
 
 ```bash
 # Start development server
-cd packages/malkovich
+cd packages/nonlinear
 bun run dev
 
 # Access at http://localhost:3032
@@ -54,7 +54,7 @@ bun run dev
 
 ## Architecture
 
-Built with the same modern stack as other Garage44 applications:
+Built with the same modern stack as other Codebrew applications:
 
 - **Runtime**: Bun
 - **Frontend**: Preact with DeepSignal

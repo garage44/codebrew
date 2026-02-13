@@ -5,13 +5,13 @@ globs:
 alwaysApply: false
 ---
 
-# Garage44 Cursor AI Rules - ADR Consultation
+# Codebrew Cursor AI Rules - ADR Consultation
 
-This file contains rules for AI assistants working on the Garage44 monorepo. These rules ensure architectural consistency by consulting Architecture Decision Records (ADRs) before making significant decisions.
+This file contains rules for AI assistants working on the Codebrew monorepo. These rules ensure architectural consistency by consulting Architecture Decision Records (ADRs) before making significant decisions.
 
 ## Project Overview
 
-Garage44 is a monorepo containing multiple applications (Expressio, Pyrite, Styleguide) with shared packages (common, bunchy). The projects follow specific architectural patterns and technology choices documented in Architecture Decision Records (ADRs).
+Codebrew is a monorepo containing multiple applications (Expressio, Pyrite, Nonlinear) with shared packages (common, bunchy). The projects follow specific architectural patterns and technology choices documented in Architecture Decision Records (ADRs).
 
 ## Architecture Decision Records (ADRs)
 
@@ -21,10 +21,9 @@ Garage44 is a monorepo containing multiple applications (Expressio, Pyrite, Styl
 
 Read relevant ADRs before making decisions:
 
-- **Start here**: `packages/malkovich/docs/adr/ARCHITECTURE.md` - Current system state with diagrams
-- **Quick reference**: `packages/malkovich/docs/adr/index.md` - ADR index by category
-- **Learn patterns**: `packages/malkovich/docs/adr/guide/PATTERNS.md` - Reusable decision patterns
-- **Get guidance**: `packages/malkovich/docs/adr/guide/AI-REASONING-GUIDE.md` - How to use ADRs effectively
+- **Start here**: `packages/nonlinear/lib/fixtures/architecture/index.md` - Current system state with diagrams
+- **Quick reference**: `packages/nonlinear/lib/fixtures/architecture/adr/index.md` - ADR index by category
+- **Learn patterns**: `packages/nonlinear/lib/fixtures/architecture/patterns.md` - Reusable decision patterns
 
 **Search strategies**:
 ```bash
@@ -32,7 +31,7 @@ Read relevant ADRs before making decisions:
 "How are WebSocket connections handled?" → ADR-004, ADR-006
 
 # Use grep for specific technologies
-grep -i "websocket\|bun\|preact" packages/malkovich/docs/adr/*.md
+grep -i "websocket\|bun\|preact" packages/nonlinear/lib/fixtures/architecture/adr/*.md
 
 # Check ARCHITECTURE.md for current state overview
 ```
@@ -86,11 +85,10 @@ Recommend creating an ADR when making architecturally significant decisions:
 
 After successful implementation of significant decisions:
 1. Document the decision as an ADR
-2. Use `packages/malkovich/docs/adr/guide/TEMPLATE-LLM.md` for structure (optimized for AI consumption)
-3. Follow `packages/malkovich/docs/adr/guide/PLAN-TO-ADR-TEMPLATE.md` for conversion
-4. Include diagrams (C4 or Mermaid) where appropriate
-5. Add to `packages/malkovich/docs/adr/index.md` index
-6. Update `packages/malkovich/docs/adr/ARCHITECTURE.md` if system-wide impact
+2. Use `packages/nonlinear/lib/fixtures/architecture/template.md` for structure (optimized for AI consumption)
+3. Include diagrams (C4 or Mermaid) where appropriate
+4. Add to `packages/nonlinear/lib/fixtures/architecture/adr/index.md` index
+5. Update `packages/nonlinear/lib/fixtures/architecture/index.md` if system-wide impact
 
 ## Core Architectural Principles
 
@@ -236,12 +234,10 @@ Based on ADRs, explicitly avoid:
 
 ## Resources
 
-- **Architecture Reference**: `packages/malkovich/docs/adr/ARCHITECTURE.md` - Current state with diagrams
-- **ADR Index**: `packages/malkovich/docs/adr/index.md` - Categorized index
-- **Decision Patterns**: `packages/malkovich/docs/adr/guide/PATTERNS.md` - Reusable frameworks
-- **AI Guide**: `packages/malkovich/docs/adr/guide/AI-REASONING-GUIDE.md` - Detailed guidance
-- **ADR Template**: `packages/malkovich/docs/adr/guide/TEMPLATE-LLM.md` - AI-optimized template
-- **Plan Conversion**: `packages/malkovich/docs/adr/guide/PLAN-TO-ADR-TEMPLATE.md` - Conversion guide
+- **Architecture Reference**: `packages/nonlinear/lib/fixtures/architecture/index.md` - Current state with diagrams
+- **ADR Index**: `packages/nonlinear/lib/fixtures/architecture/adr/index.md` - Categorized index
+- **Decision Patterns**: `packages/nonlinear/lib/fixtures/architecture/patterns.md` - Reusable frameworks
+- **ADR Template**: `packages/nonlinear/lib/fixtures/architecture/template.md` - AI-optimized template
 
 ## Notes for AI Assistants
 

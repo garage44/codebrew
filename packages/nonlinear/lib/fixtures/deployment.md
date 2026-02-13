@@ -1,10 +1,10 @@
 # Deployment
 
-Documentation for Malkovich's deployment automation features, including PR deployments and main branch deployment workflows.
+Documentation for Nonlinear's deployment automation features, including PR deployments and main branch deployment workflows.
 
 ## Overview
 
-Malkovich provides automated deployment capabilities for the Garage44 monorepo:
+Nonlinear provides automated deployment capabilities for the Codebrew monorepo:
 
 - **PR Deployments**: Automated preview environments for pull requests
 - **Main Branch Deployment**: Production deployment automation
@@ -21,12 +21,12 @@ PR deployments allow you to test changes in isolated environments before merging
 
 ```bash
 # Deploy current branch as PR #999
-bun run malkovich deploy-pr \
+bun run nonlinear deploy-pr \
   --number 999 \
   --branch $(git branch --show-current)
 
 # Deploy specific branch
-bun run malkovich deploy-pr \
+bun run nonlinear deploy-pr \
   --number 123 \
   --branch feature/new-ui
 ```
@@ -34,18 +34,18 @@ bun run malkovich deploy-pr \
 #### List Active Deployments
 
 ```bash
-bun run malkovich list-pr-deployments
+bun run nonlinear list-pr-deployments
 ```
 
 #### Cleanup PR Deployment
 
 ```bash
-bun run malkovich cleanup-pr --number 999
+bun run nonlinear cleanup-pr --number 999
 ```
 
 ### Main Branch Deployment
 
-Main branch deployments are automatically triggered via GitHub Actions when code is merged to `main`. The webhook handler in Malkovich receives the deployment request and:
+Main branch deployments are automatically triggered via GitHub Actions when code is merged to `main`. The webhook handler in Nonlinear receives the deployment request and:
 
 1. Pulls the latest code from `main`
 2. Builds all packages
@@ -54,14 +54,14 @@ Main branch deployments are automatically triggered via GitHub Actions when code
 
 ### Generate Configuration Files
 
-Malkovich can generate systemd and nginx configuration files:
+Nonlinear can generate systemd and nginx configuration files:
 
 ```bash
 # Generate systemd service files
-bun run malkovich generate-systemd --domain garage44.org
+bun run nonlinear generate-systemd --domain garage44.org
 
 # Generate nginx configuration
-bun run malkovich generate-nginx --domain garage44.org
+bun run nonlinear generate-nginx --domain garage44.org
 ```
 
 ## Setup
@@ -71,7 +71,7 @@ bun run malkovich generate-nginx --domain garage44.org
 - VPS running Linux (Arch Linux recommended)
 - Bun installed on the VPS
 - Nginx installed and configured
-- Git repository cloned to `/home/garage44/garage44`
+- Git repository cloned to `/home/garage44/codebrew`
 - Dedicated user `garage44` created on the VPS
 - Sudo access for the `garage44` user to restart systemd services
 - Domain pointing to your VPS (e.g., `garage44.org`)
@@ -86,25 +86,22 @@ sudo usermod -aG wheel garage44
 ### 2. Clone Repository
 
 ```bash
-sudo -u garage44 git clone <repository-url> /home/garage44/garage44
-cd /home/garage44/garage44
-sudo -u garage44 bun install
-```
-
-### 3. Install Bun
-
-```bash
+sudo -u garage44 git clone https://github.com/garage44/codebrew.git /home/garage44/codebrew
+cd /home/garage44/codebrew
+su garage44
 curl -fsSL https://bun.sh/install | bash
+bun install
 ```
 
-### 4. Set Up Environment Variables
+
+### 3. Set Up Environment Variables
 
 Create `/home/garage44/.env` or add to `/home/garage44/.bashrc`:
 
 ```bash
 export WEBHOOK_SECRET="your-secret-here"
 export WEBHOOK_PORT=3001
-export REPO_PATH="/home/garage44/garage44"
+export REPO_PATH="/home/garage44/codebrew"
 export DEPLOY_USER="garage44"
 ```
 
@@ -114,15 +111,15 @@ Generate a secure webhook secret:
 openssl rand -hex 32
 ```
 
-### 5. Install Systemd Services
+### 4. Install Systemd Services
 
-Copy service files to systemd directory. Malkovich will auto-discover application packages in your workspace:
+Copy service files to systemd directory. Nonlinear will auto-discover application packages in your workspace:
 
 ```bash
-cd /home/garage44/garage44
+cd /home/garage44/codebrew
 # Copy service files for your application packages
 sudo cp deploy/<projectName>.service /etc/systemd/system/
-sudo cp deploy/malkovich.service /etc/systemd/system/
+sudo cp deploy/nonlinear.service /etc/systemd/system/
 ```
 
 Reload systemd and enable services:
@@ -130,13 +127,13 @@ Reload systemd and enable services:
 ```bash
 sudo systemctl daemon-reload
 sudo systemctl enable <projectName>.service
-sudo systemctl enable malkovich.service
+sudo systemctl enable nonlinear.service
 
 sudo systemctl start <projectName>.service
-sudo systemctl start malkovich.service
+sudo systemctl start nonlinear.service
 ```
 
-### 6. Configure Nginx
+### 5. Configure Nginx
 
 #### Install Nginx and Certbot
 
@@ -206,7 +203,7 @@ sudo certbot renew --dry-run
 systemctl status certbot.timer
 ```
 
-### 7. Configure GitHub Actions
+### 6. Configure GitHub Actions
 
 Add secrets to your GitHub repository:
 
@@ -217,7 +214,7 @@ Add secrets to your GitHub repository:
 
 The GitHub Actions workflow (`.github/workflows/deploy.yml`) will automatically trigger deployments when code is merged to `main`.
 
-### 8. Configure Sudo Permissions
+### 7. Configure Sudo Permissions
 
 The `garage44` user needs sudo permissions to restart systemd services:
 
@@ -228,10 +225,10 @@ sudo visudo
 Add this line (replace `<projectName>` with your actual package names):
 
 ```
-garage44 ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart expressio.service, /usr/bin/systemctl restart pyrite.service, /usr/bin/systemctl restart malkovich.service, /usr/bin/systemctl restart webhook.service, /usr/bin/systemctl daemon-reload, /usr/bin/nginx -s reload, /usr/bin/nginx -t
+garage44 ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart expressio.service, /usr/bin/systemctl restart pyrite.service, /usr/bin/systemctl restart nonlinear.service, /usr/bin/systemctl restart webhook.service, /usr/bin/systemctl daemon-reload, /usr/bin/nginx -s reload, /usr/bin/nginx -t
 ```
 
-### 9. PR Deployment Setup (Optional)
+### 8. PR Deployment Setup (Optional)
 
 If you want to enable PR deployments:
 
@@ -265,7 +262,7 @@ garage44 ALL=(ALL) NOPASSWD: /usr/bin/systemctl start pr-*, /usr/bin/systemctl s
 **Complete sudoers configuration** (combines main services and PR deployments):
 
 ```
-garage44 ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart expressio.service, /usr/bin/systemctl restart pyrite.service, /usr/bin/systemctl restart malkovich.service, /usr/bin/systemctl restart webhook.service, /usr/bin/systemctl start pr-*, /usr/bin/systemctl stop pr-*, /usr/bin/systemctl restart pr-*, /usr/bin/systemctl disable pr-*, /usr/bin/systemctl status pr-*, /usr/bin/systemctl is-active pr-*, /usr/bin/systemctl daemon-reload, /usr/bin/nginx -s reload, /usr/bin/nginx -t, /usr/bin/rm -f /etc/systemd/system/pr-*.service, /usr/bin/rm -f /etc/nginx/sites-*/pr-*.garage44.org, /usr/bin/ln -s /etc/nginx/sites-available/pr-*.garage44.org /etc/nginx/sites-enabled/pr-*.garage44.org, /usr/bin/mv /tmp/pr-*.service /etc/systemd/system/pr-*.service, /usr/bin/mv /tmp/pr-*.nginx.conf /etc/nginx/sites-available/pr-*.garage44.org, /usr/bin/mv /tmp/pr-*-removed.nginx.conf /etc/nginx/sites-available/pr-*.garage44.org, /usr/bin/fuser -k [0-9]*/tcp
+garage44 ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart expressio.service, /usr/bin/systemctl restart pyrite.service, /usr/bin/systemctl restart nonlinear.service, /usr/bin/systemctl restart webhook.service, /usr/bin/systemctl start pr-*, /usr/bin/systemctl stop pr-*, /usr/bin/systemctl restart pr-*, /usr/bin/systemctl disable pr-*, /usr/bin/systemctl status pr-*, /usr/bin/systemctl is-active pr-*, /usr/bin/systemctl daemon-reload, /usr/bin/nginx -s reload, /usr/bin/nginx -t, /usr/bin/rm -f /etc/systemd/system/pr-*.service, /usr/bin/rm -f /etc/nginx/sites-*/pr-*.garage44.org, /usr/bin/ln -s /etc/nginx/sites-available/pr-*.garage44.org /etc/nginx/sites-enabled/pr-*.garage44.org, /usr/bin/mv /tmp/pr-*.service /etc/systemd/system/pr-*.service, /usr/bin/mv /tmp/pr-*.nginx.conf /etc/nginx/sites-available/pr-*.garage44.org, /usr/bin/mv /tmp/pr-*-removed.nginx.conf /etc/nginx/sites-available/pr-*.garage44.org, /usr/bin/fuser -k [0-9]*/tcp
 ```
 
 ## Features
@@ -282,10 +279,10 @@ garage44 ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart expressio.service, /usr/
 
 ```bash
 # Check service status
-sudo systemctl status malkovich.service
+sudo systemctl status nonlinear.service
 
 # View logs
-sudo journalctl -u malkovich.service -f
+sudo journalctl -u nonlinear.service -f
 ```
 
 ### Nginx Configuration Errors
@@ -306,8 +303,8 @@ curl -X POST https://garage44.org/webhook \
   -H "Content-Type: application/json" \
   -d '{"ref":"refs/heads/main"}'
 
-# Check malkovich logs
-sudo journalctl -u malkovich.service -f | grep webhook
+# Check nonlinear logs
+sudo journalctl -u nonlinear.service -f | grep webhook
 ```
 
 ### SSL Certificate Issues

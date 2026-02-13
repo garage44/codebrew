@@ -1,13 +1,13 @@
 ---
-description: "Garage44 monorepo project rules - core development guidelines and rule organization"
+description: "Codebrew monorepo project rules - core development guidelines and rule organization"
 globs:
   - "**/*"
 alwaysApply: true
 ---
 
-# Garage44 Project Rules
+# Codebrew Project Rules
 
-This is the main project rule file for the Garage44 monorepo. Always apply this rule alongside other relevant rules.
+This is the main project rule file for the Codebrew monorepo. Always apply this rule alongside other relevant rules.
 
 ## ⚠️ CRITICAL: Read Linting Rules First
 
