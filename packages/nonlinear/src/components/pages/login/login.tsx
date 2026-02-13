@@ -32,8 +32,12 @@ export const Login = () => {
                 // Set profile data from result
                 $s.profile.authenticated = true
                 $s.profile.admin = result.admin || false
-                if (result.id) $s.profile.id = result.id
-                if (result.username) $s.profile.username = result.username
+                if (result.id) {
+                    $s.profile.id = result.id
+                }
+                if (result.username) {
+                    $s.profile.username = result.username
+                }
                 if (result.profile) {
                     $s.profile.avatar = result.profile.avatar || 'placeholder-1.png'
                     $s.profile.displayName = result.profile.displayName || result.username || 'User'
@@ -45,8 +49,8 @@ export const Login = () => {
                 return null
             }
             return result.error || 'Invalid credentials'
-        } catch (err) {
-            return err instanceof Error ? err.message : 'Login failed'
+        } catch (error) {
+            return error instanceof Error ? error.message : 'Login failed'
         }
     }
 

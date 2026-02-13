@@ -110,7 +110,7 @@ export const Main = () => {
                 }
 
                 const agentsResult = (await ws.get('/api/agents')) as {
-                    agents?: Array<{
+                    agents?: {
                         avatar: string | null
                         created_at: number
                         currentTicketId: string | null
@@ -123,7 +123,7 @@ export const Main = () => {
                         stats?: {completed: number; failed: number; pending: number; processing: number}
                         status: string
                         type: 'developer' | 'planner' | 'reviewer'
-                    }>
+                    }[]
                 }
                 if (agentsResult.agents) {
                     $s.agents = agentsResult.agents.map(

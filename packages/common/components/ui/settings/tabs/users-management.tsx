@@ -40,9 +40,9 @@ export function UsersManagement({$t = (key: string) => key}: UsersManagementTabP
             editing: null as string | null,
             error: null as string | null,
             formData: {
-                username: '',
-                password: '',
                 admin: false,
+                password: '',
+                username: '',
             },
             loading: false,
             users: [] as User[],

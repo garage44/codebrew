@@ -12,7 +12,7 @@ export type FrontendAgent = Omit<EnrichedAgent, 'display_name'> & {
 }
 
 export interface NonlinearState extends CommonState {
-    agents: Array<FrontendAgent>
+    agents: FrontendAgent[]
     anthropic: {
         usage: {
             count: number
@@ -20,12 +20,12 @@ export interface NonlinearState extends CommonState {
             loading: boolean
         }
     }
-    docs: Array<EnrichedDoc>
-    labelDefinitions: Array<LabelDefinition>
-    repositories: Array<Repository>
+    docs: EnrichedDoc[]
+    labelDefinitions: LabelDefinition[]
+    repositories: Repository[]
     selectedDoc: string | null
     selectedLane: 'backlog' | 'todo' | 'in_progress' | 'review' | 'closed' | null
     selectedRepository: string | null
     selectedTicket: string | null
-    tickets: Array<EnrichedTicket>
+    tickets: EnrichedTicket[]
 }

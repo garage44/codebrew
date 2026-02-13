@@ -62,7 +62,7 @@ export const TicketForm = ({initialStatus, onClose, onSuccess}: TicketFormProps)
             }
 
             if (state.priority) {
-                const priorityNum = parseInt(state.priority, 10)
+                const priorityNum = Number.parseInt(state.priority, 10)
                 if (!isNaN(priorityNum)) {
                     ticketData.priority = priorityNum
                 }

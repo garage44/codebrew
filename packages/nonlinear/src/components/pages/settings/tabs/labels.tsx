@@ -44,7 +44,7 @@ export function Labels() {
                 loadLabels()
                 // Update global state
                 const index = $s.labelDefinitions.findIndex((l) => l.id === data.label!.id)
-                if (index >= 0) {
+                if (index !== -1) {
                     $s.labelDefinitions[index] = data.label
                 } else {
                     $s.labelDefinitions = [...$s.labelDefinitions, data.label]

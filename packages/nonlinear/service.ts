@@ -17,6 +17,7 @@ import yargs from 'yargs'
 import {hideBin} from 'yargs/helpers'
 
 import type {PRMetadata} from './lib/deploy/pr-deploy'
+
 import {config, initConfig} from './lib/config.ts'
 import {initDatabase} from './lib/database.ts'
 import {initMiddleware} from './lib/middleware.ts'
@@ -140,7 +141,7 @@ cli.usage('Usage: $0 [task]')
 
             // Start Bun server
             const server = Bun.serve({
-                fetch: async(req: Request, srv: unknown): Promise<Response> => {
+                fetch: async (req: Request, srv: unknown): Promise<Response> => {
                     const res = await handleRequest(req, srv)
                     return res ?? new Response('Not Found', {status: 404})
                 },

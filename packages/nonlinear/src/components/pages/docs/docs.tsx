@@ -227,8 +227,10 @@ export const Docs = () => {
                                     )
                                 }
 
-                                const doc = item.doc
-                                if (!doc) return null
+                                const {doc} = item
+                                if (!doc) {
+                                    return null
+                                }
 
                                 const isSelected = state.selectedDoc?.path === doc.path
                                 return (

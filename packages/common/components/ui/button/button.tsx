@@ -105,7 +105,7 @@ export function Button({
                 appendTo: () => document.body,
                 arrow: true,
                 content: tip,
-                zIndex: 1000000,
+                zIndex: 1_000_000,
             })
         }
 

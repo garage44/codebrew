@@ -19,7 +19,7 @@ export function Repositories() {
     const formStateRef = useRef(createFormState())
     const formState = formStateRef.current
     const [discovering, setDiscovering] = useState(false)
-    const [discoveredRepos, setDiscoveredRepos] = useState<Array<{name: string; path: string}>>([])
+    const [discoveredRepos, setDiscoveredRepos] = useState<{name: string; path: string}[]>([])
     const [searchPath, _setSearchPath] = useState('')
 
     const handleAddRepository = async () => {
@@ -104,7 +104,7 @@ export function Repositories() {
         try {
             const result = (await ws.post('/api/repositories/discover', {
                 searchPath: searchPath || undefined,
-            })) as {discovered?: Array<{name: string; path: string}>} | null
+            })) as {discovered?: {name: string; path: string}[]} | null
 
             if (result?.discovered) {
                 setDiscoveredRepos(result.discovered)

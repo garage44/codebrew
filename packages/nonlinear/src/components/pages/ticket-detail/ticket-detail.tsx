@@ -388,7 +388,9 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
         }
 
         const labelNameToAdd = labelDef?.name
-        if (!labelNameToAdd) return
+        if (!labelNameToAdd) {
+            return
+        }
         if (labelsState.labels.includes(labelNameToAdd)) {
             notifier.notify({
                 message: 'Label already added',

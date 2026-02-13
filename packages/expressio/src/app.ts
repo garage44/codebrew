@@ -24,7 +24,7 @@ const app = new App()
 app.init(
     Main,
     render as (vnode: unknown, container: HTMLElement) => void,
-    h as (component: unknown, props: Record<string, unknown>) => unknown,
+    h as (...args: unknown[]) => unknown,
     i18nFormat(workspace.i18n, workspace.config.languages.target),
     {
         enableBunchy: process.env.NODE_ENV !== 'production',

@@ -394,8 +394,9 @@ class WebSocketServerManager extends EventEmitter {
         let pathname = url
         try {
             // URL might be a path like '/api/docs' or full URL like 'http://example.com/api/docs?tags=foo'
-            const urlObj = url.startsWith('http') ? new URL(url) : new URL(url, 'http://localhost')
-            pathname = urlObj.pathname
+            const urlObj = url.startsWith('http')
+                ? new URL(url)
+                : (new URL(url, 'http://localhost') ? new URL(url) : new URL(url, 'http://localhost'))(({pathname} = urlObj))
             // URLSearchParams automatically decodes values
             queryParams = Object.fromEntries(urlObj.searchParams.entries())
         } catch {

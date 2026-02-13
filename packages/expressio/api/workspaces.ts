@@ -283,7 +283,7 @@ export default function apiWorkspaces(router: {
             const selectedLanguages = workspace_data.workspace.config.languages.target
 
             const currentLanguageIds = new Set(target_languages.map((language) => language.id))
-            const selectedLanguageIds = selectedLanguages.map((language) => language.id)
+            const selectedLanguageIds = new Set(selectedLanguages.map((language) => language.id))
             // The languages not yet in our settings
             const addLanguages = selectedLanguages.filter((language) => !currentLanguageIds.has(language.id))
             const updateLanguages = selectedLanguages
@@ -294,7 +294,7 @@ export default function apiWorkspaces(router: {
                     return currentLanguage && (currentLanguage.formality as string) !== (language.formality as string)
                 })
 
-            const removeLanguages = target_languages.filter((language) => !selectedLanguageIds.includes(language.id))
+            const removeLanguages = target_languages.filter((language) => !selectedLanguageIds.has(language.id))
             for (const language of removeLanguages) {
                 logger.info(`sync: remove language ${language.id}`)
                 await syncLanguage(workspace, language, 'remove')

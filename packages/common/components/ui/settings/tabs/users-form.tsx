@@ -26,16 +26,16 @@ export function UsersForm({$t = (key: string) => key, userId}: UsersFormProps) {
         createEndpoint: (data) => `/api/users/${data.username}`,
         deleteEndpoint: (id) => `/api/users/${id}/delete`,
         getId: (user) => user.id,
-        initialFormData: {username: '', password: '', admin: false},
+        initialFormData: {admin: false, password: '', username: ''},
         listEndpoint: '/api/users',
         messages: {
-            loadFailed: $t('user.management.error.load_failed') || 'Failed to load users',
-            createSuccess: $t('user.management.success.created') || 'User created',
             createFailed: $t('user.management.error.create_failed') || 'Failed to create user',
-            updateSuccess: $t('user.management.success.updated') || 'User updated',
-            updateFailed: $t('user.management.error.save_failed') || 'Failed to update user',
-            deleteSuccess: $t('user.management.success.deleted') || 'User deleted',
+            createSuccess: $t('user.management.success.created') || 'User created',
             deleteFailed: $t('user.management.error.delete_failed') || 'Failed to delete user',
+            deleteSuccess: $t('user.management.success.deleted') || 'User deleted',
+            loadFailed: $t('user.management.error.load_failed') || 'Failed to load users',
+            updateFailed: $t('user.management.error.save_failed') || 'Failed to update user',
+            updateSuccess: $t('user.management.success.updated') || 'User updated',
         },
         populateFormData: (user) => ({
             username: user.username,
@@ -43,7 +43,6 @@ export function UsersForm({$t = (key: string) => key, userId}: UsersFormProps) {
             admin: user.permissions?.admin || false,
         }),
         transformCreateData: (data) => ({
-            username: data.username,
             password: data.password
                 ? {
                       key: data.password,
@@ -56,6 +55,7 @@ export function UsersForm({$t = (key: string) => key, userId}: UsersFormProps) {
             profile: {
                 displayName: '',
             },
+            username: data.username,
         }),
         transformUpdateData: (data) => ({
             username: data.username,

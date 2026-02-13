@@ -1,7 +1,7 @@
+import type {DeepSignal} from 'deepsignal'
 import type {ComponentChild} from 'preact'
 
 import {App, store, $t, api, notifier, logger, events, ws, i18n} from '@garage44/common/app'
-import {type DeepSignal} from 'deepsignal'
 import {h, render} from 'preact'
 
 import {Main} from '@/components/main/main'
