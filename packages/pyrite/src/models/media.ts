@@ -22,8 +22,8 @@ let fakeAudioSource: MediaStreamAudioSourceNode | null = null
 async function createFakeStreamFallback(selectedVideoDevice: unknown, selectedAudioDevice: unknown) {
     logger.info(`[media] No devices available, creating fake stream as fallback`)
     try {
-        const width = selectedVideoDevice && typeof selectedVideoDevice === 'object' && selectedVideoDevice.width?.ideal || 640
-        const height = selectedVideoDevice && typeof selectedVideoDevice === 'object' && selectedVideoDevice.height?.ideal || 480
+        const width = (selectedVideoDevice && typeof selectedVideoDevice === 'object' && 'width' in selectedVideoDevice && typeof selectedVideoDevice.width === 'object' && selectedVideoDevice.width !== null && 'ideal' in selectedVideoDevice.width ? selectedVideoDevice.width.ideal : 640) as number
+        const height = (selectedVideoDevice && typeof selectedVideoDevice === 'object' && 'height' in selectedVideoDevice && typeof selectedVideoDevice.height === 'object' && selectedVideoDevice.height !== null && 'ideal' in selectedVideoDevice.height ? selectedVideoDevice.height.ideal : 480) as number
 
         // Try to get microphone access if audio is enabled and video is fake
         // This allows the pattern to oscillate with microphone input
@@ -104,7 +104,7 @@ function createFakeStream(options: {video?: boolean; audio?: boolean; width?: nu
 
             // Get audio level if microphone is available
             if (fakeAudioAnalyser && fakeAudioDataArray) {
-                fakeAudioAnalyser.getByteFrequencyData(fakeAudioDataArray)
+                fakeAudioAnalyser.getByteFrequencyData(fakeAudioDataArray as Uint8Array<ArrayBuffer>)
                 // Calculate RMS (root mean square) for overall volume
                 let sum = 0
                 for (let i = 0; i < fakeAudioDataArray.length; i++) {

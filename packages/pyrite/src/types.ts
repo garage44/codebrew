@@ -34,6 +34,7 @@ export interface PyriteState extends CommonState {
                 id: string
                 members?: Record<string, {avatar: string}>
                 messages: Array<Record<string, unknown>>
+                name?: string
                 typing?: {
                     [userId: string]: {
                         timestamp: number

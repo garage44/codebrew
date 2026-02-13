@@ -6,6 +6,7 @@
 import {$s} from '@/app'
 import {events, logger, ws} from '@garage44/common/app'
 import {effect} from '@preact/signals'
+import type {PyriteState} from '@/types'
 
 // Flag to prevent infinite loops in reactive deduplication
 let isDeduplicating = false
@@ -34,12 +35,12 @@ function deduplicateUsers() {
             const normalizedId = String(user.id).trim()
             if (!normalizedId) continue
 
-            if (!seenIds.has(normalizedId)) {
-                seenIds.add(normalizedId)
-                uniqueUsers.push(user)
-            } else {
+            if (seenIds.has(normalizedId)) {
                 duplicateCount++
                 logger.debug(`[deduplicateUsers] Removing duplicate user: ${normalizedId} (${user.username || 'unknown'})`)
+            } else {
+                seenIds.add(normalizedId)
+                uniqueUsers.push(user)
             }
         }
 
@@ -118,8 +119,10 @@ const initChatSubscriptions = () => {
 
                 // Find or create the chat channel (use slug as key)
                 const channelKey = channelSlug
-                if (!$s.chat.channels[channelKey]) {
-                    $s.chat.channels[channelKey] = {
+                // Type assertion: DeepSignal unwraps Signals at runtime
+                const channels = $s.chat.channels as PyriteState['chat']['channels']
+                if (!channels[channelKey]) {
+                    channels[channelKey] = {
                         id: channelKey,
                         messages: [],
                         unread: 0,
@@ -133,19 +136,20 @@ const initChatSubscriptions = () => {
                         $s.chat.users = {}
                     }
                     // Get avatar from channel members if available, or use placeholder
-                    const channel = $s.chat.channels[channelKey]
+                    const channel = channels[channelKey]
                     const memberAvatar = channel?.members?.[userId]?.avatar
 
-                    if (!$s.chat.users[userId]) {
-                        $s.chat.users[userId] = {
-                            avatar: memberAvatar || 'placeholder-1.png',
-                            username,
+                    const users = $s.chat.users as PyriteState['chat']['users']
+                    if (users[userId]) {
+                        // Update username/avatar if they changed
+                        users[userId].username = username
+                        if (memberAvatar) {
+                            users[userId].avatar = memberAvatar
                         }
                     } else {
-                        // Update username/avatar if they changed
-                        $s.chat.users[userId].username = username
-                        if (memberAvatar) {
-                            $s.chat.users[userId].avatar = memberAvatar
+                        users[userId] = {
+                            avatar: memberAvatar || 'placeholder-1.png',
+                            username,
                         }
                     }
                 }
@@ -160,13 +164,14 @@ const initChatSubscriptions = () => {
                 }
 
                 // Push to array - DeepSignal tracks array mutations
-                $s.chat.channels[channelKey].messages.push(newMessage)
+                const channel = channels[channelKey]
+                channel.messages.push(newMessage)
 
-                logger.debug(`[Chat WS] Added message to channel ${channelKey}, total messages: ${$s.chat.channels[channelKey].messages.length}`)
+                logger.debug(`[Chat WS] Added message to channel ${channelKey}, total messages: ${channel.messages.length}`)
 
                 // Increment unread count if not the active channel
                 if ($s.chat.activeChannelSlug !== channelSlug) {
-                    $s.chat.channels[channelKey].unread++
+                    channel.unread++
                 }
             }
 
@@ -184,27 +189,28 @@ const initChatSubscriptions = () => {
                     const channelKey = channelSlug
 
                     // Ensure channel exists
-                    if (!$s.chat.channels[channelKey]) {
-                        $s.chat.channels[channelKey] = {
+                    const channels = $s.chat.channels as PyriteState['chat']['channels']
+                    if (!channels[channelKey]) {
+                        channels[channelKey] = {
                             id: channelKey,
                             messages: [],
                             typing: {},
                             unread: 0,
                         }
-                    } else if (!$s.chat.channels[channelKey].typing) {
-                        $s.chat.channels[channelKey].typing = {}
+                    } else if (!channels[channelKey].typing) {
+                        channels[channelKey].typing = {}
                     }
 
                     // Update typing state for this user in this channel
                     if (typing) {
-                        $s.chat.channels[channelKey].typing[userId] = {
+                        channels[channelKey].typing![userId] = {
                             timestamp: Date.now(),
                             userId,
                             username: username || 'Unknown',
                         }
                     } else {
                         // Remove typing indicator when user stops typing
-                        delete $s.chat.channels[channelKey].typing[userId]
+                        delete channels[channelKey].typing![userId]
                     }
                 }
             }
@@ -233,8 +239,9 @@ const initPresenceSubscriptions = () => {
             }
 
             // Update current group member count if relevant
-            if ($s.sfu.channels[groupId]) {
-                $s.sfu.channels[groupId].clientCount = ($s.sfu.channels[groupId].clientCount || 0) + 1
+            const sfuChannels = $s.sfu.channels as PyriteState['sfu']['channels']
+            if (sfuChannels[groupId]) {
+                sfuChannels[groupId].clientCount = (sfuChannels[groupId].clientCount || 0) + 1
             }
 
             /*
@@ -299,8 +306,9 @@ const initPresenceSubscriptions = () => {
             }
 
             // Update current group member count if relevant
-            if ($s.sfu.channels[groupId] && ($s.sfu.channels[groupId].clientCount || 0) > 0) {
-                $s.sfu.channels[groupId].clientCount = ($s.sfu.channels[groupId].clientCount || 0) - 1
+            const sfuChannelsLeave = $s.sfu.channels as PyriteState['sfu']['channels']
+            if (sfuChannelsLeave[groupId] && (sfuChannelsLeave[groupId].clientCount || 0) > 0) {
+                sfuChannelsLeave[groupId].clientCount = (sfuChannelsLeave[groupId].clientCount || 0) - 1
             }
 
             // If this is the current group, remove user from users list
@@ -323,11 +331,9 @@ const initPresenceSubscriptions = () => {
             // Update presence status in chat.users
             if ($s.chat.users && userId) {
                 const normalizedUserId = String(userId)
-                if ($s.chat.users[normalizedUserId]) {
-                    // Update status if provided in the status object
-                    if (status && typeof status === 'object' && 'status' in status) {
-                        $s.chat.users[normalizedUserId].status = status.status as 'online' | 'offline' | 'busy'
-                    }
+                // Update status if provided in the status object
+                if ($s.chat.users[normalizedUserId] && status && typeof status === 'object' && 'status' in status) {
+                    $s.chat.users[normalizedUserId].status = status.status as 'online' | 'offline' | 'busy'
                 }
             }
 
@@ -369,8 +375,9 @@ const initGroupSubscriptions = () => {
             logger.debug(`Group ${groupId} lock status: ${locked}`)
 
             // Update channel data
-            if ($s.sfu.channels[groupId]) {
-                $s.sfu.channels[groupId].locked = locked
+            const sfuChannelsLock = $s.sfu.channels as PyriteState['sfu']['channels']
+            if (sfuChannelsLock[groupId]) {
+                sfuChannelsLock[groupId].locked = locked
             }
 
             // If this is the current group, update state
@@ -411,33 +418,32 @@ const initGroupSubscriptions = () => {
 
             logger.debug(`Group ${groupId} ${action}`)
 
+            const sfuChannelsUpdate = $s.sfu.channels as PyriteState['sfu']['channels']
             if (action === 'created' && group) {
                 // Add new group to channels if it doesn't exist
-                if (!$s.sfu.channels[groupId]) {
-                    $s.sfu.channels[groupId] = {
+                if (!sfuChannelsUpdate[groupId]) {
+                    sfuChannelsUpdate[groupId] = {
                         audio: false,
                         connected: false,
                         video: false,
                     }
                 }
                 // Update group metadata
-                Object.assign($s.sfu.channels[groupId], {
+                Object.assign(sfuChannelsUpdate[groupId], {
                     clientCount: group.clientCount,
                     comment: group.comment,
                     description: group.description,
                     locked: group.locked,
                 })
-            } else if (action === 'deleted') {
+            } else if (action === 'deleted' && sfuChannelsUpdate[groupId]) {
                 /*
                  * Note: We don't delete from sfu.channels to preserve audio/video state
                  * Only clear group metadata, keep audio/video preferences
                  */
-                if ($s.sfu.channels[groupId]) {
-                    delete $s.sfu.channels[groupId].locked
-                    delete $s.sfu.channels[groupId].clientCount
-                    delete $s.sfu.channels[groupId].comment
-                    delete $s.sfu.channels[groupId].description
-                }
+                delete sfuChannelsUpdate[groupId].locked
+                delete sfuChannelsUpdate[groupId].clientCount
+                delete sfuChannelsUpdate[groupId].comment
+                delete sfuChannelsUpdate[groupId].description
             }
         })
 
@@ -464,8 +470,9 @@ const initGroupSubscriptions = () => {
                         $s.sfu.channel.name = ''
 
                         // Update channel connection state
-                        if (channelSlug && $s.sfu.channels[channelSlug]) {
-                            $s.sfu.channels[channelSlug].connected = false
+                        const sfuChannelsKick = $s.sfu.channels as PyriteState['sfu']['channels']
+                        if (channelSlug && sfuChannelsKick[channelSlug]) {
+                            sfuChannelsKick[channelSlug].connected = false
                         }
                     } else if (targetUser) {
                         // Another user was kicked
@@ -480,16 +487,16 @@ const initGroupSubscriptions = () => {
                     // Mute user's microphone
                     if (targetUserId === $s.profile.id) {
                         $s.devices.mic.enabled = false
-                    } else if (targetUser) {
-                        targetUser.data.mic = false
+                    } else if (targetUser && 'data' in targetUser && targetUser.data && typeof targetUser.data === 'object') {
+                        (targetUser.data as {mic?: boolean}).mic = false
                     }
                     break
 
                 case 'op':
                 case 'unop':
                     // Update operator permissions
-                    if (targetUser) {
-                        targetUser.permissions.op = action === 'op'
+                    if (targetUser && 'permissions' in targetUser && targetUser.permissions && typeof targetUser.permissions === 'object') {
+                        (targetUser.permissions as {op?: boolean}).op = action === 'op'
                     }
                     if (targetUserId === $s.profile.id) {
                         $s.permissions.op = action === 'op'
@@ -499,8 +506,8 @@ const initGroupSubscriptions = () => {
                 case 'present':
                 case 'unpresent':
                     // Update presenter permissions
-                    if (targetUser) {
-                        targetUser.permissions.present = action === 'present'
+                    if (targetUser && 'permissions' in targetUser && targetUser.permissions && typeof targetUser.permissions === 'object') {
+                        (targetUser.permissions as {present?: boolean}).present = action === 'present'
                     }
                     if (targetUserId === $s.profile.id) {
                         $s.permissions.present = action === 'present'
@@ -548,7 +555,7 @@ export const joinGroup = async(groupId: string) => {
     })
 
     // Response contains current members list
-    if (response && response.members) {
+    if (response && typeof response === 'object' && 'members' in response && Array.isArray(response.members)) {
         /*
          * Clear existing users for this group first to avoid stale data
          * Then add all current members
@@ -558,8 +565,8 @@ export const joinGroup = async(groupId: string) => {
             // Remove users that are no longer in the group (keep only current members)
             const memberIds = new Set(
                 response.members
-                    .filter((m) => m && m.id)
-                    .map((m) => String(m.id).trim()),
+                    .filter((m) => m && typeof m === 'object' && 'id' in m && m.id)
+                    .map((m) => String((m as {id: unknown}).id).trim()),
             )
 
             // Filter out users not in current members list
@@ -594,11 +601,9 @@ export const joinGroup = async(groupId: string) => {
                         },
                         username: member.username,
                     })
-                } else {
+                } else if (member.username && $s.users[userIndex].username !== member.username) {
                     // User exists, update username if changed
-                    if (member.username && $s.users[userIndex].username !== member.username) {
-                        $s.users[userIndex].username = member.username
-                    }
+                    $s.users[userIndex].username = member.username
                 }
             }
             // Ensure no duplicates exist (safety net)

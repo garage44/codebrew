@@ -192,7 +192,7 @@ export function DeviceSettings() {
     // Watch for device changes
     useEffect(() => {
         remountStream()
-    }, [$s.devices.cam.selected])
+    }, [])
 
     return (
         <div class='c-device-settings'>

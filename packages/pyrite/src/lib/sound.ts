@@ -1,14 +1,25 @@
 import {$s} from '@/app'
 import {logger} from '@garage44/common/app'
 
-export default class Sound {
+interface SoundDescription {
+    file: string
+    playing: boolean
+}
 
-    constructor(description) {
+export default class Sound {
+    description: SoundDescription
+    audio: HTMLAudioElement
+    loop: boolean
+    played: boolean
+
+    constructor(description: SoundDescription) {
         this.description = description
         this.audio = new Audio(description.file)
+        this.loop = false
+        this.played = false
     }
 
-    async play({loop = false, sink = null} = {}) {
+    async play({loop = false, sink = null}: {loop?: boolean; sink?: string | null} = {}) {
         this.loop = loop
 
         if (!this.played) this.audio.addEventListener('ended', this.playEnd.bind(this))

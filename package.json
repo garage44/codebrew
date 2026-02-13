@@ -11,7 +11,7 @@
     "@typescript-eslint/eslint-plugin": "^8.46.2",
     "@typescript-eslint/parser": "^8.46.2",
     "@typescript/native-preview": "latest",
-    "eslint": "^9.17.0",
+    "eslint": "^10.0.0",
     "eslint-plugin-perfectionist": "^4.15.1",
     "eslint-plugin-react": "^7.37.5",
     "lefthook": "^2.0.4",

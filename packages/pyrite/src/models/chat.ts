@@ -1,6 +1,7 @@
 import {$s} from '@/app'
 import {api, events, notifier, ws} from '@garage44/common/app'
 import {logger} from '@garage44/common/lib/logger'
+import type {PyriteState} from '@/types'
 
 export function _events() {
     // Implement reactivity for panels.chat collapsed state
@@ -100,7 +101,8 @@ export async function onMessage(messageData: {
         $s.chat.channels[$s.chat.channel] &&
         ((channelId !== $s.chat.channel) || $s.panels.chat.collapsed)
     ) {
-        $s.chat.channels[channelId].unread += 1
+        const channels = $s.chat.channels as PyriteState['chat']['channels']
+        channels[channelId].unread += 1
     }
 
 }
@@ -224,10 +226,14 @@ export async function loadGlobalUsers() {
         if ($s.channels.length) {
             for (const channel of $s.channels) {
                 const membersResponse = await ws.get(`/channels/${channel.slug}/members`)
-                if (membersResponse && membersResponse.success && membersResponse.members) {
+                if (membersResponse && typeof membersResponse === 'object' && 'success' in membersResponse && membersResponse.success && 'members' in membersResponse && Array.isArray(membersResponse.members)) {
                     for (const member of membersResponse.members) {
-                        if (member.user_id) {
-                            updateUserFromMember(member)
+                        if (member && typeof member === 'object' && 'user_id' in member && member.user_id) {
+                            updateUserFromMember({
+                                user_id: member.user_id,
+                                username: 'username' in member && typeof member.username === 'string' ? member.username : undefined,
+                                avatar: 'avatar' in member && typeof member.avatar === 'string' ? member.avatar : undefined,
+                            })
                         }
                     }
                 }
@@ -273,24 +279,29 @@ export async function loadChannelHistory(channelSlug: string | number) {
         const membersResponse = await ws.get(`/channels/${channelSlug}/members`)
         const members: Record<string, {avatar: string}> = {}
 
-        if (membersResponse && membersResponse.success && membersResponse.members) {
+        if (membersResponse && typeof membersResponse === 'object' && 'success' in membersResponse && membersResponse.success && 'members' in membersResponse && Array.isArray(membersResponse.members)) {
+            const chatUsers = $s.chat.users as PyriteState['chat']['users']
             for (const member of membersResponse.members) {
-                members[member.user_id] = {avatar: member.avatar}
+                if (member && typeof member === 'object' && 'user_id' in member && member.user_id && 'avatar' in member) {
+                    const userId = String(member.user_id)
+                    members[userId] = {avatar: String(member.avatar)}
 
-                // Also update global users
-                if (!$s.chat.users) {
-                    $s.chat.users = {}
-                }
-                $s.chat.users[member.user_id] = {
-                    username: member.username,
-                    avatar: member.avatar,
+                    // Also update global users
+                    if (!chatUsers) {
+                        $s.chat.users = {}
+                    }
+                    const updatedChatUsers = $s.chat.users as PyriteState['chat']['users']
+                    updatedChatUsers[userId] = {
+                        username: 'username' in member && typeof member.username === 'string' ? member.username : '',
+                        avatar: String(member.avatar),
+                    }
                 }
             }
         }
 
         const response = await ws.get(`/channels/${channelSlug}/messages`)
 
-        if (response && response.success && response.messages) {
+        if (response && typeof response === 'object' && 'success' in response && response.success && 'messages' in response && Array.isArray(response.messages)) {
             // Transform database message format to frontend format
             // DB format: {id, channel_id, user_id, username, message, timestamp, kind}
             // Frontend format: {kind, message, nick, time, user_id}
@@ -388,10 +399,10 @@ export async function sendMessage(message: string) {
             kind
         })
 
-        if (!response.success) {
+        if (!response || typeof response !== 'object' || !('success' in response) || !response.success) {
             notifier.notify({
                 level: 'error',
-                message: response.error || 'Failed to send message'
+                message: (response && typeof response === 'object' && 'error' in response && typeof response.error === 'string' ? response.error : null) || 'Failed to send message'
             })
         }
     } catch (error) {
@@ -406,7 +417,8 @@ export async function sendMessage(message: string) {
 export function unreadMessages() {
     let unread = 0
 
-    for (const channel of Object.values($s.chat.channels)) {
+    const channels = $s.chat.channels as PyriteState['chat']['channels']
+    for (const channel of Object.values(channels)) {
         unread += channel.unread
     }
     return unread

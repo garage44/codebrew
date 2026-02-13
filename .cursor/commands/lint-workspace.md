@@ -44,8 +44,12 @@ bun run lint:ts-types
 
 ## TypeScript Fix Strategy
 
-Fix types at interface definitions, not usage sites:
+**See `.cursor/skills/typescript-typing.md` for detailed TypeScript typing guidance, including DeepSignal state patterns.**
+
+Quick reference:
+- Fix types at interface definitions, not usage sites
 - Find interface/type definition causing error
 - Update definition to match actual usage
 - Use type inference instead of explicit types
 - Avoid adding conditionals just for TypeScript
+- For DeepSignal Record access, use type assertions: `const channels = $s.chat.channels as PyriteState['chat']['channels']`

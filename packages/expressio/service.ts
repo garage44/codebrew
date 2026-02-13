@@ -211,7 +211,8 @@ void cli.usage('Usage: $0 [task]')
                 createTags.push(refPath)
                 pathCreate(workspace.i18n, [...refPath], {
                     source: sourceRef[id],
-                }, workspace.config.languages.target)
+                    target: {},
+                }, workspace.config.languages.target as unknown as Array<{engine: 'anthropic' | 'deepl'; formality: 'default' | 'more' | 'less'; id: string; name: string}>)
             }
         })
 
@@ -229,7 +230,8 @@ void cli.usage('Usage: $0 [task]')
             for (const tagPath of createTags) {
                 try {
                     const {id, ref} = pathRef(workspace.i18n, tagPath)
-                    const sourceText = ref[id].source
+                    const tagRef = ref[id] as {source: string}
+                    const sourceText = tagRef.source
 
                     logger.info(`Translating: ${tagPath.join('.')}`)
                     await translate_tag(workspace, tagPath, sourceText, true)
@@ -295,7 +297,8 @@ void cli.usage('Usage: $0 [task]')
         for (const [index, tagPath] of tagsToTranslate.entries()) {
             try {
                 const {id, ref} = pathRef(workspace.i18n, tagPath)
-                const sourceText = ref[id].source
+                const tagRef = ref[id] as {source: string}
+                const sourceText = tagRef.source
 
                 logger.info(`[${index + 1}/${tagsToTranslate.length}] Translating: ${tagPath.join('.')}`)
                 await translate_tag(workspace, tagPath, sourceText, true)
@@ -403,9 +406,10 @@ void cli.usage('Usage: $0 [task]')
             const total = stats.translated[lang.id] + stats.untranslated[lang.id]
             const percentage = total > 0 ? Math.round((stats.translated[lang.id] / total) * 100) : 0
             const bar = '█'.repeat(Math.floor(percentage / 2)) + '░'.repeat(50 - Math.floor(percentage / 2))
+            const langWithName = lang as typeof lang & {name: string}
 
             // oxlint-disable-next-line no-console
-            console.log(`  ${lang.name} (${lang.id}):`)
+            console.log(`  ${langWithName.name} (${lang.id}):`)
             // oxlint-disable-next-line no-console
             console.log(`    ${bar} ${percentage}%`)
             // oxlint-disable-next-line no-console
@@ -473,9 +477,10 @@ void cli.usage('Usage: $0 [task]')
             for (const language of languagesToExport) {
                 const outputFile = path.join(outputDir, `${outputBase}.${language.id}${outputExt}`)
                 const translations = i18nFormat(workspace.i18n, [language])
+                const langWithName = language as typeof language & {name: string}
 
                 await fs.writeFile(outputFile, JSON.stringify(translations, null, 2), 'utf8')
-                logger.info(`Exported ${language.name} to: ${outputFile}`)
+                logger.info(`Exported ${langWithName.name} to: ${outputFile}`)
             }
         } else {
             // Export all languages to a single file
