@@ -1,28 +1,29 @@
-# Garage44
+# Codebrew
 
 [![License](https://img.shields.io/badge/License-Mixed-blue.svg)](#licenses) [![Bun](https://img.shields.io/badge/Powered%20by-Bun-black.svg)](https://bun.sh/)
 
-Monorepo packages that combine into **Codebrew** — unified platform for video conferencing, AI project management, and i18n automation. Built with Bun, Preact, DeepSignal. Real-time first, WebSocket-native.
+**Codebrew** is a unified platform for video conferencing, AI project management, and translation automation.
 
-## Codebrew
+## Products
 
-**Codebrew** is the parent platform that unifies the packages below into a cohesive suite. Each package can run independently or integrate with others through shared components and WebSocket-based real-time communication.
+- **[Expressio](https://expressio.garage44.org)** — Automate translations with AI (DeepL/Claude)
+- **[Nonlinear](https://garage44.org)** — AI-powered project management
+- **[Pyrite](https://pyrite.garage44.org)** — Video conferencing platform
 
-## Packages
+Each product runs independently or integrates seamlessly into the Codebrew platform.
 
-- **[Expressio](https://expressio.garage44.org)** — i18n automation (DeepL/Claude)
-- **[Nonlinear](https://garage44.org)** — AI project management
-- **[Pyrite](https://pyrite.garage44.org)** — Video conferencing (Galène SFU)
-- **[Common](./packages/common)** — Shared components & utilities (MIT)
-- **[Bunchy](./packages/bunchy/README.md)** — Dev tooling (MIT)
+## Quick Start
 
-## Stack
-
-Bun • Bun.serve() + WebSocket • Preact + DeepSignal • Modern CSS nesting
-
+**Start Codebrew (all packages):**
 ```bash
 bun install
-cd packages/expressio && bun run dev
+# Coming soon: bun run codebrew
+```
+
+**Start a standalone package (example: Pyrite):**
+```bash
+bun install
+cd packages/pyrite && bun run dev
 ```
 
 ---
