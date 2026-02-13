@@ -4,9 +4,10 @@ import {
 } from '@garage44/common/lib/state'
 import {mergeDeep} from '@garage44/common/lib/utils'
 
-const persistantState = mergeDeep({
-    activeApp: null as 'expressio' | 'nonlinear' | 'pyrite' | null,
-}, commonPersistantState)
+const persistantState = mergeDeep(
+    {...commonPersistantState} as Record<string, unknown>,
+    {activeApp: null as 'expressio' | 'nonlinear' | 'pyrite' | null},
+) as typeof commonPersistantState & {activeApp: 'expressio' | 'nonlinear' | 'pyrite' | null}
 
 const volatileState = mergeDeep({
     tickets: [],

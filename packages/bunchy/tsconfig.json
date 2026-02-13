@@ -2,13 +2,9 @@
     "compilerOptions": {
         "allowImportingTsExtensions": true,
         "esModuleInterop": true,
-        "lib": [
-            "DOM",
-            "DOM.Iterable",
-            "ES2023"
-        ],
         "jsx": "react-jsx",
         "jsxImportSource": "preact",
+        "lib": ["DOM", "DOM.Iterable", "ES2023"],
         "module": "esnext",
         "moduleResolution": "bundler",
         "noEmit": true,
@@ -21,5 +17,6 @@
         "sourceMap": true,
         "target": "ES2023",
         "types": ["bun", "node"]
-    }
+    },
+    "include": ["*.ts", "tests/**/*"]
 }

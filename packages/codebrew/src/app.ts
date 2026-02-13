@@ -2,13 +2,14 @@ import type {CommonState} from '@garage44/common/types'
 import type {DeepSignal} from 'deepsignal'
 
 import {App, api, logger, notifier, store, $t} from '@garage44/common/app'
-import {h, render} from 'preact'
+import {h, render, type ComponentChild} from 'preact'
 
 import {Main} from '@/components/main/main'
 
+import type {CodebrewState} from './types'
+
 import {persistantState, volatileState} from './lib/state'
 
-type CodebrewState = typeof persistantState & typeof volatileState
 const $s = store.state as unknown as DeepSignal<CodebrewState>
 
 store.load(
@@ -18,6 +19,14 @@ store.load(
 
 const app = new App()
 
-app.init(Main, render, h, {}, {enableBunchy: process.env.NODE_ENV !== 'production'})
+app.init(
+    Main,
+    (vnode: unknown, container: HTMLElement): void => {
+        render(vnode as ComponentChild, container)
+    },
+    h as (...args: unknown[]) => unknown,
+    {},
+    {enableBunchy: process.env.NODE_ENV !== 'production'},
+)
 
 export {$s, app, api, logger, notifier, store, $t}

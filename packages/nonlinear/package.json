@@ -41,7 +41,8 @@
   },
   "exports": {
     ".": "./index.ts",
-    "./codebrew": "./codebrew.tsx"
+    "./codebrew": "./codebrew.tsx",
+    "./lib/database": "./lib/database.ts"
   },
   "files": [
     "api/*",

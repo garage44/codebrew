@@ -2,32 +2,23 @@
     "compilerOptions": {
         "allowImportingTsExtensions": true,
         "esModuleInterop": true,
-        "lib": [
-            "DOM",
-            "DOM.Iterable",
-            "ES2023"
-        ],
         "jsx": "react-jsx",
         "jsxImportSource": "preact",
+        "lib": ["DOM", "DOM.Iterable", "ES2023"],
         "module": "ES2022",
         "moduleResolution": "bundler",
         "noEmit": true,
-        "resolveJsonModule": true,
         "paths": {
             "*": ["./*"],
             "@/*": ["./src/*", "../common/*"],
             "@garage44/common/*": ["../common/*"]
         },
+        "resolveJsonModule": true,
         "skipLibCheck": true,
         "sourceMap": true,
         "target": "ES2023",
         "types": ["bun", "node"]
     },
-    "include": [
-        "**/*"
-    ],
-    "exclude": [
-        "../common/**/*",
-        "../bunchy/**/*"
-    ]
+    "include": ["src/**/*", "lib/**/*", "api/**/*", "*.ts", "*.tsx"],
+    "exclude": ["../common/**/*", "../bunchy/**/*"]
 }

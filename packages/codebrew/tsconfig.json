@@ -1,24 +1,59 @@
 {
-    "compilerOptions": {
-        "allowImportingTsExtensions": true,
-        "esModuleInterop": true,
-        "jsx": "react-jsx",
-        "jsxImportSource": "preact",
-        "lib": ["DOM", "DOM.Iterable", "ES2023"],
-        "module": "ES2022",
-        "moduleResolution": "bundler",
-        "noEmit": true,
-        "paths": {
-            "*": ["./*"],
-            "@/*": ["./src/*", "../common/*"],
-            "@garage44/common/*": ["../common/*"]
-        },
-        "resolveJsonModule": true,
-        "skipLibCheck": true,
-        "sourceMap": true,
-        "target": "ES2023",
-        "types": ["bun", "node"]
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "esModuleInterop": true,
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact",
+    "lib": [
+      "DOM",
+      "DOM.Iterable",
+      "ES2023"
+    ],
+    "module": "ES2022",
+    "moduleResolution": "bundler",
+    "noEmit": true,
+    "paths": {
+      "*": [
+        "./*"
+      ],
+      "@/*": [
+        "./src/*",
+        "../common/*"
+      ],
+      "@garage44/common/*": [
+        "../common/*"
+      ],
+      "@garage44/expressio/codebrew": [
+        "./plugin-types.d.ts"
+      ],
+      "@garage44/nonlinear/codebrew": [
+        "./plugin-types.d.ts"
+      ],
+      "@garage44/pyrite/codebrew": [
+        "./plugin-types.d.ts"
+      ]
     },
-    "include": ["**/*"],
-    "exclude": ["../common/**/*", "../bunchy/**/*"]
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "sourceMap": true,
+    "target": "ES2023",
+    "types": [
+      "bun",
+      "node"
+    ]
+  },
+  "include": [
+    "src/**/*",
+    "lib/**/*",
+    "api/**/*",
+    "*.ts",
+    "*.tsx"
+  ],
+  "exclude": [
+    "../common/**/*",
+    "../bunchy/**/*",
+    "../nonlinear/**/*",
+    "../expressio/**/*",
+    "../pyrite/**/*"
+  ]
 }

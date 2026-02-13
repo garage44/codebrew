@@ -61,9 +61,9 @@ class Router {
 }
 
 async function initMiddleware(_bunchyConfig: unknown): Promise<{
-    handleRequest: (req: Request, session?: Session) => Promise<Response>
+    handleRequest: (req: Request, server?: unknown) => Promise<Response | undefined>
     handleWebSocket: () => void
-    sessionMiddleware: (req: Request, res: Response, next: () => void) => void
+    sessionMiddleware: (request: Request) => {session: {userid?: string}; sessionId: string}
 }> {
     const router = new Router()
 
@@ -129,7 +129,7 @@ async function initMiddleware(_bunchyConfig: unknown): Promise<{
     })
 
     return {
-        handleRequest: finalHandleRequest as (req: Request, session?: Session) => Promise<Response>,
+        handleRequest: finalHandleRequest,
         handleWebSocket: (): void => {
             // WebSocket handler not implemented
         },

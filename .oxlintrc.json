@@ -25,6 +25,7 @@
     "eslint/sort-imports": "off",
     "max-lines-per-function": "off",
     "prefer-default-export": "off",
+    "eslint/prefer-destructuring": "off",
     "react-in-jsx-scope": "off",
     "react/jsx-filename-extension": ["error", {"extensions": [".jsx", ".tsx"]}],
     "react/jsx-max-depth": ["error", {"max": 5}],

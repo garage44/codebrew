@@ -29,11 +29,10 @@ async function initConfig(): Promise<typeof config> {
 async function saveConfig(): Promise<void> {
     const envConfigPath = process.env.CONFIG_PATH
     const configPath = envConfigPath || path.join(homedir(), '.codebrewrc')
-    const data = copyObject(config)
-    delete data.configs
-    delete data.config
-    delete data._
-    await fs.writeFile(configPath, JSON.stringify(data, null, 4))
+    const data = copyObject(config) as Record<string, unknown>
+    const keysToOmit = new Set(['config', 'configs', '_'])
+    const filtered = Object.fromEntries(Object.entries(data).filter((entry): boolean => !keysToOmit.has(entry[0])))
+    await fs.writeFile(configPath, JSON.stringify(filtered, null, 4))
 }
 
 export {config, initConfig, saveConfig}

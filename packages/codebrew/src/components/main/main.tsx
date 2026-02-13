@@ -5,16 +5,34 @@ import {getApps} from '@garage44/common/lib/codebrew-registry'
 import {Link, Route, Router} from 'preact-router'
 import {useEffect} from 'preact/hooks'
 
+import type {CodebrewState} from '@/types'
+
 import {$s} from '@/app'
+
+interface ApiContext {
+    admin?: boolean | string
+    authenticated?: boolean
+    id?: string
+    profile?: {avatar?: string; displayName?: string}
+    username?: string
+}
+
+interface LoginResult {
+    admin?: boolean | string
+    authenticated?: boolean
+    error?: string
+    id?: string
+    profile?: {avatar?: string; displayName?: string}
+    username?: string
+}
 
 export const Main = () => {
     useEffect(() => {
         ;(async () => {
-            const context = await api.get('/api/context')
+            const context = (await api.get('/api/context')) as ApiContext
             const isAuthenticated = context.authenticated || (context.id && context.username)
-
-            $s.profile.admin = context.admin || false
-            $s.profile.authenticated = isAuthenticated || false
+            $s.profile.admin = !!(context.admin === true || context.admin === 'true')
+            $s.profile.authenticated = Boolean(isAuthenticated)
             if (context.id) {
                 $s.profile.id = context.id
             }
@@ -39,11 +57,14 @@ export const Main = () => {
             <Login
                 LogoIcon={() => <Icon name='extension' />}
                 onLogin={async (username: string, password: string) => {
-                    const result = await api.post('/api/login', {password, username})
+                    const result = (await api.post('/api/login', {
+                        password,
+                        username,
+                    })) as LoginResult
                     const isAuthenticated = result.authenticated || (result.id && result.username)
                     if (isAuthenticated) {
                         $s.profile.authenticated = true
-                        $s.profile.admin = result.admin || false
+                        $s.profile.admin = result.admin === true || result.admin === 'true'
                         if (result.id) {
                             $s.profile.id = result.id
                         }
@@ -82,9 +103,9 @@ export const Main = () => {
                                 }}
                                 settingsHref='/settings'
                                 user={{
-                                    id: $s.profile.id || null,
+                                    id: $s.profile.id ?? undefined,
                                     profile: {
-                                        avatar: $s.profile.avatar || null,
+                                        avatar: $s.profile.avatar ?? undefined,
                                         displayName: $s.profile.displayName || $s.profile.username || 'User',
                                     },
                                 }}
@@ -129,7 +150,7 @@ export const Main = () => {
                             </>
                         }
                         onCollapseChange={(collapsed) => {
-                            $s.panels.menu.collapsed = collapsed
+                            ;($s.panels.menu as {collapsed: boolean}).collapsed = collapsed
                             store.save()
                         }}
                     />
@@ -154,7 +175,7 @@ export const Main = () => {
                     </Router>
                 </div>
             </AppLayout>
-            <Notifications notifications={$s.notifications} />
+            <Notifications notifications={$s.notifications as CodebrewState['notifications']} />
         </>
     )
 }
