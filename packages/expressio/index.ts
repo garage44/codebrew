@@ -26,8 +26,8 @@ function createTypedI18n<T extends {i18n: Record<string, unknown>}>(workspace: T
     keyMod(i18n, (_srcRef, _id, refPath) => {
         const sourceRef = keyPath(i18n, refPath)
         if (typeof sourceRef === 'object' && sourceRef !== null && 'source' in sourceRef && refPath.length > 0) {
-            const pathString = `i18n.${refPath.join('.')}`
-            ;(sourceRef as Record<symbol, string>)[I18N_PATH_SYMBOL] = pathString
+            const pathString = `i18n.${refPath.join('.')}`;
+            (sourceRef as Record<symbol, string>)[I18N_PATH_SYMBOL] = pathString
         }
     })
 

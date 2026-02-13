@@ -6,9 +6,9 @@
 import {db} from '../database.ts'
 
 export interface ParsedMention {
-    type: 'agent' | 'human'
     name: string
     original: string
+    type: 'agent' | 'human'
 }
 
 /**
@@ -58,8 +58,8 @@ export function parseMentions(content: string): ParsedMention[] {
  * Validate mentioned agents exist and are enabled
  */
 export function validateMentions(mentions: ParsedMention[]): {
-    valid: ParsedMention[]
     invalid: ParsedMention[]
+    valid: ParsedMention[]
 } {
     const valid: ParsedMention[] = []
     const invalid: ParsedMention[] = []

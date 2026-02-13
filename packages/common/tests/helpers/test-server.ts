@@ -6,27 +6,31 @@
 import {createBunWebSocketHandler, WebSocketServerManager} from '../../lib/ws-server.ts'
 
 export interface TestServerOptions {
-    port?: number
-    endpoint?: string
     authOptions?: {
         noSecurityEnv?: string
         users?: Array<{name: string}>
     }
+    endpoint?: string
+    port?: number
 }
 
 export class TestServer {
     private server: ReturnType<typeof Bun.serve> | null = null
+
     public wsManager: WebSocketServerManager
+
     public port: number
+
     public endpoint: string
 
     constructor(options: TestServerOptions = {}) {
-        this.port = options.port || 0 // 0 = random port
+        // 0 = random port
+        this.port = options.port || 0
         this.endpoint = options.endpoint || '/ws'
 
         this.wsManager = new WebSocketServerManager({
-            endpoint: this.endpoint,
             authOptions: options.authOptions,
+            endpoint: this.endpoint,
         })
     }
 
@@ -40,7 +44,6 @@ export class TestServer {
                 const port = this.port || 0
 
                 this.server = Bun.serve({
-                    port,
                     fetch: (req, server) => {
                         // Handle WebSocket upgrade
                         if (server.upgrade(req, {data: {endpoint: this.endpoint}})) {
@@ -48,6 +51,7 @@ export class TestServer {
                         }
                         return new Response('Not Found', {status: 404})
                     },
+                    port,
                     websocket: wsHandler,
                 })
 
@@ -55,7 +59,7 @@ export class TestServer {
                 this.port = this.server.port
 
                 resolve()
-            } catch (error) {
+            } catch(error) {
                 reject(error)
             }
         })

@@ -6,8 +6,6 @@
 import {$s} from '@/app'
 import {events, logger, ws} from '@garage44/common/app'
 import {effect} from '@preact/signals'
-import {loadGlobalUsers} from '@/models/chat'
-import type {Channel} from '../types'
 
 // Flag to prevent infinite loops in reactive deduplication
 let isDeduplicating = false
@@ -76,7 +74,6 @@ export const initWebSocketSubscriptions = () => {
     initChatSubscriptions()
     initPresenceSubscriptions()
     initGroupSubscriptions()
-    initChannelSubscriptions()
 
     logger.info('WebSocket subscriptions initialized')
 }
@@ -88,14 +85,18 @@ export const initWebSocketSubscriptions = () => {
 const initChatSubscriptions = () => {
     // Listen for incoming chat messages (broadcast from backend)
     events.on('app:init', () => {
-        // Use onRoute for dynamic channel message broadcasts
-        // Since URLs are dynamic (/channels/general/messages, /channels/dev/messages, etc.),
-        // we use the generic message handler but with better pattern matching
+        /*
+         * Use onRoute for dynamic channel message broadcasts
+         * Since URLs are dynamic (/channels/general/messages, /channels/dev/messages, etc.),
+         * we use the generic message handler but with better pattern matching
+         */
         ws.on('message', (message) => {
             if (!message || !message.url) return
 
-            // Check if this is a channel message broadcast
-            // Match slug pattern (alphanumeric, hyphens, underscores)
+            /*
+             * Check if this is a channel message broadcast
+             * Match slug pattern (alphanumeric, hyphens, underscores)
+             */
             const messageUrlMatch = message.url.match(/^\/channels\/([a-zA-Z0-9_-]+)\/messages$/)
             if (messageUrlMatch) {
                 const channelSlug = messageUrlMatch[1]
@@ -117,15 +118,8 @@ const initChatSubscriptions = () => {
 
                 // Find or create the chat channel (use slug as key)
                 const channelKey = channelSlug
-                const channels = $s.chat.channels as Record<string, {
-                    id: string
-                    members?: Record<string, {avatar: string}>
-                    messages: Array<Record<string, unknown>>
-                    typing?: {[userId: string]: {timestamp: number; userId: string | number; username: string}}
-                    unread: number
-                }>
-                if (!channels[channelKey]) {
-                    channels[channelKey] = {
+                if (!$s.chat.channels[channelKey]) {
+                    $s.chat.channels[channelKey] = {
                         id: channelKey,
                         messages: [],
                         unread: 0,
@@ -135,28 +129,23 @@ const initChatSubscriptions = () => {
 
                 // Ensure user is in global users map for avatar lookup
                 if (userId && username) {
-                    // Normalize userId to prevent duplicates
-                    const normalizedUserId = String(userId).trim()
-                    if (!normalizedUserId) return
-
-                    const users = ($s.chat.users || {}) as Record<string, {avatar: string; status?: 'online' | 'offline' | 'busy'; username: string}>
                     if (!$s.chat.users) {
                         $s.chat.users = {}
                     }
                     // Get avatar from channel members if available, or use placeholder
-                    const channel = channels[channelKey]
-                    const memberAvatar = channel?.members?.[normalizedUserId]?.avatar
+                    const channel = $s.chat.channels[channelKey]
+                    const memberAvatar = channel?.members?.[userId]?.avatar
 
-                    if (!users[normalizedUserId]) {
-                        users[normalizedUserId] = {
+                    if (!$s.chat.users[userId]) {
+                        $s.chat.users[userId] = {
                             avatar: memberAvatar || 'placeholder-1.png',
                             username,
                         }
                     } else {
                         // Update username/avatar if they changed
-                        users[normalizedUserId].username = username
+                        $s.chat.users[userId].username = username
                         if (memberAvatar) {
-                            users[normalizedUserId].avatar = memberAvatar
+                            $s.chat.users[userId].avatar = memberAvatar
                         }
                     }
                 }
@@ -171,18 +160,20 @@ const initChatSubscriptions = () => {
                 }
 
                 // Push to array - DeepSignal tracks array mutations
-                channels[channelKey].messages.push(newMessage)
+                $s.chat.channels[channelKey].messages.push(newMessage)
 
-                logger.debug(`[Chat WS] Added message to channel ${channelKey}, total messages: ${channels[channelKey].messages.length}`)
+                logger.debug(`[Chat WS] Added message to channel ${channelKey}, total messages: ${$s.chat.channels[channelKey].messages.length}`)
 
                 // Increment unread count if not the active channel
                 if ($s.chat.activeChannelSlug !== channelSlug) {
-                    channels[channelKey].unread++
+                    $s.chat.channels[channelKey].unread++
                 }
             }
 
-            // Check if this is a typing indicator broadcast
-            // Match slug pattern (alphanumeric, hyphens, underscores)
+            /*
+             * Check if this is a typing indicator broadcast
+             * Match slug pattern (alphanumeric, hyphens, underscores)
+             */
             const typingUrlMatch = message.url.match(/^\/channels\/([a-zA-Z0-9_-]+)\/typing$/)
             if (typingUrlMatch) {
                 const channelSlug = typingUrlMatch[1]
@@ -191,41 +182,29 @@ const initChatSubscriptions = () => {
 
                 if (userId) {
                     const channelKey = channelSlug
-                    const channels = $s.chat.channels as Record<string, {
-                        id: string
-                        members?: Record<string, {avatar: string}>
-                        messages: Array<Record<string, unknown>>
-                        typing?: {[userId: string]: {timestamp: number; userId: string | number; username: string}}
-                        unread: number
-                    }>
 
                     // Ensure channel exists
-                    if (!channels[channelKey]) {
-                        channels[channelKey] = {
+                    if (!$s.chat.channels[channelKey]) {
+                        $s.chat.channels[channelKey] = {
                             id: channelKey,
                             messages: [],
                             typing: {},
                             unread: 0,
                         }
-                    } else if (!channels[channelKey].typing) {
-                        channels[channelKey].typing = {}
+                    } else if (!$s.chat.channels[channelKey].typing) {
+                        $s.chat.channels[channelKey].typing = {}
                     }
 
                     // Update typing state for this user in this channel
                     if (typing) {
-                        if (!channels[channelKey].typing) {
-                            channels[channelKey].typing = {}
-                        }
-                        channels[channelKey].typing![userId] = {
+                        $s.chat.channels[channelKey].typing[userId] = {
                             timestamp: Date.now(),
                             userId,
                             username: username || 'Unknown',
                         }
                     } else {
                         // Remove typing indicator when user stops typing
-                        if (channels[channelKey].typing) {
-                            delete channels[channelKey].typing[userId]
-                        }
+                        delete $s.chat.channels[channelKey].typing[userId]
                     }
                 }
             }
@@ -247,35 +226,25 @@ const initPresenceSubscriptions = () => {
 
             // Update presence status in chat.users
             if ($s.chat.users && userId) {
-                const normalizedUserId = String(userId).trim()
-                if (normalizedUserId) {
-                    const users = $s.chat.users as Record<string, {avatar: string; status?: 'online' | 'offline' | 'busy'; username: string}>
-                    if (users[normalizedUserId]) {
-                        users[normalizedUserId].status = 'online'
-                    }
+                const normalizedUserId = String(userId)
+                if ($s.chat.users[normalizedUserId]) {
+                    $s.chat.users[normalizedUserId].status = 'online'
                 }
             }
 
             // Update current group member count if relevant
-            const sfuChannels = $s.sfu.channels as Record<string, {
-                audio: boolean
-                clientCount?: number
-                comment?: string
-                connected?: boolean
-                description?: string
-                locked?: boolean
-                video: boolean
-            }>
-            if (sfuChannels[groupId]) {
-                sfuChannels[groupId].clientCount = (sfuChannels[groupId].clientCount || 0) + 1
+            if ($s.sfu.channels[groupId]) {
+                $s.sfu.channels[groupId].clientCount = ($s.sfu.channels[groupId].clientCount || 0) + 1
             }
 
-            // If this is the current group, add user to users list
-            // Note: Skip if this is the current user joining (they're already added via joinGroup response)
+            /*
+             * If this is the current group, add user to users list
+             * Note: Skip if this is the current user joining (they're already added via joinGroup response)
+             */
             if ($s.sfu.channel.name === groupId) {
                 // Normalize userId to string for consistent comparison
                 if (!userId) {
-                    logger.warn(`[Presence] Skipping user add: invalid userId`)
+                    logger.warn('[Presence] Skipping user add: invalid userId')
                     return
                 }
                 const normalizedUserId = String(userId).trim()
@@ -321,30 +290,17 @@ const initPresenceSubscriptions = () => {
 
             // Update presence status in chat.users (check if user is still in any group)
             if ($s.chat.users && userId) {
-                const normalizedUserId = String(userId).trim()
-                if (normalizedUserId) {
-                    const users = $s.chat.users as Record<string, {avatar: string; status?: 'online' | 'offline' | 'busy'; username: string}>
-                    // Note: We don't set offline here because user might be in another group
-                    // The presence API will handle this
-                    // Access users for type checking
-                    if (users[normalizedUserId]) {
-                        // User exists, but we don't update status here
-                    }
-                }
+                const normalizedUserId = String(userId)
+
+                /*
+                 * Note: We don't set offline here because user might be in another group
+                 * The presence API will handle this
+                 */
             }
 
             // Update current group member count if relevant
-            const sfuChannels = $s.sfu.channels as Record<string, {
-                audio: boolean
-                clientCount?: number
-                comment?: string
-                connected?: boolean
-                description?: string
-                locked?: boolean
-                video: boolean
-            }>
-            if (sfuChannels[groupId] && (sfuChannels[groupId].clientCount || 0) > 0) {
-                sfuChannels[groupId].clientCount = (sfuChannels[groupId].clientCount || 0) - 1
+            if ($s.sfu.channels[groupId] && ($s.sfu.channels[groupId].clientCount || 0) > 0) {
+                $s.sfu.channels[groupId].clientCount = ($s.sfu.channels[groupId].clientCount || 0) - 1
             }
 
             // If this is the current group, remove user from users list
@@ -366,14 +322,11 @@ const initPresenceSubscriptions = () => {
 
             // Update presence status in chat.users
             if ($s.chat.users && userId) {
-                const normalizedUserId = String(userId).trim()
-                if (normalizedUserId) {
-                    const users = $s.chat.users as Record<string, {avatar: string; status?: 'online' | 'offline' | 'busy'; username: string}>
-                    if (users[normalizedUserId]) {
-                        // Update status if provided in the status object
-                        if (status && typeof status === 'object' && 'status' in status) {
-                            users[normalizedUserId].status = status.status as 'online' | 'offline' | 'busy'
-                        }
+                const normalizedUserId = String(userId)
+                if ($s.chat.users[normalizedUserId]) {
+                    // Update status if provided in the status object
+                    if (status && typeof status === 'object' && 'status' in status) {
+                        $s.chat.users[normalizedUserId].status = status.status as 'online' | 'offline' | 'busy'
                     }
                 }
             }
@@ -381,8 +334,8 @@ const initPresenceSubscriptions = () => {
             // Normalize userId to string for consistent comparison
             const normalizedUserId = String(userId).trim()
             const user = $s.users.find((u) => u && u.id && String(u.id).trim() === normalizedUserId)
-            if (user && user.data) {
-                Object.assign(user.data as Record<string, unknown>, status as Record<string, unknown>)
+            if (user) {
+                Object.assign(user.data, status)
             }
             // Always deduplicate after any modification (safety net)
             deduplicateUsers()
@@ -390,45 +343,15 @@ const initPresenceSubscriptions = () => {
 
         // Listen for user presence updates (from /users/presence broadcast)
         ws.on('/users/presence', (data) => {
-            const {status, userid, timestamp} = data
+            const {status, timestamp, userid} = data
 
             if ($s.chat.users && userid) {
-                const normalizedUserId = String(userid).trim()
-                if (normalizedUserId) {
-                    const users = $s.chat.users as Record<string, {avatar: string; status?: 'online' | 'offline' | 'busy'; username: string}>
-                    if (users[normalizedUserId]) {
-                        users[normalizedUserId].status = status as 'online' | 'offline' | 'busy'
-                    }
+                const normalizedUserId = String(userid)
+                if ($s.chat.users[normalizedUserId]) {
+                    $s.chat.users[normalizedUserId].status = status as 'online' | 'offline' | 'busy'
                 }
             }
         })
-
-        // Auto-announce presence when connected
-        // Use a small delay to ensure profile is populated from /api/context
-        setTimeout(() => {
-            announcePresence()
-        }, 500)
-    })
-}
-
-/**
- * Announce presence to the backend
- * Called automatically when WebSocket connects
- */
-const announcePresence = () => {
-    if (!$s.profile.id || !$s.profile.username) {
-        logger.debug('[Presence] Skipping announce: no profile data')
-        return
-    }
-
-    // Announce presence on the global lobby so all users are tracked
-    ws.post('/api/presence/lobby/join', {
-        userId: $s.profile.id,
-        username: $s.profile.username,
-    }).then(() => {
-        logger.debug(`[Presence] Announced presence for ${$s.profile.username}`)
-    }).catch((error) => {
-        logger.warn('[Presence] Error announcing presence:', error)
     })
 }
 
@@ -446,17 +369,8 @@ const initGroupSubscriptions = () => {
             logger.debug(`Group ${groupId} lock status: ${locked}`)
 
             // Update channel data
-            const sfuChannels = $s.sfu.channels as Record<string, {
-                audio: boolean
-                clientCount?: number
-                comment?: string
-                connected?: boolean
-                description?: string
-                locked?: boolean
-                video: boolean
-            }>
-            if (sfuChannels[groupId]) {
-                sfuChannels[groupId].locked = locked
+            if ($s.sfu.channels[groupId]) {
+                $s.sfu.channels[groupId].locked = locked
             }
 
             // If this is the current group, update state
@@ -486,17 +400,8 @@ const initGroupSubscriptions = () => {
             logger.debug(`Group ${groupId} config updated`)
 
             // Update channel data
-            const sfuChannels = $s.sfu.channels as Record<string, {
-                audio: boolean
-                clientCount?: number
-                comment?: string
-                connected?: boolean
-                description?: string
-                locked?: boolean
-                video: boolean
-            }>
-            if (sfuChannels[groupId]) {
-                Object.assign(sfuChannels[groupId], config)
+            if ($s.sfu.channels[groupId]) {
+                Object.assign($s.sfu.channels[groupId], config)
             }
         })
 
@@ -506,39 +411,32 @@ const initGroupSubscriptions = () => {
 
             logger.debug(`Group ${groupId} ${action}`)
 
-            const sfuChannels = $s.sfu.channels as Record<string, {
-                audio: boolean
-                clientCount?: number
-                comment?: string
-                connected?: boolean
-                description?: string
-                locked?: boolean
-                video: boolean
-            }>
             if (action === 'created' && group) {
                 // Add new group to channels if it doesn't exist
-                if (!sfuChannels[groupId]) {
-                    sfuChannels[groupId] = {
+                if (!$s.sfu.channels[groupId]) {
+                    $s.sfu.channels[groupId] = {
                         audio: false,
                         connected: false,
                         video: false,
                     }
                 }
                 // Update group metadata
-                Object.assign(sfuChannels[groupId], {
-                    locked: group.locked,
+                Object.assign($s.sfu.channels[groupId], {
                     clientCount: group.clientCount,
                     comment: group.comment,
                     description: group.description,
+                    locked: group.locked,
                 })
             } else if (action === 'deleted') {
-                // Note: We don't delete from sfu.channels to preserve audio/video state
-                // Only clear group metadata, keep audio/video preferences
-                if (sfuChannels[groupId]) {
-                    delete sfuChannels[groupId].locked
-                    delete sfuChannels[groupId].clientCount
-                    delete sfuChannels[groupId].comment
-                    delete sfuChannels[groupId].description
+                /*
+                 * Note: We don't delete from sfu.channels to preserve audio/video state
+                 * Only clear group metadata, keep audio/video preferences
+                 */
+                if ($s.sfu.channels[groupId]) {
+                    delete $s.sfu.channels[groupId].locked
+                    delete $s.sfu.channels[groupId].clientCount
+                    delete $s.sfu.channels[groupId].comment
+                    delete $s.sfu.channels[groupId].description
                 }
             }
         })
@@ -566,17 +464,8 @@ const initGroupSubscriptions = () => {
                         $s.sfu.channel.name = ''
 
                         // Update channel connection state
-                        const sfuChannels = $s.sfu.channels as Record<string, {
-                            audio: boolean
-                            clientCount?: number
-                            comment?: string
-                            connected?: boolean
-                            description?: string
-                            locked?: boolean
-                            video: boolean
-                        }>
-                        if (channelSlug && sfuChannels[channelSlug]) {
-                            sfuChannels[channelSlug].connected = false
+                        if (channelSlug && $s.sfu.channels[channelSlug]) {
+                            $s.sfu.channels[channelSlug].connected = false
                         }
                     } else if (targetUser) {
                         // Another user was kicked
@@ -592,8 +481,7 @@ const initGroupSubscriptions = () => {
                     if (targetUserId === $s.profile.id) {
                         $s.devices.mic.enabled = false
                     } else if (targetUser) {
-                        const userData = targetUser.data as Record<string, unknown>
-                        userData.mic = false
+                        targetUser.data.mic = false
                     }
                     break
 
@@ -601,11 +489,10 @@ const initGroupSubscriptions = () => {
                 case 'unop':
                     // Update operator permissions
                     if (targetUser) {
-                        const userPermissions = targetUser.permissions as Record<string, unknown>
-                        userPermissions.op = (action === 'op')
+                        targetUser.permissions.op = action === 'op'
                     }
                     if (targetUserId === $s.profile.id) {
-                        $s.permissions.op = (action === 'op')
+                        $s.permissions.op = action === 'op'
                     }
                     break
 
@@ -613,126 +500,12 @@ const initGroupSubscriptions = () => {
                 case 'unpresent':
                     // Update presenter permissions
                     if (targetUser) {
-                        const userPermissions = targetUser.permissions as Record<string, unknown>
-                        userPermissions.present = (action === 'present')
+                        targetUser.permissions.present = action === 'present'
                     }
                     if (targetUserId === $s.profile.id) {
-                        $s.permissions.present = (action === 'present')
+                        $s.permissions.present = action === 'present'
                     }
                     break
-            }
-        })
-    })
-}
-
-/**
- * Channel WebSocket subscriptions
- * Listen for channel create/update/delete broadcasts from backend
- */
-const initChannelSubscriptions = () => {
-    events.on('app:init', () => {
-        // Channel created (broadcast from backend)
-        ws.on('/channels/created', (data) => {
-            const {channel, timestamp} = data
-
-            if (!channel) {
-                logger.warn('[Channel WS] Invalid channel data in created event:', data)
-                return
-            }
-
-            logger.debug(`[Channel WS] Channel created: ${channel.name} (${channel.slug})`)
-
-            // Check if channel already exists (avoid duplicates)
-            const existingIndex = $s.channels.findIndex((c) => c.id === channel.id)
-            if (existingIndex === -1) {
-                // Add new channel to array
-                $s.channels.push(channel as Channel)
-                logger.debug(`[Channel WS] Added channel to list, total: ${$s.channels.length}`)
-            } else {
-                // Channel already exists, update it instead
-                logger.debug(`[Channel WS] Channel already exists, updating instead`)
-                $s.channels[existingIndex] = channel as Channel
-            }
-
-            // Load users after channel update
-            loadGlobalUsers().catch((error) => {
-                logger.warn('[Channel WS] Error loading users after channel created:', error)
-            })
-        })
-
-        // Channel updated (broadcast from backend)
-        ws.on('/channels/:channelId/updated', (data) => {
-            const {channel, timestamp} = data
-            const channelId = data.channelId // Extracted from broadcast
-
-            if (!channel || !channelId) {
-                logger.warn('[Channel WS] Invalid channel data in updated event:', data)
-                return
-            }
-
-            logger.debug(`[Channel WS] Channel updated: ${channel.name} (${channel.slug})`)
-
-            // Find channel by ID and update it
-            const channelIndex = $s.channels.findIndex((c) => c.id === channelId)
-            if (channelIndex !== -1) {
-                const oldChannel = $s.channels[channelIndex]
-                const oldSlug = oldChannel.slug
-
-                // Update channel properties
-                $s.channels[channelIndex] = channel as Channel
-
-                // If slug changed and this was the active channel, update activeChannelSlug
-                if (oldSlug !== channel.slug && $s.chat.activeChannelSlug === oldSlug) {
-                    logger.debug(`[Channel WS] Active channel slug changed: ${oldSlug} -> ${channel.slug}`)
-                    $s.chat.activeChannelSlug = channel.slug
-                }
-
-                logger.debug(`[Channel WS] Updated channel in list`)
-            } else {
-                // Channel not found, add it (might have been created before initial load)
-                logger.debug(`[Channel WS] Channel not found in list, adding it`)
-                $s.channels.push(channel as Channel)
-            }
-
-            // Load users after channel update
-            loadGlobalUsers().catch((error) => {
-                logger.warn('[Channel WS] Error loading users after channel updated:', error)
-            })
-        })
-
-        // Channel deleted (broadcast from backend)
-        ws.on('/channels/:channelId/deleted', (data) => {
-            const {channelId, timestamp} = data
-
-            if (!channelId) {
-                logger.warn('[Channel WS] Invalid channelId in deleted event:', data)
-                return
-            }
-
-            logger.debug(`[Channel WS] Channel deleted: ${channelId}`)
-
-            // Find channel by ID and remove it
-            const channelIndex = $s.channels.findIndex((c) => c.id === channelId)
-            if (channelIndex !== -1) {
-                const deletedChannel = $s.channels[channelIndex]
-
-                // If deleted channel was active, switch to default channel or first available
-                if ($s.chat.activeChannelSlug === deletedChannel.slug) {
-                    logger.debug(`[Channel WS] Active channel deleted, switching to default`)
-                    // Find default channel (is_default is 1) or first channel
-                    const defaultChannel = $s.channels.find((c) => c.is_default === 1) || $s.channels[0]
-                    if (defaultChannel) {
-                        $s.chat.activeChannelSlug = defaultChannel.slug
-                    } else {
-                        $s.chat.activeChannelSlug = null
-                    }
-                }
-
-                // Remove channel from array
-                $s.channels.splice(channelIndex, 1)
-                logger.debug(`[Channel WS] Removed channel from list, total: ${$s.channels.length}`)
-            } else {
-                logger.debug(`[Channel WS] Channel not found in list (already deleted or not loaded)`)
             }
         })
     })
@@ -766,7 +539,7 @@ export const sendTypingIndicator = (typing: boolean) => {
 /**
  * Join a group (announce presence)
  */
-export const joinGroup = async (groupId: string) => {
+export const joinGroup = async(groupId: string) => {
     if (!$s.profile.id || !$s.profile.username) return
 
     const response = await ws.post(`/api/presence/${groupId}/join`, {
@@ -775,17 +548,18 @@ export const joinGroup = async (groupId: string) => {
     })
 
     // Response contains current members list
-    if (response && response.members && Array.isArray(response.members)) {
-        // Clear existing users for this group first to avoid stale data
-        // Then add all current members
+    if (response && response.members) {
+        /*
+         * Clear existing users for this group first to avoid stale data
+         * Then add all current members
+         */
         const currentGroupId = $s.sfu.channel.name
         if (currentGroupId === groupId) {
             // Remove users that are no longer in the group (keep only current members)
-            const members = response.members as Array<{id?: string | number; [key: string]: unknown}>
             const memberIds = new Set(
-                members
-                    .filter(m => m && m.id)
-                    .map(m => String(m.id).trim())
+                response.members
+                    .filter((m) => m && m.id)
+                    .map((m) => String(m.id).trim()),
             )
 
             // Filter out users not in current members list
@@ -796,10 +570,10 @@ export const joinGroup = async (groupId: string) => {
             })
 
             // Add/update all current members
-            for (const member of members) {
+            for (const member of response.members) {
                 // Normalize member.id to string for consistent comparison
                 if (!member || !member.id) {
-                    logger.warn(`[joinGroup] Skipping member: invalid member data`)
+                    logger.warn('[joinGroup] Skipping member: invalid member data')
                     continue
                 }
                 const normalizedMemberId = String(member.id).trim()
@@ -847,7 +621,7 @@ export const leaveGroup = (groupId: string) => {
 /**
  * Query presence for a group
  */
-export const queryGroupPresence = async (groupId: string) => {
+export const queryGroupPresence = async(groupId: string) => {
     const response = await ws.get(`/api/presence/${groupId}/members`, {})
     return response?.members || []
 }

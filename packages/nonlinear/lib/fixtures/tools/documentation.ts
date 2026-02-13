@@ -10,32 +10,11 @@ import type {DocFilters} from '../../docs/search.ts'
 
 export const documentationTools: Record<string, Tool> = {
     search_documentation: {
-        name: 'search_documentation',
         description: 'Search ADRs, rules, and project documentation semantically. Use this to find architectural decisions, patterns, and project guidelines.',
-        parameters: [
-            {
-                name: 'query',
-                type: 'string',
-                description: 'What to search for (e.g., "how to handle WebSocket connections", "CSS styling patterns", "authentication flow")',
-                required: true,
-            },
-            {
-                name: 'labels',
-                type: 'array',
-                description: 'Filter by labels/tags (e.g., ["architecture", "frontend", "backend"])',
-                required: false,
-            },
-            {
-                name: 'limit',
-                type: 'number',
-                description: 'Maximum number of results (default: 5)',
-                required: false,
-            },
-        ],
-        execute: async (params: {
-            query: string
+        execute: async(params: {
             labels?: string[]
             limit?: number
+            query: string
         }, context: ToolContext): Promise<ToolResult> => {
             try {
                 const filters: DocFilters = {}
@@ -48,39 +27,60 @@ export const documentationTools: Record<string, Tool> = {
 
                 if (results.length === 0) {
                     return {
-                        success: true,
-                        data: [],
                         context: {
                             message: 'No documentation found matching the query',
                         },
+                        data: [],
+                        success: true,
                     }
                 }
 
                 const formatted = results.map((result, idx) => ({
-                    rank: idx + 1,
-                    title: result.doc.title,
-                    path: result.doc.path,
-                    relevanceScore: (result.chunk.score * 100).toFixed(1) + '%',
-                    excerpt: result.chunk.text.substring(0, 500) + (result.chunk.text.length > 500 ? '...' : ''),
+                    excerpt: result.chunk.text.slice(0, 500) + (result.chunk.text.length > 500 ? '...' : ''),
                     fullContent: result.doc.content,
+                    path: result.doc.path,
+                    rank: idx + 1,
+                    relevanceScore: (result.chunk.score * 100).toFixed(1) + '%',
+                    title: result.doc.title,
                 }))
 
                 return {
-                    success: true,
-                    data: formatted,
                     context: {
-                        totalResults: results.length,
-                        query: params.query,
                         labels: params.labels || [],
+                        query: params.query,
+                        totalResults: results.length,
                     },
+                    data: formatted,
+                    success: true,
                 }
-            } catch (error) {
-                logger.error(`[DocumentationTool] Failed to search documentation:`, error)
+            } catch(error) {
+                logger.error('[DocumentationTool] Failed to search documentation:', error)
                 return {
-                    success: false,
                     error: error instanceof Error ? error.message : String(error),
+                    success: false,
                 }
             }
         },
+        name: 'search_documentation',
+        parameters: [
+            {
+                description: 'What to search for (e.g., "how to handle WebSocket connections", "CSS styling patterns", "authentication flow")',
+                name: 'query',
+                required: true,
+                type: 'string',
+            },
+            {
+                description: 'Filter by labels/tags (e.g., ["architecture", "frontend", "backend"])',
+                name: 'labels',
+                required: false,
+                type: 'array',
+            },
+            {
+                description: 'Maximum number of results (default: 5)',
+                name: 'limit',
+                required: false,
+                type: 'number',
+            },
+        ],
     },
 }

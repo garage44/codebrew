@@ -11,15 +11,17 @@ import {updateUsageFromHeaders} from '../agent/token-usage.ts'
 import {$} from 'bun'
 
 export interface CIRunResult {
-    success: boolean
-    output: string
-    fixesApplied: Array<{command: string; output: string}>
     error?: string
+    fixesApplied: Array<{command: string; output: string}>
+    output: string
+    success: boolean
 }
 
 export class CIRunner {
     private apiKey: string
+
     private maxAttempts: number
+
     private timeout: number
 
     constructor() {
@@ -30,7 +32,8 @@ export class CIRunner {
 
         this.apiKey = apiKey
         this.maxAttempts = config.ci.maxFixAttempts || 3
-        this.timeout = config.ci.timeout || 600000 // 10 minutes
+        // 10 minutes
+        this.timeout = config.ci.timeout || 600000
     }
 
     /**
@@ -71,25 +74,25 @@ export class CIRunner {
 
                     if (lintResult.exitCode === 0) {
                         // Everything passed
-                        const output = `Tests: PASSED\nLinting: PASSED`
+                        const output = 'Tests: PASSED\nLinting: PASSED'
                         this.completeRun(runId, 'success', output, fixesApplied)
                         return {
-                            success: true,
-                            output,
                             fixesApplied,
+                            output,
+                            success: true,
                         }
-                    } else {
-                        // Linting failed
-                        const lintError = lintResult.stderr?.toString() || lintResult.stdout?.toString() || 'Unknown linting error'
-                        lastError = `Linting failed: ${lintError}`
+                    }
+                    // Linting failed
+                    const lintError = lintResult.stderr?.toString() || lintResult.stdout?.toString() || 'Unknown linting error'
+                    lastError = `Linting failed: ${lintError}`
 
-                        if (attempt < this.maxAttempts) {
-                            logger.info('[CI] Linting failed, attempting auto-fix')
-                            const fixResult = await this.attemptFix('linting', lintError, repoPath)
-                            if (fixResult) {
-                                fixesApplied.push(fixResult)
-                                continue // Retry after fix
-                            }
+                    if (attempt < this.maxAttempts) {
+                        logger.info('[CI] Linting failed, attempting auto-fix')
+                        const fixResult = await this.attemptFix('linting', lintError, repoPath)
+                        if (fixResult) {
+                            fixesApplied.push(fixResult)
+                            // Retry after fix
+                            continue
                         }
                     }
                 } else {
@@ -102,7 +105,8 @@ export class CIRunner {
                         const fixResult = await this.attemptFix('tests', testError, repoPath)
                         if (fixResult) {
                             fixesApplied.push(fixResult)
-                            continue // Retry after fix
+                            // Retry after fix
+                            continue
                         }
                     }
                 }
@@ -112,20 +116,20 @@ export class CIRunner {
             const output = `Failed after ${this.maxAttempts} attempts\n\nLast error:\n${lastError}`
             this.completeRun(runId, 'failed', output, fixesApplied)
             return {
-                success: false,
-                output,
-                fixesApplied,
                 error: lastError || 'Unknown error',
+                fixesApplied,
+                output,
+                success: false,
             }
-        } catch (error) {
+        } catch(error) {
             const errorMsg = error instanceof Error ? error.message : String(error)
             logger.error(`[CI] Error during CI run: ${errorMsg}`)
             this.completeRun(runId, 'failed', `Error: ${errorMsg}`, fixesApplied)
             return {
-                success: false,
-                output: `Error: ${errorMsg}`,
-                fixesApplied,
                 error: errorMsg,
+                fixesApplied,
+                output: `Error: ${errorMsg}`,
+                success: false,
             }
         } finally {
             process.chdir(originalCwd)
@@ -163,23 +167,23 @@ Generate a command to fix this issue.`
 
             // Use raw fetch to access rate limit headers
             const response = await fetch('https://api.anthropic.com/v1/messages', {
-                method: 'POST',
+                body: JSON.stringify({
+                    max_tokens: 1024,
+                    messages: [
+                        {
+                            content: userMessage,
+                            role: 'user',
+                        },
+                    ],
+                    model: config.anthropic.model || 'claude-3-5-sonnet-20241022',
+                    system: systemPrompt,
+                }),
                 headers: {
                     'anthropic-version': '2023-06-01',
                     'content-type': 'application/json',
                     'x-api-key': this.apiKey,
                 },
-                body: JSON.stringify({
-                    model: config.anthropic.model || 'claude-3-5-sonnet-20241022',
-                    max_tokens: 1024,
-                    system: systemPrompt,
-                    messages: [
-                        {
-                            role: 'user',
-                            content: userMessage,
-                        },
-                    ],
-                }),
+                method: 'POST',
             })
 
             if (!response.ok) {
@@ -235,7 +239,8 @@ Generate a command to fix this issue.`
                         explanation: 'Auto-fix linting errors',
                     }
                 } else {
-                    return null // Can't auto-fix test failures easily
+                    // Can't auto-fix test failures easily
+                    return null
                 }
             }
 
@@ -251,11 +256,10 @@ Generate a command to fix this issue.`
                     command: fixPlan.command,
                     output: fixOutput,
                 }
-            } else {
-                logger.warn(`[CI] Fix command failed: ${fixOutput}`)
-                return null
             }
-        } catch (error) {
+            logger.warn(`[CI] Fix command failed: ${fixOutput}`)
+            return null
+        } catch(error) {
             logger.error(`[CI] Error attempting fix: ${error}`)
             return null
         }

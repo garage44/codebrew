@@ -7,11 +7,11 @@ interface LanguageUI {
 }
 
 interface LoggerConfig {
+    [key: string]: unknown
     colors?: boolean
     file?: string
     level?: LogLevel
     timestamp?: boolean
-    [key: string]: unknown
 }
 
 interface CommonState {

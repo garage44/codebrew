@@ -78,22 +78,16 @@ export async function onMessage(messageData: {
         channelId = sourceId
         const activeUser = $s.users.find((user) => user.id === sourceId)
         if (activeUser) {
-            const channels = $s.chat.channels as Record<string, {
-                id: string
-                members?: Record<string, {avatar: string}>
-                messages: Array<Record<string, unknown>>
-                typing?: {[userId: string]: {timestamp: number; userId: string | number; username: string}}
-                unread: number
-            }>
-            if (!channels[sourceId]) {
-                channels[sourceId] = {
+            if (!$s.chat.channels[sourceId]) {
+                $s.chat.channels[sourceId] = {
                     id: sourceId,
                     messages: [],
+                    name: nick,
                     unread: 0,
                 }
             }
 
-            channels[sourceId].messages.push({kind, message, nick, time})
+            $s.chat.channels[sourceId].messages.push({kind, message, nick, time})
         }
     }
 
@@ -106,21 +100,36 @@ export async function onMessage(messageData: {
         $s.chat.channels[$s.chat.channel] &&
         ((channelId !== $s.chat.channel) || $s.panels.chat.collapsed)
     ) {
-        const channels = $s.chat.channels as Record<string, {
-            id: string
-            members?: Record<string, {avatar: string}>
-            messages: Array<Record<string, unknown>>
-            typing?: {[userId: string]: {timestamp: number; userId: string | number; username: string}}
-            unread: number
-        }>
-        if (channels[channelId]) {
-            channels[channelId].unread += 1
-        }
+        $s.chat.channels[channelId].unread += 1
     }
 
 }
 
 export const emojiLookup = new Set()
+
+// Helper function to update user from member data
+function updateUserFromMember(member: {user_id: unknown, username?: string, avatar?: string}) {
+    const userId = String(member.user_id)
+    if ($s.chat.users[userId]) {
+        // Update avatar/username if changed
+        if (member.avatar) {
+            $s.chat.users[userId].avatar = member.avatar
+        }
+        if (member.username) {
+            $s.chat.users[userId].username = member.username
+        }
+        // Mark as online if in channel
+        if (!$s.chat.users[userId].status) {
+            $s.chat.users[userId].status = 'online'
+        }
+    } else {
+        $s.chat.users[userId] = {
+            username: member.username,
+            avatar: member.avatar,
+            status: 'online', // Users in channels are online
+        }
+    }
+}
 
 export function selectChannel(channelSlug: string | number) {
     // channelSlug can be a channel slug (string) or a legacy numeric ID (for backward compatibility during migration)
@@ -157,25 +166,24 @@ const loadingChannels = new Set<string | number>()
 /**
  * Load all users globally from all accessible channels
  */
-// Helper to normalize user IDs consistently
-const normalizeUserId = (id: string | number | null | undefined): string | null => {
-    if (!id) return null
-    return String(id).trim()
-}
-
 export async function loadGlobalUsers() {
     try {
-        // Always rebuild the users map from scratch to prevent duplicates
-        const usersMap: Record<string, {avatar: string; status?: 'online' | 'offline' | 'busy'; username: string}> = {}
+        // Initialize global users map if needed
+        if (!$s.chat.users) {
+            $s.chat.users = {}
+        }
 
         // Load all users from the API to ensure everyone is visible
         try {
             const allUsers = await api.get('/api/users')
             if (Array.isArray(allUsers)) {
                 for (const user of allUsers) {
-                    const userId = normalizeUserId(user.id)
-                    if (userId) {
-                        usersMap[userId] = {
+                    if (user.id) {
+                        // Normalize user ID to string to prevent duplicates
+                        const userId = String(user.id)
+                        // Store user globally: userId -> {username, avatar}
+                        // Use normalized user ID as key to prevent duplicates
+                        $s.chat.users[userId] = {
                             username: user.username || 'User',
                             avatar: user.profile?.avatar || '',
                         }
@@ -187,11 +195,13 @@ export async function loadGlobalUsers() {
         }
 
         // Ensure current user is included (in case API didn't return it)
-        const currentUserId = normalizeUserId($s.profile.id)
-        if (currentUserId && !usersMap[currentUserId]) {
-            usersMap[currentUserId] = {
-                username: $s.profile.username || 'User',
-                avatar: $s.profile.avatar || '',
+        if ($s.profile.id) {
+            const currentUserId = String($s.profile.id)
+            if (!$s.chat.users[currentUserId]) {
+                $s.chat.users[currentUserId] = {
+                    username: $s.profile.username || 'User',
+                    avatar: $s.profile.avatar || '',
+                }
             }
         }
 
@@ -200,9 +210,9 @@ export async function loadGlobalUsers() {
             const presenceResponse = await ws.get('/api/presence/users')
             if (presenceResponse && presenceResponse.users) {
                 for (const [userId, status] of Object.entries(presenceResponse.users)) {
-                    const normalizedUserId = normalizeUserId(userId)
-                    if (normalizedUserId && usersMap[normalizedUserId]) {
-                        usersMap[normalizedUserId].status = status as 'online' | 'offline' | 'busy'
+                    const normalizedUserId = String(userId)
+                    if ($s.chat.users[normalizedUserId]) {
+                        $s.chat.users[normalizedUserId].status = status as 'online' | 'offline' | 'busy'
                     }
                 }
             }
@@ -210,46 +220,28 @@ export async function loadGlobalUsers() {
             logger.warn('[Chat] Error loading presence status:', error)
         }
 
-        // Also load members from all channels to update avatars/usernames
+        // Also load members from all channels to get real-time presence and update avatars
         if ($s.channels.length) {
             for (const channel of $s.channels) {
                 const membersResponse = await ws.get(`/channels/${channel.slug}/members`)
-                if (membersResponse && membersResponse.success && membersResponse.members && Array.isArray(membersResponse.members)) {
-                    const members = membersResponse.members as Array<{user_id?: string | number; avatar?: string; username?: string; [key: string]: unknown}>
-                    for (const member of members) {
-                        const userId = normalizeUserId(member.user_id)
-                        if (userId) {
-                            if (!usersMap[userId]) {
-                                usersMap[userId] = {
-                                    username: (member.username as string) || '',
-                                    avatar: (member.avatar as string) || '',
-                                }
-                            } else {
-                                // Update avatar/username if changed
-                                if (member.avatar) {
-                                    usersMap[userId].avatar = member.avatar as string
-                                }
-                                if (member.username) {
-                                    usersMap[userId].username = member.username as string
-                                }
-                            }
+                if (membersResponse && membersResponse.success && membersResponse.members) {
+                    for (const member of membersResponse.members) {
+                        if (member.user_id) {
+                            updateUserFromMember(member)
                         }
                     }
                 }
             }
         }
 
-        // Set offline status for users not already marked by presence API
-        for (const userId of Object.keys(usersMap)) {
-            if (!usersMap[userId].status) {
-                usersMap[userId].status = 'offline'
+        // Set offline status for users not in presence
+        if ($s.chat.users) {
+            for (const userId of Object.keys($s.chat.users)) {
+                if (!$s.chat.users[userId].status) {
+                    $s.chat.users[userId].status = 'offline'
+                }
             }
         }
-
-        // Replace the entire users map atomically to prevent race conditions
-        // DeepSignal handles Record -> DeepSignalObject conversion at runtime
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        $s.chat.users = usersMap as any
     } catch (error) {
         logger.error('[Chat] Error loading global users:', error)
     }
@@ -281,40 +273,28 @@ export async function loadChannelHistory(channelSlug: string | number) {
         const membersResponse = await ws.get(`/channels/${channelSlug}/members`)
         const members: Record<string, {avatar: string}> = {}
 
-        if (membersResponse && membersResponse.success && membersResponse.members && Array.isArray(membersResponse.members)) {
-            const membersList = membersResponse.members as Array<{user_id?: string | number; username?: string; avatar?: string; [key: string]: unknown}>
-            for (const member of membersList) {
-                const userId = normalizeUserId(member.user_id)
-                if (userId) {
-                    members[userId] = {avatar: member.avatar || ''}
+        if (membersResponse && membersResponse.success && membersResponse.members) {
+            for (const member of membersResponse.members) {
+                members[member.user_id] = {avatar: member.avatar}
 
-                    // Also update global users (preserve existing status if present)
-                    if (!$s.chat.users) {
-                        $s.chat.users = {}
-                    }
-                    const users = $s.chat.users as Record<string, {avatar: string; status?: 'online' | 'offline' | 'busy'; username: string}>
-                    if (!users[userId]) {
-                        users[userId] = {
-                            username: member.username || '',
-                            avatar: member.avatar || '',
-                        }
-                    } else {
-                        // Update avatar/username but preserve status
-                        users[userId].avatar = member.avatar || users[userId].avatar
-                        users[userId].username = member.username || users[userId].username
-                    }
+                // Also update global users
+                if (!$s.chat.users) {
+                    $s.chat.users = {}
+                }
+                $s.chat.users[member.user_id] = {
+                    username: member.username,
+                    avatar: member.avatar,
                 }
             }
         }
 
         const response = await ws.get(`/channels/${channelSlug}/messages`)
 
-        if (response && response.success && response.messages && Array.isArray(response.messages)) {
+        if (response && response.success && response.messages) {
             // Transform database message format to frontend format
             // DB format: {id, channel_id, user_id, username, message, timestamp, kind}
             // Frontend format: {kind, message, nick, time, user_id}
-            const messages = response.messages as Array<{kind?: string; message?: string; username?: string; timestamp?: number; user_id?: string | number; [key: string]: unknown}>
-            const transformedMessages = messages.map((msg) => ({
+            const transformedMessages = response.messages.map((msg: any) => ({
                 kind: msg.kind || 'message',
                 message: msg.message,
                 nick: msg.username,
@@ -411,7 +391,7 @@ export async function sendMessage(message: string) {
         if (!response.success) {
             notifier.notify({
                 level: 'error',
-                message: (response.error as string) || 'Failed to send message'
+                message: response.error || 'Failed to send message'
             })
         }
     } catch (error) {
@@ -426,14 +406,7 @@ export async function sendMessage(message: string) {
 export function unreadMessages() {
     let unread = 0
 
-    const channels = $s.chat.channels as Record<string, {
-        id: string
-        members?: Record<string, {avatar: string}>
-        messages: Array<Record<string, unknown>>
-        typing?: {[userId: string]: {timestamp: number; userId: string | number; username: string}}
-        unread: number
-    }>
-    for (const channel of Object.values(channels)) {
+    for (const channel of Object.values($s.chat.channels)) {
         unread += channel.unread
     }
     return unread

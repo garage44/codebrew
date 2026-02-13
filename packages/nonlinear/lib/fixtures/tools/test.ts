@@ -11,45 +11,24 @@ import {searchCode} from '../../docs/code-embeddings.ts'
 
 export const testTools: Record<string, Tool> = {
     find_tests: {
-        name: 'find_tests',
         description: 'Find existing tests for similar functionality or specific files. Use this to discover test patterns and similar test implementations.',
-        parameters: [
-            {
-                name: 'forFile',
-                type: 'string',
-                description: 'Find tests for a specific file (relative path from repository root)',
-                required: false,
-            },
-            {
-                name: 'forFeature',
-                type: 'string',
-                description: 'Find tests for a feature/pattern (e.g., "authentication", "file upload", "error handling")',
-                required: false,
-            },
-            {
-                name: 'testType',
-                type: 'string',
-                description: 'Filter by test type (unit, integration, e2e)',
-                required: false,
-            },
-        ],
-        execute: async (params: {
-            forFile?: string
+        execute: async(params: {
             forFeature?: string
+            forFile?: string
             testType?: string
         }, context: ToolContext): Promise<ToolResult> => {
             try {
                 if (!context.repositoryPath) {
                     return {
-                        success: false,
                         error: 'Repository path not available in context',
+                        success: false,
                     }
                 }
 
                 if (!context.repositoryId) {
                     return {
-                        success: false,
                         error: 'Repository ID not available in context',
+                        success: false,
                     }
                 }
 
@@ -90,14 +69,14 @@ export const testTools: Record<string, Tool> = {
                 if (params.forFeature && testFiles.length === 0) {
                     const searchQuery = `test ${params.forFeature}`
                     const codeResults = await searchCode(searchQuery, context.repositoryId, {
-                        limit: 10,
                         fileType: 'ts',
+                        limit: 10,
                     })
 
                     // Filter to test files
                     testFiles = codeResults
-                        .map(r => r.file_path)
-                        .filter(file => /\.(test|spec)\.(ts|tsx|js|jsx)$/.test(file))
+                        .map((r) => r.file_path)
+                        .filter((file) => /\.(test|spec)\.(ts|tsx|js|jsx)$/.test(file))
                 }
 
                 // Strategy 3: Find all test files if no specific criteria
@@ -113,69 +92,90 @@ export const testTools: Record<string, Tool> = {
                 // Filter by test type if specified
                 if (params.testType) {
                     const typePatterns: Record<string, RegExp> = {
-                        unit: /(unit|\.test\.)/i,
-                        integration: /(integration|e2e|\.spec\.)/i,
                         e2e: /(e2e|end-to-end)/i,
+                        integration: /(integration|e2e|\.spec\.)/i,
+                        unit: /(unit|\.test\.)/i,
                     }
                     const pattern = typePatterns[params.testType.toLowerCase()]
                     if (pattern) {
-                        testFiles = testFiles.filter(file => pattern.test(file))
+                        testFiles = testFiles.filter((file) => pattern.test(file))
                     }
                 }
 
                 // Remove duplicates and make relative paths
-                testFiles = [...new Set(testFiles)].map(file => {
-                    return path.isAbsolute(file)
-                        ? path.relative(context.repositoryPath!, file)
-                        : file
+                testFiles = [...new Set(testFiles)].map((file) => {
+                    return path.isAbsolute(file) ?
+                            path.relative(context.repositoryPath!, file) :
+                        file
                 })
 
                 // Enrich with file content preview
                 const enriched = await Promise.all(
-                    testFiles.slice(0, 20).map(async (filePath) => {
-                        const fullPath = path.isAbsolute(filePath)
-                            ? filePath
-                            : path.join(context.repositoryPath!, filePath)
+                    testFiles.slice(0, 20).map(async(filePath) => {
+                        const fullPath = path.isAbsolute(filePath) ?
+                            filePath :
+                                path.join(context.repositoryPath!, filePath)
                         try {
                             const content = await Bun.file(fullPath).text()
                             const lines = content.split('\n')
                             const structure = lines
                                 .slice(0, 50)
-                                .filter(line => /^(describe|it|test|beforeEach|afterEach|beforeAll|afterAll)\s*\(/.test(line))
-                                .map(line => line.trim().substring(0, 100))
+                                .filter((line) => /^(describe|it|test|beforeEach|afterEach|beforeAll|afterAll)\s*\(/.test(line))
+                                .map((line) => line.trim().slice(0, 100))
 
                             return {
+                                lineCount: lines.length,
                                 path: filePath,
                                 structure: structure.slice(0, 10),
-                                lineCount: lines.length,
                             }
                         } catch {
                             return {
+                                lineCount: 0,
                                 path: filePath,
                                 structure: [],
-                                lineCount: 0,
                             }
                         }
-                    })
+                    }),
                 )
 
                 return {
-                    success: true,
-                    data: enriched,
                     context: {
-                        totalTests: testFiles.length,
-                        forFile: params.forFile,
                         forFeature: params.forFeature,
+                        forFile: params.forFile,
                         testType: params.testType,
+                        totalTests: testFiles.length,
                     },
+                    data: enriched,
+                    success: true,
                 }
-            } catch (error) {
-                logger.error(`[TestTool] Failed to find tests:`, error)
+            } catch(error) {
+                logger.error('[TestTool] Failed to find tests:', error)
                 return {
-                    success: false,
                     error: error instanceof Error ? error.message : String(error),
+                    success: false,
                 }
             }
         },
+        name: 'find_tests',
+        parameters: [
+            {
+                description: 'Find tests for a specific file (relative path from repository root)',
+                name: 'forFile',
+                required: false,
+                type: 'string',
+            },
+            {
+                description: 'Find tests for a feature/pattern (e.g., "authentication", "file upload", "error handling")',
+                name: 'forFeature',
+                required: false,
+                type: 'string',
+            },
+            {
+                description: 'Filter by test type (unit, integration, e2e)',
+                name: 'testType',
+                required: false,
+                type: 'string',
+            },
+        ],
     },
 }

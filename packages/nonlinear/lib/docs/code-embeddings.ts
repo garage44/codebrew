@@ -11,15 +11,15 @@ import {createHash} from 'node:crypto'
 import path from 'node:path'
 
 export interface CodeSearchResult {
-    repository_id: string
-    file_path: string
     chunk_index: number
-    chunk_type: string
     chunk_name: string | null
     chunk_text: string
-    start_line: number | null
-    end_line: number | null
+    chunk_type: string
     distance: number
+    end_line: number | null
+    file_path: string
+    repository_id: string
+    start_line: number | null
 }
 
 /**
@@ -36,7 +36,7 @@ async function calculateFileHash(filePath: string): Promise<string> {
  */
 export async function indexCodeFile(
     repositoryId: string,
-    filePath: string
+    filePath: string,
 ): Promise<void> {
     if (!db) {
         throw new Error('Database not initialized')
@@ -56,7 +56,8 @@ export async function indexCodeFile(
 
         if (cached?.file_hash === fileHash) {
             logger.debug(`[CodeEmbeddings] File already indexed: ${filePath}`)
-            return // Already indexed, skip
+            // Already indexed, skip
+            return
         }
 
         // 3. Delete old embeddings
@@ -70,13 +71,13 @@ export async function indexCodeFile(
 
         // 5. Generate embeddings (default: local provider)
         const chunksWithEmbeddings = await Promise.all(
-            chunks.map(async (chunk) => {
+            chunks.map(async(chunk) => {
                 const embedding = await generateEmbedding(chunk.text)
                 return {
                     ...chunk,
                     embedding: Array.from(embedding),
                 }
-            })
+            }),
         )
 
         // 6. Store embeddings
@@ -99,15 +100,15 @@ export async function indexCodeFile(
                     chunk.text,
                     chunk.startLine,
                     chunk.endLine,
-                    JSON.stringify({})
+                    JSON.stringify({}),
                 )
-            } catch (error) {
+            } catch(error) {
                 logger.error(`[CodeEmbeddings] Failed to store chunk ${chunk.index} for ${filePath}:`, error)
             }
         }
 
         logger.info(`[CodeEmbeddings] Indexed ${chunks.length} chunks for ${filePath}`)
-    } catch (error) {
+    } catch(error) {
         logger.error(`[CodeEmbeddings] Failed to index file ${filePath}:`, error)
         throw error
     }
@@ -120,7 +121,7 @@ export async function indexCodeFile(
 export async function searchCode(
     query: string,
     repositoryId: string,
-    options?: {limit?: number; fileType?: string}
+    options?: {fileType?: string; limit?: number},
 ): Promise<CodeSearchResult[]> {
     if (!db) {
         throw new Error('Database not initialized')
@@ -150,19 +151,19 @@ export async function searchCode(
         const params: unknown[] = [repositoryId, embeddingJson]
 
         if (options?.fileType) {
-            sql += ` AND file_path LIKE ?`
+            sql += ' AND file_path LIKE ?'
             params.push(`%.${options.fileType}`)
         }
 
-        sql += ` ORDER BY distance ASC LIMIT ?`
+        sql += ' ORDER BY distance ASC LIMIT ?'
         params.push(options?.limit || 10)
 
         // 3. Search against STORED embeddings
         const results = db.prepare(sql).all(...(params as any)) as CodeSearchResult[]
 
         return results
-    } catch (error) {
-        logger.error(`[CodeEmbeddings] Failed to search code:`, error)
+    } catch(error) {
+        logger.error('[CodeEmbeddings] Failed to search code:', error)
         return []
     }
 }
@@ -173,7 +174,7 @@ export async function searchCode(
 export async function findSimilarCode(
     code: string,
     repositoryId: string,
-    limit: number = 5
+    limit: number = 5,
 ): Promise<CodeSearchResult[]> {
     // Generate embedding for the code snippet
     const codeEmbedding = await generateEmbedding(code)
@@ -203,8 +204,8 @@ export async function findSimilarCode(
         `).all(repositoryId, embeddingJson, limit) as CodeSearchResult[]
 
         return results
-    } catch (error) {
-        logger.error(`[CodeEmbeddings] Failed to find similar code:`, error)
+    } catch(error) {
+        logger.error('[CodeEmbeddings] Failed to find similar code:', error)
         return []
     }
 }

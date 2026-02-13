@@ -53,6 +53,6 @@
 }
 
 .c-device-settings__section-intro {
-    margin-top: 0;
     margin-bottom: var(--spacer-2);
+    margin-top: 0;
 }

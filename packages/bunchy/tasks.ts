@@ -23,8 +23,10 @@ function normalizeSourceMap(map: Uint8Array, sourceFileDir: string, publicDir: s
     // Normalize source paths to be relative to public directory
     if (sourceMapObj.sources) {
         sourceMapObj.sources = sourceMapObj.sources.map((source: string) => {
-            // Source paths from Lightning CSS are relative to the input file or absolute without leading /
-            // Resolve them to absolute paths first, then make relative to public dir
+            /*
+             * Source paths from Lightning CSS are relative to the input file or absolute without leading /
+             * Resolve them to absolute paths first, then make relative to public dir
+             */
             let absolutePath: string
             if (path.isAbsolute(source)) {
                 absolutePath = source
@@ -180,7 +182,7 @@ tasks.assets = new Task('assets', async function taskAssets() {
     for (const operation of copyOperations) {
         try {
             await fs.copy(operation.from, operation.to)
-        } catch (error) {
+        } catch(error) {
             // Skip if source directory doesn't exist
             const errorCode = error.code
             console.log('ERROR', error)
@@ -190,7 +192,6 @@ tasks.assets = new Task('assets', async function taskAssets() {
         }
     }
 })
-
 
 
 tasks.build = new Task('build', async function taskBuild({minify = false, sourcemap = false} = {}) {
@@ -241,8 +242,8 @@ tasks.code_frontend = new Task('code:frontend', async function taskCodeFrontend(
 
         const result = await Bun.build({
             define: {
-                'process.env.APP_VERSION': `'${version}'`,
                 'process.env.APP_COMMIT_HASH': `'${commitHash}'`,
+                'process.env.APP_VERSION': `'${version}'`,
                 'process.env.NODE_ENV': `'${process.env.NODE_ENV}'`,
             },
             entrypoints: ['src/app.ts'],
@@ -272,7 +273,7 @@ tasks.code_frontend = new Task('code:frontend', async function taskCodeFrontend(
             }, 'POST')
             return
         }
-    } catch (error) {
+    } catch(error) {
         // oxlint-disable-next-line no-console
         console.error(error)
         // Broadcast error to client
@@ -355,7 +356,7 @@ tasks.code_bunchy = new Task('code:bunchy', async function taskCodeBunchy({minif
             filename: expectedFilename,
             size: output.size,
         }
-    } catch (error) {
+    } catch(error) {
         // oxlint-disable-next-line no-console
         console.error(error)
         broadcast('/tasks/error', {
@@ -381,9 +382,11 @@ tasks.dev = new Task('dev', async function taskDev({minify = false, sourcemap = 
     watch(settings.dir.common, {recursive: true}, (event, filename) => {
         const extension = path.extname(filename)
         if (extension === '.ts' || extension === '.tsx') {
-            // Use HMR for common package TypeScript/TSX files
-            // Note: filename is relative to common dir, but HMR expects src/ prefix
-            // We'll need to adjust the path or use a different approach
+            /*
+             * Use HMR for common package TypeScript/TSX files
+             * Note: filename is relative to common dir, but HMR expects src/ prefix
+             * We'll need to adjust the path or use a different approach
+             */
             runner.hmr(filename)
         } else if (extension === '.css') {
             runner.styles.components()
@@ -471,8 +474,7 @@ tasks.stylesApp = new Task('styles:app', async function taskStylesApp({minify, s
         }
 
         return {filename, size: finalCSS.length}
-
-    } catch (error) {
+    } catch(error) {
         console.error(error)
         // Broadcast error to client
         broadcast('/tasks/error', {
@@ -487,8 +489,10 @@ tasks.stylesApp = new Task('styles:app', async function taskStylesApp({minify, s
 
 
 tasks.stylesComponents = new Task('styles:components', async function taskStylesComponents({minify, sourcemap}) {
-    // Create a temporary components entry file that imports all component CSS files
-    // Bun's Glob handles multiple patterns by creating separate instances
+    /*
+     * Create a temporary components entry file that imports all component CSS files
+     * Bun's Glob handles multiple patterns by creating separate instances
+     */
     const glob1 = new Glob('**/*.css')
     const glob2 = new Glob('**/*.css')
 
@@ -542,8 +546,7 @@ tasks.stylesComponents = new Task('styles:components', async function taskStyles
             filename,
             size: finalCSS.length,
         }
-
-    } catch (error) {
+    } catch(error) {
         console.error(error)
         // Broadcast error to client
         broadcast('/tasks/error', {

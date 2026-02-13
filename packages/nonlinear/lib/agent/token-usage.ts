@@ -49,7 +49,10 @@ export function updateUsageFromHeaders(headers: {
         tokenUsage.limit = headers.limit
         tokenUsage.loading = false
 
-        logger.info(`[Token Usage] Updated: ${oldCount}/${oldLimit} -> ${tokenUsage.count}/${tokenUsage.limit} (${headers.remaining} remaining)`)
+        logger.info(
+            `[Token Usage] Updated: ${oldCount}/${oldLimit} -> ${tokenUsage.count}/${tokenUsage.limit} ` +
+            `(${headers.remaining} remaining)`,
+        )
 
         // Broadcast usage update
         if (wsManager) {
@@ -61,7 +64,7 @@ export function updateUsageFromHeaders(headers: {
                     loading: false,
                 },
             })
-            logger.debug(`[Token Usage] Broadcasted usage update via WebSocket`)
+            logger.debug('[Token Usage] Broadcasted usage update via WebSocket')
         } else {
             logger.warn('[Token Usage] WebSocket manager not initialized, cannot broadcast')
         }

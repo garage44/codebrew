@@ -7,9 +7,9 @@ async function generateServiceFile(packageName: string, domain: string, port: nu
     const workingDir = `/home/garage44/garage44/packages/${packageName}`
 
     // Nonlinear needs WEBHOOK_SECRET for GitHub webhook handling
-    const webhookSecretEnv = packageName === 'nonlinear'
-        ? 'Environment="WEBHOOK_SECRET=your-webhook-secret-here"\n'
-        : ''
+    const webhookSecretEnv = packageName === 'nonlinear' ?
+        'Environment="WEBHOOK_SECRET=your-webhook-secret-here"\n' :
+        ''
 
     return `[Unit]
 Description=${packageName} service
@@ -44,9 +44,9 @@ export async function generateSystemd(domain: string): Promise<string> {
 
     // Port assignments
     const ports: Record<string, number> = {
-        'expressio': 3030,
-        'nonlinear': 3032,
-        'pyrite': 3031,
+        expressio: 3030,
+        nonlinear: 3032,
+        pyrite: 3031,
     }
 
     let output = `# Systemd service files for ${domain}\n`

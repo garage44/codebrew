@@ -2,16 +2,10 @@ import {$s} from '@/app'
 import {logger} from '@garage44/common/app'
 
 export default class Sound {
-    description: {file: string; playing?: boolean}
-    audio: HTMLAudioElement
-    loop: boolean
-    played: boolean
 
-    constructor(description: {file: string; playing?: boolean}) {
+    constructor(description) {
         this.description = description
         this.audio = new Audio(description.file)
-        this.loop = false
-        this.played = false
     }
 
     async play({loop = false, sink = null} = {}) {

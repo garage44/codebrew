@@ -180,8 +180,8 @@ export async function finalizeStreamingMessage(
  * Get streaming message by ID
  */
 export function getStreamingMessage(messageId: string): {
-    id: string
     content: string
+    id: string
     status: StreamingMessageStatus
     type: StreamingMessageType
 } | undefined {

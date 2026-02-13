@@ -9,355 +9,19 @@ import {db} from '../../database.ts'
 import {$} from 'bun'
 
 export const gitTools: Record<string, Tool> = {
-    git_status: {
-        name: 'git_status',
-        description: 'Get git status (modified files, untracked files, current branch)',
-        parameters: [
-            {
-                name: 'repositoryId',
-                type: 'string',
-                description: 'Repository ID',
-                required: true,
-            },
-        ],
-        execute: async (params: {
-            repositoryId: string
-        }, context: ToolContext): Promise<ToolResult> => {
-            try {
-                const repo = db.prepare('SELECT * FROM repositories WHERE id = ?').get(params.repositoryId) as {
-                    path: string
-                } | undefined
-
-                if (!repo) {
-                    return {
-                        success: false,
-                        error: `Repository not found: ${params.repositoryId}`,
-                    }
-                }
-
-                // Get git status using Bun Shell
-                const statusResult = await $`git status --porcelain`
-                    .cwd(repo.path)
-                    .quiet()
-                    .nothrow()
-                    .text()
-
-                const branchResult = await $`git branch --show-current`
-                    .cwd(repo.path)
-                    .quiet()
-                    .nothrow()
-                    .text()
-
-                const modifiedFiles: string[] = []
-                const untrackedFiles: string[] = []
-                const stagedFiles: string[] = []
-
-                for (const line of statusResult.split('\n').filter(Boolean)) {
-                    const status = line.substring(0, 2)
-                    const file = line.substring(3)
-                    if (status.startsWith('??')) {
-                        untrackedFiles.push(file)
-                    } else if (status.startsWith('M') || status.startsWith('A') || status.startsWith('D')) {
-                        if (status[0] !== ' ' && status[0] !== '?') {
-                            stagedFiles.push(file)
-                        }
-                        if (status[1] === 'M' || status[1] === 'D') {
-                            modifiedFiles.push(file)
-                        }
-                    }
-                }
-
-                return {
-                    success: true,
-                    data: {
-                        branch: branchResult.trim(),
-                        modified: modifiedFiles,
-                        untracked: untrackedFiles,
-                        staged: stagedFiles,
-                    },
-                    context: {
-                        filesAffected: [...modifiedFiles, ...untrackedFiles],
-                    },
-                }
-            } catch (error) {
-                logger.error(`[GitTool] Failed to get git status:`, error)
-                return {
-                    success: false,
-                    error: error instanceof Error ? error.message : String(error),
-                }
-            }
-        },
-    },
-
-    git_branch: {
-        name: 'git_branch',
-        description: 'Create a new git branch',
-        parameters: [
-            {
-                name: 'repositoryId',
-                type: 'string',
-                description: 'Repository ID',
-                required: true,
-            },
-            {
-                name: 'branchName',
-                type: 'string',
-                description: 'Branch name',
-                required: true,
-            },
-        ],
-        execute: async (params: {
-            repositoryId: string
-            branchName: string
-        }, context: ToolContext): Promise<ToolResult> => {
-            try {
-                const repo = db.prepare('SELECT * FROM repositories WHERE id = ?').get(params.repositoryId) as {
-                    path: string
-                    platform: 'github' | 'gitlab' | 'local'
-                    config: string
-                    created_at: number
-                    id: string
-                    name: string
-                    remote_url: string | null
-                    updated_at: number
-                } | undefined
-
-                if (!repo) {
-                    return {
-                        success: false,
-                        error: `Repository not found: ${params.repositoryId}`,
-                    }
-                }
-
-                const gitPlatform = createGitPlatform(repo)
-                const branch = await gitPlatform.createBranch(repo, params.branchName)
-
-                return {
-                    success: true,
-                    data: {
-                        branch,
-                    },
-                    context: {
-                        branchName: branch,
-                    },
-                }
-            } catch (error) {
-                logger.error(`[GitTool] Failed to create branch:`, error)
-                return {
-                    success: false,
-                    error: error instanceof Error ? error.message : String(error),
-                }
-            }
-        },
-    },
-
-    git_commit: {
-        name: 'git_commit',
-        description: 'Commit changes to git',
-        parameters: [
-            {
-                name: 'repositoryId',
-                type: 'string',
-                description: 'Repository ID',
-                required: true,
-            },
-            {
-                name: 'message',
-                type: 'string',
-                description: 'Commit message',
-                required: true,
-            },
-            {
-                name: 'files',
-                type: 'array',
-                description: 'Files to commit (empty for all staged files)',
-                required: false,
-            },
-        ],
-        execute: async (params: {
-            repositoryId: string
-            message: string
-            files?: string[]
-        }, context: ToolContext): Promise<ToolResult> => {
-            try {
-                const repo = db.prepare('SELECT * FROM repositories WHERE id = ?').get(params.repositoryId) as {
-                    path: string
-                } | undefined
-
-                if (!repo) {
-                    return {
-                        success: false,
-                        error: `Repository not found: ${params.repositoryId}`,
-                    }
-                }
-
-                // Stage files if specified
-                if (params.files && params.files.length > 0) {
-                    await $`git add ${params.files}`
-                        .cwd(repo.path)
-                        .quiet()
-                        .nothrow()
-                } else {
-                    // Stage all changes
-                    await $`git add -A`
-                        .cwd(repo.path)
-                        .quiet()
-                        .nothrow()
-                }
-
-                // Commit
-                const result = await $`git commit -m ${params.message}`
-                    .cwd(repo.path)
-                    .quiet()
-                    .nothrow()
-
-                if (result.exitCode !== 0) {
-                    return {
-                        success: false,
-                        error: result.stderr.toString() || 'Failed to commit',
-                    }
-                }
-
-                return {
-                    success: true,
-                    data: {
-                        commitHash: result.stdout.toString().trim(),
-                    },
-                    context: {
-                        filesAffected: params.files || [],
-                    },
-                }
-            } catch (error) {
-                logger.error(`[GitTool] Failed to commit:`, error)
-                return {
-                    success: false,
-                    error: error instanceof Error ? error.message : String(error),
-                }
-            }
-        },
-    },
-
-    git_create_mr: {
-        name: 'git_create_mr',
-        description: 'Create a merge request/pull request',
-        parameters: [
-            {
-                name: 'repositoryId',
-                type: 'string',
-                description: 'Repository ID',
-                required: true,
-            },
-            {
-                name: 'branch',
-                type: 'string',
-                description: 'Branch name',
-                required: true,
-            },
-            {
-                name: 'title',
-                type: 'string',
-                description: 'MR/PR title',
-                required: true,
-            },
-            {
-                name: 'description',
-                type: 'string',
-                description: 'MR/PR description',
-                required: false,
-            },
-        ],
-        execute: async (params: {
-            repositoryId: string
-            branch: string
-            title: string
-            description?: string
-        }, context: ToolContext): Promise<ToolResult> => {
-            try {
-                const repo = db.prepare('SELECT * FROM repositories WHERE id = ?').get(params.repositoryId) as {
-                    path: string
-                    platform: 'github' | 'gitlab' | 'local'
-                    config: string
-                    created_at: number
-                    id: string
-                    name: string
-                    remote_url: string | null
-                    updated_at: number
-                } | undefined
-
-                if (!repo) {
-                    return {
-                        success: false,
-                        error: `Repository not found: ${params.repositoryId}`,
-                    }
-                }
-
-                const gitPlatform = createGitPlatform(repo)
-                const mrId = await gitPlatform.createMergeRequest(
-                    repo,
-                    params.branch,
-                    params.title,
-                    params.description || ''
-                )
-
-                return {
-                    success: true,
-                    data: {
-                        mrId,
-                    },
-                    context: {
-                        branchName: params.branch,
-                    },
-                }
-            } catch (error) {
-                logger.error(`[GitTool] Failed to create MR:`, error)
-                return {
-                    success: false,
-                    error: error instanceof Error ? error.message : String(error),
-                }
-            }
-        },
-    },
-
     analyze_git_history: {
-        name: 'analyze_git_history',
         description: 'Analyze git history to find similar past implementations or recent changes. Use this to learn from past work and understand recent changes.',
-        parameters: [
-            {
-                name: 'file',
-                type: 'string',
-                description: 'File to analyze history for (relative path from repository root)',
-                required: false,
-            },
-            {
-                name: 'query',
-                type: 'string',
-                description: 'Search commit messages for similar work (e.g., "authentication", "file upload")',
-                required: false,
-            },
-            {
-                name: 'since',
-                type: 'string',
-                description: 'Time period (e.g., "1 week ago", "2024-01-01", "2 days ago")',
-                required: false,
-            },
-            {
-                name: 'limit',
-                type: 'number',
-                description: 'Maximum number of commits to return (default: 10)',
-                required: false,
-            },
-        ],
-        execute: async (params: {
+        execute: async(params: {
             file?: string
+            limit?: number
             query?: string
             since?: string
-            limit?: number
         }, context: ToolContext): Promise<ToolResult> => {
             try {
                 if (!context.repositoryPath) {
                     return {
-                        success: false,
                         error: 'Repository path not available in context',
+                        success: false,
                     }
                 }
 
@@ -389,13 +53,13 @@ export const gitTools: Record<string, Tool> = {
                     .text()
 
                 const commits: Array<{
-                    hash: string
                     author: string
-                    email: string
-                    date: string
-                    subject: string
                     body: string
+                    date: string
+                    email: string
                     files?: string[]
+                    hash: string
+                    subject: string
                 }> = []
 
                 for (const line of result.split('\n').filter(Boolean)) {
@@ -418,35 +82,371 @@ export const gitTools: Record<string, Tool> = {
                         }
 
                         commits.push({
-                            hash: hash.substring(0, 8),
                             author,
-                            email,
+                            body: body.slice(0, 500),
                             date,
-                            subject,
-                            body: body.substring(0, 500),
+                            email,
                             files: files.slice(0, 20), // Limit to 20 files
+                            hash: hash.slice(0, 8),
+                            subject,
                         })
                     }
                 }
 
                 return {
-                    success: true,
-                    data: commits,
                     context: {
-                        totalCommits: commits.length,
                         file: params.file,
                         query: params.query,
                         since: params.since,
+                        totalCommits: commits.length,
                     },
+                    data: commits,
+                    success: true,
                 }
-            } catch (error) {
-                logger.error(`[GitTool] Failed to analyze git history:`, error)
+            } catch(error) {
+                logger.error('[GitTool] Failed to analyze git history:', error)
                 return {
-                    success: false,
                     error: error instanceof Error ? error.message : String(error),
+                    success: false,
                 }
             }
         },
+        name: 'analyze_git_history',
+        parameters: [
+            {
+                description: 'File to analyze history for (relative path from repository root)',
+                name: 'file',
+                required: false,
+                type: 'string',
+            },
+            {
+                description: 'Search commit messages for similar work (e.g., "authentication", "file upload")',
+                name: 'query',
+                required: false,
+                type: 'string',
+            },
+            {
+                description: 'Time period (e.g., "1 week ago", "2024-01-01", "2 days ago")',
+                name: 'since',
+                required: false,
+                type: 'string',
+            },
+            {
+                description: 'Maximum number of commits to return (default: 10)',
+                name: 'limit',
+                required: false,
+                type: 'number',
+            },
+        ],
+    },
+
+    git_branch: {
+        description: 'Create a new git branch',
+        execute: async(params: {
+            branchName: string
+            repositoryId: string
+        }, context: ToolContext): Promise<ToolResult> => {
+            try {
+                const repo = db.prepare('SELECT * FROM repositories WHERE id = ?').get(params.repositoryId) as {
+                    config: string
+                    created_at: number
+                    id: string
+                    name: string
+                    path: string
+                    platform: 'github' | 'gitlab' | 'local'
+                    remote_url: string | null
+                    updated_at: number
+                } | undefined
+
+                if (!repo) {
+                    return {
+                        error: `Repository not found: ${params.repositoryId}`,
+                        success: false,
+                    }
+                }
+
+                const gitPlatform = createGitPlatform(repo)
+                const branch = await gitPlatform.createBranch(repo, params.branchName)
+
+                return {
+                    context: {
+                        branchName: branch,
+                    },
+                    data: {
+                        branch,
+                    },
+                    success: true,
+                }
+            } catch(error) {
+                logger.error('[GitTool] Failed to create branch:', error)
+                return {
+                    error: error instanceof Error ? error.message : String(error),
+                    success: false,
+                }
+            }
+        },
+        name: 'git_branch',
+        parameters: [
+            {
+                description: 'Repository ID',
+                name: 'repositoryId',
+                required: true,
+                type: 'string',
+            },
+            {
+                description: 'Branch name',
+                name: 'branchName',
+                required: true,
+                type: 'string',
+            },
+        ],
+    },
+
+    git_commit: {
+        description: 'Commit changes to git',
+        execute: async(params: {
+            files?: string[]
+            message: string
+            repositoryId: string
+        }, context: ToolContext): Promise<ToolResult> => {
+            try {
+                const repo = db.prepare('SELECT * FROM repositories WHERE id = ?').get(params.repositoryId) as {
+                    path: string
+                } | undefined
+
+                if (!repo) {
+                    return {
+                        error: `Repository not found: ${params.repositoryId}`,
+                        success: false,
+                    }
+                }
+
+                // Stage files if specified
+                if (params.files && params.files.length > 0) {
+                    await $`git add ${params.files}`
+                        .cwd(repo.path)
+                        .quiet()
+                        .nothrow()
+                } else {
+                    // Stage all changes
+                    await $`git add -A`
+                        .cwd(repo.path)
+                        .quiet()
+                        .nothrow()
+                }
+
+                // Commit
+                const result = await $`git commit -m ${params.message}`
+                    .cwd(repo.path)
+                    .quiet()
+                    .nothrow()
+
+                if (result.exitCode !== 0) {
+                    return {
+                        error: result.stderr.toString() || 'Failed to commit',
+                        success: false,
+                    }
+                }
+
+                return {
+                    context: {
+                        filesAffected: params.files || [],
+                    },
+                    data: {
+                        commitHash: result.stdout.toString().trim(),
+                    },
+                    success: true,
+                }
+            } catch(error) {
+                logger.error('[GitTool] Failed to commit:', error)
+                return {
+                    error: error instanceof Error ? error.message : String(error),
+                    success: false,
+                }
+            }
+        },
+        name: 'git_commit',
+        parameters: [
+            {
+                description: 'Repository ID',
+                name: 'repositoryId',
+                required: true,
+                type: 'string',
+            },
+            {
+                description: 'Commit message',
+                name: 'message',
+                required: true,
+                type: 'string',
+            },
+            {
+                description: 'Files to commit (empty for all staged files)',
+                name: 'files',
+                required: false,
+                type: 'array',
+            },
+        ],
+    },
+
+    git_create_mr: {
+        description: 'Create a merge request/pull request',
+        execute: async(params: {
+            branch: string
+            description?: string
+            repositoryId: string
+            title: string
+        }, context: ToolContext): Promise<ToolResult> => {
+            try {
+                const repo = db.prepare('SELECT * FROM repositories WHERE id = ?').get(params.repositoryId) as {
+                    config: string
+                    created_at: number
+                    id: string
+                    name: string
+                    path: string
+                    platform: 'github' | 'gitlab' | 'local'
+                    remote_url: string | null
+                    updated_at: number
+                } | undefined
+
+                if (!repo) {
+                    return {
+                        error: `Repository not found: ${params.repositoryId}`,
+                        success: false,
+                    }
+                }
+
+                const gitPlatform = createGitPlatform(repo)
+                const mrId = await gitPlatform.createMergeRequest(
+                    repo,
+                    params.branch,
+                    params.title,
+                    params.description || '',
+                )
+
+                return {
+                    context: {
+                        branchName: params.branch,
+                    },
+                    data: {
+                        mrId,
+                    },
+                    success: true,
+                }
+            } catch(error) {
+                logger.error('[GitTool] Failed to create MR:', error)
+                return {
+                    error: error instanceof Error ? error.message : String(error),
+                    success: false,
+                }
+            }
+        },
+        name: 'git_create_mr',
+        parameters: [
+            {
+                description: 'Repository ID',
+                name: 'repositoryId',
+                required: true,
+                type: 'string',
+            },
+            {
+                description: 'Branch name',
+                name: 'branch',
+                required: true,
+                type: 'string',
+            },
+            {
+                description: 'MR/PR title',
+                name: 'title',
+                required: true,
+                type: 'string',
+            },
+            {
+                description: 'MR/PR description',
+                name: 'description',
+                required: false,
+                type: 'string',
+            },
+        ],
+    },
+
+    git_status: {
+        description: 'Get git status (modified files, untracked files, current branch)',
+        execute: async(params: {
+            repositoryId: string
+        }, context: ToolContext): Promise<ToolResult> => {
+            try {
+                const repo = db.prepare('SELECT * FROM repositories WHERE id = ?').get(params.repositoryId) as {
+                    path: string
+                } | undefined
+
+                if (!repo) {
+                    return {
+                        error: `Repository not found: ${params.repositoryId}`,
+                        success: false,
+                    }
+                }
+
+                // Get git status using Bun Shell
+                const statusResult = await $`git status --porcelain`
+                    .cwd(repo.path)
+                    .quiet()
+                    .nothrow()
+                    .text()
+
+                const branchResult = await $`git branch --show-current`
+                    .cwd(repo.path)
+                    .quiet()
+                    .nothrow()
+                    .text()
+
+                const modifiedFiles: string[] = []
+                const untrackedFiles: string[] = []
+                const stagedFiles: string[] = []
+
+                for (const line of statusResult.split('\n').filter(Boolean)) {
+                    const status = line.slice(0, 2)
+                    const file = line.slice(3)
+                    if (status.startsWith('??')) {
+                        untrackedFiles.push(file)
+                    } else if (status.startsWith('M') || status.startsWith('A') || status.startsWith('D')) {
+                        if (status[0] !== ' ' && status[0] !== '?') {
+                            stagedFiles.push(file)
+                        }
+                        if (status[1] === 'M' || status[1] === 'D') {
+                            modifiedFiles.push(file)
+                        }
+                    }
+                }
+
+                return {
+                    context: {
+                        filesAffected: [...modifiedFiles, ...untrackedFiles],
+                    },
+                    data: {
+                        branch: branchResult.trim(),
+                        modified: modifiedFiles,
+                        staged: stagedFiles,
+                        untracked: untrackedFiles,
+                    },
+                    success: true,
+                }
+            } catch(error) {
+                logger.error('[GitTool] Failed to get git status:', error)
+                return {
+                    error: error instanceof Error ? error.message : String(error),
+                    success: false,
+                }
+            }
+        },
+        name: 'git_status',
+        parameters: [
+            {
+                description: 'Repository ID',
+                name: 'repositoryId',
+                required: true,
+                type: 'string',
+            },
+        ],
     },
 }
 
@@ -459,10 +459,13 @@ function parseSinceDate(since: string): string | null {
     if (relativeMatch) {
         const [, amount, unit] = relativeMatch
         const days = parseInt(amount, 10) * (
-            unit.toLowerCase() === 'day' ? 1 :
-            unit.toLowerCase() === 'week' ? 7 :
-            unit.toLowerCase() === 'month' ? 30 :
-            unit.toLowerCase() === 'year' ? 365 : 1
+            unit.toLowerCase() === 'day' ?
+                1 :
+                unit.toLowerCase() === 'week' ?
+                    7 :
+                    unit.toLowerCase() === 'month' ?
+                        30 :
+                        unit.toLowerCase() === 'year' ? 365 : 1
         )
         const date = new Date()
         date.setDate(date.getDate() - days)

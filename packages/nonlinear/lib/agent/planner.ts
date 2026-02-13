@@ -10,7 +10,7 @@ import {addAgentComment} from './comments.ts'
 import {updateTicketFromAgent} from './ticket-updates.ts'
 
 export class PlannerAgent extends BaseAgent {
-    constructor(agentConfig?: {tools?: string[]; skills?: string[]}) {
+    constructor(agentConfig?: {skills?: string[]; tools?: string[]}) {
         super('Planner', 'planner', agentConfig)
     }
 
@@ -27,12 +27,12 @@ export class PlannerAgent extends BaseAgent {
                     LEFT JOIN repositories r ON t.repository_id = r.id
                     WHERE t.id = ?
                 `).get(ticketId) as {
+                    description: string | null
                     id: string
                     repository_id: string
-                    title: string
-                    description: string | null
                     repository_name: string | null
                     repository_path: string | null
+                    title: string
                 } | undefined
 
                 if (ticket) {
@@ -46,20 +46,20 @@ export class PlannerAgent extends BaseAgent {
                         // Triggered via mention - respond to the comment
                         this.log(`Detected mention trigger: comment_id=${commentId}, author=${authorId}`)
                         await this.handleMention(ticket, {
-                            commentId,
-                            commentContent,
                             authorId: authorId || 'unknown',
                             authorType: (authorType as 'agent' | 'human') || 'human',
+                            commentContent,
+                            commentId,
                         })
                         return {
-                            success: true,
                             message: `Handled mention for ticket ${ticketId}`,
+                            success: true,
                         }
-                    } else {
-                        // Regular refinement (automatic or manual trigger)
-                        this.log(`Regular refinement trigger (no mention)`)
-                        await this.refineTicket(ticket)
                     }
+                        // Regular refinement (automatic or manual trigger)
+                        this.log('Regular refinement trigger (no mention)')
+                        await this.refineTicket(ticket)
+
                 } else {
                     this.log(`Ticket ${ticketId} not found`)
                 }
@@ -71,19 +71,19 @@ export class PlannerAgent extends BaseAgent {
                 WHERE status = 'backlog'
                 ORDER BY created_at ASC
             `).all() as Array<{
+                created_at: number
+                description: string | null
                 id: string
+                priority: number | null
                 repository_id: string
                 title: string
-                description: string | null
-                priority: number | null
-                created_at: number
             }>
 
             if (backlogTickets.length === 0) {
                 this.log('No backlog tickets to prioritize')
                 return {
-                    success: true,
                     message: 'No backlog tickets found',
+                    success: true,
                 }
             }
 
@@ -93,7 +93,9 @@ export class PlannerAgent extends BaseAgent {
             const repositories = new Map<string, {name: string; path: string}>()
             for (const ticket of backlogTickets) {
                 if (!repositories.has(ticket.repository_id)) {
-                    const repo = db.prepare('SELECT name, path FROM repositories WHERE id = ?').get(ticket.repository_id) as {name: string; path: string} | undefined
+                    const repo = db
+                        .prepare('SELECT name, path FROM repositories WHERE id = ?')
+                        .get(ticket.repository_id) as {name: string; path: string} | undefined
                     if (repo) {
                         repositories.set(ticket.repository_id, repo)
                     }
@@ -104,12 +106,12 @@ export class PlannerAgent extends BaseAgent {
             const ticketsContext = backlogTickets.map((ticket) => {
                 const repo = repositories.get(ticket.repository_id)
                 return {
-                    id: ticket.id,
-                    title: ticket.title,
-                    description: ticket.description || '',
-                    repository: repo?.name || 'Unknown',
                     created_at: new Date(ticket.created_at).toISOString(),
                     current_priority: ticket.priority,
+                    description: ticket.description || '',
+                    id: ticket.id,
+                    repository: repo?.name || 'Unknown',
+                    title: ticket.title,
                 }
             })
 
@@ -117,7 +119,7 @@ export class PlannerAgent extends BaseAgent {
             const prioritizationDocs = await this.getRelevantDocs(
                 'prioritization guidelines criteria business value technical debt',
                 {tags: ['type:prioritization', 'role:product-owner']},
-                3
+                3,
             )
 
             const systemPrompt = `You are a project management AI agent that prioritizes software development tickets.
@@ -151,10 +153,10 @@ ${JSON.stringify(ticketsContext, null, 2)}`
 
             // Parse LLM response
             let prioritizations: Array<{
-                ticket_id: string
                 priority: number
-                should_move_to_todo: boolean
                 reasoning: string
+                should_move_to_todo: boolean
+                ticket_id: string
             }>
 
             try {
@@ -162,12 +164,12 @@ ${JSON.stringify(ticketsContext, null, 2)}`
                 const jsonMatch = response.match(/```json\n([\s\S]*?)\n```/) || response.match(/```\n([\s\S]*?)\n```/)
                 const jsonStr = jsonMatch ? jsonMatch[1] : response
                 prioritizations = JSON.parse(jsonStr)
-            } catch (error) {
+            } catch(error) {
                 this.log(`Failed to parse LLM response: ${error}`, 'error')
                 return {
-                    success: false,
-                    message: 'Failed to parse prioritization response',
                     error: String(error),
+                    message: 'Failed to parse prioritization response',
+                    success: false,
                 }
             }
 
@@ -195,22 +197,25 @@ ${JSON.stringify(ticketsContext, null, 2)}`
 
             updateTransaction(prioritizations)
 
-            this.log(`Prioritization complete: ${movedCount} tickets moved to todo, ${prioritizations.length - movedCount} remain in backlog`)
+            this.log(
+                `Prioritization complete: ${movedCount} tickets moved to todo, ` +
+                `${prioritizations.length - movedCount} remain in backlog`,
+            )
 
             return {
-                success: true,
-                message: `Prioritized ${prioritizations.length} tickets, moved ${movedCount} to todo`,
                 data: {
-                    total: prioritizations.length,
                     moved: movedCount,
+                    total: prioritizations.length,
                 },
+                message: `Prioritized ${prioritizations.length} tickets, moved ${movedCount} to todo`,
+                success: true,
             }
-        } catch (error) {
+        } catch(error) {
             this.log(`Error during prioritization: ${error}`, 'error')
             return {
-                success: false,
-                message: 'Prioritization failed',
                 error: error instanceof Error ? error.message : String(error),
+                message: 'Prioritization failed',
+                success: false,
             }
         }
     }
@@ -219,12 +224,12 @@ ${JSON.stringify(ticketsContext, null, 2)}`
      * Refine a newly created ticket by analyzing it and adding a clarifying comment
      */
     private async refineTicket(ticket: {
+        description: string | null
         id: string
         repository_id: string
-        title: string
-        description: string | null
         repository_name: string | null
         repository_path: string | null
+        title: string
     }): Promise<void> {
         try {
             this.log(`Refining ticket ${ticket.id}: ${ticket.title}`)
@@ -237,7 +242,7 @@ ${JSON.stringify(ticketsContext, null, 2)}`
                     const readmePath = `${ticket.repository_path}/README.md`
                     try {
                         const readme = await fs.readFile(readmePath, 'utf-8')
-                        repositoryContext = `\n\nRepository README:\n${readme.substring(0, 1000)}`
+                        repositoryContext = `\n\nRepository README:\n${readme.slice(0, 1000)}`
                     } catch {
                         // README doesn't exist, that's okay
                     }
@@ -263,13 +268,18 @@ Your task is to:
 Relevant Documentation:
 ${relevantDocs}
 
-IMPORTANT: If the ticket is missing critical information or has ambiguities that prevent you from creating an actionable description, you MUST ask clarifying questions in a comment. Only refine the description if you have enough information to make it actionable.
+IMPORTANT: If the ticket is missing critical information or has ambiguities that prevent you from creating an actionable description, you MUST ask clarifying questions in a comment.
+Only refine the description if you have enough information to make it actionable.
 
 Respond with a JSON object containing:
-- refined_description: A clear, detailed description that improves upon the original (use markdown formatting, code blocks for examples, Mermaid diagrams for architecture). Leave empty if you need to ask questions first.
-- clarifying_questions: An array of specific questions to ask the ticket creator if critical information is missing. Each question should be clear and actionable. If no questions are needed, use an empty array.
+- refined_description: A clear, detailed description that improves upon the original
+  (use markdown formatting, code blocks for examples, Mermaid diagrams for architecture).
+  Leave empty if you need to ask questions first.
+- clarifying_questions: An array of specific questions to ask the ticket creator if critical information is missing.
+  Each question should be clear and actionable. If no questions are needed, use an empty array.
 - analysis: Your analysis of issues found and suggestions for improvement (use markdown formatting)
-- should_update_description: boolean indicating if the refined_description is significantly better than the original (only true if substantial improvements were made AND you have enough information)
+- should_update_description: boolean indicating if the refined_description is significantly better than the original
+  (only true if substantial improvements were made AND you have enough information)
 
 The refined_description should:
 - Be clear and actionable
@@ -300,9 +310,9 @@ Provide a refined description and analysis.`
 
             // Parse the response
             let refinement: {
-                refined_description: string
-                clarifying_questions?: string[]
                 analysis: string
+                clarifying_questions?: string[]
+                refined_description: string
                 should_update_description?: boolean
             }
 
@@ -311,13 +321,13 @@ Provide a refined description and analysis.`
                 const jsonMatch = response.match(/```json\n([\s\S]*?)\n```/) || response.match(/```\n([\s\S]*?)\n```/)
                 const jsonStr = jsonMatch ? jsonMatch[1] : response
                 refinement = JSON.parse(jsonStr)
-            } catch (error) {
+            } catch(error) {
                 // If parsing fails, use the response as analysis and keep original description
                 this.log(`Failed to parse refinement response, using as analysis: ${error}`)
                 refinement = {
-                    refined_description: ticket.description || '',
-                    clarifying_questions: [],
                     analysis: response,
+                    clarifying_questions: [],
+                    refined_description: ticket.description || '',
                     should_update_description: false,
                 }
             }
@@ -339,8 +349,10 @@ Provide a refined description and analysis.`
                 return
             }
 
-            // Always update ticket description with refined version if available
-            // The refined_description is the improved version that should replace the original
+            /*
+             * Always update ticket description with refined version if available
+             * The refined_description is the improved version that should replace the original
+             */
             if (refinement.refined_description && refinement.refined_description.trim()) {
                 await updateTicketFromAgent(ticket.id, {
                     description: refinement.refined_description.trim(),
@@ -350,8 +362,10 @@ Provide a refined description and analysis.`
                 this.log(`No refined description provided for ticket ${ticket.id}, keeping original`)
             }
 
-            // Add comment with analysis (optional - provides additional context)
-            // The analysis explains what was improved and why
+            /*
+             * Add comment with analysis (optional - provides additional context)
+             * The analysis explains what was improved and why
+             */
             if (refinement.analysis && refinement.analysis.trim()) {
                 await addAgentComment(ticket.id, this.name, `## Refinement Notes\n\n${refinement.analysis}`)
             }
@@ -361,7 +375,7 @@ Provide a refined description and analysis.`
             this.log(`Added "refined" label to ticket ${ticket.id}`)
 
             this.log(`Refined ticket ${ticket.id}`)
-        } catch (error) {
+        } catch(error) {
             this.log(`Error refining ticket ${ticket.id}: ${error}`, 'error')
             // Don't throw - refinement failure shouldn't block prioritization
         }
@@ -373,30 +387,32 @@ Provide a refined description and analysis.`
      */
     private async handleMention(
         ticket: {
+            description: string | null
             id: string
             repository_id: string
-            title: string
-            description: string | null
             repository_name: string | null
             repository_path: string | null
+            title: string
         },
         mention: {
-            commentId: string
-            commentContent: string
             authorId: string
             authorType: 'agent' | 'human'
+            commentContent: string
+            commentId: string
         },
     ): Promise<void> {
         // Create placeholder comment immediately
         const {createAgentCommentPlaceholder, finalizeAgentComment, updateAgentComment} = await import('./comments.ts')
         const responseCommentId = await createAgentCommentPlaceholder(ticket.id, this.name, mention.commentId)
-            this.log(`Created placeholder comment`)
+        this.log('Created placeholder comment')
 
         try {
-            // For now, use the existing refineTicketFromMention logic
-            // TODO: Add intelligent intent analysis and streaming LLM responses
+            /*
+             * For now, use the existing refineTicketFromMention logic
+             * TODO: Add intelligent intent analysis and streaming LLM responses
+             */
             await this.refineTicketFromMention(ticket, mention, responseCommentId)
-        } catch (error) {
+        } catch(error) {
             const errorMsg = error instanceof Error ? error.message : String(error)
             await finalizeAgentComment(responseCommentId, `I encountered an error while processing your request: ${errorMsg}`)
             throw error
@@ -410,24 +426,24 @@ Provide a refined description and analysis.`
      */
     private async refineTicketFromMention(
         ticket: {
+            description: string | null
             id: string
             repository_id: string
-            title: string
-            description: string | null
             repository_name: string | null
             repository_path: string | null
+            title: string
         },
         mention: {
-            commentId: string
-            commentContent: string
             authorId: string
             authorType: 'agent' | 'human'
+            commentContent: string
+            commentId: string
         },
         responseCommentId?: string,
     ): Promise<void> {
         try {
-            this.log(`Processing mention`)
-            this.log(`Comment content: ${mention.commentContent.substring(0, 200)}...`)
+            this.log('Processing mention')
+            this.log(`Comment content: ${mention.commentContent.slice(0, 200)}...`)
             this.log(`Ticket title: ${ticket.title}`)
 
             // Get repository context if available
@@ -438,7 +454,7 @@ Provide a refined description and analysis.`
                     const readmePath = `${ticket.repository_path}/README.md`
                     try {
                         const readme = await fs.readFile(readmePath, 'utf-8')
-                        repositoryContext = `\n\nRepository README:\n${readme.substring(0, 1000)}`
+                        repositoryContext = `\n\nRepository README:\n${readme.slice(0, 1000)}`
                     } catch {
                         // README doesn't exist, that's okay
                     }
@@ -455,15 +471,17 @@ Provide a refined description and analysis.`
                 ORDER BY created_at DESC
                 LIMIT 10
             `).all(ticket.id) as Array<{
-                author_type: string
                 author_id: string
+                author_type: string
                 content: string
                 created_at: number
             }>
 
             const systemPrompt = `You are a project management AI agent that refines and clarifies software development tickets.
 
-You have been mentioned in a comment by ${mention.authorType === 'human' ? 'a human user' : 'another agent'} who asked you to refine this ticket.
+You have been mentioned in a comment by ${
+                mention.authorType === 'human' ? 'a human user' : 'another agent'
+            } who asked you to refine this ticket.
 
 Your task is to:
 1. Read and understand what the user requested in their comment
@@ -481,10 +499,17 @@ IMPORTANT: The user mentioned you and asked you to do something. You MUST:
 - Always add a comment responding to their request
 
 Respond with a JSON object containing:
-- refined_description: A clear, detailed description that improves upon the original (use markdown formatting, code blocks for examples, Mermaid diagrams for architecture). When refinement is requested, you MUST provide this field with an improved version of the description. If the user asks to close the ticket, you can still provide a refined description if needed, but the ticket will be closed separately.
-- response_comment: A conversational comment responding to the user's request. Acknowledge what they asked and explain what you did. Do NOT put the refined description here - it goes in refined_description.
-- should_update_description: boolean - set to TRUE when you've provided a refined_description that should replace the current description. When refinement is explicitly requested, this should be TRUE.
-- should_close_ticket: boolean - set to TRUE if the user asked you to close the ticket. When this is true, the ticket will be closed using the update_ticket tool. Do NOT put "closed" in the description text.
+- refined_description: A clear, detailed description that improves upon the original
+  (use markdown formatting, code blocks for examples, Mermaid diagrams for architecture).
+  When refinement is requested, you MUST provide this field with an improved version of the description.
+  If the user asks to close the ticket, you can still provide a refined description if needed,
+  but the ticket will be closed separately.
+- response_comment: A conversational comment responding to the user's request.
+  Acknowledge what they asked and explain what you did. Do NOT put the refined description here - it goes in refined_description.
+- should_update_description: boolean - set to TRUE when you've provided a refined_description that should replace the current description.
+  When refinement is explicitly requested, this should be TRUE.
+- should_close_ticket: boolean - set to TRUE if the user asked you to close the ticket.
+  When this is true, the ticket will be closed using the update_ticket tool. Do NOT put "closed" in the description text.
 
 The refined_description should:
 - Be clear and actionable
@@ -511,11 +536,11 @@ ${mention.commentContent}
 **Repository:** ${ticket.repository_name || 'Unknown'}${repositoryContext}
 
 **Recent comments on this ticket:**
-${recentComments.map(c => `- ${c.author_type} (${c.author_id}): ${c.content}`).join('\n')}
+${recentComments.map((c) => `- ${c.author_type} (${c.author_id}): ${c.content}`).join('\n')}
 
 Please respond to the user's request and refine the ticket as requested.`
 
-            this.log(`Generating response...`)
+            this.log('Generating response...')
 
             // Stream response to comment in real-time
             let accumulatedResponse = ''
@@ -529,8 +554,10 @@ Please respond to the user's request and refine the ticket as requested.`
                 async(chunk: string) => {
                     accumulatedResponse += chunk
 
-                    // Try to extract response_comment value incrementally
-                    // Find the start of the field value
+                    /*
+                     * Try to extract response_comment value incrementally
+                     * Find the start of the field value
+                     */
                     const startIdx = accumulatedResponse.indexOf('"response_comment"')
                     if (startIdx >= 0) {
                         // Find the colon and opening quote after "response_comment"
@@ -574,7 +601,7 @@ Please respond to the user's request and refine the ticket as requested.`
                                     }
                                 } catch {
                                     // Fallback unescaping
-                                    const unescaped = rawValue.replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\\\/g, '\\')
+                                    const unescaped = rawValue.replaceAll('\\n', '\n').replaceAll('\\"', '"').replaceAll('\\\\', '\\')
                                     if (unescaped !== lastBroadcast) {
                                         lastBroadcast = unescaped
                                         await updateAgentComment(responseCommentId, unescaped, false)
@@ -583,7 +610,7 @@ Please respond to the user's request and refine the ticket as requested.`
                                 }
                             } else {
                                 // Incomplete - show partial with basic unescaping
-                                const partial = valueText.replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\\\/g, '\\')
+                                const partial = valueText.replaceAll('\\n', '\n').replaceAll('\\"', '"').replaceAll('\\\\', '\\')
                                 const now = Date.now()
                                 if (partial !== lastBroadcast && now - lastBroadcastTime > 100) {
                                     lastBroadcast = partial
@@ -609,8 +636,8 @@ Please respond to the user's request and refine the ticket as requested.`
             let refinement: {
                 refined_description: string
                 response_comment: string
-                should_update_description?: boolean
                 should_close_ticket?: boolean
+                should_update_description?: boolean
             }
 
             try {
@@ -618,16 +645,18 @@ Please respond to the user's request and refine the ticket as requested.`
                 const jsonMatch = response.match(/```json\n([\s\S]*?)\n```/) || response.match(/```\n([\s\S]*?)\n```/)
                 const jsonStr = jsonMatch ? jsonMatch[1] : response
                 refinement = JSON.parse(jsonStr)
-                this.log(`Parsed response JSON`)
+                this.log('Parsed response JSON')
 
-                // Update comment with just the response_comment field (clean up from raw JSON)
-                // Only update if we didn't already stream it, or if it's different
+                /*
+                 * Update comment with just the response_comment field (clean up from raw JSON)
+                 * Only update if we didn't already stream it, or if it's different
+                 */
                 if (!lastBroadcast || lastBroadcast !== refinement.response_comment) {
                     await updateAgentComment(responseCommentId, refinement.response_comment || 'I received your mention.', false)
                 }
-            } catch (error) {
+            } catch(error) {
                 // If parsing fails, use what we streamed or create a simple response
-                this.log(`Failed to parse response JSON`, 'error')
+                this.log('Failed to parse response JSON', 'error')
 
                 // Use streamed comment if we extracted it, otherwise create fallback
                 const fallbackComment = lastBroadcast || 'I received your mention.'
@@ -641,15 +670,17 @@ Please respond to the user's request and refine the ticket as requested.`
                 await updateAgentComment(responseCommentId, fallbackComment, false)
             }
 
-            // Update ticket description if refined_description is provided
-            // When refinement is explicitly requested (via mention), always update if refined_description exists
+            /*
+             * Update ticket description if refined_description is provided
+             * When refinement is explicitly requested (via mention), always update if refined_description exists
+             */
             const hasRefinedDescription = refinement.refined_description && refinement.refined_description.trim()
             const shouldUpdate = refinement.should_update_description === true ||
                 (!ticket.description || ticket.description.trim() === '') ||
                 (hasRefinedDescription && refinement.refined_description.trim() !== ticket.description?.trim())
 
             if (shouldUpdate && hasRefinedDescription) {
-                this.log(`Updating ticket description`)
+                this.log('Updating ticket description')
                 await updateTicketFromAgent(ticket.id, {
                     description: refinement.refined_description.trim(),
                 })
@@ -660,10 +691,10 @@ Please respond to the user's request and refine the ticket as requested.`
                 this.log(`Closing ticket ${ticket.id} as requested`)
                 const {updateTicketFields} = await import('./ticket-updates.ts')
                 const result = await updateTicketFields(ticket.id, {status: 'closed'}, this.type)
-                if (!result.success) {
-                    this.log(`Failed to close ticket: ${result.error}`, 'error')
-                } else {
+                if (result.success) {
                     this.log(`Ticket ${ticket.id} closed successfully`)
+                } else {
+                    this.log(`Failed to close ticket: ${result.error}`, 'error')
                 }
             }
 
@@ -678,17 +709,22 @@ Please respond to the user's request and refine the ticket as requested.`
                 // Fallback to legacy method
                 await addAgentComment(ticket.id, this.name, commentContent)
             }
-            this.log(`Comment finalized`)
+            this.log('Comment finalized')
 
             // Add "refined" label to mark ticket as ready for development
             addTicketLabel(ticket.id, 'refined')
             this.log(`Added "refined" label to ticket ${ticket.id}`)
 
-            this.log(`Mention response completed`)
-        } catch (error) {
-            this.log(`Error responding to mention for ticket ${ticket.id}: ${error}`, 'error')
+            this.log('Mention response completed')
+        } catch(_error) {
+            this.log(`Error responding to mention for ticket ${ticket.id}: ${_error}`, 'error')
             // Add error comment so user knows something went wrong
-            await addAgentComment(ticket.id, this.name, `I encountered an error while processing your request: ${error instanceof Error ? error.message : String(error)}`).catch(() => {
+            const errorMessage = _error instanceof Error ? _error.message : String(_error)
+            await addAgentComment(
+                ticket.id,
+                this.name,
+                `I encountered an error while processing your request: ${errorMessage}`,
+            ).catch(() => {
                 // Ignore errors adding error comment
             })
         }
@@ -706,7 +742,8 @@ Available commands:
 - "show statistics" or "stats" - Show ticket statistics and counts
 
 You have access to tools for:
-- Ticket operations (get_ticket, list_tickets, update_ticket, update_ticket_status, update_ticket_priority, add_ticket_comment, get_ticket_statistics)
+- Ticket operations (get_ticket, list_tickets, update_ticket, update_ticket_status,
+  update_ticket_priority, add_ticket_comment, get_ticket_statistics)
 - Reading tickets from the database
 - Updating ticket fields (title, description, status, priority) using update_ticket tool
 - Adding comments to tickets (add_ticket_comment) for refining and breaking down tasks
@@ -733,20 +770,20 @@ When closing tickets:
 When given an instruction, interpret it and use the appropriate tools to complete the task.
 Be helpful and provide clear feedback about what you're doing.`
 
-        const agentContext = context || this.buildToolContext({})
+        const agentContext = context || this.buildContext({})
 
         try {
-            const response = await this.respondWithTools(systemPrompt, instruction, 4096, agentContext as AgentContext)
+            const response = await this.respondWithTools(systemPrompt, instruction, 4096, agentContext)
             return {
-                success: true,
                 message: response,
+                success: true,
             }
         } catch(error) {
             const errorMsg = error instanceof Error ? error.message : String(error)
             return {
-                success: false,
-                message: 'Failed to execute instruction',
                 error: errorMsg,
+                message: 'Failed to execute instruction',
+                success: false,
             }
         }
     }

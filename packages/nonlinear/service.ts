@@ -116,7 +116,7 @@ void cli.usage('Usage: $0 [task]')
         // Initialize agent system
         const {initAgentStatusTracking} = await import('./lib/agent/status.ts')
         const {initAgentStateTracking} = await import('./lib/agent/state.ts')
-        const {initAgentScheduler} = await import('./lib/agent/scheduler.ts')
+        const {initAgentScheduler: _initAgentScheduler} = await import('./lib/agent/scheduler.ts')
         const {initAgentAvatars} = await import('./lib/agent/avatars.ts')
         const {initTokenUsageTracking} = await import('./lib/agent/token-usage.ts')
         const {initAgentCommentBroadcasting} = await import('./lib/agent/comments.ts')
@@ -161,28 +161,26 @@ void cli.usage('Usage: $0 [task]')
         }
         await autostartAgents(wsManager, autostartValue)
     })
-    .command('deploy-pr', 'Deploy a PR branch manually (for Cursor agent)', (yargs) =>
-        yargs
-            .option('number', {
-                demandOption: true,
-                describe: 'PR number to deploy',
-                type: 'number',
-            })
-            .option('branch', {
-                demandOption: true,
-                describe: 'Branch name (e.g., feature/new-ui)',
-                type: 'string',
-            })
-            .option('sha', {
-                describe: 'Commit SHA (defaults to latest)',
-                type: 'string',
-            })
-            .option('author', {
-                default: 'local',
-                describe: 'Author name',
-                type: 'string',
-            })
-    , async (argv) => {
+    .command('deploy-pr', 'Deploy a PR branch manually (for Cursor agent)', (yargs) => yargs
+        .option('number', {
+            demandOption: true,
+            describe: 'PR number to deploy',
+            type: 'number',
+        })
+        .option('branch', {
+            demandOption: true,
+            describe: 'Branch name (e.g., feature/new-ui)',
+            type: 'string',
+        })
+        .option('sha', {
+            describe: 'Commit SHA (defaults to latest)',
+            type: 'string',
+        })
+        .option('author', {
+            default: 'local',
+            describe: 'Author name',
+            type: 'string',
+        }), async(argv) => {
         const {deployPR} = await import('./lib/deploy/pr-deploy')
 
         const pr = {
@@ -212,97 +210,90 @@ void cli.usage('Usage: $0 [task]')
                 packagesToShow = ['expressio', 'pyrite', 'nonlinear']
             }
 
-            console.log(`URLs:`)
+            console.log('URLs:')
             for (const packageName of packagesToShow) {
-                const port = result.deployment.ports[packageName as keyof typeof result.deployment.ports] || result.deployment.ports.nonlinear
-                console.log(`  ${packageName}: https://pr-${argv.number}-${packageName}.garage44.org (port ${port})`)
+                const port = result.deployment.ports[packageName as keyof typeof result.deployment.ports] ||
+                    result.deployment.ports.nonlinear
+                console.log(
+                    `  ${packageName}: https://pr-${argv.number}-${packageName}.garage44.org (port ${port})`,
+                )
             }
 
-            console.log(`\nNote: Deployment is publicly accessible (no token required)`)
+            console.log('\nNote: Deployment is publicly accessible (no token required)')
         } else {
             console.error(`\n❌ Deployment failed: ${result.message}`)
             process.exit(1)
         }
     })
-    .command('list-pr-deployments', 'List all active PR deployments', async () => {
+    .command('list-pr-deployments', 'List all active PR deployments', async() => {
         const {listPRDeployments} = await import('./lib/deploy/pr-cleanup')
         await listPRDeployments()
     })
-    .command('cleanup-pr', 'Cleanup a specific PR deployment', (yargs) =>
-        yargs.option('number', {
-            demandOption: true,
-            describe: 'PR number to cleanup',
-            type: 'number',
-        })
-    , async (argv) => {
+    .command('cleanup-pr', 'Cleanup a specific PR deployment', (yargs) => yargs.option('number', {
+        demandOption: true,
+        describe: 'PR number to cleanup',
+        type: 'number',
+    }), async(argv) => {
         const {cleanupPRDeployment} = await import('./lib/deploy/pr-cleanup')
         const result = await cleanupPRDeployment(argv.number)
         console.log(result.message)
         process.exit(result.success ? 0 : 1)
     })
-    .command('cleanup-stale-prs', 'Cleanup stale PR deployments', (yargs) =>
-        yargs.option('max-age-days', {
-            default: 7,
-            describe: 'Maximum age in days',
-            type: 'number',
-        })
-    , async (argv) => {
+    .command('cleanup-stale-prs', 'Cleanup stale PR deployments', (yargs) => yargs.option('max-age-days', {
+        default: 7,
+        describe: 'Maximum age in days',
+        type: 'number',
+    }), async(argv) => {
         const {cleanupStaleDeployments} = await import('./lib/deploy/pr-cleanup')
         const result = await cleanupStaleDeployments(argv.maxAgeDays)
         console.log(result.message)
     })
-    .command('regenerate-pr-nginx', 'Regenerate nginx configs for an existing PR deployment', (yargs) =>
-        yargs.option('number', {
-            demandOption: true,
-            describe: 'PR number to regenerate nginx configs for',
-            type: 'number',
-        })
-    , async (argv) => {
+    .command('regenerate-pr-nginx', 'Regenerate nginx configs for an existing PR deployment', (yargs) => yargs.option('number', {
+        demandOption: true,
+        describe: 'PR number to regenerate nginx configs for',
+        type: 'number',
+    }), async(argv) => {
         const {regeneratePRNginx} = await import('./lib/deploy/pr-deploy')
         const result = await regeneratePRNginx(argv.number)
         console.log(result.message)
         process.exit(result.success ? 0 : 1)
     })
-    .command('generate-systemd', 'Generate systemd service files', (yargs) =>
-        yargs
-            .option('domain', {
-                demandOption: true,
-                describe: 'Domain name (e.g., garage44.org)',
-                type: 'string',
-            })
-    , async (argv) => {
+    .command('generate-systemd', 'Generate systemd service files', (yargs) => yargs
+        .option('domain', {
+            demandOption: true,
+            describe: 'Domain name (e.g., garage44.org)',
+            type: 'string',
+        }), async(argv) => {
         const {generateSystemd} = await import('./lib/deploy/deploy/systemd')
         const output = await generateSystemd(argv.domain)
         console.log(output)
     })
-    .command('generate-nginx', 'Generate nginx configuration', (yargs) =>
-        yargs
-            .option('domain', {
-                demandOption: true,
-                describe: 'Domain name (e.g., garage44.org)',
-                type: 'string',
-            })
-    , async (argv) => {
+    .command('generate-nginx', 'Generate nginx configuration', (yargs) => yargs
+        .option('domain', {
+            demandOption: true,
+            describe: 'Domain name (e.g., garage44.org)',
+            type: 'string',
+        }), async(argv) => {
         const {generateNginx} = await import('./lib/deploy/deploy/nginx')
         const output = generateNginx(argv.domain)
         console.log(output)
     })
-    .command('publish', 'Publish all workspace packages to npm', async () => {
+    .command('publish', 'Publish all workspace packages to npm', async() => {
         const {publish} = await import('./lib/deploy/publish')
         await publish()
     })
-    .command('init', 'Initialize Cursor rules and AGENTS.md', async () => {
+    .command('init', 'Initialize Cursor rules and AGENTS.md', async() => {
         const {init} = await import('./lib/deploy/init')
         const {rules} = await import('./lib/deploy/rules')
         await init()
         await rules()
         console.log('\n✅ Cursor setup complete!')
     })
-    .command('rules', 'Create symlink from .cursor/rules to nonlinear/lib/fixtures/rules', async () => {
+    .command('rules', 'Create symlink from .cursor/rules to nonlinear/lib/fixtures/rules', async() => {
         const {rules} = await import('./lib/deploy/rules')
         await rules()
     })
-    .command('indexing', 'Start the indexing service (processes indexing jobs)', async () => {
+    .command('indexing', 'Start the indexing service (processes indexing jobs)', async() => {
         await initConfig(config)
         initDatabase()
 
@@ -329,37 +320,46 @@ void cli.usage('Usage: $0 [task]')
 
         service.start()
 
-        // Keep process alive and log status periodically
+        /*
+         * Keep process alive and log status periodically
+         * Log status every minute
+         */
         setInterval(() => {
             const status = service.getStatus()
-            loggerInstance.info(`[IndexingService] Status: ${status.pendingJobs} pending, ${status.processingJobs} processing, ${status.failedJobs} failed`)
-        }, 60000) // Log status every minute
+            loggerInstance.info(
+                `[IndexingService] Status: ${status.pendingJobs} pending, ` +
+                `${status.processingJobs} processing, ${status.failedJobs} failed`,
+            )
+        }, 60000)
     })
-    .command('agent', 'Run an agent interactively', (yargs) =>
-        yargs
-            .option('ticket-id', {
-                alias: 't',
-                describe: 'Ticket ID to work on',
-                type: 'string',
-            })
-            .option('agent-type', {
-                alias: 'a',
-                describe: 'Agent type (developer, planner, reviewer)',
-                type: 'string',
-                default: 'developer',
-            })
-            .option('interactive', {
-                alias: 'i',
-                describe: 'Run in interactive mode with real-time reasoning',
-                type: 'boolean',
-                default: true,
-            })
-    , async (argv) => {
+    .command('agent', 'Run an agent interactively', (yargs) => yargs
+        .option('ticket-id', {
+            alias: 't',
+            describe: 'Ticket ID to work on',
+            type: 'string',
+        })
+        .option('agent-type', {
+            alias: 'a',
+            default: 'developer',
+            describe: 'Agent type (developer, planner, reviewer)',
+            type: 'string',
+        })
+        .option('interactive', {
+            alias: 'i',
+            default: true,
+            describe: 'Run in interactive mode with real-time reasoning',
+            type: 'boolean',
+        }), async(argv) => {
         await initConfig(config)
         await initDatabase()
 
         const {getAgent} = await import('./lib/agent/index.ts')
-        const {runAgentInteractive, formatReasoningMessage, formatToolExecution, formatToolResult} = await import('./lib/cli/interactive.ts')
+        const {
+            formatReasoningMessage,
+            formatToolExecution,
+            formatToolResult,
+            runAgentInteractive,
+        } = await import('./lib/cli/interactive.ts')
 
         const agentType = argv.agentType as 'developer' | 'planner' | 'reviewer'
         const agent = getAgent(agentType)
@@ -401,14 +401,12 @@ void cli.usage('Usage: $0 [task]')
             }
         }
     })
-    .command('agent:service', 'Run an agent as background service', (yargs) =>
-        yargs.option('agent-id', {
-            alias: 'a',
-            demandOption: true,
-            describe: 'Agent ID from database',
-            type: 'string',
-        })
-    , async (argv) => {
+    .command('agent:service', 'Run an agent as background service', (yargs) => yargs.option('agent-id', {
+        alias: 'a',
+        demandOption: true,
+        describe: 'Agent ID from database',
+        type: 'string',
+    }), async(argv) => {
         await initConfig(config)
         initDatabase()
 
@@ -437,34 +435,33 @@ void cli.usage('Usage: $0 [task]')
 
         // Keep process alive and log status periodically
         setInterval(() => {
+            // Log status every minute
             const status = service.getStatus()
             loggerInstance.info(`[AgentService] Status: ${JSON.stringify(status)}`)
-        }, 60000) // Log status every minute
+        }, 60000)
     })
-    .command('agent:run', 'Run an agent interactively in foreground', (yargs) =>
-        yargs
-            .option('agent-id', {
-                alias: 'a',
-                demandOption: true,
-                describe: 'Agent ID from database',
-                type: 'string',
-            })
-            .option('interactive', {
-                alias: 'i',
-                describe: 'Run in interactive REPL mode (default: true)',
-                type: 'boolean',
-                default: true,
-            })
-            .option('instruction', {
-                describe: 'Single instruction to execute (non-interactive mode)',
-                type: 'string',
-            })
-            .option('ticket-id', {
-                alias: 't',
-                describe: 'Ticket ID to work on',
-                type: 'string',
-            })
-    , async (argv) => {
+    .command('agent:run', 'Run an agent interactively in foreground', (yargs) => yargs
+        .option('agent-id', {
+            alias: 'a',
+            demandOption: true,
+            describe: 'Agent ID from database',
+            type: 'string',
+        })
+        .option('interactive', {
+            alias: 'i',
+            default: true,
+            describe: 'Run in interactive REPL mode (default: true)',
+            type: 'boolean',
+        })
+        .option('instruction', {
+            describe: 'Single instruction to execute (non-interactive mode)',
+            type: 'string',
+        })
+        .option('ticket-id', {
+            alias: 't',
+            describe: 'Ticket ID to work on',
+            type: 'string',
+        }), async(argv) => {
         await initConfig(config)
         initDatabase()
 
@@ -499,16 +496,16 @@ void cli.usage('Usage: $0 [task]')
             await runAgent(argv.agentId, context)
         }
     })
-    .command('agent:list', 'List all available agents', async () => {
+    .command('agent:list', 'List all available agents', async() => {
         await initConfig(config)
         await initDatabase()
 
         const {db} = await import('./lib/database.ts')
         const agents = db.prepare('SELECT * FROM agents ORDER BY type, name').all() as Array<{
+            enabled: number
             id: string
             name: string
             type: string
-            enabled: number
         }>
 
         console.log('\n📋 Available Agents:\n')
@@ -519,26 +516,24 @@ void cli.usage('Usage: $0 [task]')
             console.log(`    Status: ${status}\n`)
         }
     })
-    .command('agent:trigger', 'Trigger an agent to process work', (yargs) =>
-        yargs
-            .option('agent-id', {
-                alias: 'a',
-                describe: 'Agent ID or name (case-insensitive)',
-                type: 'string',
-                demandOption: true,
-            })
-            .option('ticket-id', {
-                alias: 't',
-                describe: 'Ticket ID (optional)',
-                type: 'string',
-            })
-            .option('interactive', {
-                alias: 'i',
-                describe: 'Run in interactive mode with real-time reasoning (like Claude Code)',
-                type: 'boolean',
-                default: false,
-            })
-    , async (argv) => {
+    .command('agent:trigger', 'Trigger an agent to process work', (yargs) => yargs
+        .option('agent-id', {
+            alias: 'a',
+            demandOption: true,
+            describe: 'Agent ID or name (case-insensitive)',
+            type: 'string',
+        })
+        .option('ticket-id', {
+            alias: 't',
+            describe: 'Ticket ID (optional)',
+            type: 'string',
+        })
+        .option('interactive', {
+            alias: 'i',
+            default: false,
+            describe: 'Run in interactive mode with real-time reasoning (like Claude Code)',
+            type: 'boolean',
+        }), async(argv) => {
         await initConfig(config)
         await initDatabase()
 
@@ -579,7 +574,12 @@ void cli.usage('Usage: $0 [task]')
 
         if (argv.interactive) {
             // Interactive mode with real-time reasoning display
-            const {runAgentInteractive, formatReasoningMessage, formatToolExecution, formatToolResult} = await import('./lib/cli/interactive.ts')
+            const {
+                formatReasoningMessage,
+                formatToolExecution,
+                formatToolResult,
+                runAgentInteractive,
+            } = await import('./lib/cli/interactive.ts')
 
             console.log(`\n🚀 Starting ${agent.name} (${agent.type}) agent interactively...\n`)
 

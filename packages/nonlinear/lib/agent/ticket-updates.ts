@@ -112,30 +112,28 @@ export async function updateTicketFromAgent(
 export async function updateTicketFields(
     ticketId: string,
     updates: {
-        title?: string | null
         description?: string | null
-        status?: string | null
         priority?: number | null
         solution_plan?: string | null
+        status?: string | null
+        title?: string | null
     },
     agentType?: 'planner' | 'developer' | 'reviewer' | 'prioritizer',
-): Promise<{success: boolean; error?: string}> {
+): Promise<{error?: string; success: boolean}> {
     // Validate ticket exists
     const existingTicket = db.prepare('SELECT id FROM tickets WHERE id = ?').get(ticketId)
     if (!existingTicket) {
         return {
-            success: false,
             error: `Ticket not found: ${ticketId}`,
+            success: false,
         }
     }
 
     // Validate priority range if provided
-    if (updates.priority !== undefined && updates.priority !== null) {
-        if (updates.priority < 0 || updates.priority > 10) {
-            return {
-                success: false,
-                error: 'Priority must be between 0 and 10',
-            }
+    if (updates.priority !== undefined && updates.priority !== null && (updates.priority < 0 || updates.priority > 10)) {
+        return {
+            error: 'Priority must be between 0 and 10',
+            success: false,
         }
     }
 
@@ -144,8 +142,8 @@ export async function updateTicketFields(
         const validStatuses = ['backlog', 'todo', 'in_progress', 'review', 'closed']
         if (!validStatuses.includes(updates.status)) {
             return {
-                success: false,
                 error: `Invalid status: ${updates.status}. Must be one of: ${validStatuses.join(', ')}`,
+                success: false,
             }
         }
     }
@@ -176,8 +174,8 @@ export async function updateTicketFields(
 
     if (fields.length === 0) {
         return {
-            success: false,
             error: 'No fields to update',
+            success: false,
         }
     }
 
@@ -197,10 +195,10 @@ export async function updateTicketFields(
             try {
                 const {queueIndexingJob} = await import('../indexing/queue.ts')
                 await queueIndexingJob({
-                    type: 'ticket',
                     ticketId,
+                    type: 'ticket',
                 })
-            } catch (error) {
+            } catch(error) {
                 logger.warn(`[Agent Ticket Updates] Failed to regenerate embedding for ticket ${ticketId}:`, error)
             }
         }
@@ -208,11 +206,11 @@ export async function updateTicketFields(
         broadcastTicketUpdate(ticketId)
 
         return {success: true}
-    } catch (error) {
+    } catch(error) {
         logger.error(`[Agent Ticket Updates] Failed to update ticket ${ticketId}:`, error)
         return {
-            success: false,
             error: error instanceof Error ? error.message : String(error),
+            success: false,
         }
     }
 }

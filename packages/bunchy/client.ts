@@ -245,7 +245,7 @@ async function handleHMRUpdate(_filePath: string, timestamp: number) {
             if (store?.state) {
                 g.__HMR_STATE__ = JSON.parse(JSON.stringify(store.state))
             }
-        } catch (error) {
+        } catch(error) {
             console.warn('[Bunchy HMR] Could not access store state:', error)
         }
 
@@ -277,13 +277,15 @@ async function handleHMRUpdate(_filePath: string, timestamp: number) {
         const originalSrc = appScript.src.split('?')[0]
         appScript.remove()
 
-        // Set HMR update flag BEFORE creating/loading the script
-        // This is critical - ES modules execute immediately when appended
+        /*
+         * Set HMR update flag BEFORE creating/loading the script
+         * This is critical - ES modules execute immediately when appended
+         */
         g.__HMR_UPDATING__ = true
 
         // Set data attribute on html and body BEFORE script loads to disable CSS animations
-        document.documentElement.setAttribute('data-hmr-updating', 'true')
-        document.body.setAttribute('data-hmr-updating', 'true')
+        document.documentElement.dataset.hmrUpdating = 'true'
+        document.body.dataset.hmrUpdating = 'true'
         void document.body.offsetHeight // Force reflow
 
         // Create new script with cache busting
@@ -292,10 +294,12 @@ async function handleHMRUpdate(_filePath: string, timestamp: number) {
         newScript.src = `${originalSrc}?t=${timestamp}`
 
         // Wait for script to load
-        newScript.onload = async () => {
-            // The new script will execute and call app.init() with HMR flag set
-            // app.init() will detect HMR and re-initialize services, then re-render
-            // Wait a brief moment for the module to execute
+        newScript.onload = async() => {
+            /*
+             * The new script will execute and call app.init() with HMR flag set
+             * app.init() will detect HMR and re-initialize services, then re-render
+             * Wait a brief moment for the module to execute
+             */
             await new Promise((resolve) => setTimeout(resolve, 10))
 
             // Verify the Main component was updated
@@ -313,29 +317,30 @@ async function handleHMRUpdate(_filePath: string, timestamp: number) {
 
         // Insert new script - this will cause it to execute immediately
         document.head.append(newScript)
-    } catch (error) {
+    } catch(error) {
         console.error('[Bunchy HMR] Failed:', error)
         globalThis.location.reload()
     }
 }
 
-// Helper function to initialize Bunchy
-// Only initialize once to prevent multiple connections
+/*
+ * Helper function to initialize Bunchy
+ * Only initialize once to prevent multiple connections
+ */
 function initializeBunchy() {
     if ((globalThis as any).__BUNCHY_INITIALIZED__) {
         return
     }
-    ;(globalThis as any).__BUNCHY_INITIALIZED__ = true
+    (globalThis as any).__BUNCHY_INITIALIZED__ = true
     return new BunchyClient()
 }
 
 function setupLoggerForwarding(client: WebSocketClient) {
     // Set up log forwarding for the browser logger
     if (typeof (logger as any).setLogForwarder === 'function') {
-
         console.log('[Bunchy] Setting up log forwarder')
-        let isForwarding = false
-        ;(logger as any).setLogForwarder((logLevel: any, msg: string, args: any[]) => {
+        let isForwarding = false;
+        (logger as any).setLogForwarder((logLevel: any, msg: string, args: any[]) => {
             // Prevent recursive forwarding caused by logs emitted during forwarding (e.g., ws-client debug)
             if (isForwarding) {
                 return
@@ -360,7 +365,6 @@ function setupLoggerForwarding(client: WebSocketClient) {
                         timestamp: new Date().toISOString(),
                     })
                     .catch((error: any) => {
-
                         console.warn('[Bunchy] Failed to forward log:', error)
                     })
                     .finally(() => {
@@ -369,7 +373,6 @@ function setupLoggerForwarding(client: WebSocketClient) {
             }
         })
     } else {
-
         console.warn('[Bunchy] logger.setLogForwarder is not available')
     }
 }
@@ -379,17 +382,22 @@ function getWebSocketUrl(path: string): string {
     const protocol = globalThis.location.protocol === 'https:' ? 'wss:' : 'ws:'
     const hostname = globalThis.location.hostname
     const port = (globalThis as any).location.port
-    // Only include port if it's explicitly set and not the default (80 for HTTP, 443 for HTTPS)
-    // When behind Nginx with SSL, the port will be empty (defaults to 443) and Nginx will proxy to backend
+
+    /*
+     * Only include port if it's explicitly set and not the default (80 for HTTP, 443 for HTTPS)
+     * When behind Nginx with SSL, the port will be empty (defaults to 443) and Nginx will proxy to backend
+     */
     const portSuffix = port && port !== '80' && port !== '443' ? `:${port}` : ''
     return `${protocol}//${hostname}${portSuffix}${path}`
 }
 
 class BunchyClient extends WebSocketClient {
     constructor() {
-        // Use the full path to prevent WebSocketClient from appending /ws
-        // The endpoint should match the path provided in the server configuration
-        // Detect HTTP/HTTPS and use ws:// or wss:// accordingly
+        /*
+         * Use the full path to prevent WebSocketClient from appending /ws
+         * The endpoint should match the path provided in the server configuration
+         * Detect HTTP/HTTPS and use ws:// or wss:// accordingly
+         */
         const url = getWebSocketUrl('/bunchy')
 
         super(url)
@@ -453,9 +461,11 @@ class BunchyClient extends WebSocketClient {
     }
 }
 
-// Auto-initialize when script loads (after BunchyClient is defined)
-// Since this script is only included in development mode (see index.html template),
-// we can always initialize it
+/*
+ * Auto-initialize when script loads (after BunchyClient is defined)
+ * Since this script is only included in development mode (see index.html template),
+ * we can always initialize it
+ */
 initializeBunchy()
 
 export {initializeBunchy, setupLoggerForwarding, BunchyClient}

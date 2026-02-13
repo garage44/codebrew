@@ -8,18 +8,90 @@ import {db} from '../../database.ts'
 import {updateTicketFields} from '../../agent/ticket-updates.ts'
 
 export const ticketTools: Record<string, Tool> = {
-    get_ticket: {
-        name: 'get_ticket',
-        description: 'Get a single ticket by ID with full details',
+    add_ticket_comment: {
+        description: 'Add a comment to a ticket (useful for refining tickets, adding details, or breaking down tasks)',
+        execute: async(params: {
+            authorId?: string
+            authorType?: string
+            content: string
+            ticketId: string
+        }, context: ToolContext): Promise<ToolResult> => {
+            try {
+                // Verify ticket exists
+                const ticket = db.prepare('SELECT id FROM tickets WHERE id = ?').get(params.ticketId)
+                if (!ticket) {
+                    return {
+                        error: `Ticket not found: ${params.ticketId}`,
+                        success: false,
+                    }
+                }
+
+                const authorType = params.authorType || (context.agent ? 'agent' : 'user')
+                const authorId = params.authorId || (context.agent ? context.agent.getName() : 'system')
+                const commentId = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+
+                db.prepare(`
+                    INSERT INTO comments (id, ticket_id, content, author_type, author_id, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                `).run(commentId, params.ticketId, params.content, authorType, authorId, Date.now())
+
+                // Update ticket updated_at timestamp
+                db.prepare(`
+                    UPDATE tickets
+                    SET updated_at = ?
+                    WHERE id = ?
+                `).run(Date.now(), params.ticketId)
+
+                return {
+                    data: {
+                        authorId,
+                        authorType,
+                        commentId,
+                        content: params.content,
+                        ticketId: params.ticketId,
+                    },
+                    success: true,
+                }
+            } catch(error) {
+                logger.error('[TicketTool] Failed to add ticket comment:', error)
+                return {
+                    error: error instanceof Error ? error.message : String(error),
+                    success: false,
+                }
+            }
+        },
+        name: 'add_ticket_comment',
         parameters: [
             {
-                name: 'ticketId',
-                type: 'string',
                 description: 'Ticket ID',
+                name: 'ticketId',
                 required: true,
+                type: 'string',
+            },
+            {
+                description: 'Comment content',
+                name: 'content',
+                required: true,
+                type: 'string',
+            },
+            {
+                description: 'Author type (e.g., "agent", "user")',
+                name: 'authorType',
+                required: false,
+                type: 'string',
+            },
+            {
+                description: 'Author ID (defaults to agent name if not provided)',
+                name: 'authorId',
+                required: false,
+                type: 'string',
             },
         ],
-        execute: async (params: {ticketId: string}, context: ToolContext): Promise<ToolResult> => {
+    },
+
+    get_ticket: {
+        description: 'Get a single ticket by ID with full details',
+        execute: async(params: {ticketId: string}, context: ToolContext): Promise<ToolResult> => {
             try {
                 const ticket = db.prepare(`
                     SELECT t.*, r.name as repository_name, r.path as repository_path
@@ -27,26 +99,26 @@ export const ticketTools: Record<string, Tool> = {
                     LEFT JOIN repositories r ON t.repository_id = r.id
                     WHERE t.id = ?
                 `).get(params.ticketId) as {
-                    id: string
-                    repository_id: string
-                    title: string
-                    description: string | null
-                    status: string
-                    priority: number | null
-                    assignee_type: string | null
                     assignee_id: string | null
+                    assignee_type: string | null
                     branch_name: string | null
-                    merge_request_id: string | null
                     created_at: number
-                    updated_at: number
+                    description: string | null
+                    id: string
+                    merge_request_id: string | null
+                    priority: number | null
+                    repository_id: string
                     repository_name: string | null
                     repository_path: string | null
+                    status: string
+                    title: string
+                    updated_at: number
                 } | undefined
 
                 if (!ticket) {
                     return {
-                        success: false,
                         error: `Ticket not found: ${params.ticketId}`,
+                        success: false,
                     }
                 }
 
@@ -58,84 +130,138 @@ export const ticketTools: Record<string, Tool> = {
                 // Get assignees
                 const assignees = db.prepare(`
                     SELECT assignee_type, assignee_id FROM ticket_assignees WHERE ticket_id = ?
-                `).all(params.ticketId) as Array<{assignee_type: string; assignee_id: string}>
+                `).all(params.ticketId) as Array<{assignee_id: string; assignee_type: string}>
 
                 return {
-                    success: true,
                     data: {
                         ...ticket,
-                        labels: labels.map(l => l.label),
-                        assignees: assignees.map(a => ({
-                            type: a.assignee_type,
+                        assignees: assignees.map((a) => ({
                             id: a.assignee_id,
+                            type: a.assignee_type,
                         })),
+                        labels: labels.map((l) => l.label),
                     },
+                    success: true,
                 }
-            } catch (error) {
+            } catch(error) {
                 logger.error(`[TicketTool] Failed to get ticket ${params.ticketId}:`, error)
                 return {
-                    success: false,
                     error: error instanceof Error ? error.message : String(error),
+                    success: false,
                 }
             }
         },
+        name: 'get_ticket',
+        parameters: [
+            {
+                description: 'Ticket ID',
+                name: 'ticketId',
+                required: true,
+                type: 'string',
+            },
+        ],
+    },
+
+    get_ticket_statistics: {
+        description: 'Get ticket statistics and counts by status, priority, assignee, etc.',
+        execute: async(params: {repositoryId?: string}, context: ToolContext): Promise<ToolResult> => {
+            try {
+                const conditions: string[] = []
+                const values: unknown[] = []
+
+                if (params.repositoryId) {
+                    conditions.push('repository_id = ?')
+                    values.push(params.repositoryId)
+                }
+
+                const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
+
+                // Get counts by status
+                const statusCounts = db.prepare(`
+                    SELECT status, COUNT(*) as count
+                    FROM tickets
+                    ${whereClause}
+                    GROUP BY status
+                `).all(...(values as any)) as Array<{count: number; status: string}>
+
+                // Get counts by priority range
+                const priorityCounts = db.prepare(`
+                    SELECT
+                        CASE
+                            WHEN priority >= 8 THEN 'high'
+                            WHEN priority >= 5 THEN 'medium'
+                            WHEN priority >= 1 THEN 'low'
+                            ELSE 'unprioritized'
+                        END as priority_level,
+                        COUNT(*) as count
+                    FROM tickets
+                    ${whereClause}
+                    GROUP BY priority_level
+                `).all(...(values as any)) as Array<{count: number; priority_level: string}>
+
+                // Get total count
+                const totalResult = db.prepare(`
+                    SELECT COUNT(*) as total
+                    FROM tickets
+                    ${whereClause}
+                `).get(...(values as any)) as {total: number}
+
+                // Get tickets by assignee type
+                const assigneeCounts = db.prepare(`
+                    SELECT ta.assignee_type, COUNT(DISTINCT t.id) as count
+                    FROM tickets t
+                    LEFT JOIN ticket_assignees ta ON t.id = ta.ticket_id
+                    ${whereClause}
+                    GROUP BY ta.assignee_type
+                `).all(...(values as any)) as Array<{assignee_type: string | null; count: number}>
+
+                return {
+                    data: {
+                        byAssigneeType: assigneeCounts.reduce((acc, row) => {
+                            acc[row.assignee_type || 'unassigned'] = row.count
+                            return acc
+                        }, {} as Record<string, number>),
+                        byPriority: priorityCounts.reduce((acc, row) => {
+                            acc[row.priority_level] = row.count
+                            return acc
+                        }, {} as Record<string, number>),
+                        byStatus: statusCounts.reduce((acc, row) => {
+                            acc[row.status] = row.count
+                            return acc
+                        }, {} as Record<string, number>),
+                        total: totalResult.total,
+                    },
+                    success: true,
+                }
+            } catch(error) {
+                logger.error('[TicketTool] Failed to get ticket statistics:', error)
+                return {
+                    error: error instanceof Error ? error.message : String(error),
+                    success: false,
+                }
+            }
+        },
+        name: 'get_ticket_statistics',
+        parameters: [
+            {
+                description: 'Filter by repository ID (optional)',
+                name: 'repositoryId',
+                required: false,
+                type: 'string',
+            },
+        ],
     },
 
     list_tickets: {
-        name: 'list_tickets',
         description: 'List tickets with optional filters (status, assignee, repository). All filters are optional - if not specified, returns all tickets. Supports both inclusion (assigned to X) and exclusion (not assigned to X) filters. Use assigneeId="me" to filter by current agent.',
-        parameters: [
-            {
-                name: 'status',
-                type: 'string',
-                description: 'Filter by status (e.g., "todo", "in_progress", "review", "closed", "backlog")',
-                required: false,
-            },
-            {
-                name: 'assigneeType',
-                type: 'string',
-                description: 'Filter by assignee type (e.g., "agent", "user"). Use with assigneeId to include tickets assigned to this assignee.',
-                required: false,
-            },
-            {
-                name: 'assigneeId',
-                type: 'string',
-                description: 'Filter by assignee ID (e.g., agent name or user ID). Use "me" to refer to the current agent. Use with assigneeType to include tickets assigned to this assignee.',
-                required: false,
-            },
-            {
-                name: 'excludeAssigneeType',
-                type: 'string',
-                description: 'Exclude tickets assigned to this assignee type (e.g., "agent", "user"). Use with excludeAssigneeId to exclude tickets assigned to a specific assignee.',
-                required: false,
-            },
-            {
-                name: 'excludeAssigneeId',
-                type: 'string',
-                description: 'Exclude tickets assigned to this assignee ID. Use "me" to exclude tickets assigned to the current agent. Use with excludeAssigneeType.',
-                required: false,
-            },
-            {
-                name: 'repositoryId',
-                type: 'string',
-                description: 'Filter by repository ID',
-                required: false,
-            },
-            {
-                name: 'limit',
-                type: 'number',
-                description: 'Maximum number of tickets to return (default: 50)',
-                required: false,
-            },
-        ],
-        execute: async (params: {
-            status?: string
-            assigneeType?: string
+        execute: async(params: {
             assigneeId?: string
-            excludeAssigneeType?: string
+            assigneeType?: string
             excludeAssigneeId?: string
-            repositoryId?: string
+            excludeAssigneeType?: string
             limit?: number
+            repositoryId?: string
+            status?: string
         }, context: ToolContext): Promise<ToolResult> => {
             // Only resolve "me" if explicitly provided - don't auto-filter by agent
             let assigneeId = params.assigneeId
@@ -190,8 +316,10 @@ export const ticketTools: Record<string, Tool> = {
                     }
                 }
 
-                // Handle exclusion filter (NOT assigned to someone)
-                // Use a subquery to exclude tickets that have the specified assignee
+                /*
+                 * Handle exclusion filter (NOT assigned to someone)
+                 * Use a subquery to exclude tickets that have the specified assignee
+                 */
                 if (excludeAssigneeType || excludeAssigneeId) {
                     const excludeConditions: string[] = []
                     const excludeValues: unknown[] = []
@@ -218,139 +346,145 @@ export const ticketTools: Record<string, Tool> = {
                     query += ` WHERE ${conditions.join(' AND ')}`
                 }
 
-                query += ` ORDER BY t.priority DESC, t.created_at DESC LIMIT ?`
+                query += ' ORDER BY t.priority DESC, t.created_at DESC LIMIT ?'
                 values.push(limit)
 
                 const tickets = db.prepare(query).all(...(values as any)) as Array<{
-                    id: string
-                    repository_id: string
-                    title: string
-                    description: string | null
-                    status: string
-                    priority: number | null
-                    assignee_type: string | null
                     assignee_id: string | null
+                    assignee_type: string | null
                     branch_name: string | null
-                    merge_request_id: string | null
                     created_at: number
-                    updated_at: number
+                    description: string | null
+                    id: string
+                    merge_request_id: string | null
+                    priority: number | null
+                    repository_id: string
                     repository_name: string | null
+                    status: string
+                    title: string
+                    updated_at: number
                 }>
 
                 // Enrich with labels and assignees
                 const enriched = await Promise.all(
-                    tickets.map(async (ticket) => {
+                    tickets.map(async(ticket) => {
                         const labels = db.prepare(`
                             SELECT label FROM ticket_labels WHERE ticket_id = ?
                         `).all(ticket.id) as Array<{label: string}>
 
                         const assignees = db.prepare(`
                             SELECT assignee_type, assignee_id FROM ticket_assignees WHERE ticket_id = ?
-                        `).all(ticket.id) as Array<{assignee_type: string; assignee_id: string}>
+                        `).all(ticket.id) as Array<{assignee_id: string; assignee_type: string}>
 
                         return {
                             ...ticket,
-                            labels: labels.map(l => l.label),
-                            assignees: assignees.map(a => ({
-                                type: a.assignee_type,
+                            assignees: assignees.map((a) => ({
                                 id: a.assignee_id,
+                                type: a.assignee_type,
                             })),
+                            labels: labels.map((l) => l.label),
                         }
-                    })
+                    }),
                 )
 
                 return {
-                    success: true,
-                    data: enriched,
                     context: {
-                        total: enriched.length,
                         filters: {
-                            status: params.status,
-                            repositoryId: params.repositoryId,
                             limit: params.limit,
+                            repositoryId: params.repositoryId,
+                            status: params.status,
                             // Only include assignee filters if they were actually applied
-                            ...(assigneeType || assigneeId ? {assigneeType, assigneeId} : {}),
-                            ...(excludeAssigneeType || excludeAssigneeId ? {excludeAssigneeType, excludeAssigneeId} : {}),
+                            ...assigneeType || assigneeId ? {assigneeId, assigneeType} : {},
+                            ...excludeAssigneeType || excludeAssigneeId ? {excludeAssigneeId, excludeAssigneeType} : {},
                         },
+                        total: enriched.length,
                     },
+                    data: enriched,
+                    success: true,
                 }
-            } catch (error) {
+            } catch(error) {
                 logger.error('[TicketTool] Failed to list tickets:', error)
                 return {
-                    success: false,
                     error: error instanceof Error ? error.message : String(error),
+                    success: false,
                 }
             }
         },
+        name: 'list_tickets',
+        parameters: [
+            {
+                description: 'Filter by status (e.g., "todo", "in_progress", "review", "closed", "backlog")',
+                name: 'status',
+                required: false,
+                type: 'string',
+            },
+            {
+                description: 'Filter by assignee type (e.g., "agent", "user"). Use with assigneeId to include tickets assigned to this assignee.',
+                name: 'assigneeType',
+                required: false,
+                type: 'string',
+            },
+            {
+                description: 'Filter by assignee ID (e.g., agent name or user ID). Use "me" to refer to the current agent. Use with assigneeType to include tickets assigned to this assignee.',
+                name: 'assigneeId',
+                required: false,
+                type: 'string',
+            },
+            {
+                description: 'Exclude tickets assigned to this assignee type (e.g., "agent", "user"). Use with excludeAssigneeId to exclude tickets assigned to a specific assignee.',
+                name: 'excludeAssigneeType',
+                required: false,
+                type: 'string',
+            },
+            {
+                description: 'Exclude tickets assigned to this assignee ID. Use "me" to exclude tickets assigned to the current agent. Use with excludeAssigneeType.',
+                name: 'excludeAssigneeId',
+                required: false,
+                type: 'string',
+            },
+            {
+                description: 'Filter by repository ID',
+                name: 'repositoryId',
+                required: false,
+                type: 'string',
+            },
+            {
+                description: 'Maximum number of tickets to return (default: 50)',
+                name: 'limit',
+                required: false,
+                type: 'number',
+            },
+        ],
     },
 
     update_ticket: {
-        name: 'update_ticket',
         description: 'Update ticket fields (title, description, status, priority, solution_plan). Only include fields you want to update. All fields are optional.',
-        parameters: [
-            {
-                name: 'ticketId',
-                type: 'string',
-                description: 'Ticket ID',
-                required: true,
-            },
-            {
-                name: 'title',
-                type: 'string',
-                description: 'Ticket title',
-                required: false,
-            },
-            {
-                name: 'description',
-                type: 'string',
-                description: 'Ticket description (use markdown formatting, code blocks, Mermaid diagrams for architecture)',
-                required: false,
-            },
-            {
-                name: 'status',
-                type: 'string',
-                description: 'Ticket status (e.g., "todo", "in_progress", "review", "closed", "backlog")',
-                required: false,
-            },
-            {
-                name: 'priority',
-                type: 'number',
-                description: 'Ticket priority (0-10, where 10 is highest priority)',
-                required: false,
-            },
-            {
-                name: 'solution_plan',
-                type: 'string',
-                description: 'Solution plan for implementing the ticket (used by Developer agent)',
-                required: false,
-            },
-        ],
-        execute: async (params: {
-            ticketId: string
-            title?: string | null
+        execute: async(params: {
             description?: string | null
-            status?: string | null
             priority?: number | null
             solution_plan?: string | null
+            status?: string | null
+            ticketId: string
+            title?: string | null
         }, context: ToolContext): Promise<ToolResult> => {
             try {
                 const agentType = context.agent?.getType()
                 const result = await updateTicketFields(
                     params.ticketId,
                     {
-                        title: params.title,
                         description: params.description,
-                        status: params.status,
                         priority: params.priority,
                         solution_plan: params.solution_plan,
+                        status: params.status,
+                        title: params.title,
                     },
                     agentType,
                 )
 
                 if (!result.success) {
                     return {
-                        success: false,
                         error: result.error || 'Failed to update ticket',
+                        success: false,
                     }
                 }
 
@@ -361,100 +495,74 @@ export const ticketTools: Record<string, Tool> = {
                     LEFT JOIN repositories r ON t.repository_id = r.id
                     WHERE t.id = ?
                 `).get(params.ticketId) as {
-                    id: string
-                    title: string
                     description: string | null
-                    status: string
+                    id: string
                     priority: number | null
                     solution_plan: string | null
+                    status: string
+                    title: string
                 } | undefined
 
                 return {
-                    success: true,
                     data: {
-                        ticketId: params.ticketId,
                         ticket: ticket || null,
-                        updatedFields: Object.keys(params).filter(key => key !== 'ticketId' && params[key as keyof typeof params] !== undefined),
+                        ticketId: params.ticketId,
+                        updatedFields: Object.keys(params).filter((key) => key !== 'ticketId' && params[key as keyof typeof params] !== undefined),
                     },
+                    success: true,
                 }
-            } catch (error) {
-                logger.error(`[TicketTool] Failed to update ticket:`, error)
+            } catch(error) {
+                logger.error('[TicketTool] Failed to update ticket:', error)
                 return {
-                    success: false,
                     error: error instanceof Error ? error.message : String(error),
+                    success: false,
                 }
             }
         },
-    },
-
-    update_ticket_status: {
-        name: 'update_ticket_status',
-        description: 'Update ticket status (e.g., "todo", "in_progress", "review", "closed", "backlog"). Deprecated: Use update_ticket instead.',
+        name: 'update_ticket',
         parameters: [
             {
-                name: 'ticketId',
-                type: 'string',
                 description: 'Ticket ID',
+                name: 'ticketId',
                 required: true,
+                type: 'string',
             },
             {
-                name: 'status',
+                description: 'Ticket title',
+                name: 'title',
+                required: false,
                 type: 'string',
-                description: 'New status',
-                required: true,
+            },
+            {
+                description: 'Ticket description (use markdown formatting, code blocks, Mermaid diagrams for architecture)',
+                name: 'description',
+                required: false,
+                type: 'string',
+            },
+            {
+                description: 'Ticket status (e.g., "todo", "in_progress", "review", "closed", "backlog")',
+                name: 'status',
+                required: false,
+                type: 'string',
+            },
+            {
+                description: 'Ticket priority (0-10, where 10 is highest priority)',
+                name: 'priority',
+                required: false,
+                type: 'number',
+            },
+            {
+                description: 'Solution plan for implementing the ticket (used by Developer agent)',
+                name: 'solution_plan',
+                required: false,
+                type: 'string',
             },
         ],
-        execute: async (params: {ticketId: string; status: string}, context: ToolContext): Promise<ToolResult> => {
-            try {
-                const agentType = context.agent?.getType()
-                const result = await updateTicketFields(
-                    params.ticketId,
-                    {status: params.status},
-                    agentType,
-                )
-
-                if (!result.success) {
-                    return {
-                        success: false,
-                        error: result.error || 'Failed to update ticket status',
-                    }
-                }
-
-                return {
-                    success: true,
-                    data: {
-                        ticketId: params.ticketId,
-                        status: params.status,
-                    },
-                }
-            } catch (error) {
-                logger.error(`[TicketTool] Failed to update ticket status:`, error)
-                return {
-                    success: false,
-                    error: error instanceof Error ? error.message : String(error),
-                }
-            }
-        },
     },
 
     update_ticket_priority: {
-        name: 'update_ticket_priority',
         description: 'Update ticket priority (0-10, where 10 is highest priority). Deprecated: Use update_ticket instead.',
-        parameters: [
-            {
-                name: 'ticketId',
-                type: 'string',
-                description: 'Ticket ID',
-                required: true,
-            },
-            {
-                name: 'priority',
-                type: 'number',
-                description: 'Priority value (0-10, where 10 is highest)',
-                required: true,
-            },
-        ],
-        execute: async (params: {ticketId: string; priority: number}, context: ToolContext): Promise<ToolResult> => {
+        execute: async(params: {priority: number; ticketId: string}, context: ToolContext): Promise<ToolResult> => {
             try {
                 const agentType = context.agent?.getType()
                 const result = await updateTicketFields(
@@ -465,196 +573,90 @@ export const ticketTools: Record<string, Tool> = {
 
                 if (!result.success) {
                     return {
-                        success: false,
                         error: result.error || 'Failed to update ticket priority',
-                    }
-                }
-
-                return {
-                    success: true,
-                    data: {
-                        ticketId: params.ticketId,
-                        priority: params.priority,
-                    },
-                }
-            } catch (error) {
-                logger.error(`[TicketTool] Failed to update ticket priority:`, error)
-                return {
-                    success: false,
-                    error: error instanceof Error ? error.message : String(error),
-                }
-            }
-        },
-    },
-
-    add_ticket_comment: {
-        name: 'add_ticket_comment',
-        description: 'Add a comment to a ticket (useful for refining tickets, adding details, or breaking down tasks)',
-        parameters: [
-            {
-                name: 'ticketId',
-                type: 'string',
-                description: 'Ticket ID',
-                required: true,
-            },
-            {
-                name: 'content',
-                type: 'string',
-                description: 'Comment content',
-                required: true,
-            },
-            {
-                name: 'authorType',
-                type: 'string',
-                description: 'Author type (e.g., "agent", "user")',
-                required: false,
-            },
-            {
-                name: 'authorId',
-                type: 'string',
-                description: 'Author ID (defaults to agent name if not provided)',
-                required: false,
-            },
-        ],
-        execute: async (params: {
-            ticketId: string
-            content: string
-            authorType?: string
-            authorId?: string
-        }, context: ToolContext): Promise<ToolResult> => {
-            try {
-                // Verify ticket exists
-                const ticket = db.prepare('SELECT id FROM tickets WHERE id = ?').get(params.ticketId)
-                if (!ticket) {
-                    return {
                         success: false,
-                        error: `Ticket not found: ${params.ticketId}`,
                     }
                 }
 
-                const authorType = params.authorType || (context.agent ? 'agent' : 'user')
-                const authorId = params.authorId || (context.agent ? context.agent.getName() : 'system')
-                const commentId = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
-
-                db.prepare(`
-                    INSERT INTO comments (id, ticket_id, content, author_type, author_id, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                `).run(commentId, params.ticketId, params.content, authorType, authorId, Date.now())
-
-                // Update ticket updated_at timestamp
-                db.prepare(`
-                    UPDATE tickets
-                    SET updated_at = ?
-                    WHERE id = ?
-                `).run(Date.now(), params.ticketId)
-
                 return {
-                    success: true,
                     data: {
-                        commentId,
+                        priority: params.priority,
                         ticketId: params.ticketId,
-                        content: params.content,
-                        authorType,
-                        authorId,
                     },
+                    success: true,
                 }
-            } catch (error) {
-                logger.error(`[TicketTool] Failed to add ticket comment:`, error)
+            } catch(error) {
+                logger.error('[TicketTool] Failed to update ticket priority:', error)
                 return {
-                    success: false,
                     error: error instanceof Error ? error.message : String(error),
+                    success: false,
                 }
             }
         },
-    },
-
-    get_ticket_statistics: {
-        name: 'get_ticket_statistics',
-        description: 'Get ticket statistics and counts by status, priority, assignee, etc.',
+        name: 'update_ticket_priority',
         parameters: [
             {
-                name: 'repositoryId',
+                description: 'Ticket ID',
+                name: 'ticketId',
+                required: true,
                 type: 'string',
-                description: 'Filter by repository ID (optional)',
-                required: false,
+            },
+            {
+                description: 'Priority value (0-10, where 10 is highest)',
+                name: 'priority',
+                required: true,
+                type: 'number',
             },
         ],
-        execute: async (params: {repositoryId?: string}, context: ToolContext): Promise<ToolResult> => {
+    },
+
+    update_ticket_status: {
+        description: 'Update ticket status (e.g., "todo", "in_progress", "review", "closed", "backlog"). Deprecated: Use update_ticket instead.',
+        execute: async(params: {status: string; ticketId: string}, context: ToolContext): Promise<ToolResult> => {
             try {
-                const conditions: string[] = []
-                const values: unknown[] = []
+                const agentType = context.agent?.getType()
+                const result = await updateTicketFields(
+                    params.ticketId,
+                    {status: params.status},
+                    agentType,
+                )
 
-                if (params.repositoryId) {
-                    conditions.push('repository_id = ?')
-                    values.push(params.repositoryId)
+                if (!result.success) {
+                    return {
+                        error: result.error || 'Failed to update ticket status',
+                        success: false,
+                    }
                 }
 
-                const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
-
-                // Get counts by status
-                const statusCounts = db.prepare(`
-                    SELECT status, COUNT(*) as count
-                    FROM tickets
-                    ${whereClause}
-                    GROUP BY status
-                `).all(...(values as any)) as Array<{status: string; count: number}>
-
-                // Get counts by priority range
-                const priorityCounts = db.prepare(`
-                    SELECT
-                        CASE
-                            WHEN priority >= 8 THEN 'high'
-                            WHEN priority >= 5 THEN 'medium'
-                            WHEN priority >= 1 THEN 'low'
-                            ELSE 'unprioritized'
-                        END as priority_level,
-                        COUNT(*) as count
-                    FROM tickets
-                    ${whereClause}
-                    GROUP BY priority_level
-                `).all(...(values as any)) as Array<{priority_level: string; count: number}>
-
-                // Get total count
-                const totalResult = db.prepare(`
-                    SELECT COUNT(*) as total
-                    FROM tickets
-                    ${whereClause}
-                `).get(...(values as any)) as {total: number}
-
-                // Get tickets by assignee type
-                const assigneeCounts = db.prepare(`
-                    SELECT ta.assignee_type, COUNT(DISTINCT t.id) as count
-                    FROM tickets t
-                    LEFT JOIN ticket_assignees ta ON t.id = ta.ticket_id
-                    ${whereClause}
-                    GROUP BY ta.assignee_type
-                `).all(...(values as any)) as Array<{assignee_type: string | null; count: number}>
-
                 return {
-                    success: true,
                     data: {
-                        total: totalResult.total,
-                        byStatus: statusCounts.reduce((acc, row) => {
-                            acc[row.status] = row.count
-                            return acc
-                        }, {} as Record<string, number>),
-                        byPriority: priorityCounts.reduce((acc, row) => {
-                            acc[row.priority_level] = row.count
-                            return acc
-                        }, {} as Record<string, number>),
-                        byAssigneeType: assigneeCounts.reduce((acc, row) => {
-                            acc[row.assignee_type || 'unassigned'] = row.count
-                            return acc
-                        }, {} as Record<string, number>),
+                        status: params.status,
+                        ticketId: params.ticketId,
                     },
+                    success: true,
                 }
-            } catch (error) {
-                logger.error('[TicketTool] Failed to get ticket statistics:', error)
+            } catch(error) {
+                logger.error('[TicketTool] Failed to update ticket status:', error)
                 return {
-                    success: false,
                     error: error instanceof Error ? error.message : String(error),
+                    success: false,
                 }
             }
         },
+        name: 'update_ticket_status',
+        parameters: [
+            {
+                description: 'Ticket ID',
+                name: 'ticketId',
+                required: true,
+                type: 'string',
+            },
+            {
+                description: 'New status',
+                name: 'status',
+                required: true,
+                type: 'string',
+            },
+        ],
     },
 }

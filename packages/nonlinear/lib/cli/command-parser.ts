@@ -38,11 +38,9 @@ function parseArgs(args: string[]): Record<string, unknown> {
                 // --flag (boolean)
                 params[key] = true
             }
-        } else {
+        } else if (Object.keys(params).length === 0) {
             // Positional argument - treat as value for first parameter
-            if (Object.keys(params).length === 0) {
-                params.value = arg
-            }
+            params.value = arg
         }
 
         i++
@@ -179,7 +177,7 @@ export async function executeToolCommand(
  * Get compact list of tools (names and descriptions only)
  */
 export function getToolsList(tools: Record<string, Tool>): string {
-    const toolNames = Object.keys(tools).sort()
+    const toolNames = Object.keys(tools).toSorted()
     const lines: string[] = []
 
     lines.push(pc.cyan('\nAvailable Tools:\n'))
@@ -196,7 +194,7 @@ export function getToolsList(tools: Record<string, Tool>): string {
     }
 
     // Display by category
-    for (const [category, toolList] of Object.entries(categories).sort()) {
+    for (const [category, toolList] of Object.entries(categories).toSorted()) {
         if (category !== 'other') {
             lines.push(pc.gray(`  ${category}:`))
         }
@@ -217,7 +215,7 @@ export function getToolsList(tools: Record<string, Tool>): string {
  * Get help text for all available tools
  */
 export function getToolsHelp(tools: Record<string, Tool>): string {
-    const toolNames = Object.keys(tools).sort()
+    const toolNames = Object.keys(tools).toSorted()
     const helpLines: string[] = []
 
     helpLines.push(pc.cyan('\nAvailable Tools:\n'))

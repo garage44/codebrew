@@ -7,7 +7,9 @@ import {WebSocketClient} from '../../lib/ws-client.ts'
 
 export class TestClient {
     public client: WebSocketClient
+
     public messages: Array<unknown> = []
+
     public errors: Array<Error> = []
 
     constructor(url: string) {
@@ -51,7 +53,7 @@ export class TestClient {
     waitForMessage(timeout = 5000): Promise<unknown> {
         return new Promise((resolve, reject) => {
             if (this.messages.length > 0) {
-                resolve(this.messages[this.messages.length - 1])
+                resolve(this.messages.at(-1))
                 return
             }
 

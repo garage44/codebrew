@@ -9,9 +9,8 @@ import Deepl from './engines/deepl.ts'
  * exposing a common interface for translation software like Expressio to use.
  */
 export class Enola {
-
-    config:EnolaConfig = {
-        engines:{},
+    config: EnolaConfig = {
+        engines: {},
         languages: {
             source,
             target: target.map((lang) => ({
@@ -83,11 +82,11 @@ export class Enola {
         throw new Error(`Engine ${engine} does not support suggestions`)
     }
 
-    async translate(engine, tag:EnolaTag, targetLanguage:TargetLanguage) {
+    async translate(engine, tag: EnolaTag, targetLanguage: TargetLanguage) {
         return await this.engines[engine].translate(tag, targetLanguage)
     }
 
-    async translateBatch(engine, tags:EnolaTag[], targetLanguage:TargetLanguage) {
+    async translateBatch(engine, tags: EnolaTag[], targetLanguage: TargetLanguage) {
         return await this.engines[engine].translateBatch(tags, targetLanguage)
     }
 

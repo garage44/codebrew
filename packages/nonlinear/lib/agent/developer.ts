@@ -20,21 +20,23 @@ export class DeveloperAgent extends BaseAgent {
 
     async process(context: AgentContext): Promise<AgentResponse> {
         let ticket: {
-            id: string
-            repository_id: string
-            title: string
+            config: string
             description: string | null
+            id: string
             path: string
             platform: 'github' | 'gitlab' | 'local'
             remote_url: string | null
-            config: string
+            repository_id: string
+            title: string
         } | undefined
 
         try {
-            // Get a ticket that:
-            // 1. Has "refined" label
-            // 2. Is assigned to this DeveloperAgent
-            // 3. Is in "todo" or "in_progress" status (allows resuming after crash)
+            /*
+             * Get a ticket that:
+             * 1. Has "refined" label
+             * 2. Is assigned to this DeveloperAgent
+             * 3. Is in "todo" or "in_progress" status (allows resuming after crash)
+             */
             ticket = db.prepare(`
                 SELECT DISTINCT t.*, r.path, r.platform, r.remote_url, r.config
                 FROM tickets t
@@ -52,8 +54,8 @@ export class DeveloperAgent extends BaseAgent {
             if (!ticket) {
                 this.log('No refined tickets assigned to DeveloperAgent found')
                 return {
-                    success: true,
                     message: 'No tickets to work on',
+                    success: true,
                 }
             }
 
@@ -75,13 +77,13 @@ export class DeveloperAgent extends BaseAgent {
 
             // Get git platform adapter
             const repo = {
+                config: ticket.config,
+                created_at: 0,
                 id: ticket.repository_id,
+                name: '',
                 path: ticket.path,
                 platform: ticket.platform,
                 remote_url: ticket.remote_url,
-                config: ticket.config,
-                created_at: 0,
-                name: '',
                 updated_at: 0,
             } as Repository
 
@@ -101,10 +103,10 @@ export class DeveloperAgent extends BaseAgent {
 
             // Build agent context for tools
             const agentContext: AgentContext = {
-                ticketId: ticket.id,
+                branchName,
                 repositoryId: ticket.repository_id,
                 repositoryPath: ticket.path,
-                branchName,
+                ticketId: ticket.id,
             }
 
             // Check if solution plan already exists (resume scenario)
@@ -115,7 +117,10 @@ export class DeveloperAgent extends BaseAgent {
             let solutionPlan = existingTicket?.solution_plan
 
             // Phase 1: Planning - Generate solution plan if it doesn't exist
-            if (!solutionPlan) {
+            if (solutionPlan) {
+                // Solution plan exists, skip planning
+                this.log(`Using existing solution plan for ticket ${ticket.id}`)
+            } else {
                 this.log(`Generating solution plan for ticket ${ticket.id}`)
 
                 const repoContext = await this.getRepositoryContext(ticket.path)
@@ -157,8 +162,6 @@ Use the available tools to gather context and create a detailed solution plan.`
                 // Store solution plan in ticket
                 await updateTicketFromAgent(ticket.id, {solution_plan: solutionPlan})
                 this.log(`Solution plan generated and stored for ticket ${ticket.id}`)
-            } else {
-                this.log(`Using existing solution plan for ticket ${ticket.id}`)
             }
 
             // Phase 2: Execution - Execute the solution plan using tools
@@ -194,7 +197,12 @@ ${solutionPlan}
 Use the available tools to implement the solution plan. Make changes directly using file tools, run tests, and commit changes.`
 
             // Execute using tools - tools will handle file operations directly
-            await this.respondWithTools(executionPrompt, executionMessage, 8192, agentContext)
+            await this.respondWithTools(
+                executionPrompt,
+                executionMessage,
+                8192,
+                agentContext,
+            )
 
             // After tools have made changes, commit and create MR
             const originalCwd = process.cwd()
@@ -202,10 +210,16 @@ Use the available tools to implement the solution plan. Make changes directly us
                 process.chdir(ticket.path)
 
                 // Commit changes (tools may have already committed, but ensure we have a commit)
-                const gitStatus = await $`git status --porcelain`.cwd(ticket.path).quiet().text()
+                const gitStatusProc = Bun.spawn(['git', 'status', '--porcelain'], {
+                    cwd: ticket.path,
+                    stdout: 'pipe',
+                    stderr: 'pipe',
+                })
+                const gitStatus = await new Response(gitStatusProc.stdout).text();
+                await gitStatusProc.exited;
                 if (gitStatus.trim()) {
-                    await $`git add -A`.cwd(ticket.path).quiet()
-                    await $`git commit -m "Implement: ${ticket.title}"`.cwd(ticket.path).quiet()
+                    await Bun.spawn(['git', 'add', '-A'], {cwd: ticket.path}).exited;
+                    await Bun.spawn(['git', 'commit', '-m', 'Implement: ' + ticket.title], {cwd: ticket.path}).exited;
                     this.log('Committed changes')
                 }
 
@@ -214,36 +228,34 @@ Use the available tools to implement the solution plan. Make changes directly us
                 const ciRunner = new CIRunner()
                 const ciResult = await ciRunner.run(ticket.id, ticket.path)
 
-                if (!ciResult.success) {
-                    this.log(`CI failed: ${ciResult.error}`, 'warn')
+                if (ciResult.success) {
+                    // CI passed
+                    this.log('CI checks passed')
+                    const ciMessage = ciResult.fixesApplied.length > 0
+                        ? 'CI checks passed (' + ciResult.fixesApplied.length + ' fixes applied)'
+                        : 'CI checks passed'
+                    await addAgentComment(ticket.id, this.name, ciMessage)
+                } else {
+                    this.log('CI failed: ' + ciResult.error, 'warn')
                     // Add comment about CI failure
-                    await addAgentComment(ticket.id, this.name, `CI checks failed:\n\n${ciResult.output}\n\nFixes applied: ${ciResult.fixesApplied.length}`)
+                    const failureMessage = 'CI checks failed:\n\n' + ciResult.output + '\n\nFixes applied: ' + ciResult.fixesApplied.length
+                    await addAgentComment(ticket.id, this.name, failureMessage)
 
                     // If CI fixed some issues, commit the fixes
                     if (ciResult.fixesApplied.length > 0) {
-                        await $`git add -A`.cwd(ticket.path).quiet()
-                        await $`git commit -m "Fix: Apply CI auto-fixes"`.cwd(ticket.path).quiet()
-                        this.log(`Applied ${ciResult.fixesApplied.length} CI fixes`)
+                        await Bun.spawn(['git', 'add', '-A'], {cwd: ticket.path}).exited;
+                        await Bun.spawn(['git', 'commit', '-m', 'Fix: Apply CI auto-fixes'], {cwd: ticket.path}).exited;
+                        this.log('Applied ' + ciResult.fixesApplied.length + ' CI fixes');
                     } else {
                         // CI failed and couldn't be auto-fixed, mark ticket as needing attention
-                        db.prepare(`
-                            UPDATE tickets
-                            SET status = 'todo',
-                                assignee_type = NULL,
-                                assignee_id = NULL,
-                                updated_at = ?
-                            WHERE id = ?
-                        `).run(Date.now(), ticket.id)
+                        db.prepare('UPDATE tickets SET status = ?, assignee_type = NULL, assignee_id = NULL, updated_at = ? WHERE id = ?').run('todo', Date.now(), ticket.id)
 
                         return {
-                            success: false,
-                            message: 'CI checks failed and could not be auto-fixed',
                             error: ciResult.error,
+                            message: 'CI checks failed and could not be auto-fixed',
+                            success: false,
                         }
                     }
-                } else {
-                    this.log('CI checks passed')
-                    await addAgentComment(ticket.id, this.name, `CI checks passed${ciResult.fixesApplied.length > 0 ? ` (${ciResult.fixesApplied.length} fixes applied)` : ''}`)
                 }
 
                 // Create merge request
@@ -255,44 +267,36 @@ Use the available tools to implement the solution plan. Make changes directly us
                 )
 
                 // Update ticket with MR ID
-                db.prepare(`
-                    UPDATE tickets
-                    SET merge_request_id = ?,
-                        status = 'review',
-                        updated_at = ?
-                    WHERE id = ?
-                `).run(mrId, Date.now(), ticket.id)
+                const updateStmt = db.prepare('UPDATE tickets SET merge_request_id = ?, status = \'review\', updated_at = ? WHERE id = ?')
+                updateStmt.run(mrId, Date.now(), ticket.id)
 
-                this.log(`Ticket ${ticket.id} implementation complete, MR created: ${mrId}`)
+                this.log(
+                    'Ticket ' + ticket.id + ' implementation complete, MR created: ' + mrId,
+                )
 
                 return {
-                    success: true,
-                    message: `Implementation complete, MR #${mrId} created`,
                     data: {
-                        ticketId: ticket.id,
                         branchName,
                         mergeRequestId: mrId,
+                        ticketId: ticket.id,
                     },
+                    message: 'Implementation complete, MR #' + mrId + ' created',
+                    success: true,
                 }
             } finally {
                 process.chdir(originalCwd)
             }
-        } catch (error) {
-            this.log(`Error during development: ${error}`, 'error')
+        } catch(_error) {
+            this.log('Error during development: ' + error, 'error')
             // Revert ticket status back to todo on error
             if (ticket) {
-                db.prepare(`
-                    UPDATE tickets
-                    SET status = 'todo',
-                        updated_at = ?
-                    WHERE id = ?
-                `).run(Date.now(), ticket.id)
-                this.log(`Reverted ticket ${ticket.id} status to todo due to error`)
+                db.prepare('UPDATE tickets SET status = \'todo\', updated_at = ? WHERE id = ?').run(Date.now(), ticket.id)
+                this.log('Reverted ticket ' + ticket.id + ' status to todo due to error')
             }
             return {
-                success: false,
-                message: 'Development failed',
                 error: error instanceof Error ? error.message : String(error),
+                message: 'Development failed',
+                success: false,
             }
         }
     }
@@ -309,62 +313,56 @@ Use the available tools to implement the solution plan. Make changes directly us
                 packageJson: packageJson ? JSON.parse(packageJson) : null,
                 readme: readme || null,
             }, null, 2)
-        } catch (error) {
-            return `Error reading repository context: ${error}`
+        } catch(_error) {
+            return 'Error reading repository context: ' + error
         }
     }
 
     async executeInstruction(instruction: string, context?: AgentContext): Promise<AgentResponse> {
-        const systemPrompt = `You are a Developer agent. You implement features and fix bugs based on ticket requirements.
-
-Your role is to:
-- Implement code changes for tickets
-- Write and run tests
-- Create merge requests
-- Fix bugs and issues
-
-Available commands:
-- "work on ticket <id>" or "work on <id>" - Start working on a specific ticket
-- "implement ticket <id>" - Implement the requirements for a ticket
-- "fix ticket <id>" - Fix issues in a ticket
-- "show ticket <id>" - Show details of a specific ticket
-- "show my tickets" - Show tickets assigned to you
-- "show tickets not assigned to me" - Show tickets that are NOT assigned to you
-- "show statistics" or "stats" - Show ticket statistics
-
-You have access to tools for:
-- Reading and writing files
-- Searching code
-- Running tests and linting
-- Git operations (status, commit, create MR)
-- Ticket operations (get_ticket, list_tickets, update_ticket_status, add_ticket_comment, get_ticket_statistics)
-- Listing tickets with filters: use list_tickets with status, assigneeType/assigneeId for inclusion, or excludeAssigneeType/excludeAssigneeId for exclusion
-- When user asks for "tickets not assigned to me", use excludeAssigneeId="me" with excludeAssigneeType="agent"
-- Adding comments to tickets (add_ticket_comment) for progress updates or clarifications
-- Getting ticket statistics (get_ticket_statistics) for understanding workload
-
-IMPORTANT: You do NOT prioritize tickets. If asked about prioritization, politely redirect the user to the Planner agent.
-
-When given an instruction, interpret it and use the appropriate tools to complete the task.
-Follow the project's coding standards and best practices. Write tests for your changes.
-Be thorough and ensure the implementation matches the ticket requirements.`
+        const systemPrompt = 'You are a Developer agent. You implement features and fix bugs based on ticket requirements.\n\n' +
+            'Your role is to:\n' +
+            '- Implement code changes for tickets\n' +
+            '- Write and run tests\n' +
+            '- Create merge requests\n' +
+            '- Fix bugs and issues\n\n' +
+            'Available commands:\n' +
+            '- "work on ticket <id>" or "work on <id>" - Start working on a specific ticket\n' +
+            '- "implement ticket <id>" - Implement the requirements for a ticket\n' +
+            '- "fix ticket <id>" - Fix issues in a ticket\n' +
+            '- "show ticket <id>" - Show details of a specific ticket\n' +
+            '- "show my tickets" - Show tickets assigned to you\n' +
+            '- "show tickets not assigned to me" - Show tickets that are NOT assigned to you\n' +
+            '- "show statistics" or "stats" - Show ticket statistics\n\n' +
+            'You have access to tools for:\n' +
+            '- Reading and writing files\n' +
+            '- Searching code\n' +
+            '- Running tests and linting\n' +
+            '- Git operations (status, commit, create MR)\n' +
+            '- Ticket operations (get_ticket, list_tickets, update_ticket_status, add_ticket_comment, get_ticket_statistics)\n' +
+            '- Listing tickets with filters: use list_tickets with status, assigneeType/assigneeId for inclusion, or excludeAssigneeType/excludeAssigneeId for exclusion\n' +
+            '- When user asks for "tickets not assigned to me", use excludeAssigneeId="me" with excludeAssigneeType="agent"\n' +
+            '- Adding comments to tickets (add_ticket_comment) for progress updates or clarifications\n' +
+            '- Getting ticket statistics (get_ticket_statistics) for understanding workload\n\n' +
+            'IMPORTANT: You do NOT prioritize tickets. If asked about prioritization, politely redirect the user to the Planner agent.\n\n' +
+            'When given an instruction, interpret it and use the appropriate tools to complete the task.\n' +
+            'Follow the project\'s coding standards and best practices. Write tests for your changes.\n' +
+            'Be thorough and ensure the implementation matches the ticket requirements.'
 
         const agentContext = context || this.buildToolContext({})
 
         try {
             const response = await this.respondWithTools(systemPrompt, instruction, 4096, agentContext as AgentContext)
             return {
-                success: true,
                 message: response,
+                success: true,
             }
-        } catch(error) {
+        } catch(_error) {
             const errorMsg = error instanceof Error ? error.message : String(error)
             return {
-                success: false,
-                message: 'Failed to execute instruction',
                 error: errorMsg,
+                message: 'Failed to execute instruction',
+                success: false,
             }
         }
     }
-
 }

@@ -1,5 +1,5 @@
 import {$s} from '@/app'
-import {logger, notifier, $t, store} from '@garage44/common/app'
+import {logger, notifier, $t} from '@garage44/common/app'
 import * as sfu from './sfu/sfu.ts'
 
 export let localStream
@@ -17,6 +17,45 @@ let fakeAudioDataArray: Uint8Array | null = null
 let fakeAudioSource: MediaStreamAudioSourceNode | null = null
 
 /**
+ * Helper function to create fake stream fallback when no devices are available
+ */
+async function createFakeStreamFallback(selectedVideoDevice: unknown, selectedAudioDevice: unknown) {
+    logger.info(`[media] No devices available, creating fake stream as fallback`)
+    try {
+        const width = selectedVideoDevice && typeof selectedVideoDevice === 'object' && selectedVideoDevice.width?.ideal || 640
+        const height = selectedVideoDevice && typeof selectedVideoDevice === 'object' && selectedVideoDevice.height?.ideal || 480
+
+        // Try to get microphone access if audio is enabled and video is fake
+        // This allows the pattern to oscillate with microphone input
+        let microphoneStream: MediaStream | null = null
+        if (selectedVideoDevice && selectedAudioDevice) {
+            // Video is fake, but try to get real microphone for pattern oscillation
+            try {
+                microphoneStream = await navigator.mediaDevices.getUserMedia({audio: true, video: false})
+                logger.debug(`[media] Got microphone access for pattern oscillation`)
+            } catch (micError) {
+                logger.debug(`[media] Could not get microphone access: ${micError}`)
+            }
+        }
+
+        localStream = createFakeStream({
+            video: !!selectedVideoDevice,
+            audio: !!selectedAudioDevice,
+            width,
+            height,
+            microphoneStream: microphoneStream || undefined,
+        })
+
+        notifier.notify({
+            level: 'info',
+            message: microphoneStream ? 'No camera available. Using test pattern with microphone input.' : 'No devices available. Using test pattern stream.',
+        })
+    } catch (fakeError) {
+        logger.error(`[media] Failed to create fake stream: ${fakeError}`)
+    }
+}
+
+/**
  * Creates a fake MediaStream with synthetic video and/or audio tracks.
  * Used as a fallback when no real devices are available.
  * @param options.video - Whether to create a fake video track
@@ -25,10 +64,10 @@ let fakeAudioSource: MediaStreamAudioSourceNode | null = null
  * @param options.height - Video height (default: 480)
  * @param options.microphoneStream - Optional real microphone stream to use for pattern oscillation
  */
-function createFakeStream(options: {audio?: boolean; height?: number; microphoneStream?: MediaStream; video?: boolean; width?: number}): MediaStream {
+function createFakeStream(options: {video?: boolean; audio?: boolean; width?: number; height?: number; microphoneStream?: MediaStream}): MediaStream {
     // Force 4:3 aspect ratio for fake stream (consistent across all browsers)
-    const {audio = false, microphoneStream = null, video = false} = options
-    const width = 640 // Always use 4:3 aspect ratio
+    const {video = false, audio = false, microphoneStream = null} = options
+    const width = 640  // Always use 4:3 aspect ratio
     const height = 480 // Always use 4:3 aspect ratio
     const stream = new MediaStream()
 
@@ -42,8 +81,8 @@ function createFakeStream(options: {audio?: boolean; height?: number; microphone
             fakeAudioAnalyser.fftSize = 256
             fakeAudioDataArray = new Uint8Array(fakeAudioAnalyser.frequencyBinCount)
             fakeAudioSource.connect(fakeAudioAnalyser)
-            logger.debug('[media] Set up audio analysis for pattern oscillation')
-        } catch(error) {
+            logger.debug(`[media] Set up audio analysis for pattern oscillation`)
+        } catch (error) {
             logger.warn(`[media] Failed to set up audio analysis: ${error}`)
         }
     }
@@ -65,7 +104,7 @@ function createFakeStream(options: {audio?: boolean; height?: number; microphone
 
             // Get audio level if microphone is available
             if (fakeAudioAnalyser && fakeAudioDataArray) {
-                fakeAudioAnalyser.getByteFrequencyData(fakeAudioDataArray as Uint8Array<ArrayBuffer>)
+                fakeAudioAnalyser.getByteFrequencyData(fakeAudioDataArray)
                 // Calculate RMS (root mean square) for overall volume
                 let sum = 0
                 for (let i = 0; i < fakeAudioDataArray.length; i++) {
@@ -80,10 +119,8 @@ function createFakeStream(options: {audio?: boolean; height?: number; microphone
             const w = fakeVideoCanvas.width
             const h = fakeVideoCanvas.height
 
-            /*
-             * Clear canvas with theme-matching dark blue background
-             * Matches --surface-1: oklch(0.16 0.020 230) ≈ #1e2332
-             */
+            // Clear canvas with theme-matching dark blue background
+            // Matches --surface-1: oklch(0.16 0.020 230) ≈ #1e2332
             ctx.fillStyle = '#1e2332' // Dark blue-grey matching theme surface-1
             ctx.fillRect(0, 0, w, h)
 
@@ -92,17 +129,13 @@ function createFakeStream(options: {audio?: boolean; height?: number; microphone
             const centerX = w / 2
             const centerY = h / 2
 
-            /*
-             * Scale circles based on canvas size to fit any aspect ratio
-             * Use the smaller dimension as reference to ensure circles fit
-             */
+            // Scale circles based on canvas size to fit any aspect ratio
+            // Use the smaller dimension as reference to ensure circles fit
             const minDimension = Math.min(w, h)
             const scaleFactor = minDimension / 480 // Normalize to 480px reference
 
-            /*
-             * Maximum radius ensuring circles fit with padding
-             * Account for: stroke line width (max ~6px), gradient extension (10%), and padding
-             */
+            // Maximum radius ensuring circles fit with padding
+            // Account for: stroke line width (max ~6px), gradient extension (10%), and padding
             const maxLineWidth = 2.5 + 3.5 // Maximum line width (base + audio max)
             // Use 35% of min dimension, leaving room for stroke (lineWidth/2) and gradient extension
             const maxRadius = Math.min(w, h) * 0.35 - maxLineWidth / 2
@@ -121,37 +154,29 @@ function createFakeStream(options: {audio?: boolean; height?: number; microphone
                 // Calculate line width first (needed for proper clamping)
                 const lineWidth = 2.5 + audioLevel * 3.5 // Thicker lines with more audio
 
-                /*
-                 * Clamp radius accounting for stroke width (stroke extends lineWidth/2 beyond radius)
-                 * Also account for gradient extension (10% beyond radius)
-                 */
+                // Clamp radius accounting for stroke width (stroke extends lineWidth/2 beyond radius)
+                // Also account for gradient extension (10% beyond radius)
                 const maxEffectiveRadius = maxRadius - lineWidth / 2
                 const clampedRadius = Math.min(radius, maxEffectiveRadius)
 
-                /*
-                 * Theme-matching blue color scheme (hue 230 matches --h-primary)
-                 * Shift hue slightly per circle for subtle variation
-                 */
+                // Theme-matching blue color scheme (hue 230 matches --h-primary)
+                // Shift hue slightly per circle for subtle variation
                 const baseHue = 230 + i * 5 // Start at theme primary blue (230), subtle shift per circle
                 const hueVariation = Math.sin(time * 0.5 + i) * 10 // Subtle hue animation
                 const hue = (baseHue + hueVariation + audioLevel * 15) % 360
 
-                /*
-                 * Saturation and lightness matching theme primary colors
-                 * Theme uses chroma 0.06-0.08 and lightness 0.4-0.6 for primary colors
-                 */
+                // Saturation and lightness matching theme primary colors
+                // Theme uses chroma 0.06-0.08 and lightness 0.4-0.6 for primary colors
                 const saturation = 55 + audioLevel * 30 // 55-85% saturation (matches theme chroma)
                 const lightness = 50 + audioLevel * 20 // 50-70% lightness (matches theme lightness)
 
-                /*
-                 * Create radial gradient for each circle
-                 * Gradient goes from brighter center to darker edges
-                 * Ensure gradient outer edge doesn't exceed maxEffectiveRadius
-                 */
+                // Create radial gradient for each circle
+                // Gradient goes from brighter center to darker edges
+                // Ensure gradient outer edge doesn't exceed maxEffectiveRadius
                 const gradientOuterRadius = Math.min(clampedRadius * 1.1, maxEffectiveRadius)
                 const gradient = ctx.createRadialGradient(
                     centerX, centerY, clampedRadius * 0.7, // Inner circle (gradient start)
-                    centerX, centerY, gradientOuterRadius, // Outer circle (gradient end, clamped)
+                    centerX, centerY, gradientOuterRadius    // Outer circle (gradient end, clamped)
                 )
 
                 // Inner color (brighter, more saturated)
@@ -242,7 +267,7 @@ function createFakeStream(options: {audio?: boolean; height?: number; microphone
             // Use real microphone audio track
             const audioTrack = microphoneStream.getAudioTracks()[0]
             stream.addTrack(audioTrack.clone())
-            logger.debug('[media] Using real microphone audio track for fake stream')
+            logger.debug(`[media] Using real microphone audio track for fake stream`)
         } else {
             // Create silent fake audio track
             try {
@@ -283,7 +308,7 @@ function createFakeStream(options: {audio?: boolean; height?: number; microphone
                     })
                     stream.addTrack(audioTrack)
                 }
-            } catch(error) {
+            } catch (error) {
                 logger.warn(`[media] Failed to create fake audio track: ${error}`)
             }
         }
@@ -299,18 +324,18 @@ export async function getUserMedia(presence) {
 
     // Cleanup the old networked stream first:
     if (localStream) {
-        logger.debug('[media] cleaning up existing localStream')
+        logger.debug(`[media] cleaning up existing localStream`)
         if ($s.sfu.channel.connected) {
-            logger.debug('[media] removing old camera stream from SFU')
+            logger.debug(`[media] removing old camera stream from SFU`)
             sfu.delUpMediaKind('camera')
         } else {
-            logger.debug('[media] removing local stream (not connected)')
+            logger.debug(`[media] removing local stream (not connected)`)
             sfu.delLocalMedia()
         }
     }
 
     let selectedAudioDevice: boolean | {deviceId: string} = false
-    let selectedVideoDevice: boolean | {deviceId: string; height?: {ideal: number; min: number}; width?: {ideal: number; min: number}} = false
+    let selectedVideoDevice: boolean | {deviceId: string; width?: {ideal: number; min: number}; height?: {ideal: number; min: number}} = false
     let userAction = false // Track if this was triggered by user action
 
     // Validate and check if devices are selected
@@ -340,7 +365,7 @@ export async function getUserMedia(presence) {
 
     // Clear fake stream if somehow selected as microphone (shouldn't be possible, but defensive)
     if (isFakeMicSelected) {
-        logger.warn('[media] Fake stream was selected as microphone, clearing selection')
+        logger.warn(`[media] Fake stream was selected as microphone, clearing selection`)
         $s.devices.mic.selected = {id: null, name: ''}
     }
 
@@ -349,19 +374,17 @@ export async function getUserMedia(presence) {
         if (validateDeviceExists($s.devices.mic.selected.id, 'mic')) {
             selectedAudioDevice = {deviceId: $s.devices.mic.selected.id}
             logger.debug(`[media] selected mic device: ${$s.devices.mic.selected.name} (${$s.devices.mic.selected.id})`)
-        } else {
+        } else if ($s.devices.mic.enabled) {
             // Invalid device - use browser default if enabled
-            if ($s.devices.mic.enabled) {
-                selectedAudioDevice = true
-                userAction = true
-                logger.debug('[media] invalid mic device cleared, using browser default')
-            }
+            selectedAudioDevice = true
+            userAction = true
+            logger.debug(`[media] invalid mic device cleared, using browser default`)
         }
     } else if ($s.devices.mic.enabled && !isFakeMicSelected) {
         // Device enabled but not selected - use browser default
         selectedAudioDevice = true
         userAction = true
-        logger.debug('[media] mic enabled but no device selected, using browser default')
+        logger.debug(`[media] mic enabled but no device selected, using browser default`)
     }
 
     // Check if cam device is selected and valid
@@ -369,70 +392,64 @@ export async function getUserMedia(presence) {
         if (validateDeviceExists($s.devices.cam.selected.id, 'cam')) {
             selectedVideoDevice = {deviceId: $s.devices.cam.selected.id}
             logger.debug(`[media] selected cam device: ${$s.devices.cam.selected.name} (${$s.devices.cam.selected.id})`)
-        } else {
+        } else if ($s.devices.cam.enabled) {
             // Invalid device - use browser default if enabled
-            if ($s.devices.cam.enabled) {
-                selectedVideoDevice = true
-                userAction = true
-                logger.debug('[media] invalid cam device cleared, using browser default')
-            }
+            selectedVideoDevice = true
+            userAction = true
+            logger.debug(`[media] invalid cam device cleared, using browser default`)
         }
     } else if ($s.devices.cam.enabled && !isFakeCamSelected) {
         // Device enabled but not selected - use browser default
         selectedVideoDevice = true
         userAction = true
-        logger.debug('[media] cam enabled but no device selected, using browser default')
+        logger.debug(`[media] cam enabled but no device selected, using browser default`)
     }
 
-    /*
-     * Apply device enabled settings (enable/disable)
-     * Use $s.devices.cam.enabled as the source of truth for button state
-     */
+    // Apply device enabled settings (enable/disable)
+    // Use $s.devices.cam.enabled as the source of truth for button state
     if (!$s.devices.cam.enabled) {
         selectedVideoDevice = false
         userAction = true
-        logger.debug('[media] camera disabled, skipping video')
+        logger.debug(`[media] camera disabled, skipping video`)
     }
     if (!$s.devices.mic.enabled) {
         selectedAudioDevice = false
         userAction = true
-        logger.debug('[media] microphone disabled, skipping audio')
+        logger.debug(`[media] microphone disabled, skipping audio`)
     }
     // A local stream cannot be initialized with neither audio and video; return early.
     if (!$s.devices.cam.enabled && !$s.devices.mic.enabled) {
-        logger.debug('[media] both camera and mic disabled, cannot create stream')
+        logger.debug(`[media] both camera and mic disabled, cannot create stream`)
         $s.mediaReady = true
         return
     }
 
     // Handle fake stream selection
     if (isFakeCamSelected || isFakeMicSelected) {
-        logger.info('[media] Fake stream selected, creating fake stream')
+        logger.info(`[media] Fake stream selected, creating fake stream`)
         try {
             const width = $s.devices.cam.resolution.id === '1080p' ? 1920 : $s.devices.cam.resolution.id === '720p' ? 1280 : 640
             const height = $s.devices.cam.resolution.id === '1080p' ? 1080 : $s.devices.cam.resolution.id === '720p' ? 720 : 480
 
-            /*
-             * Try to get microphone access if audio is enabled and video is fake
-             * This allows the pattern to oscillate with microphone input
-             */
+            // Try to get microphone access if audio is enabled and video is fake
+            // This allows the pattern to oscillate with microphone input
             let microphoneStream: MediaStream | null = null
             if (isFakeCamSelected && !isFakeMicSelected && $s.devices.mic.enabled) {
                 // Video is fake, but try to get real microphone for pattern oscillation
                 try {
                     microphoneStream = await navigator.mediaDevices.getUserMedia({audio: true, video: false})
-                    logger.debug('[media] Got microphone access for pattern oscillation')
-                } catch(micError) {
+                    logger.debug(`[media] Got microphone access for pattern oscillation`)
+                } catch (micError) {
                     logger.debug(`[media] Could not get microphone access: ${micError}`)
                 }
             }
 
             localStream = createFakeStream({
+                video: isFakeCamSelected || $s.devices.cam.enabled,
                 audio: isFakeMicSelected || $s.devices.mic.enabled,
+                width,
                 height,
                 microphoneStream: microphoneStream || undefined,
-                video: isFakeCamSelected || $s.devices.cam.enabled,
-                width,
             })
 
             notifier.notify({
@@ -442,32 +459,32 @@ export async function getUserMedia(presence) {
 
             // Add local stream to Galène; handle peer connection logic.
             if ($s.sfu.channel.connected) {
-                logger.debug('[media] group is connected, adding user media to SFU')
+                logger.debug(`[media] group is connected, adding user media to SFU`)
                 try {
                     await sfu.addUserMedia()
-                    logger.debug('[media] addUserMedia completed')
-                } catch(error) {
+                    logger.debug(`[media] addUserMedia completed`)
+                } catch (error) {
                     logger.error(`[media] addUserMedia failed: ${error}`)
                     throw error
                 }
             } else {
-                logger.debug('[media] group not connected, skipping addUserMedia')
+                logger.debug(`[media] group not connected, skipping addUserMedia`)
             }
 
             // Ensure device enabled state matches what we actually got
             if (isFakeCamSelected || $s.devices.cam.enabled) {
                 $s.devices.cam.enabled = true
-                logger.info('[media] Fake video track obtained, setting cam.enabled=true')
+                logger.info(`[media] Fake video track obtained, setting cam.enabled=true`)
             }
             if (isFakeMicSelected || $s.devices.mic.enabled) {
                 $s.devices.mic.enabled = true
-                logger.info('[media] Fake audio track obtained, setting mic.enabled=true')
+                logger.info(`[media] Fake audio track obtained, setting mic.enabled=true`)
             }
 
             $s.mediaReady = true
-            logger.info('[media] getUserMedia complete with fake stream, mediaReady=true')
+            logger.info(`[media] getUserMedia complete with fake stream, mediaReady=true`)
             return localStream
-        } catch(fakeError) {
+        } catch (fakeError) {
             logger.error(`[media] Failed to create fake stream: ${fakeError}`)
             notifier.notify({level: 'error', message: `Failed to create fake stream: ${fakeError}`})
             $s.mediaReady = true
@@ -481,11 +498,11 @@ export async function getUserMedia(presence) {
 
     if (selectedVideoDevice && typeof selectedVideoDevice === 'object') {
         if ($s.devices.cam.resolution.id === '720p') {
-            logger.debug('[media] using 720p resolution')
+            logger.debug(`[media] using 720p resolution`)
             selectedVideoDevice.width = {ideal: 1280, min: 640}
             selectedVideoDevice.height = {ideal: 720, min: 400}
         } else if ($s.devices.cam.resolution.id === '1080p') {
-            logger.debug('[media] using 1080p resolution')
+            logger.debug(`[media] using 1080p resolution`)
             selectedVideoDevice.width = {ideal: 1920, min: 640}
             selectedVideoDevice.height = {ideal: 1080, min: 400}
         }
@@ -498,40 +515,37 @@ export async function getUserMedia(presence) {
 
     // Validate constraints before calling getUserMedia
     if (!selectedAudioDevice && !selectedVideoDevice) {
-        logger.debug('[media] both audio and video are disabled/not available, cannot create stream')
-
-        /*
-         * Only show warning if this was triggered by user action (button click)
-         * Don't show warning for automatic calls (on page refresh before devices initialized)
-         */
+        logger.debug(`[media] both audio and video are disabled/not available, cannot create stream`)
+        // Only show warning if this was triggered by user action (button click)
+        // Don't show warning for automatic calls (on page refresh before devices initialized)
         if (userAction) {
             // User intentionally clicked button but both ended up disabled
-            logger.warn('[media] user action triggered but both devices disabled')
+            logger.warn(`[media] user action triggered but both devices disabled`)
             notifier.notify({level: 'warning', message: 'Cannot create stream: both audio and video are disabled'})
         } else {
             // Automatic call with both disabled - just log, don't notify
-            logger.debug('[media] automatic call with both disabled, skipping silently')
+            logger.debug(`[media] automatic call with both disabled, skipping silently`)
         }
         $s.mediaReady = true
         return
     }
 
-    logger.debug('[media] requesting getUserMedia with constraints:', constraints)
+    logger.debug(`[media] requesting getUserMedia with constraints:`, constraints)
 
     try {
         localStream = await navigator.mediaDevices.getUserMedia(constraints)
-        logger.debug(`[media] getUserMedia successful, tracks: ${localStream.getTracks().map((t) => `${t.kind}:${t.id}`).join(', ')}`)
-    } catch(error: any) {
+        logger.debug(`[media] getUserMedia successful, tracks: ${localStream.getTracks().map(t => `${t.kind}:${t.id}`).join(', ')}`)
+    } catch (error: any) {
         logger.error(`[media] getUserMedia failed: ${error}`)
 
         // Handle NotFoundError - device ID doesn't exist or is invalid
         if (error.name === 'NotFoundError' || error.name === 'NotReadableError' || error.message?.includes('not be found')) {
-            logger.warn('[media] selected device not found, falling back to browser default')
+            logger.warn(`[media] selected device not found, falling back to browser default`)
 
             // Retry with browser default (no deviceId specified)
-            const fallbackConstraints: {audio: boolean | {deviceId: string} | null; video: boolean | {deviceId: string; height?: {ideal: number; min: number}; width?: {ideal: number; min: number}} | null} = {
-                audio: selectedAudioDevice ? typeof selectedAudioDevice === 'object' ? true : selectedAudioDevice : false,
-                video: selectedVideoDevice ? typeof selectedVideoDevice === 'object' ? true : selectedVideoDevice : false,
+            const fallbackConstraints: {audio: boolean | {deviceId: string} | null; video: boolean | {deviceId: string; width?: {ideal: number; min: number}; height?: {ideal: number; min: number}} | null} = {
+                audio: selectedAudioDevice ? (typeof selectedAudioDevice === 'object' ? true : selectedAudioDevice) : false,
+                video: selectedVideoDevice ? (typeof selectedVideoDevice === 'object' ? true : selectedVideoDevice) : false,
             }
 
             // Remove deviceId if it was specified - let browser choose
@@ -543,18 +557,18 @@ export async function getUserMedia(presence) {
             }
 
             if (fallbackConstraints.audio || fallbackConstraints.video) {
-                logger.debug('[media] retrying getUserMedia with browser default:', fallbackConstraints)
+                logger.debug(`[media] retrying getUserMedia with browser default:`, fallbackConstraints)
                 try {
                     localStream = await navigator.mediaDevices.getUserMedia(fallbackConstraints)
-                    logger.debug('[media] getUserMedia with browser default successful')
+                    logger.debug(`[media] getUserMedia with browser default successful`)
 
                     // Clear invalid device selection - browser will use default
                     if (constraints.audio && typeof constraints.audio === 'object' && 'deviceId' in constraints.audio && constraints.audio.deviceId) {
-                        logger.debug('[media] clearing invalid mic device selection')
+                        logger.debug(`[media] clearing invalid mic device selection`)
                         $s.devices.mic.selected = {id: null, name: ''}
                     }
                     if (constraints.video && typeof constraints.video === 'object' && 'deviceId' in constraints.video && constraints.video.deviceId) {
-                        logger.debug('[media] clearing invalid cam device selection')
+                        logger.debug(`[media] clearing invalid cam device selection`)
                         $s.devices.cam.selected = {id: null, name: ''}
                     }
 
@@ -562,61 +576,26 @@ export async function getUserMedia(presence) {
                         level: 'warning',
                         message: 'Selected device not found, using browser default. Please select a device in settings.',
                     })
-                } catch(fallbackError) {
+                } catch (fallbackError) {
                     logger.error(`[media] getUserMedia fallback also failed: ${fallbackError}`)
 
                     // Check if no devices are available - use fake stream as last resort
                     const hasNoDevices = (!$s.devices.cam.options.length && selectedVideoDevice) ||
-                        (!$s.devices.mic.options.length && selectedAudioDevice)
+                                        (!$s.devices.mic.options.length && selectedAudioDevice)
 
                     if (hasNoDevices && (selectedVideoDevice || selectedAudioDevice)) {
-                        logger.info('[media] No devices available, creating fake stream as fallback')
-                        try {
-                            const width = selectedVideoDevice && typeof selectedVideoDevice === 'object' && selectedVideoDevice.width?.ideal || 640
-                            const height = selectedVideoDevice && typeof selectedVideoDevice === 'object' && selectedVideoDevice.height?.ideal || 480
-
-                            /*
-                             * Try to get microphone access if audio is enabled and video is fake
-                             * This allows the pattern to oscillate with microphone input
-                             */
-                            let microphoneStream: MediaStream | null = null
-                            if (selectedVideoDevice && selectedAudioDevice) {
-                                // Video is fake, but try to get real microphone for pattern oscillation
-                                try {
-                                    microphoneStream = await navigator.mediaDevices.getUserMedia({audio: true, video: false})
-                                    logger.debug('[media] Got microphone access for pattern oscillation')
-                                } catch(micError) {
-                                    logger.debug(`[media] Could not get microphone access: ${micError}`)
-                                }
-                            }
-
-                            localStream = createFakeStream({
-                                audio: !!selectedAudioDevice,
-                                height,
-                                microphoneStream: microphoneStream || undefined,
-                                video: !!selectedVideoDevice,
-                                width,
-                            })
-
-                            notifier.notify({
-                                level: 'info',
-                                message: microphoneStream ? 'No camera available. Using test pattern with microphone input.' : 'No devices available. Using test pattern stream.',
-                            })
-                        } catch(fakeError) {
-                            logger.error(`[media] Failed to create fake stream: ${fakeError}`)
-                            notifier.notify({level: 'error', message: `Failed to access media: ${fallbackError}`})
-                            $s.mediaReady = true
-                            return
-                        }
-                    } else {
+                        await createFakeStreamFallback(selectedVideoDevice, selectedAudioDevice)
                         notifier.notify({level: 'error', message: `Failed to access media: ${fallbackError}`})
                         $s.mediaReady = true
                         return
                     }
+                    notifier.notify({level: 'error', message: `Failed to access media: ${fallbackError}`})
+                    $s.mediaReady = true
+                    return
                 }
             } else {
                 // Both disabled, can't fallback
-                logger.error('[media] both devices disabled, cannot fallback')
+                logger.error(`[media] both devices disabled, cannot fallback`)
                 notifier.notify({level: 'error', message: String(error)})
                 $s.mediaReady = true
                 return
@@ -624,7 +603,7 @@ export async function getUserMedia(presence) {
         } else {
             // Other errors (permission denied, etc.) - check if we should use fake stream
             const hasNoDevices = (!$s.devices.cam.options.length && selectedVideoDevice) ||
-                (!$s.devices.mic.options.length && selectedAudioDevice)
+                                (!$s.devices.mic.options.length && selectedAudioDevice)
 
             if (hasNoDevices && (selectedVideoDevice || selectedAudioDevice)) {
                 logger.info(`[media] No devices available (${error.name}), creating fake stream as fallback`)
@@ -632,34 +611,32 @@ export async function getUserMedia(presence) {
                     const width = selectedVideoDevice && typeof selectedVideoDevice === 'object' && selectedVideoDevice.width?.ideal || 640
                     const height = selectedVideoDevice && typeof selectedVideoDevice === 'object' && selectedVideoDevice.height?.ideal || 480
 
-                    /*
-                     * Try to get microphone access if audio is enabled and video is fake
-                     * This allows the pattern to oscillate with microphone input
-                     */
+                    // Try to get microphone access if audio is enabled and video is fake
+                    // This allows the pattern to oscillate with microphone input
                     let microphoneStream: MediaStream | null = null
                     if (selectedVideoDevice && selectedAudioDevice) {
                         // Video is fake, but try to get real microphone for pattern oscillation
                         try {
                             microphoneStream = await navigator.mediaDevices.getUserMedia({audio: true, video: false})
-                            logger.debug('[media] Got microphone access for pattern oscillation')
-                        } catch(micError) {
+                            logger.debug(`[media] Got microphone access for pattern oscillation`)
+                        } catch (micError) {
                             logger.debug(`[media] Could not get microphone access: ${micError}`)
                         }
                     }
 
                     localStream = createFakeStream({
+                        video: !!selectedVideoDevice,
                         audio: !!selectedAudioDevice,
+                        width,
                         height,
                         microphoneStream: microphoneStream || undefined,
-                        video: !!selectedVideoDevice,
-                        width,
                     })
 
                     notifier.notify({
                         level: 'info',
                         message: microphoneStream ? 'No camera available. Using test pattern with microphone input.' : 'No devices available. Using test pattern stream.',
                     })
-                } catch(fakeError) {
+                } catch (fakeError) {
                     logger.error(`[media] Failed to create fake stream: ${fakeError}`)
                     notifier.notify({level: 'error', message: String(error)})
                     $s.mediaReady = true
@@ -675,30 +652,28 @@ export async function getUserMedia(presence) {
 
     // Add local stream to Galène; handle peer connection logic.
     if ($s.sfu.channel.connected) {
-        logger.debug('[media] group is connected, adding user media to SFU')
+        logger.debug(`[media] group is connected, adding user media to SFU`)
         try {
             await sfu.addUserMedia()
-            logger.debug('[media] addUserMedia completed')
-        } catch(error) {
+            logger.debug(`[media] addUserMedia completed`)
+        } catch (error) {
             logger.error(`[media] addUserMedia failed: ${error}`)
             throw error
         }
     } else {
-        logger.debug('[media] group not connected, skipping addUserMedia')
+        logger.debug(`[media] group not connected, skipping addUserMedia`)
     }
 
-    /*
-     * Ensure device enabled state matches what we actually got
-     * If video was requested and we got it, keep cam.enabled = true
-     */
+    // Ensure device enabled state matches what we actually got
+    // If video was requested and we got it, keep cam.enabled = true
     if (selectedVideoDevice && localStream.getVideoTracks().length > 0) {
         $s.devices.cam.enabled = true
-        logger.info('[media] Video track obtained, setting cam.enabled=true')
+        logger.info(`[media] Video track obtained, setting cam.enabled=true`)
     }
     // If audio was requested and we got it, keep mic.enabled = true
     if (selectedAudioDevice && localStream.getAudioTracks().length > 0) {
         $s.devices.mic.enabled = true
-        logger.info('[media] Audio track obtained, setting mic.enabled=true')
+        logger.info(`[media] Audio track obtained, setting mic.enabled=true`)
     }
 
     $s.mediaReady = true
@@ -709,19 +684,6 @@ export async function getUserMedia(presence) {
 export async function queryDevices() {
     logger.info('querying for devices')
 
-    // Save current selections BEFORE clearing options (for restoration after enumeration)
-    const savedMicSelection = $s.devices.mic.selected && $s.devices.mic.selected.id !== null && $s.devices.mic.selected.id !== '' ?
-            {id: String($s.devices.mic.selected.id), name: String($s.devices.mic.selected.name || '')} :
-        null
-    const savedCamSelection = $s.devices.cam.selected && $s.devices.cam.selected.id !== null && $s.devices.cam.selected.id !== '' && $s.devices.cam.selected.id !== '__fake_stream__' ?
-            {id: String($s.devices.cam.selected.id), name: String($s.devices.cam.selected.name || '')} :
-        null
-    const savedAudioSelection = !$s.env.isFirefox && $s.devices.audio.selected && $s.devices.audio.selected.id !== null && $s.devices.audio.selected.id !== '' ?
-            {id: String($s.devices.audio.selected.id), name: String($s.devices.audio.selected.name || '')} :
-        null
-
-    logger.debug(`[media] Preserved selections before enumeration: mic=${savedMicSelection?.id || 'none'}, cam=${savedCamSelection?.id || 'none'}, audio=${savedAudioSelection?.id || 'none'}`)
-
     // Initialize options arrays
     $s.devices.mic.options = []
     $s.devices.cam.options = []
@@ -731,27 +693,23 @@ export async function queryDevices() {
     const FAKE_STREAM_ID = '__fake_stream__'
     $s.devices.cam.options.push({id: FAKE_STREAM_ID, name: 'Fake Stream (Test Pattern)'})
 
-    /*
-     * The device labels stay empty when there is no media permission.
-     * We need to request permission first to get device labels (especially for microphones)
-     */
+    // The device labels stay empty when there is no media permission.
+    // We need to request permission first to get device labels (especially for microphones)
     let devices: MediaDeviceInfo[] = []
     let permissionStream: MediaStream | null = null
     try {
-        /*
-         * Request microphone and camera permissions to get device labels
-         * This is required in most browsers to see device names
-         */
+        // Request microphone and camera permissions to get device labels
+        // This is required in most browsers to see device names
         try {
             permissionStream = await navigator.mediaDevices.getUserMedia({audio: true, video: true})
-            logger.debug('[media] Got media permissions, enumerating devices')
-        } catch(permError) {
+            logger.debug(`[media] Got media permissions, enumerating devices`)
+        } catch (permError) {
             // Permission denied or not available - try audio-only for microphone enumeration
-            logger.debug('[media] Full media permission denied, trying audio-only for microphone enumeration')
+            logger.debug(`[media] Full media permission denied, trying audio-only for microphone enumeration`)
             try {
                 permissionStream = await navigator.mediaDevices.getUserMedia({audio: true, video: false})
-                logger.debug('[media] Got audio permission for microphone enumeration')
-            } catch(audioError) {
+                logger.debug(`[media] Got audio permission for microphone enumeration`)
+            } catch (audioError) {
                 logger.warn(`[media] Could not get media permissions: ${audioError}`)
                 // Continue anyway - devices will be enumerated but without labels
             }
@@ -767,7 +725,7 @@ export async function queryDevices() {
             }
             permissionStream = null
         }
-    } catch(error) {
+    } catch (error) {
         logger.warn(`[media] Failed to enumerate devices: ${error}`)
         // Clean up permission stream if it exists
         if (permissionStream) {
@@ -775,12 +733,9 @@ export async function queryDevices() {
                 track.stop()
             }
         }
-
-        /*
-         * Don't return early - still show fake stream option for camera
-         * Microphone devices will be empty, which is better than showing fake stream as a mic option
-         */
-        logger.debug('device list updated (enumeration failed, fake stream available for camera only)')
+        // Don't return early - still show fake stream option for camera
+        // Microphone devices will be empty, which is better than showing fake stream as a mic option
+        logger.debug(`device list updated (enumeration failed, fake stream available for camera only)`)
     }
 
     const labelnr = {audio: 1, cam: 1, mic: 1}
@@ -793,10 +748,8 @@ export async function queryDevices() {
             continue
         }
 
-        /*
-         * The same device may end up in the queryList multiple times;
-         * Don't add it twice to the options list.
-         */
+        // The same device may end up in the queryList multiple times;
+        // Don't add it twice to the options list.
         if (added.includes(device.deviceId)) {
             continue
         }
@@ -807,12 +760,9 @@ export async function queryDevices() {
             $s.devices.cam.options.push({id: device.deviceId ? device.deviceId : name, name})
             labelnr.cam++
         } else if (device.kind === 'audioinput') {
-            /*
-             * Chrome: Skip devices with empty deviceId (happens before permissions are granted)
-             * After permissions, Chrome provides actual device IDs
-             */
-            if (!device.deviceId || device.deviceId.trim() === '') {
-                logger.debug('[media] Skipping microphone device with empty deviceId (permissions may not be granted yet)')
+            // Skip devices without deviceId (invalid devices)
+            if (!device.deviceId) {
+                logger.warn(`[media] Skipping microphone device without deviceId`)
                 continue
             }
             // Provide fallback name if label is empty (happens when permissions not granted)
@@ -839,164 +789,24 @@ export async function queryDevices() {
 
     logger.info(`[media] Device list updated: ${camCount} cameras, ${micCount} microphones, ${audioCount} audio outputs`)
 
-    /*
-     * Restore saved device selections from persistent state
-     * Match saved device IDs with newly populated options to restore full device objects
-     * This ensures that device selections persist across page reloads and device enumeration
-     */
-    let deviceRestored = false
-
-    /*
-     * Restore microphone selection using the preserved selection from before options were cleared
-     * Chrome may have different device ID formats or require special handling
-     */
-    const savedMicId = savedMicSelection ? String(savedMicSelection.id) : null
-    const savedMicName = savedMicSelection && savedMicSelection.name ? String(savedMicSelection.name).trim() : null
-
-    logger.info(`[media] Restoring microphone: savedId="${savedMicId}", savedName="${savedMicName || 'none'}", optionsCount=${$s.devices.mic.options.length}`)
-    if ($s.devices.mic.options.length > 0) {
-        logger.info('[media] Available microphone options:', $s.devices.mic.options.map((opt) => `"${opt.name}" (${opt.id})`).join(', '))
-    } else {
-        logger.warn('[media] No microphone options available for restoration')
-    }
-
-    if (savedMicId && savedMicId !== 'null' && savedMicId !== 'undefined') {
-        // Try exact match first
-        let matchingMic = Array.isArray($s.devices.mic.options) && $s.devices.mic.options.length > 0 ?
-                $s.devices.mic.options.find((opt) => {
-                    const optId = String(opt.id || '').trim()
-                    const savedId = String(savedMicId).trim()
-                    return optId === savedId && optId !== ''
-                }) :
-            undefined
-
-        if (matchingMic) {
-            logger.info(`[media] Found microphone by exact ID match: ${matchingMic.name} (${matchingMic.id})`)
-        }
-
-        // Chrome: If exact match fails, try matching by name (device IDs can change in Chrome)
-        if (!matchingMic && savedMicName && savedMicName !== '' && $s.devices.mic.options.length > 0) {
-            logger.info(`[media] Exact ID match failed, trying name match: "${savedMicName}"`)
-            // Try exact name match first
-            matchingMic = $s.devices.mic.options.find((opt) => {
-                const optName = String(opt.name || '').trim()
-                return optName === savedMicName && optName !== ''
-            })
-
-            // If exact name match fails, try partial match (Chrome might add prefixes/suffixes)
-            if (!matchingMic) {
-                logger.debug('[media] Exact name match failed, trying partial match')
-                matchingMic = $s.devices.mic.options.find((opt) => {
-                    const optName = String(opt.name || '').trim().toLowerCase()
-                    const savedName = savedMicName.toLowerCase()
-                    // Check if saved name is contained in option name or vice versa
-                    return optName.includes(savedName) || savedName.includes(optName)
-                })
-            }
-
-            if (matchingMic) {
-                logger.info(`[media] Found microphone by name match: ${matchingMic.name} (${matchingMic.id})`)
-            } else {
-                logger.warn(`[media] Name match also failed for "${savedMicName}"`)
-            }
-        }
-
-        if (matchingMic) {
-            // Restore full device object with updated name
-            $s.devices.mic.selected = matchingMic
-            deviceRestored = true
-            logger.info(`[media] ✅ Restored saved microphone selection: ${matchingMic.name} (${matchingMic.id})`)
-        } else {
-            // Saved device not found - log detailed info for debugging
-            logger.warn(`[media] ⚠️ Saved microphone device not found: id="${savedMicId}", name="${savedMicName}"`)
-            logger.warn('[media] Available device IDs:', $s.devices.mic.options.map((opt) => `"${opt.id}"`).join(', '))
-            logger.warn('[media] Available device names:', $s.devices.mic.options.map((opt) => `"${opt.name}"`).join(', '))
-
-            /*
-             * Only set default if we have options AND the saved selection is clearly invalid
-             * Don't overwrite a valid saved selection that just doesn't match (might be timing issue)
-             * But if we have no saved ID or it's clearly invalid, set default
-             */
-            if ((!savedMicId || savedMicId === 'null' || savedMicId === 'undefined') && $s.devices.mic.options.length > 0) {
-                $s.devices.mic.selected = $s.devices.mic.options[0]
-                deviceRestored = true
-                logger.info(`[media] Invalid saved ID, set default microphone: ${$s.devices.mic.options[0].name} (${$s.devices.mic.options[0].id})`)
-            } else {
-                /*
-                 * Keep the saved selection even if not found - might be a timing issue
-                 * The UI will show it as selected even if not in current options
-                 */
-                logger.info(`[media] Keeping saved selection (device may appear later or IDs changed): ${savedMicName || savedMicId}`)
-            }
-        }
-    } else {
-        // No saved selection - only set default if truly no selection exists
-        if (!savedMicId || savedMicId === 'null' || savedMicId === 'undefined' || savedMicId === '') {
-            if (Array.isArray($s.devices.mic.options) && $s.devices.mic.options.length > 0) {
-                $s.devices.mic.selected = $s.devices.mic.options[0]
-                deviceRestored = true
-                logger.info(`[media] No saved microphone selection, set default: ${$s.devices.mic.options[0].name} (${$s.devices.mic.options[0].id})`)
-            } else {
-                // No devices available - ensure selection is cleared
-                $s.devices.mic.selected = {id: null, name: ''}
-                logger.debug('[media] No microphone devices available')
-            }
-        }
-    }
-
-    // Restore camera selection using preserved selection
-    if (savedCamSelection) {
-        const matchingCam = $s.devices.cam.options.find((opt) => String(opt.id) === savedCamSelection.id)
-        if (matchingCam) {
-            // Restore full device object with updated name
-            $s.devices.cam.selected = matchingCam
-            deviceRestored = true
-            logger.debug(`[media] Restored saved camera selection: ${matchingCam.name} (${matchingCam.id})`)
-        } else {
-            // Saved device no longer exists - clear selection
-            logger.debug(`[media] Saved camera device (${savedCamSelection.id}) no longer available, clearing selection`)
-            $s.devices.cam.selected = {id: null, name: ''}
-        }
-    }
-
-    // Restore audio output selection using preserved selection
-    if (!$s.env.isFirefox && savedAudioSelection) {
-        const matchingAudio = $s.devices.audio.options.find((opt) => String(opt.id) === savedAudioSelection.id)
-        if (matchingAudio) {
-            // Restore full device object with updated name
-            $s.devices.audio.selected = matchingAudio
-            deviceRestored = true
-            logger.debug(`[media] Restored saved audio output selection: ${matchingAudio.name} (${matchingAudio.id})`)
-        } else {
-            // Saved device no longer exists - clear selection
-            logger.debug(`[media] Saved audio output device (${savedAudioSelection.id}) no longer available, clearing selection`)
-            $s.devices.audio.selected = {id: null, name: ''}
-        }
-    }
-
-    // Save restored device selections to ensure they persist
-    if (deviceRestored) {
-        store.save()
-    }
-
     // Warn if no microphone devices found (likely permissions issue)
     if (micCount === 0 && devices.length > 0) {
-        const audioInputDevices = devices.filter((d) => d.kind === 'audioinput')
+        const audioInputDevices = devices.filter(d => d.kind === 'audioinput')
         if (audioInputDevices.length > 0) {
             logger.warn(`[media] Found ${audioInputDevices.length} audio input device(s) but none were added. This may indicate missing deviceIds or permission issues.`)
-            logger.debug('[media] Audio input devices found:', audioInputDevices.map((d) => ({deviceId: d.deviceId, kind: d.kind, label: d.label})))
+            logger.debug(`[media] Audio input devices found:`, audioInputDevices.map(d => ({kind: d.kind, deviceId: d.deviceId, label: d.label})))
         }
     }
 
     // Notify user if no microphones found but system likely has them
     if (micCount === 0) {
-        logger.warn('[media] No microphone devices found. If your system has microphones, please grant microphone permissions and refresh.')
+        logger.warn(`[media] No microphone devices found. If your system has microphones, please grant microphone permissions and refresh.`)
     }
 }
 
 export function removeLocalStream() {
     if (localStream) {
-        localStream.getTracks().forEach((track) => {
+        localStream.getTracks().forEach(track => {
             logger.debug(`stopping track ${track.id}`)
             track.stop()
         })
@@ -1040,24 +850,9 @@ export function setDefaultDevice(useFirstAvailable = true) {
     for (const key of Object.keys($s.devices)) {
         if (key === 'audio' && $s.env.isFirefox) continue
 
-        /*
-         * Only set default if device is invalid or null
-         * Don't overwrite valid restored selections
-         * For mic specifically, be more careful - don't overwrite if there's a saved selection
-         */
         if (invalidDevices[key] || $s.devices[key].selected.id === null) {
-            /*
-             * Special handling for microphone: if there's a saved ID but device not found,
-             * don't automatically overwrite it (might be a timing issue)
-             */
-            if (key === 'mic' && $s.devices.mic.selected.id !== null && $s.devices.mic.selected.id !== '') {
-                logger.debug(`[media] Skipping default device for mic - has saved selection: ${$s.devices.mic.selected.id}`)
-                continue
-            }
-
             if (useFirstAvailable && $s.devices[key].options.length) {
                 $s.devices[key].selected = $s.devices[key].options[0]
-                logger.debug(`[media] Set default ${key} device: ${$s.devices[key].options[0].name}`)
             } else {
                 $s.devices[key].selected = emptyOption
             }
@@ -1081,8 +876,7 @@ export function validateDevices() {
 navigator.mediaDevices.ondevicechange = async() => {
     const oldDevices = JSON.parse(JSON.stringify($s.devices))
     await queryDevices()
-    let added = [],
-        removed = []
+    let added = [], removed = []
     for (const deviceType of Object.keys($s.devices)) {
         const _added = $s.devices[deviceType].options.filter((i) => !oldDevices[deviceType].options.some((j) => i.id === j.id))
         const _removed = oldDevices[deviceType].options.filter((i) => !$s.devices[deviceType].options.some((j) => i.id === j.id))
@@ -1108,7 +902,7 @@ navigator.mediaDevices.ondevicechange = async() => {
     }
     const invalidDevices = validateDevices()
 
-    if ($s.sfu.channel.connected && Object.values(invalidDevices).some((i) => i)) {
+    if ($s.sfu.channel.connected && Object.values(invalidDevices).some(Boolean)) {
         // Note: Routing should be handled by the component, not here
         notifier.notify({
             icon: 'Headset',
@@ -1118,13 +912,11 @@ navigator.mediaDevices.ondevicechange = async() => {
                 .map(([key]) => $t(`device.select_${key}_label`)),
             message: $t('device.action_required', {count: removed.length}),
         })
-
-        /*
-         * Don't set a default option; it must be clear that an
-         * invalid device option is set while being connected.
-         */
+        // Don't set a default option; it must be clear that an
+        // invalid device option is set while being connected.
         setDefaultDevice(false)
     } else {
         setDefaultDevice(true)
     }
+
 }

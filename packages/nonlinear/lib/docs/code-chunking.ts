@@ -4,13 +4,13 @@
  */
 
 export interface CodeChunk {
+    endLine: number
+    filePath: string
     index: number
+    name?: string
+    startLine: number
     text: string
     type: 'function' | 'class' | 'interface' | 'type' | 'constant' | 'other'
-    name?: string
-    filePath: string
-    startLine: number
-    endLine: number
 }
 
 /**
@@ -21,7 +21,7 @@ export interface CodeChunk {
 export function chunkCode(
     code: string,
     filePath: string,
-    maxChunkSize: number = 1000
+    maxChunkSize: number = 1000,
 ): CodeChunk[] {
     const chunks: CodeChunk[] = []
     const lines = code.split('\n')
@@ -34,7 +34,7 @@ export function chunkCode(
     while ((match = functionRegex.exec(code)) !== null) {
         const funcName = match[3]
         const startPos = match.index
-        const startLine = code.substring(0, startPos).split('\n').length
+        const startLine = code.slice(0, startPos).split('\n').length
 
         // Find function end (simplified - looks for closing brace)
         let braceCount = 0
@@ -55,17 +55,17 @@ export function chunkCode(
             }
         }
 
-        const endLine = code.substring(0, endPos).split('\n').length
-        const funcText = code.substring(startPos, endPos)
+        const endLine = code.slice(0, endPos).split('\n').length
+        const funcText = code.slice(startPos, endPos)
 
         chunks.push({
+            endLine,
+            filePath,
             index: chunkIndex++,
+            name: funcName,
+            startLine,
             text: funcText,
             type: 'function',
-            name: funcName,
-            filePath,
-            startLine,
-            endLine,
         })
     }
 
@@ -74,7 +74,7 @@ export function chunkCode(
     while ((match = classRegex.exec(code)) !== null) {
         const className = match[2]
         const startPos = match.index
-        const startLine = code.substring(0, startPos).split('\n').length
+        const startLine = code.slice(0, startPos).split('\n').length
 
         let braceCount = 0
         let inClass = false
@@ -94,17 +94,17 @@ export function chunkCode(
             }
         }
 
-        const endLine = code.substring(0, endPos).split('\n').length
-        const classText = code.substring(startPos, endPos)
+        const endLine = code.slice(0, endPos).split('\n').length
+        const classText = code.slice(startPos, endPos)
 
         chunks.push({
+            endLine,
+            filePath,
             index: chunkIndex++,
+            name: className,
+            startLine,
             text: classText,
             type: 'class',
-            name: className,
-            filePath,
-            startLine,
-            endLine,
         })
     }
 
@@ -113,7 +113,7 @@ export function chunkCode(
     while ((match = interfaceRegex.exec(code)) !== null) {
         const interfaceName = match[2]
         const startPos = match.index
-        const startLine = code.substring(0, startPos).split('\n').length
+        const startLine = code.slice(0, startPos).split('\n').length
 
         let braceCount = 0
         let inInterface = false
@@ -133,17 +133,17 @@ export function chunkCode(
             }
         }
 
-        const endLine = code.substring(0, endPos).split('\n').length
-        const interfaceText = code.substring(startPos, endPos)
+        const endLine = code.slice(0, endPos).split('\n').length
+        const interfaceText = code.slice(startPos, endPos)
 
         chunks.push({
+            endLine,
+            filePath,
             index: chunkIndex++,
+            name: interfaceName,
+            startLine,
             text: interfaceText,
             type: 'interface',
-            name: interfaceName,
-            filePath,
-            startLine,
-            endLine,
         })
     }
 
@@ -154,12 +154,12 @@ export function chunkCode(
             const start = i * maxChunkSize
             const end = Math.min(start + maxChunkSize, lines.length)
             chunks.push({
+                endLine: end,
+                filePath,
                 index: chunkIndex++,
+                startLine: start + 1,
                 text: lines.slice(start, end).join('\n'),
                 type: 'other',
-                filePath,
-                startLine: start + 1,
-                endLine: end,
             })
         }
     }

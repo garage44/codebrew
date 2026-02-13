@@ -23,7 +23,8 @@ export const CreateRepositoryRequestSchema = z.object({
     name: z.string().min(1),
     path: z.string().min(1),
     platform: RepositoryPlatformSchema.optional(),
-    remote_url: z.string().url().nullable().optional(),
+    remote_url: z.string().url().nullable()
+        .optional(),
 })
 
 export const UpdateRepositoryRequestSchema = z.object({
@@ -31,7 +32,8 @@ export const UpdateRepositoryRequestSchema = z.object({
     name: z.string().min(1).optional(),
     path: z.string().min(1).optional(),
     platform: RepositoryPlatformSchema.optional(),
-    remote_url: z.string().url().nullable().optional(),
+    remote_url: z.string().url().nullable()
+        .optional(),
 })
 
 export const DiscoverRepositoriesRequestSchema = z.object({

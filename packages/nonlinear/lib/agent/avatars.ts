@@ -10,8 +10,8 @@ import {logger} from '../../service.ts'
  * Default avatar assignments for agent types
  */
 export const DEFAULT_AVATARS: Record<'planner' | 'developer' | 'reviewer', string> = {
-    planner: 'placeholder-2.png',
     developer: 'placeholder-3.png',
+    planner: 'placeholder-2.png',
     reviewer: 'placeholder-4.png',
 }
 

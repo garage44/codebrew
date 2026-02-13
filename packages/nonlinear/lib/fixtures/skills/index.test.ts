@@ -9,17 +9,17 @@ describe('Skills Registry', () => {
     test('loadSkills loads all skills by default', () => {
         const skills = loadSkills()
         expect(skills.length).toBeGreaterThan(0)
-        expect(skills.some(s => s.name === 'frontend')).toBe(true)
-        expect(skills.some(s => s.name === 'backend')).toBe(true)
-        expect(skills.some(s => s.name === 'testing')).toBe(true)
+        expect(skills.some((s) => s.name === 'frontend')).toBe(true)
+        expect(skills.some((s) => s.name === 'backend')).toBe(true)
+        expect(skills.some((s) => s.name === 'testing')).toBe(true)
     })
 
     test('loadSkills loads only specified skills', () => {
         const skills = loadSkills({skills: ['frontend', 'backend']})
         expect(skills.length).toBe(2)
-        expect(skills.some(s => s.name === 'frontend')).toBe(true)
-        expect(skills.some(s => s.name === 'backend')).toBe(true)
-        expect(skills.some(s => s.name === 'testing')).toBe(false)
+        expect(skills.some((s) => s.name === 'frontend')).toBe(true)
+        expect(skills.some((s) => s.name === 'backend')).toBe(true)
+        expect(skills.some((s) => s.name === 'testing')).toBe(false)
     })
 
     test('buildSkillSystemPrompt creates prompt from skills', () => {

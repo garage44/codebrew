@@ -4,9 +4,9 @@
  */
 
 export interface Chunk {
+    heading?: string
     index: number
     text: string
-    heading?: string
 }
 
 /**
@@ -37,9 +37,9 @@ export function chunkMarkdown(content: string, maxChunkSize: number = 1000, chun
                 const chunkText = currentChunk.join('\n').trim()
                 if (chunkText.length > 0) {
                     chunks.push({
+                        heading: currentHeading,
                         index: chunkIndex++,
                         text: chunkText,
-                        heading: currentHeading,
                     })
                 }
             }
@@ -57,14 +57,17 @@ export function chunkMarkdown(content: string, maxChunkSize: number = 1000, chun
                 const textToChunk = currentChunk.slice(0, -1).join('\n').trim()
                 if (textToChunk.length > 0) {
                     chunks.push({
+                        heading: currentHeading,
                         index: chunkIndex++,
                         text: textToChunk,
-                        heading: currentHeading,
                     })
                 }
 
-                // Keep overlap at start of new chunk
-                const overlapLines = Math.floor(chunkOverlap / 50) // Rough estimate
+                /*
+                 * Keep overlap at start of new chunk
+                 * Rough estimate
+                 */
+                const overlapLines = Math.floor(chunkOverlap / 50)
                 currentChunk = currentChunk.slice(-overlapLines)
             }
         }
@@ -75,9 +78,9 @@ export function chunkMarkdown(content: string, maxChunkSize: number = 1000, chun
         const chunkText = currentChunk.join('\n').trim()
         if (chunkText.length > 0) {
             chunks.push({
+                heading: currentHeading,
                 index: chunkIndex++,
                 text: chunkText,
-                heading: currentHeading,
             })
         }
     }

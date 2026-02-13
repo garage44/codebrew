@@ -5,75 +5,75 @@
 import type {BaseAgent} from '../../agent/base.ts'
 
 export interface ToolParameter {
-    name: string
-    type: string
     description: string
+    name: string
     required?: boolean
+    type: string
 }
 
 export interface ToolContext {
-    ticketId?: string
+    adrContext?: ADRContext
+    agent: BaseAgent
+    branchName?: string
+    codebase?: CodebaseContext
+    gitState?: GitState
     repositoryId?: string
     repositoryPath?: string
-    branchName?: string
-    agent: BaseAgent
-    codebase?: CodebaseContext
-    adrContext?: ADRContext
-    gitState?: GitState
+    ticketId?: string
 }
 
 export interface ToolResult {
-    success: boolean
+    context?: {
+        [key: string]: unknown
+        adrRelevant?: string[]
+        changesSummary?: string
+        filesAffected?: string[]
+        relatedFiles?: string[]
+    }
     data?: unknown
     error?: string
-    context?: {
-        filesAffected?: string[]
-        changesSummary?: string
-        relatedFiles?: string[]
-        adrRelevant?: string[]
-        [key: string]: unknown
-    }
+    success: boolean
 }
 
 export interface Tool {
-    name: string
     description: string
-    parameters: ToolParameter[]
     execute: (params: Record<string, unknown>, context: ToolContext) => Promise<ToolResult>
+    name: string
+    parameters: ToolParameter[]
     validate?: (params: Record<string, unknown>) => ValidationResult
 }
 
 export interface ValidationResult {
-    valid: boolean
     errors?: string[]
+    valid: boolean
 }
 
 export interface CodebaseContext {
+    dependencies: Record<string, string>
+    entryPoints: string[]
     fileTree: FileTree
     packageJson: unknown
     tsconfig: unknown
-    entryPoints: string[]
-    dependencies: Record<string, string>
 }
 
 export interface FileTree {
+    children?: FileTree[]
     path: string
     type: 'file' | 'directory'
-    children?: FileTree[]
 }
 
 export interface ADRContext {
     adrs: Array<{
-        id: string
-        title: string
         content: string
+        id: string
         score: number
+        title: string
     }>
 }
 
 export interface GitState {
     branch: string
-    status: string
     modifiedFiles: string[]
+    status: string
     untrackedFiles: string[]
 }

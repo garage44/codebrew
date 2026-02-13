@@ -6,14 +6,20 @@
 import type {Repository} from '../database.ts'
 
 export interface MRStatus {
+    description: string
     id: string
     state: 'open' | 'closed' | 'merged'
-    url: string
     title: string
-    description: string
+    url: string
 }
 
 export interface GitPlatform {
+
+    /**
+     * Add a comment to a merge request
+     */
+    addComment(repo: Repository, mrId: string, comment: string): Promise<void>
+
     /**
      * Create a new branch in the repository
      */
@@ -28,11 +34,6 @@ export interface GitPlatform {
         title: string,
         description: string,
     ): Promise<string>
-
-    /**
-     * Add a comment to a merge request
-     */
-    addComment(repo: Repository, mrId: string, comment: string): Promise<void>
 
     /**
      * Get the status of a merge request

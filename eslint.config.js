@@ -9,6 +9,7 @@ export default [
         files: ['**/*.{ts,tsx,js,jsx}'],
         languageOptions: {
             globals: {
+                $: 'readonly',
                 Bun: 'readonly',
                 console: 'readonly',
                 document: 'readonly',

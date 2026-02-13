@@ -19,38 +19,48 @@ import {loadSkills, buildSkillSystemPrompt} from '../fixtures/skills/index.ts'
 import type {Skill} from '../fixtures/skills/types.ts'
 
 export interface AgentContext {
-    ticketId?: string
-    repositoryId?: string
+    [key: string]: unknown
     branchName?: string
     mergeRequestId?: string
-    [key: string]: unknown
+    repositoryId?: string
+    ticketId?: string
 }
 
 export interface AgentResponse {
-    success: boolean
-    message: string
     data?: unknown
     error?: string
+    message: string
+    success: boolean
 }
 
 export abstract class BaseAgent {
     protected client: Anthropic
+
     protected model: string
+
     protected name: string
-    protected type: 'planner' | 'developer' | 'reviewer' | 'prioritizer'
+
+    protected type: 'planner' | 'developer' | 'reviewer'
+
     protected tools: Record<string, Tool> = {}
+
     protected skills: Skill[] = []
+
     protected stream?: WritableStream<string>
+
     protected apiKey: string
 
-    constructor(name: string, type: 'planner' | 'developer' | 'reviewer' | 'prioritizer', agentConfig?: {tools?: string[]; skills?: string[]}) {
+    constructor(name: string, type: 'planner' | 'developer' | 'reviewer', agentConfig?: {skills?: string[]; tools?: string[]}) {
         this.name = name
         this.type = type
         this.model = config.anthropic.model || 'claude-3-5-sonnet-20241022'
 
         const apiKey = config.anthropic.apiKey || process.env.ANTHROPIC_API_KEY
         if (!apiKey) {
-            throw new Error(`Anthropic API key not configured for agent ${name}. Set ANTHROPIC_API_KEY environment variable or configure in .nonlinearrc`)
+            throw new Error(
+                `Anthropic API key not configured for agent ${name}. ` +
+                'Set ANTHROPIC_API_KEY environment variable or configure in .nonlinearrc',
+            )
         }
 
         this.apiKey = apiKey
@@ -93,18 +103,18 @@ export abstract class BaseAgent {
     protected async semanticSearch(
         query: string,
         options: {
-            limit?: number
             contentType?: 'doc' | 'ticket' | 'both'
             filters?: DocFilters
-        } = {}
+            limit?: number
+        } = {},
     ) {
         try {
             return await unifiedVectorSearch(query, {
-                limit: options.limit || 5,
                 contentType: options.contentType || 'both',
                 filters: options.filters,
+                limit: options.limit || 5,
             })
-        } catch (error) {
+        } catch(error) {
             logger.warn(`[${this.name}] Semantic search failed:`, error)
             return {docs: [], tickets: []}
         }
@@ -116,7 +126,7 @@ export abstract class BaseAgent {
     protected async searchDocs(query: string, filters?: DocFilters, limit: number = 5) {
         try {
             return await searchDocsVector(query, filters, limit)
-        } catch (error) {
+        } catch(error) {
             logger.warn(`[${this.name}] Doc search failed:`, error)
             return []
         }
@@ -128,7 +138,7 @@ export abstract class BaseAgent {
     protected async searchTickets(query: string, filters?: DocFilters, limit: number = 5) {
         try {
             return await searchTicketsVector(query, filters, limit)
-        } catch (error) {
+        } catch(error) {
             logger.warn(`[${this.name}] Ticket search failed:`, error)
             return []
         }
@@ -149,7 +159,7 @@ export abstract class BaseAgent {
             return `[Doc ${idx + 1}] ${result.doc.title} (${result.doc.path})
 Score: ${(result.chunk.score * 100).toFixed(1)}%
 Relevant excerpt:
-${result.chunk.text.substring(0, 500)}${result.chunk.text.length > 500 ? '...' : ''}
+${result.chunk.text.slice(0, 500)}${result.chunk.text.length > 500 ? '...' : ''}
 
 Full content:
 ${result.doc.content}
@@ -162,11 +172,7 @@ ${result.doc.content}
     /**
      * Get agent type
      */
-    getName(): string {
-        return this.name
-    }
-
-    getType(): 'planner' | 'developer' | 'reviewer' | 'prioritizer' {
+    getType(): 'planner' | 'developer' | 'reviewer' {
         return this.type
     }
 
@@ -196,14 +202,16 @@ ${result.doc.content}
         }
 
         // Queue writes to prevent concurrent access to the stream
-        this.streamWriteQueue = this.streamWriteQueue.then(async () => {
+        this.streamWriteQueue = this.streamWriteQueue.then(async() => {
             try {
                 const writer = this.stream!.getWriter()
                 await writer.write(`REASONING: ${message}\n`)
                 writer.releaseLock()
-            } catch (error) {
-                // If stream is locked or closed, ignore silently
-                // This prevents errors from breaking the agent flow
+            } catch(error) {
+                /*
+                 * If stream is locked or closed, ignore silently
+                 * This prevents errors from breaking the agent flow
+                 */
                 if (error instanceof Error && !error.message.includes('locked')) {
                     logger.warn(`[${this.name}] Stream write error: ${error.message}`)
                 }
@@ -217,7 +225,7 @@ ${result.doc.content}
      * Build tool context for tool execution
      * Subclasses should override to provide repository-specific context
      */
-    public buildToolContext(context?: AgentContext): ToolContext {
+    protected buildToolContext(context?: AgentContext): ToolContext {
         const toolContext: ToolContext = {
             agent: this,
         }
@@ -246,7 +254,7 @@ ${result.doc.content}
      */
     protected async executeTool(
         toolName: string,
-        params: Record<string, unknown>
+        params: Record<string, unknown>,
     ): Promise<ToolResult> {
         const tool = this.tools[toolName]
         if (!tool) {
@@ -255,9 +263,9 @@ ${result.doc.content}
 
         const paramsStr = Object.entries(params)
             .map(([key, value]) => {
-                const valStr = typeof value === 'string' && value.length > 50
-                    ? `${value.substring(0, 50)}...`
-                    : String(value)
+                const valStr = typeof value === 'string' && value.length > 50 ?
+                    `${value.slice(0, 50)}...` :
+                        String(value)
                 return `${key}=${valStr}`
             })
             .join(', ')
@@ -284,36 +292,36 @@ ${result.doc.content}
         systemPrompt: string,
         userMessage: string,
         maxTokens = 4096,
-        agentContext?: AgentContext
+        agentContext?: AgentContext,
     ): Promise<string> {
         // Build enhanced system prompt with skills
         const skillPrompt = buildSkillSystemPrompt(this.skills)
-        const enhancedSystemPrompt = skillPrompt
-            ? `${systemPrompt}\n\n${skillPrompt}`
-            : systemPrompt
+        const enhancedSystemPrompt = skillPrompt ?
+            `${systemPrompt}\n\n${skillPrompt}` :
+            systemPrompt
 
         const anthropicTools = Object.values(this.tools).map(toolToAnthropic)
-        const messages: Array<{role: 'user' | 'assistant', content: unknown}> = [
-            {role: 'user', content: userMessage}
+        const messages: Array<{content: unknown; role: 'user' | 'assistant'}> = [
+            {content: userMessage, role: 'user'},
         ]
 
         while (true) {
             await this.streamReasoning('🤔 Thinking...')
 
             const response = await fetch('https://api.anthropic.com/v1/messages', {
-                method: 'POST',
+                body: JSON.stringify({
+                    max_tokens: maxTokens,
+                    messages,
+                    model: this.model,
+                    system: enhancedSystemPrompt,
+                    tools: anthropicTools.length > 0 ? anthropicTools : undefined,
+                }),
                 headers: {
                     'anthropic-version': '2023-06-01',
                     'content-type': 'application/json',
                     'x-api-key': this.apiKey,
                 },
-                body: JSON.stringify({
-                    model: this.model,
-                    max_tokens: maxTokens,
-                    system: enhancedSystemPrompt,
-                    messages,
-                    tools: anthropicTools.length > 0 ? anthropicTools : undefined,
-                }),
+                method: 'POST',
             })
 
             if (!response.ok) {
@@ -357,27 +365,29 @@ ${result.doc.content}
 
             // Execute tools
             if (toolUses.length > 0) {
-                await this.streamReasoning(`Agent wants to use ${toolUses.length} tool(s) to gather information or perform actions...`)
+                await this.streamReasoning(
+                    `Agent wants to use ${toolUses.length} tool(s) to gather information or perform actions...`,
+                )
             }
 
             const toolResults = await Promise.all(
-                toolUses.map(async (toolUse: {id: string; name: string; input: Record<string, unknown>}) => {
+                toolUses.map(async(toolUse: {id: string; input: Record<string, unknown>; name: string}) => {
                     const tool = this.tools[toolUse.name]
                     if (!tool) {
                         await this.streamReasoning(`❌ ERROR: Tool "${toolUse.name}" not found`)
                         return {
-                            type: 'tool_result',
-                            tool_use_id: toolUse.id,
                             content: 'Tool not found',
+                            tool_use_id: toolUse.id,
+                            type: 'tool_result',
                         }
                     }
 
                     // Format tool parameters for display
                     const paramsStr = Object.entries(toolUse.input)
                         .map(([key, value]) => {
-                            const valStr = typeof value === 'string' && value.length > 50
-                                ? `${value.substring(0, 50)}...`
-                                : String(value)
+                            const valStr = typeof value === 'string' && value.length > 50 ?
+                                `${value.slice(0, 50)}...` :
+                                    String(value)
                             return `${key}=${valStr}`
                         })
                         .join(', ')
@@ -393,35 +403,35 @@ ${result.doc.content}
                     }
 
                     // Format result as JSON string for tool result content
-                    const resultContent = result.success
-                        ? JSON.stringify({
-                            success: true,
-                            data: result.data,
-                            context: result.context,
-                        })
-                        : JSON.stringify({
-                            success: false,
-                            error: result.error,
-                        })
+                    const resultContent = result.success ?
+                            JSON.stringify({
+                                context: result.context,
+                                data: result.data,
+                                success: true,
+                            }) :
+                            JSON.stringify({
+                                error: result.error,
+                                success: false,
+                            })
 
                     return {
-                        type: 'tool_result',
-                        tool_use_id: toolUse.id,
                         content: resultContent,
+                        tool_use_id: toolUse.id,
+                        type: 'tool_result',
                     }
-                })
+                }),
             )
 
             // Add assistant message with tool uses
             messages.push({
-                role: 'assistant',
                 content: data.content,
+                role: 'assistant',
             })
 
             // Add user message with tool results
             messages.push({
-                role: 'user',
                 content: toolResults,
+                role: 'user',
             })
         }
     }
@@ -444,24 +454,25 @@ ${result.doc.content}
 
             // Use streaming API with Server-Sent Events
             const response = await fetch('https://api.anthropic.com/v1/messages', {
-                method: 'POST',
+                body: JSON.stringify({
+                    max_tokens: maxTokens,
+                    messages: [
+                        {
+                            content: userMessage,
+                            role: 'user',
+                        },
+                    ],
+                    model: this.model,
+                    // Enable streaming
+                    stream: true,
+                    system: systemPrompt,
+                }),
                 headers: {
                     'anthropic-version': '2023-06-01',
                     'content-type': 'application/json',
                     'x-api-key': apiKey,
                 },
-                body: JSON.stringify({
-                    model: this.model,
-                    max_tokens: maxTokens,
-                    system: systemPrompt,
-                    messages: [
-                        {
-                            role: 'user',
-                            content: userMessage,
-                        },
-                    ],
-                    stream: true, // Enable streaming
-                }),
+                method: 'POST',
             })
 
             if (!response.ok) {
@@ -485,11 +496,13 @@ ${result.doc.content}
 
                 buffer += decoder.decode(value, {stream: true})
                 const lines = buffer.split('\n')
-                buffer = lines.pop() || '' // Keep incomplete line in buffer
+                // Keep incomplete line in buffer
+                buffer = lines.pop() || ''
 
                 for (const line of lines) {
                     if (line.startsWith('data: ')) {
-                        const data = line.slice(6) // Remove 'data: ' prefix
+                        // Remove 'data: ' prefix
+                        const data = line.slice(6)
                         if (data === '[DONE]') {
                             continue
                         }
@@ -528,7 +541,7 @@ ${result.doc.content}
             }
 
             return fullResponse
-        } catch (error) {
+        } catch(error) {
             logger.error(`[Agent ${this.name}] Error calling Anthropic streaming API: ${error}`)
             throw error
         }
@@ -548,23 +561,23 @@ ${result.doc.content}
 
             // Use raw fetch to access response headers
             const response = await fetch('https://api.anthropic.com/v1/messages', {
-                method: 'POST',
+                body: JSON.stringify({
+                    max_tokens: maxTokens,
+                    messages: [
+                        {
+                            content: userMessage,
+                            role: 'user',
+                        },
+                    ],
+                    model: this.model,
+                    system: systemPrompt,
+                }),
                 headers: {
                     'anthropic-version': '2023-06-01',
                     'content-type': 'application/json',
                     'x-api-key': apiKey,
                 },
-                body: JSON.stringify({
-                    model: this.model,
-                    max_tokens: maxTokens,
-                    system: systemPrompt,
-                    messages: [
-                        {
-                            role: 'user',
-                            content: userMessage,
-                        },
-                    ],
-                }),
+                method: 'POST',
             })
 
             if (!response.ok) {
@@ -608,7 +621,7 @@ ${result.doc.content}
             }
 
             throw new Error('Unexpected response type from Anthropic API')
-        } catch (error) {
+        } catch(error) {
             logger.error(`[Agent ${this.name}] Error calling Anthropic API: ${error}`)
             throw error
         }
@@ -645,7 +658,7 @@ ${result.doc.content}
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
                 return await fn()
-            } catch (error) {
+            } catch(error) {
                 lastError = error instanceof Error ? error : new Error(String(error))
                 if (attempt < maxAttempts) {
                     const waitTime = delay * Math.pow(2, attempt - 1)

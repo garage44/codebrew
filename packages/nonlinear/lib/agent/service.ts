@@ -37,7 +37,7 @@ class AgentService {
 
     private processingTask = false
 
-    private taskQueue: Array<{taskId: string; taskData: TaskData}> = []
+    private taskQueue: Array<{taskData: TaskData; taskId: string}> = []
 
     private running = false
 
@@ -96,14 +96,17 @@ class AgentService {
         // Initialize WebSocket client
         this.initWebSocket()
 
-        // Catch up on missed tasks from database (with delay to allow WebSocket to connect)
-        // The WebSocket 'open' event will also trigger catch-up, but we do it here too
-        // in case WebSocket connection is delayed
+        /*
+         * Catch up on missed tasks from database (with delay to allow WebSocket to connect)
+         * The WebSocket 'open' event will also trigger catch-up, but we do it here too
+         * in case WebSocket connection is delayed
+         */
         setTimeout(() => {
             this.catchUpOnTasks().catch((error) => {
                 this.logger?.error(`[AgentService] Error during catch-up: ${error}`)
             })
-        }, 1000) // 1 second delay to allow WebSocket connection to establish
+            // 1 second delay to allow WebSocket connection to establish
+        }, 1000)
 
         this.logger.info(`[AgentService] Agent service started for agent ${this.agentId}`)
     }
@@ -140,9 +143,9 @@ class AgentService {
         // Subscribe to agent-specific task topic
         const taskTopic = `/agents/${this.agentId}/tasks`
         this.wsClient.onRoute(taskTopic, async(data: {
+            task_data?: TaskData
             task_id?: string
             task_type?: string
-            task_data?: TaskData
         }) => {
             if (!this.logger) return
 
@@ -151,7 +154,7 @@ class AgentService {
             const taskData = (data.task_data || data) as TaskData
 
             if (!taskId) {
-                this.logger.warn(`[AgentService] Received task event without task_id, ignoring`)
+                this.logger.warn('[AgentService] Received task event without task_id, ignoring')
                 return
             }
 
@@ -180,7 +183,7 @@ class AgentService {
 
             // Wait for current task to finish if processing
             if (this.processingTask) {
-                this.logger.info(`[AgentService] Waiting for current task to finish before stopping...`)
+                this.logger.info('[AgentService] Waiting for current task to finish before stopping...')
                 // Poll until task is done (max 30 seconds)
                 const maxWait = 30000
                 const startTime = Date.now()
@@ -221,7 +224,10 @@ class AgentService {
         this.wsClient.on('reconnecting', ({attempt}) => {
             this.logger?.warn(`[AgentService] WebSocket reconnecting (attempt ${attempt})`)
             if (attempt >= 5) {
-                this.logger?.error(`[AgentService] WebSocket connection failed after ${attempt} attempts. Make sure the Nonlinear service is running on ${this.wsUrl}`)
+                this.logger?.error(
+                    `[AgentService] WebSocket connection failed after ${attempt} attempts. ` +
+                    `Make sure the Nonlinear service is running on ${this.wsUrl}`,
+                )
             }
         })
 
@@ -231,7 +237,7 @@ class AgentService {
             // Log helpful message if connection fails
             if (errorMsg.includes('Failed to connect') || errorMsg.includes('ECONNREFUSED')) {
                 this.logger?.warn(`[AgentService] Cannot connect to ${this.wsUrl}. Make sure the Nonlinear service is running.`)
-                this.logger?.warn(`[AgentService] Start the service with: bun service.ts start`)
+                this.logger?.warn('[AgentService] Start the service with: bun service.ts start')
             }
         })
 
@@ -289,7 +295,7 @@ class AgentService {
         this.processingTask = true
 
         try {
-            const {taskId, taskData} = task
+            const {taskData, taskId} = task
 
             this.logger.info(`[AgentService] Processing task ${taskId}`)
 

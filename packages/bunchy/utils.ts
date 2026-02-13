@@ -12,7 +12,8 @@ function showConfig(settings) {
                 nodes: Object.entries(settings.dir).map(([k, dir]) => {
                     if (typeof dir === 'string') {
                         return {label: `${k.padEnd(10, ' ')} ${tildify(dir)}`}
-                    } else if (Array.isArray(dir)) {
+                    }
+                    if (Array.isArray(dir)) {
                         return {
                             label: 'extra',
                             nodes: dir.map((i) => tildify(i)),
@@ -38,7 +39,7 @@ function showConfig(settings) {
 }
 
 function generateRandomId() {
-    return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
+    return Math.random().toString(36).slice(2, 15) + Math.random().toString(36).slice(2, 15)
 }
 
 export {generateRandomId, showConfig}

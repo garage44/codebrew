@@ -33,12 +33,16 @@ function loggerTransports(logger_config: LoggerConfig, type: 'cli' | 'service') 
 }
 
 interface StaticFileServerOptions {
+
     /** Base directory for the service */
     baseDir: string
+
     /** Additional static directories to check (e.g., ['src'] for development) */
     fallbackDirs?: string[]
+
     /** Logger instance for debug output */
     logger?: unknown
+
     /** Enable SPA fallback (serve index.html for unmatched routes) */
     spaFallback?: boolean
 }
@@ -50,7 +54,7 @@ interface StaticFileServerOptions {
 function createStaticFileHandler(options: StaticFileServerOptions) {
     const {baseDir, fallbackDirs = [], logger, spaFallback = true} = options
 
-    return async (request: Request, pathname: string): Promise<Response | null> => {
+    return async(request: Request, pathname: string): Promise<Response | null> => {
         // Default to index.html for root
         if (pathname === '/') {
             pathname = '/index.html'
@@ -106,10 +110,12 @@ async function withSpaFallback(originalResponse: Response, request: Request, bas
     const url = new URL(request.url)
     const pathname = url.pathname
 
-    // Don't apply SPA fallback to:
-    // - API routes
-    // - File extensions (assets)
-    // - WebSocket endpoints
+    /*
+     * Don't apply SPA fallback to:
+     * - API routes
+     * - File extensions (assets)
+     * - WebSocket endpoints
+     */
     if (pathname.startsWith('/api') ||
         pathname.includes('.') ||
         pathname.startsWith('/bunchy') ||
@@ -176,7 +182,7 @@ export function setupBunchyConfig(options: BunchyConfigOptions) {
 
 export function createWebSocketManagers(
     authOptions: unknown,
-    sessionMiddleware: (request: Request) => {session: {userid?: string}; sessionId: string}
+    sessionMiddleware: (request: Request) => {session: {userid?: string}; sessionId: string},
 ) {
     const wsManager = new WebSocketServerManager({
         authOptions,

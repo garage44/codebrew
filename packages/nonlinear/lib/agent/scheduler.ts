@@ -50,9 +50,11 @@ export async function runAgent(agentId: string, context: Record<string, unknown>
     const isTaskTrigger = !!context.task_id
     const taskId = context.task_id as string | undefined
 
-    // If task-based, check if task is already completed or failed (skip those)
-    // Note: We allow "processing" status because AgentService marks tasks as processing
-    // before calling the scheduler, and AgentService ensures single-task processing
+    /*
+     * If task-based, check if task is already completed or failed (skip those)
+     * Note: We allow "processing" status because AgentService marks tasks as processing
+     * before calling the scheduler, and AgentService ensures single-task processing
+     */
     if (isTaskTrigger && taskId) {
         const task = db.prepare(`
             SELECT status FROM agent_tasks WHERE id = ?
@@ -99,7 +101,7 @@ export async function runAgent(agentId: string, context: Record<string, unknown>
             updateAgentStatus(agentId, 'error', null, result.error || 'Unknown error')
             logger.error(`[Agent Scheduler] Agent ${agentRecord.name} failed: ${result.message}`)
         }
-    } catch (error) {
+    } catch(error) {
         const errorMsg = error instanceof Error ? error.message : String(error)
         updateAgentStatus(agentId, 'error', null, errorMsg)
         logger.error(`[Agent Scheduler] Agent ${agentRecord.name} error: ${error}`)

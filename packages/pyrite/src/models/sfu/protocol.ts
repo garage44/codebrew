@@ -1849,7 +1849,6 @@ TransferredFile.prototype.receive = async function() {
         f.receiveData(e.data).catch((e) => f.cancel(e))
     }
     f.dc.onerror = function(e) {
-        /** @ts-expect-error */
         let err = e.error
         f.cancel(err)
     }
@@ -1908,7 +1907,6 @@ TransferredFile.prototype.answer = async function(sdp) {
             f.cancel('remote peer closed connection')
         }
         f.dc.onerror = function(e) {
-            /** @ts-expect-error */
             let err = e.error
             f.cancel(err)
         }
@@ -1955,7 +1953,7 @@ TransferredFile.prototype.send = async function() {
 
     async function write(a) {
         while (f.dc.bufferedAmount > f.dc.bufferedAmountLowThreshold) {
-            await new Promise((resolve, reject) => {
+            await new Promise<void>((resolve, reject) => {
                 if (!f.dc) {
                     reject(new Error('File is closed.'))
                     return

@@ -3,7 +3,6 @@ import {notifier} from '@garage44/common/app'
 import {$t, api, events} from '@garage44/common/app'
 
 export function _events() {
-
     events.on('disconnected', () => {
         $s.users = []
     })

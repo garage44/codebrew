@@ -10,6 +10,7 @@ import {config} from '../config.ts'
 
 export class GitLabAdapter implements GitPlatform {
     private apiKey: string
+
     private baseUrl: string
 
     constructor() {
@@ -26,8 +27,8 @@ export class GitLabAdapter implements GitPlatform {
         const response = await fetch(url, {
             ...options,
             headers: {
-                'PRIVATE-TOKEN': this.apiKey,
                 'Content-Type': 'application/json',
+                'PRIVATE-TOKEN': this.apiKey,
                 ...options.headers,
             },
         })
@@ -56,8 +57,10 @@ export class GitLabAdapter implements GitPlatform {
             return null
         }
 
-        // For GitLab, we need to find the project ID
-        // For now, use owner/repo format
+        /*
+         * For GitLab, we need to find the project ID
+         * For now, use owner/repo format
+         */
         const projectPath = `${match[1]}/${match[2]}`
         return {projectId: encodeURIComponent(projectPath)}
     }
@@ -80,11 +83,11 @@ export class GitLabAdapter implements GitPlatform {
 
         // Create new branch
         await this.apiRequest(`/projects/${repoInfo.projectId}/repository/branches`, {
-            method: 'POST',
             body: JSON.stringify({
                 branch: branchName,
                 ref: sha,
             }),
+            method: 'POST',
         })
 
         logger.info(`[GitLab] Created branch ${branchName}`)
@@ -109,13 +112,13 @@ export class GitLabAdapter implements GitPlatform {
 
         // Create merge request
         const mrResponse = await this.apiRequest(`/projects/${repoInfo.projectId}/merge_requests`, {
-            method: 'POST',
             body: JSON.stringify({
+                description,
                 source_branch: branch,
                 target_branch: targetBranch,
                 title,
-                description,
             }),
+            method: 'POST',
         })
 
         const mrData = await mrResponse.json() as {iid: number; web_url: string}
@@ -130,10 +133,10 @@ export class GitLabAdapter implements GitPlatform {
         }
 
         await this.apiRequest(`/projects/${repoInfo.projectId}/merge_requests/${mrId}/notes`, {
-            method: 'POST',
             body: JSON.stringify({
                 body: comment,
             }),
+            method: 'POST',
         })
 
         logger.info(`[GitLab] Added comment to MR !${mrId}`)
@@ -148,11 +151,11 @@ export class GitLabAdapter implements GitPlatform {
         // Find MR for this branch
         const mrsResponse = await this.apiRequest(`/projects/${repoInfo.projectId}/merge_requests?source_branch=${branch}&state=all`)
         const mrs = await mrsResponse.json() as Array<{
+            description: string
             iid: number
             state: 'opened' | 'closed' | 'merged'
-            web_url: string
             title: string
-            description: string
+            web_url: string
         }>
 
         if (mrs.length === 0) {
@@ -161,11 +164,11 @@ export class GitLabAdapter implements GitPlatform {
 
         const mr = mrs[0]
         return {
+            description: mr.description || '',
             id: mr.iid.toString(),
             state: mr.state === 'merged' ? 'merged' : mr.state === 'opened' ? 'open' : 'closed',
-            url: mr.web_url,
             title: mr.title,
-            description: mr.description || '',
+            url: mr.web_url,
         }
     }
 }

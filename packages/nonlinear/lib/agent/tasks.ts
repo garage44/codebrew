@@ -123,17 +123,17 @@ export function markTaskFailed(taskId: string, error: string): void {
  * Get task statistics for an agent
  */
 export function getTaskStats(agentId: string): {
-    pending: number
-    processing: number
     completed: number
     failed: number
+    pending: number
+    processing: number
 } {
     const stats = db.prepare(`
         SELECT status, COUNT(*) as count
         FROM agent_tasks
         WHERE agent_id = ?
         GROUP BY status
-    `).all(agentId) as Array<{status: string; count: number}>
+    `).all(agentId) as Array<{count: number; status: string}>
 
     const result = {
         completed: 0,

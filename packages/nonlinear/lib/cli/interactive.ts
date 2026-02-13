@@ -72,14 +72,16 @@ export async function runAgentInteractive(options: InteractiveCLIOptions): Promi
         if (agentRecord) {
             const pendingTasks = getPendingTasks(agentRecord.id)
             if (pendingTasks.length > 0) {
-                pendingTasksMessage = `\n${pc.yellow(`⚠️  Found ${pendingTasks.length} pending task(s) in queue.`)}\nType ${pc.yellow('process-pending')} or ${pc.yellow('catch-up')} to process them.\n`
+                pendingTasksMessage = `\n${pc.yellow(`⚠️  Found ${pendingTasks.length} pending task(s) in queue.`)}\n` +
+                    `Type ${pc.yellow('process-pending')} or ${pc.yellow('catch-up')} to process them.\n`
             }
         }
-    } catch(error) {
+    } catch(_error) {
         // Silently fail - database might not be initialized or agent not found
     }
 
-    const welcomeMessage = `\n${pc.bold(pc.cyan(`${agentName} Interactive Mode`))}\nType ${pc.yellow('help')} for available commands, ${pc.yellow('exit')} to quit.${pendingTasksMessage}\n`
+    const welcomeMessage = `\n${pc.bold(pc.cyan(`${agentName} Interactive Mode`))}\n` +
+        `Type ${pc.yellow('help')} for available commands, ${pc.yellow('exit')} to quit.${pendingTasksMessage}\n`
 
     // Agent-specific help messages
     let helpMessage = ''
@@ -126,9 +128,10 @@ export async function runAgentInteractive(options: InteractiveCLIOptions): Promi
     }
 
     const replOptions: REPLOptions = {
-        prompt,
-        welcomeMessage,
         helpMessage,
+        onExit() {
+            console.log('\n👋 Goodbye!\n')
+        },
         async onInput(input: string): Promise<void> {
             try {
                 const trimmed = input.trim()
@@ -156,14 +159,14 @@ export async function runAgentInteractive(options: InteractiveCLIOptions): Promi
                         `).get(agentName, agentName) as {id: string} | undefined
 
                         if (!agentRecord) {
-                            console.log(pc.red(`\n❌ Agent not found in database\n`))
+                            console.log(pc.red('\n❌ Agent not found in database\n'))
                             return
                         }
 
                         const pendingTasks = getPendingTasks(agentRecord.id)
 
                         if (pendingTasks.length === 0) {
-                            console.log(pc.green(`\n✅ No pending tasks found\n`))
+                            console.log(pc.green('\n✅ No pending tasks found\n'))
                             return
                         }
 
@@ -192,7 +195,7 @@ export async function runAgentInteractive(options: InteractiveCLIOptions): Promi
                             }
                         }
 
-                        console.log(pc.green(`\n✅ Finished processing pending tasks\n`))
+                        console.log(pc.green('\n✅ Finished processing pending tasks\n'))
                     } catch(error) {
                         const errorMsg = error instanceof Error ? error.message : String(error)
                         console.log(pc.red(`\n❌ Error processing pending tasks: ${errorMsg}\n`))
@@ -225,8 +228,11 @@ export async function runAgentInteractive(options: InteractiveCLIOptions): Promi
                 // Process instruction through agent (natural language)
                 const response: AgentResponse = await agent.executeInstruction(trimmed, agentContext as AgentContext)
 
-                // Display result
-                console.log('\n') // New line after reasoning stream
+                /*
+                 * Display result
+                 * New line after reasoning stream
+                 */
+                console.log('\n')
                 if (response.success) {
                     console.log(pc.green(response.message))
                     if (response.data) {
@@ -244,9 +250,8 @@ export async function runAgentInteractive(options: InteractiveCLIOptions): Promi
                 console.error(pc.red(`\nError processing instruction: ${errorMsg}\n`))
             }
         },
-        onExit() {
-            console.log('\n👋 Goodbye!\n')
-        },
+        prompt,
+        welcomeMessage,
     }
 
     const repl = new REPL(replOptions)
@@ -271,7 +276,8 @@ export async function runAgentOneShot(
 
     try {
         const response = await agent.executeInstruction(instruction, agentContext as AgentContext)
-        console.log('\n') // New line after reasoning stream
+        // New line after reasoning stream
+        console.log('\n')
 
         if (response.success) {
             console.log(pc.green(response.message))

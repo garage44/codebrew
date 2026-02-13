@@ -5,11 +5,17 @@ import {performance} from 'perf_hooks'
 
 export class Task {
     title: string
+
     execute: (...args: any[]) => any
-    prefix: { error: string; ok: string }
+
+    prefix: {error: string; ok: string}
+
     startTime?: number
+
     endTime?: number
+
     spendTime?: string
+
     size?: string
 
     constructor(title, execute) {
@@ -43,7 +49,7 @@ export class Task {
                     this.size = `${Number(result.size / Math.pow(1024, 2)).toFixed(2)}MiB`
                 }
             }
-        } catch (err) {
+        } catch(err) {
             logger.error(`${this.prefix.error}task failed\n${err}`)
             notifier.notify({
                 message: `${err}`,

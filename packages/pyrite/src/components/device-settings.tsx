@@ -192,7 +192,7 @@ export function DeviceSettings() {
     // Watch for device changes
     useEffect(() => {
         remountStream()
-    }, [$s.devices.cam.resolution, $s.devices.cam.selected, $s.devices.mic.selected])
+    }, [$s.devices.cam.resolution, $s.devices.cam.selected])
 
     return (
         <div class='c-device-settings'>
@@ -278,8 +278,8 @@ export function DeviceSettings() {
 
                 {($s.env.isFirefox || !Array.isArray($s.devices.audio.options) || $s.devices.audio.options.length === 0) &&
                     <div class='c-device-settings__audio-test'>
-                        <label>Test Audio Output</label>
-                        <button class='btn' disabled={!soundAudio} onClick={testSoundAudio}>
+                        <label htmlFor='test-audio-output-btn'>Test Audio Output</label>
+                        <button class='btn' disabled={!soundAudio} id='test-audio-output-btn' onClick={testSoundAudio}>
                             <Icon className='icon-d' name={soundAudio?.description.playing ? 'pause' : 'play'} />
                         </button>
                         <p class='c-device-settings__help'>

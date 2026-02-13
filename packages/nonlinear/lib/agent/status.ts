@@ -11,10 +11,10 @@ export type AgentStatus = 'idle' | 'working' | 'error' | 'offline'
 
 interface AgentStatusState {
     agentId: string
-    status: AgentStatus
     currentTicketId: string | null
-    lastActivity: number
     error: string | null
+    lastActivity: number
+    status: AgentStatus
 }
 
 const agentStatuses = new Map<string, AgentStatusState>()
@@ -32,10 +32,10 @@ export function initAgentStatusTracking(manager: WebSocketServerManager) {
     for (const agent of agents) {
         agentStatuses.set(agent.id, {
             agentId: agent.id,
-            status: (agent.status || 'idle') as AgentStatus,
             currentTicketId: null,
-            lastActivity: Date.now(),
             error: null,
+            lastActivity: Date.now(),
+            status: (agent.status || 'idle') as AgentStatus,
         })
     }
 
@@ -53,18 +53,18 @@ export function updateAgentStatus(
 ) {
     const currentState = agentStatuses.get(agentId) || {
         agentId,
-        status: 'idle' as AgentStatus,
         currentTicketId: null,
-        lastActivity: Date.now(),
         error: null,
+        lastActivity: Date.now(),
+        status: 'idle' as AgentStatus,
     }
 
     const newState: AgentStatusState = {
         agentId,
-        status,
         currentTicketId: ticketId || currentState.currentTicketId,
-        lastActivity: Date.now(),
         error: error || null,
+        lastActivity: Date.now(),
+        status,
     }
 
     agentStatuses.set(agentId, newState)
@@ -84,10 +84,10 @@ export function updateAgentStatus(
     if (wsManager) {
         wsManager.broadcast('/agents', {
             agentId,
-            status,
             currentTicketId: newState.currentTicketId,
             error: newState.error,
             lastActivity: newState.lastActivity,
+            status,
             type: 'agent:status',
         })
     }

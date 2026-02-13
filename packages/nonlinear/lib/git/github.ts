@@ -25,8 +25,8 @@ export class GitHubAdapter implements GitPlatform {
         const response = await fetch(url, {
             ...options,
             headers: {
-                'Authorization': `Bearer ${this.apiKey}`,
-                'Accept': 'application/vnd.github.v3+json',
+                Accept: 'application/vnd.github.v3+json',
+                Authorization: `Bearer ${this.apiKey}`,
                 'Content-Type': 'application/json',
                 ...options.headers,
             },
@@ -75,11 +75,11 @@ export class GitHubAdapter implements GitPlatform {
 
         // Create new branch
         await this.apiRequest(`/repos/${repoInfo.owner}/${repoInfo.repo}/git/refs`, {
-            method: 'POST',
             body: JSON.stringify({
                 ref: `refs/heads/${branchName}`,
                 sha,
             }),
+            method: 'POST',
         })
 
         logger.info(`[GitHub] Created branch ${branchName}`)
@@ -104,16 +104,16 @@ export class GitHubAdapter implements GitPlatform {
 
         // Create pull request
         const prResponse = await this.apiRequest(`/repos/${repoInfo.owner}/${repoInfo.repo}/pulls`, {
-            method: 'POST',
             body: JSON.stringify({
-                title,
+                base: baseBranch,
                 body: description,
                 head: branch,
-                base: baseBranch,
+                title,
             }),
+            method: 'POST',
         })
 
-        const prData = await prResponse.json() as {number: number; html_url: string}
+        const prData = await prResponse.json() as {html_url: string; number: number}
         logger.info(`[GitHub] Created PR #${prData.number}: ${prData.html_url}`)
         return prData.number.toString()
     }
@@ -125,10 +125,10 @@ export class GitHubAdapter implements GitPlatform {
         }
 
         await this.apiRequest(`/repos/${repoInfo.owner}/${repoInfo.repo}/issues/${mrId}/comments`, {
-            method: 'POST',
             body: JSON.stringify({
                 body: comment,
             }),
+            method: 'POST',
         })
 
         logger.info(`[GitHub] Added comment to PR #${mrId}`)
@@ -143,12 +143,12 @@ export class GitHubAdapter implements GitPlatform {
         // Find PR for this branch
         const prsResponse = await this.apiRequest(`/repos/${repoInfo.owner}/${repoInfo.repo}/pulls?head=${repoInfo.owner}:${branch}&state=all`)
         const prs = await prsResponse.json() as Array<{
+            body: string
+            html_url: string
+            merged: boolean
             number: number
             state: 'open' | 'closed'
-            merged: boolean
-            html_url: string
             title: string
-            body: string
         }>
 
         if (prs.length === 0) {
@@ -157,11 +157,11 @@ export class GitHubAdapter implements GitPlatform {
 
         const pr = prs[0]
         return {
+            description: pr.body || '',
             id: pr.number.toString(),
             state: pr.merged ? 'merged' : pr.state === 'open' ? 'open' : 'closed',
-            url: pr.html_url,
             title: pr.title,
-            description: pr.body || '',
+            url: pr.html_url,
         }
     }
 }

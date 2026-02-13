@@ -9,12 +9,12 @@ import path from 'node:path'
 import readline from 'node:readline'
 
 export interface REPLOptions {
-    prompt: string
-    onInput: (input: string) => Promise<void>
-    onExit?: () => void
-    welcomeMessage?: string
     helpMessage?: string
     historyFile?: string
+    onExit?: () => void
+    onInput: (input: string) => Promise<void>
+    prompt: string
+    welcomeMessage?: string
 }
 
 export class REPL {
@@ -34,10 +34,10 @@ export class REPL {
         this.historyFilePath = options.historyFile || envHistoryPath || path.join(homedir(), '.nonlinear_history')
 
         this.rl = readline.createInterface({
+            historySize: 1000,
             input: process.stdin,
             output: process.stdout,
             prompt: options.prompt,
-            historySize: 1000,
         })
 
         // Load history from file
@@ -54,12 +54,13 @@ export class REPL {
                 this.history = content.split('\n')
                     .map((line) => line.trim())
                     .filter((line) => line.length > 0)
-                    .slice(-1000) // Keep last 1000 entries
+                    .slice(-1000)
+                // Keep last 1000 entries
 
                 // Load history into readline
                 ;(this.rl as unknown as {history: string[]}).history = this.history.slice()
             }
-        } catch(error) {
+        } catch(_error) {
             // Ignore errors loading history (file might not exist yet)
         }
     }
@@ -78,7 +79,7 @@ export class REPL {
 
             // Write to file
             await fs.writeFile(this.historyFilePath, limitedHistory.join('\n') + '\n', 'utf-8')
-        } catch(error) {
+        } catch(_error) {
             // Ignore errors saving history (permissions, etc.)
         }
     }
@@ -106,7 +107,7 @@ export class REPL {
         }
 
         // Update readline history
-        ;(this.rl as unknown as {history: string[]}).history = this.history.slice()
+        (this.rl as unknown as {history: string[]}).history = this.history.slice()
     }
 
     /**

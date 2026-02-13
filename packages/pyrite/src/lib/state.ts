@@ -40,12 +40,12 @@ export const persistantState = mergeDeep({
             collapsed: false,
             width: 375,
         },
+        conferenceMode: false,
         context: {
             collapsed: false,
             expanded: false,
             width: 350,
         },
-        conferenceMode: false,
     },
 }, commonPersistantState as Record<string, unknown>) as Partial<PyriteState>
 
@@ -77,6 +77,11 @@ export const volatileState = mergeDeep({
         message: '',
         width: 375,
     },
+    devices: {
+        cam: {
+            enabled: false,
+        },
+    },
     files: {
         playing: [],
         upload: [],
@@ -85,16 +90,26 @@ export const volatileState = mergeDeep({
         autofocus: true,
     },
     mediaReady: false,
-    devices: {
-        cam: {
-            enabled: false,
+    notifications: [],
+    panels: {
+        chat: {
+            collapsed: false,
+            width: 375,
+        },
+        conferenceMode: false,
+        context: {
+            collapsed: false,
+            expanded: false,
+            width: 350,
         },
     },
-    notifications: [],
     permissions: {
         op: false,
-        // Assume present permission before connecting,
-        // so send can be modified in Settings.
+
+        /*
+         * Assume present permission before connecting,
+         * so send can be modified in Settings.
+         */
         present: true,
         record: false,
     },
@@ -133,16 +148,4 @@ export const volatileState = mergeDeep({
         video: [],
     },
     users: [],
-    panels: {
-        chat: {
-            collapsed: false,
-            width: 375,
-        },
-        context: {
-            collapsed: false,
-            expanded: false,
-            width: 350,
-        },
-        conferenceMode: false,
-    },
 }, commonVolatileState) as Partial<PyriteState>

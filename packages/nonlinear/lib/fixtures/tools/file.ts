@@ -11,17 +11,20 @@ import path from 'node:path'
  * Get file context (imports, exports, related files)
  */
 async function getFileContext(filePath: string, content: string): Promise<{
-    type: string
-    imports: string[]
     exports: string[]
+    imports: string[]
     relatedFiles: string[]
     structure: string[]
+    type: string
 }> {
     const ext = path.extname(filePath)
-    const type = ext === '.ts' || ext === '.tsx' ? 'typescript' :
-        ext === '.js' || ext === '.jsx' ? 'javascript' :
-        ext === '.css' ? 'css' :
-        ext === '.json' ? 'json' : 'unknown'
+    const type = ext === '.ts' || ext === '.tsx' ?
+        'typescript' :
+        ext === '.js' || ext === '.jsx' ?
+            'javascript' :
+            ext === '.css' ?
+                'css' :
+                ext === '.json' ? 'json' : 'unknown'
 
     // Extract imports (simple regex for now, can be enhanced with AST)
     const importRegex = /import\s+.*?\s+from\s+['"](.+?)['"]/g
@@ -38,8 +41,10 @@ async function getFileContext(filePath: string, content: string): Promise<{
         exports.push(match[1])
     }
 
-    // Find related files (files that import this file)
-    // This would require scanning the codebase - simplified for now
+    /*
+     * Find related files (files that import this file)
+     * This would require scanning the codebase - simplified for now
+     */
     const relatedFiles: string[] = []
 
     // Extract structure (functions, classes)
@@ -50,32 +55,23 @@ async function getFileContext(filePath: string, content: string): Promise<{
     }
 
     return {
-        type,
-        imports,
         exports,
+        imports,
         relatedFiles,
         structure,
+        type,
     }
 }
 
 export const fileTools: Record<string, Tool> = {
     read_file: {
-        name: 'read_file',
         description: 'Read file with syntax context and related file hints',
-        parameters: [
-            {
-                name: 'path',
-                type: 'string',
-                description: 'File path relative to repository root',
-                required: true,
-            },
-        ],
-        execute: async (params: {path: string}, context: ToolContext): Promise<ToolResult> => {
+        execute: async(params: {path: string}, context: ToolContext): Promise<ToolResult> => {
             try {
                 if (!context.repositoryPath) {
                     return {
-                        success: false,
                         error: 'Repository path not available in context',
+                        success: false,
                     }
                 }
 
@@ -86,8 +82,8 @@ export const fileTools: Record<string, Tool> = {
                 const resolvedRepo = path.resolve(context.repositoryPath)
                 if (!resolvedPath.startsWith(resolvedRepo)) {
                     return {
-                        success: false,
                         error: 'Invalid file path',
+                        success: false,
                     }
                 }
 
@@ -95,151 +91,53 @@ export const fileTools: Record<string, Tool> = {
                 const contextInfo = await getFileContext(filePath, content)
 
                 return {
-                    success: true,
-                    data: content,
                     context: {
+                        exports: contextInfo.exports,
                         fileType: contextInfo.type,
                         imports: contextInfo.imports,
-                        exports: contextInfo.exports,
                         relatedFiles: contextInfo.relatedFiles,
                         structure: contextInfo.structure,
                     },
+                    data: content,
+                    success: true,
                 }
-            } catch (error) {
+            } catch(error) {
                 logger.error(`[FileTool] Failed to read file ${params.path}:`, error)
                 return {
-                    success: false,
                     error: error instanceof Error ? error.message : String(error),
+                    success: false,
                 }
             }
         },
-    },
-
-    write_file: {
-        name: 'write_file',
-        description: 'Write file using AST-based editing when possible, otherwise full replacement',
+        name: 'read_file',
         parameters: [
             {
-                name: 'path',
-                type: 'string',
                 description: 'File path relative to repository root',
+                name: 'path',
                 required: true,
-            },
-            {
-                name: 'content',
                 type: 'string',
-                description: 'File content (for replace mode)',
-                required: false,
-            },
-            {
-                name: 'edits',
-                type: 'array',
-                description: 'AST-based edits (preferred over content replacement)',
-                required: false,
-            },
-            {
-                name: 'mode',
-                type: 'string',
-                description: 'Mode: replace, ast, or patch',
-                required: false,
             },
         ],
-        execute: async (params: {
-            path: string
-            content?: string
-            edits?: unknown[]
-            mode?: 'replace' | 'ast' | 'patch'
-        }, context: ToolContext): Promise<ToolResult> => {
-            try {
-                if (!context.repositoryPath) {
-                    return {
-                        success: false,
-                        error: 'Repository path not available in context',
-                    }
-                }
-
-                const filePath = path.join(context.repositoryPath, params.path)
-
-                // Validate path
-                const resolvedPath = path.resolve(filePath)
-                const resolvedRepo = path.resolve(context.repositoryPath)
-                if (!resolvedPath.startsWith(resolvedRepo)) {
-                    return {
-                        success: false,
-                        error: 'Invalid file path',
-                    }
-                }
-
-                // For now, use full replacement (AST editing will be added later)
-                if (params.content) {
-                    // Ensure directory exists
-                    const dir = path.dirname(filePath)
-                    await Bun.write(filePath, params.content)
-
-                    logger.info(`[FileTool] Wrote file: ${params.path}`)
-
-                    return {
-                        success: true,
-                        context: {
-                            filesAffected: [params.path],
-                            changesSummary: 'File written',
-                        },
-                    }
-                }
-
-                return {
-                    success: false,
-                    error: 'Either content or edits must be provided',
-                }
-            } catch (error) {
-                logger.error(`[FileTool] Failed to write file ${params.path}:`, error)
-                return {
-                    success: false,
-                    error: error instanceof Error ? error.message : String(error),
-                }
-            }
-        },
     },
 
     search_files: {
-        name: 'search_files',
         description: 'Search files by pattern or content',
-        parameters: [
-            {
-                name: 'pattern',
-                type: 'string',
-                description: 'File pattern (e.g., "*.ts", "**/*.test.ts")',
-                required: false,
-            },
-            {
-                name: 'content',
-                type: 'string',
-                description: 'Search for content in files',
-                required: false,
-            },
-            {
-                name: 'directory',
-                type: 'string',
-                description: 'Directory to search in (relative to repository root)',
-                required: false,
-            },
-        ],
-        execute: async (params: {
-            pattern?: string
+        execute: async(params: {
             content?: string
             directory?: string
+            pattern?: string
         }, context: ToolContext): Promise<ToolResult> => {
             try {
                 if (!context.repositoryPath) {
                     return {
-                        success: false,
                         error: 'Repository path not available in context',
+                        success: false,
                     }
                 }
 
-                const searchDir = params.directory
-                    ? path.join(context.repositoryPath, params.directory)
-                    : context.repositoryPath
+                const searchDir = params.directory ?
+                        path.join(context.repositoryPath, params.directory) :
+                    context.repositoryPath
 
                 // Use Bun Shell for file search
                 const {$} = await import('bun')
@@ -263,38 +161,145 @@ export const fileTools: Record<string, Tool> = {
                     results = result.split('\n').filter(Boolean)
                 } else {
                     return {
-                        success: false,
                         error: 'Either pattern or content must be provided',
+                        success: false,
                     }
                 }
 
                 // Enrich with file metadata
                 const enriched = await Promise.all(
-                    results.map(async (filePath) => {
+                    results.map(async(filePath) => {
                         const fullPath = path.isAbsolute(filePath) ? filePath : path.join(context.repositoryPath, filePath)
                         const stat = await Bun.file(fullPath).stat().catch(() => null)
                         return {
+                            modified: stat?.mtime || null,
                             path: path.relative(context.repositoryPath, fullPath),
                             size: stat?.size || 0,
-                            modified: stat?.mtime || null,
                         }
-                    })
+                    }),
                 )
 
                 return {
-                    success: true,
-                    data: enriched,
                     context: {
                         totalFiles: enriched.length,
                     },
+                    data: enriched,
+                    success: true,
                 }
-            } catch (error) {
-                logger.error(`[FileTool] Failed to search files:`, error)
+            } catch(error) {
+                logger.error('[FileTool] Failed to search files:', error)
                 return {
-                    success: false,
                     error: error instanceof Error ? error.message : String(error),
+                    success: false,
                 }
             }
         },
+        name: 'search_files',
+        parameters: [
+            {
+                description: 'File pattern (e.g., "*.ts", "**/*.test.ts")',
+                name: 'pattern',
+                required: false,
+                type: 'string',
+            },
+            {
+                description: 'Search for content in files',
+                name: 'content',
+                required: false,
+                type: 'string',
+            },
+            {
+                description: 'Directory to search in (relative to repository root)',
+                name: 'directory',
+                required: false,
+                type: 'string',
+            },
+        ],
+    },
+
+    write_file: {
+        description: 'Write file using AST-based editing when possible, otherwise full replacement',
+        execute: async(params: {
+            content?: string
+            edits?: unknown[]
+            mode?: 'replace' | 'ast' | 'patch'
+            path: string
+        }, context: ToolContext): Promise<ToolResult> => {
+            try {
+                if (!context.repositoryPath) {
+                    return {
+                        error: 'Repository path not available in context',
+                        success: false,
+                    }
+                }
+
+                const filePath = path.join(context.repositoryPath, params.path)
+
+                // Validate path
+                const resolvedPath = path.resolve(filePath)
+                const resolvedRepo = path.resolve(context.repositoryPath)
+                if (!resolvedPath.startsWith(resolvedRepo)) {
+                    return {
+                        error: 'Invalid file path',
+                        success: false,
+                    }
+                }
+
+                // For now, use full replacement (AST editing will be added later)
+                if (params.content) {
+                    // Ensure directory exists
+                    const dir = path.dirname(filePath)
+                    await Bun.write(filePath, params.content)
+
+                    logger.info(`[FileTool] Wrote file: ${params.path}`)
+
+                    return {
+                        context: {
+                            changesSummary: 'File written',
+                            filesAffected: [params.path],
+                        },
+                        success: true,
+                    }
+                }
+
+                return {
+                    error: 'Either content or edits must be provided',
+                    success: false,
+                }
+            } catch(error) {
+                logger.error(`[FileTool] Failed to write file ${params.path}:`, error)
+                return {
+                    error: error instanceof Error ? error.message : String(error),
+                    success: false,
+                }
+            }
+        },
+        name: 'write_file',
+        parameters: [
+            {
+                description: 'File path relative to repository root',
+                name: 'path',
+                required: true,
+                type: 'string',
+            },
+            {
+                description: 'File content (for replace mode)',
+                name: 'content',
+                required: false,
+                type: 'string',
+            },
+            {
+                description: 'AST-based edits (preferred over content replacement)',
+                name: 'edits',
+                required: false,
+                type: 'array',
+            },
+            {
+                description: 'Mode: replace, ast, or patch',
+                name: 'mode',
+                required: false,
+                type: 'string',
+            },
+        ],
     },
 }

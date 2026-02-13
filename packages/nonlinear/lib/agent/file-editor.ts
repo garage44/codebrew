@@ -8,12 +8,15 @@ import fs from 'fs-extra'
 import path from 'node:path'
 
 export interface FileModification {
-    path: string
     changes: string
-    // Changes can be:
-    // - Full file replacement (if changes is complete file content)
-    // - Diff/patch format (future enhancement)
-    // - JSON patch format (future enhancement)
+    path: string
+
+    /*
+     * Changes can be:
+     * - Full file replacement (if changes is complete file content)
+     * - Diff/patch format (future enhancement)
+     * - JSON patch format (future enhancement)
+     */
 }
 
 /**
@@ -24,7 +27,7 @@ export interface FileModification {
 export async function applyFileModifications(
     repoPath: string,
     modifications: FileModification[],
-): Promise<Array<{path: string; success: boolean; error?: string}>> {
+): Promise<Array<{error?: string; path: string; success: boolean}>> {
     const results: Array<{error?: string; path: string; success: boolean}> = []
 
     for (const mod of modifications) {
@@ -53,10 +56,12 @@ export async function applyFileModifications(
 
             // Clean up backup after successful modification
             if (await fs.pathExists(backupPath)) {
-                // Keep backup for now, could delete after validation
-                // await fs.remove(backupPath)
+                /*
+                 * Keep backup for now, could delete after validation
+                 * await fs.remove(backupPath)
+                 */
             }
-        } catch (error) {
+        } catch(error) {
             const errorMsg = error instanceof Error ? error.message : String(error)
             logger.error(`[FileEditor] Failed to modify ${mod.path}: ${errorMsg}`)
             results.push({
