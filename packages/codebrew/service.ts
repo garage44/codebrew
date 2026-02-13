@@ -1,7 +1,8 @@
 #!/usr/bin/env bun
-import {URL, fileURLToPath} from 'node:url'
-import {createBunWebSocketHandler} from '@garage44/common/lib/ws-server'
+import type {LoggerConfig} from '@garage44/common/types'
+
 import {bunchyArgs, bunchyService} from '@garage44/bunchy'
+import {createBunWebSocketHandler} from '@garage44/common/lib/ws-server'
 import {
     createRuntime,
     createWelcomeBanner,
@@ -10,15 +11,15 @@ import {
     service,
     loggerTransports,
 } from '@garage44/common/service'
-import type {LoggerConfig} from '@garage44/common/types'
+import {initDatabase} from '@garage44/nonlinear/lib/database'
 import {homedir} from 'node:os'
 import path from 'node:path'
-import {hideBin} from 'yargs/helpers'
+import {URL, fileURLToPath} from 'node:url'
 import yargs from 'yargs'
+import {hideBin} from 'yargs/helpers'
 
-import {initDatabase} from '@garage44/nonlinear/lib/database'
-import {initMiddleware} from './lib/middleware'
 import {config, initConfig} from './lib/config'
+import {initMiddleware} from './lib/middleware'
 import './lib/plugins'
 
 export const serviceDir = fileURLToPath(new URL('.', import.meta.url))
@@ -49,7 +50,8 @@ if (BUN_ENV === 'development') {
     bunchyArgs(cli as Parameters<typeof bunchyArgs>[0], bunchyConfig)
 }
 
-void cli.usage('Usage: $0 [task]')
+void cli
+    .usage('Usage: $0 [task]')
     .detectLocale(false)
     .command(
         'start',
@@ -73,49 +75,49 @@ void cli.usage('Usage: $0 [task]')
                 })
         },
         async (argv: {host: string; port: number}) => {
-        await initConfig()
+            await initConfig()
 
-        const dbPath = process.env.DB_PATH || path.join(homedir(), '.codebrew.db')
-        const database = initDatabase(dbPath)
+            const dbPath = process.env.DB_PATH || path.join(homedir(), '.codebrew.db')
+            const database = initDatabase(dbPath)
 
-        const configPath = process.env.CONFIG_PATH || '~/.codebrewrc'
-        await service.init({appName: 'codebrew', configPath, useBcrypt: false}, database)
+            const configPath = process.env.CONFIG_PATH || '~/.codebrewrc'
+            await service.init({appName: 'codebrew', configPath, useBcrypt: false}, database)
 
-        const {handleRequest, sessionMiddleware} = await initMiddleware(bunchyConfig)
+            const {handleRequest, sessionMiddleware} = await initMiddleware(bunchyConfig)
 
-        const {bunchyManager, wsManager} = createWebSocketManagers(undefined, sessionMiddleware)
+            const {bunchyManager, wsManager} = createWebSocketManagers(undefined, sessionMiddleware)
 
-        // Register WebSocket routes from each plugin
-        const {getApps} = await import('@garage44/common/lib/codebrew-registry')
-        for (const plugin of getApps()) {
-            if (plugin.wsRoutes) {
-                plugin.wsRoutes(wsManager)
+            // Register WebSocket routes from each plugin
+            const {getApps} = await import('@garage44/common/lib/codebrew-registry')
+            for (const plugin of getApps()) {
+                if (plugin.wsRoutes) {
+                    plugin.wsRoutes(wsManager)
+                }
             }
-        }
 
-        const wsManagers = new Map([
-            ['/ws', wsManager],
-            ['/bunchy', bunchyManager],
-        ])
+            const wsManagers = new Map([
+                ['/ws', wsManager],
+                ['/bunchy', bunchyManager],
+            ])
 
-        const enhancedWebSocketHandler = createBunWebSocketHandler(wsManagers)
+            const enhancedWebSocketHandler = createBunWebSocketHandler(wsManagers)
 
-        const server = Bun.serve({
-            fetch: async (req, srv) => {
-                const res = await handleRequest(req, srv)
-                return res ?? new Response('Not Found', {status: 404})
-            },
-            hostname: argv.host,
-            port: argv.port,
-            websocket: enhancedWebSocketHandler,
-        })
+            const server = Bun.serve({
+                fetch: async (req, srv) => {
+                    const res = await handleRequest(req, srv)
+                    return res ?? new Response('Not Found', {status: 404})
+                },
+                hostname: argv.host,
+                port: argv.port,
+                websocket: enhancedWebSocketHandler,
+            })
 
-        if (BUN_ENV === 'development' && bunchyConfig) {
-            // @ts-expect-error - Bun Server type doesn't match bunchy's expected signature
-            await bunchyService(server, bunchyConfig, bunchyManager)
-        }
+            if (BUN_ENV === 'development' && bunchyConfig) {
+                // @ts-expect-error - Bun Server type doesn't match bunchy's expected signature
+                await bunchyService(server, bunchyConfig, bunchyManager)
+            }
 
-        logger.info(`service: http://${argv.host}:${argv.port}`)
+            logger.info(`service: http://${argv.host}:${argv.port}`)
         },
     )
     .demandCommand()
@@ -123,7 +125,4 @@ void cli.usage('Usage: $0 [task]')
     .showHelpOnFail(true)
     .parse()
 
-export {
-    logger,
-    runtime,
-}
+export {logger, runtime}

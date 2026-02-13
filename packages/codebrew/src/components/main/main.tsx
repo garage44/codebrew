@@ -31,7 +31,7 @@ export const Main = () => {
         ;(async () => {
             const context = (await api.get('/api/context')) as ApiContext
             const isAuthenticated = context.authenticated || (context.id && context.username)
-            $s.profile.admin = !!(context.admin === true || context.admin === 'true')
+            $s.profile.admin = Boolean(context.admin === true || context.admin === 'true')
             $s.profile.authenticated = Boolean(isAuthenticated)
             if (context.id) {
                 $s.profile.id = context.id
