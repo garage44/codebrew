@@ -31,8 +31,8 @@ class DevContext {
 
     errors = new RingBuffer<LogEvent>(200)
 
-    addHttp(e: HttpEvent) {
-        this.http.push(e)
+    addHttp(e: unknown) {
+        this.http.push(e as HttpEvent)
     }
 
     addWs(e: WsEvent) {

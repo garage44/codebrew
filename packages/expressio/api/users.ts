@@ -8,7 +8,12 @@ import {validateRequest} from '../lib/api/validate.ts'
 import {UploadAvatarParamsSchema, UploadAvatarResponseSchema} from '../lib/schemas/users.ts'
 import {logger} from '../service.ts'
 
-export default function apiUsers(router) {
+export default function apiUsers(router: {
+    post: (
+        path: string,
+        handler: (req: Request, params: Record<string, string>, session?: Record<string, string>) => Promise<Response>,
+    ) => void
+}): void {
     /**
      * Upload avatar for a user
      * POST /api/users/:userid/avatar

@@ -87,10 +87,15 @@ export const Login = ({animated = true, logo, LogoIcon, onLogin, title = 'Login'
     const [error, setError] = useState('')
 
     // Memoize the validator to prevent re-creation on every render
-    const {isValid, resetTouched, validation} = useMemo(() => createValidator({
-        password: [state.$password, required('Password is required')],
-        username: [state.$username, required('Username is required')],
-    }), [])
+    const {isValid, resetTouched, validation} = useMemo(() => {
+        if (!state.$password || !state.$username) {
+            throw new Error('State signals not initialized')
+        }
+        return createValidator({
+            password: [state.$password, required('Password is required')],
+            username: [state.$username, required('Username is required')],
+        })
+    }, [])
 
     const clearTimers = () => {
         if (state.animationFrame) {

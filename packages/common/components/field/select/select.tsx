@@ -21,7 +21,7 @@ export const FieldSelect = ({
     help,
     label,
     model,
-    onChange = null,
+    onChange,
     options,
     placeholder = '',
     validation,

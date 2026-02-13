@@ -4,7 +4,7 @@
  */
 
 import {type AgentContext, type AgentResponse, BaseAgent} from './base.ts'
-import {type Repository, db} from '../database.ts'
+import {type Repository, getDb} from '../database.ts'
 import {logger} from '../../service.ts'
 import {createGitPlatform} from '../git/index.ts'
 import {addAgentComment} from './comments.ts'
@@ -17,7 +17,7 @@ export class ReviewerAgent extends BaseAgent {
     async process(context: AgentContext): Promise<AgentResponse> {
         try {
             // Get a ticket in "review" status
-            const ticket = db.prepare(`
+            const ticket = getDb().prepare(`
                 SELECT t.*, r.path, r.platform, r.remote_url, r.config
                 FROM tickets t
                 JOIN repositories r ON t.repository_id = r.id
@@ -49,7 +49,7 @@ export class ReviewerAgent extends BaseAgent {
             this.log(`Reviewing ticket ${ticket.id}: ${ticket.title}`)
 
             // Get repository details
-            const repository = db
+            const repository = getDb()
                 .prepare('SELECT * FROM repositories WHERE id = ?')
                 .get(ticket.repository_id) as Repository | undefined
 
@@ -78,7 +78,7 @@ export class ReviewerAgent extends BaseAgent {
             }
 
             // Get ticket comments for context
-            const comments = db.prepare(`
+            const comments = getDb().prepare(`
                 SELECT * FROM comments
                 WHERE ticket_id = ?
                 ORDER BY created_at ASC
@@ -154,7 +154,7 @@ Please review the changes and provide feedback.`
             // Update ticket status
             if (review.approved) {
                 // Move to closed (pending human confirmation)
-                db.prepare(`
+                getDb().prepare(`
                     UPDATE tickets
                     SET status = 'closed',
                         updated_at = ?
@@ -164,7 +164,7 @@ Please review the changes and provide feedback.`
                 this.log(`Ticket ${ticket.id} approved and moved to closed`)
             } else {
                 // Move back to in_progress for fixes
-                db.prepare(`
+                getDb().prepare(`
                     UPDATE tickets
                     SET status = 'in_progress',
                         assignee_type = NULL,

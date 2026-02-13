@@ -4,7 +4,7 @@
  */
 
 import type {WebSocketServerManager} from '@garage44/common/lib/ws-server'
-import {db} from '../database.ts'
+import {getDb} from '../database.ts'
 import {logger} from '../../service.ts'
 
 let wsManager: WebSocketServerManager | null = null
@@ -22,7 +22,7 @@ export function initAgentTicketUpdateBroadcasting(manager: WebSocketServerManage
  * Used by both updateTicketFromAgent and update_ticket tool
  */
 function broadcastTicketUpdate(ticketId: string): void {
-    const ticket = db.prepare(`
+    const ticket = getDb().prepare(`
         SELECT t.*, r.name as repository_name
         FROM tickets t
         LEFT JOIN repositories r ON t.repository_id = r.id
@@ -77,15 +77,15 @@ export async function updateTicketFromAgent(
 
     if ('title' in updates) {
         fields.push('title = ?')
-        values.push(updates.title)
+        values.push(updates.title ?? null)
     }
     if ('description' in updates) {
         fields.push('description = ?')
-        values.push(updates.description)
+        values.push(updates.description ?? null)
     }
     if ('solution_plan' in updates) {
         fields.push('solution_plan = ?')
-        values.push(updates.solution_plan)
+        values.push(updates.solution_plan ?? null)
     }
 
     if (fields.length === 0) {
@@ -96,7 +96,7 @@ export async function updateTicketFromAgent(
     values.push(Date.now())
     values.push(ticketId)
 
-    db.prepare(`
+    getDb().prepare(`
         UPDATE tickets
         SET ${fields.join(', ')}
         WHERE id = ?
@@ -121,7 +121,7 @@ export async function updateTicketFields(
     agentType?: 'planner' | 'developer' | 'reviewer' | 'prioritizer',
 ): Promise<{error?: string; success: boolean}> {
     // Validate ticket exists
-    const existingTicket = db.prepare('SELECT id FROM tickets WHERE id = ?').get(ticketId)
+    const existingTicket = getDb().prepare('SELECT id FROM tickets WHERE id = ?').get(ticketId)
     if (!existingTicket) {
         return {
             error: `Ticket not found: ${ticketId}`,
@@ -130,7 +130,7 @@ export async function updateTicketFields(
     }
 
     // Validate priority range if provided
-    if ('priority' in updates && updates.priority !== null && (updates.priority < 0 || updates.priority > 10)) {
+    if (typeof updates.priority === 'number' && (updates.priority < 0 || updates.priority > 10)) {
         return {
             error: 'Priority must be between 0 and 10',
             success: false,
@@ -140,7 +140,7 @@ export async function updateTicketFields(
     // Validate status if provided
     if ('status' in updates && updates.status !== null) {
         const validStatuses = ['backlog', 'todo', 'in_progress', 'review', 'closed']
-        if (!validStatuses.includes(updates.status)) {
+        if (!validStatuses.includes(updates.status ?? '')) {
             return {
                 error: `Invalid status: ${updates.status}. Must be one of: ${validStatuses.join(', ')}`,
                 success: false,
@@ -153,23 +153,23 @@ export async function updateTicketFields(
 
     if ('title' in updates) {
         fields.push('title = ?')
-        values.push(updates.title)
+        values.push(updates.title ?? null)
     }
     if ('description' in updates) {
         fields.push('description = ?')
-        values.push(updates.description)
+        values.push(updates.description ?? null)
     }
     if ('status' in updates) {
         fields.push('status = ?')
-        values.push(updates.status)
+        values.push(updates.status ?? null)
     }
     if ('priority' in updates) {
         fields.push('priority = ?')
-        values.push(updates.priority)
+        values.push(updates.priority ?? null)
     }
     if ('solution_plan' in updates) {
         fields.push('solution_plan = ?')
-        values.push(updates.solution_plan)
+        values.push(updates.solution_plan ?? null)
     }
 
     if (fields.length === 0) {
@@ -184,7 +184,7 @@ export async function updateTicketFields(
     values.push(ticketId)
 
     try {
-        db.prepare(`
+        getDb().prepare(`
             UPDATE tickets
             SET ${fields.join(', ')}
             WHERE id = ?

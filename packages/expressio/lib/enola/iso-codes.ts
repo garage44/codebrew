@@ -430,7 +430,7 @@ function toIso6391(iso6392Code: string | null | undefined): string | null {
 function toIso6392(iso6391Code: string): string | null {
     const code = iso6391Code.toLowerCase()
     if (iso6391Code.includes('-')) {
-        const extendedCode = EXTENDED_LANGUAGE_CODES[iso6391Code.toLowerCase()]
+        const extendedCode = EXTENDED_LANGUAGE_CODES[iso6391Code.toLowerCase() as keyof typeof EXTENDED_LANGUAGE_CODES]
 
         if (extendedCode) {
             return extendedCode

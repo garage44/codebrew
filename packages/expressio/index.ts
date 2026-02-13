@@ -23,7 +23,7 @@ function createTypedI18n<T extends {i18n: Record<string, unknown>}>(workspace: T
     const i18n = {...workspace.i18n}
 
     // Attach path symbols to translation objects
-    keyMod(i18n, (_srcRef: unknown, _id: string, refPath: string[]): void => {
+    keyMod(i18n, (ref: Record<string, unknown>, key: string | null, refPath: string[], _nestingLevel: number): void => {
         const sourceRef = keyPath(i18n, refPath)
         if (typeof sourceRef === 'object' && sourceRef !== null && 'source' in sourceRef && refPath.length > 0) {
             const pathString = `i18n.${refPath.join('.')}`;

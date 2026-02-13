@@ -17,7 +17,7 @@ export class Workspace {
 
     config: WorkspaceConfig = {
         languages: {
-            // default source language for new workspaces
+            // Default source language for new workspaces
             source: 'eng-gbr',
             target: [],
         },
@@ -42,7 +42,7 @@ export class Workspace {
     private isHistoryOperation = false
 
     // Flag to prevent recursive history additions
-    private watchers: Array<{close(): void}> = []
+    private watchers: {close(): void}[] = []
 
     // Add transaction tracking with smarter time-based grouping
     private pendingChanges = false
@@ -65,7 +65,7 @@ export class Workspace {
 
     private _addHistoryTimeout: ReturnType<typeof setTimeout> | null = null
 
-    // ms to consider related operations as a single action
+    // Ms to consider related operations as a single action
 
     // Add a proxy handler for tracking object changes
     private createDeepProxy<T extends Record<string, unknown>>(obj: T, onChange: () => void): T {
@@ -191,7 +191,7 @@ export class Workspace {
 
         if (!configExists) {
             // The workspace_id is provided when creating a new workspace
-            this.config.workspace_id = description.workspace_id
+            this.config.workspace_id = description.workspace_id || ''
 
             logger.info(
                 `[workspace-${this.config.workspace_id}] no workspace config found yet; creating ${this.config.source_file}...`,
@@ -226,9 +226,8 @@ export class Workspace {
     }
 
     async load() {
-        const loadedSettings = JSON.parse(await fs.readFile(this.config.source_file, 'utf8'))
-        const i18n = loadedSettings.i18n
-
+        const loadedSettings = JSON.parse(await fs.readFile(this.config.source_file || '', 'utf8'))
+        const {i18n} = loadedSettings
         // Augment with state keys and attach path symbols
         keyMod(i18n, (_srcRef, _id, refPath) => {
             const key = refPath.at(-1)
@@ -239,7 +238,7 @@ export class Workspace {
                 // The _id field is a copy of the key, used to buffer a key rename.
                 sourceRefData._id = key || 'root'
                 sourceRefData._collapsed = !!key
-
+                Boolean(key)
                 /*
                  * Attach path symbol for type-safe translation references
                  * Only attach to translation objects (those with 'source' property)
@@ -262,7 +261,7 @@ export class Workspace {
     async save() {
         const i18n = copyObject(this.i18n)
         const config = copyObject(this.config)
-        delete config.source_file
+        delete (config as {source_file?: string}).source_file
 
         keyMod(i18n, (_srcRef, _id, refPath) => {
             const sourceRef = keyPath(i18n, refPath)
@@ -293,7 +292,7 @@ export class Workspace {
         })
 
         await fs.writeFile(
-            this.config.source_file,
+            this.config.source_file || '',
             JSON.stringify(
                 sortNestedObjectKeys({
                     config: this.config,
@@ -316,7 +315,7 @@ export class Workspace {
 
     async watch() {
         // oxlint-disable-next-line no-template-curly-in-string
-        const scan_target = this.config.sync.dir.replace('${workspaceFolder}', path.dirname(this.config.source_file))
+        const scan_target = this.config.sync.dir.replace('${workspaceFolder}', path.dirname(this.config.source_file || ''))
         logger.info(`[workspace-${this.config.workspace_id}] watch ${scan_target}`)
 
         // Extract base directory and pattern for Bun's Glob
@@ -332,6 +331,7 @@ export class Workspace {
         // Create watchers for each file
         for (const file of files) {
             try {
+                ;[...glob.scanSync(baseDir)]
                 const watcher = watch(file, async (eventType, filename) => {
                     logger.debug(`[workspace-${this.config.workspace_id}] file changed: ${filename} (${eventType})`)
                     await this.applyLinting('sync')
@@ -355,7 +355,7 @@ export class Workspace {
 
         try {
             // Apply the linting
-            await lintWorkspace(this, mode)
+            await lintWorkspace(this as Parameters<typeof lintWorkspace>[0], mode)
 
             // Broadcast the updated state but don't add to history
             this.broadcastI18nState()
@@ -365,7 +365,7 @@ export class Workspace {
         }
     }
 
-    // Update the addToHistory method to remove linting
+    // Update the addToHistory method to rem{id: string}[]
     addToHistory(newI18n: I18n): void {
         // Cancel any pending history updates
         if (this._addHistoryTimeout) {

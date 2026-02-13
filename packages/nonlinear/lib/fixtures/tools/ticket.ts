@@ -4,51 +4,47 @@
 
 import {logger} from '../../../service.ts'
 import type {Tool, ToolContext, ToolResult} from './types.ts'
-import {db} from '../../database.ts'
+import {getDb} from '../../database.ts'
 import {updateTicketFields} from '../../agent/ticket-updates.ts'
 
 export const ticketTools: Record<string, Tool> = {
     add_ticket_comment: {
         description: 'Add a comment to a ticket (useful for refining tickets, adding details, or breaking down tasks)',
-        execute: async(params: {
-            authorId?: string
-            authorType?: string
-            content: string
-            ticketId: string
-        }, context: ToolContext): Promise<ToolResult> => {
+        execute: async(params: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
+            const {authorId: authorIdParam, authorType: authorTypeParam, content, ticketId} = params as {authorId?: string; authorType?: string; content: string; ticketId: string}
             try {
                 // Verify ticket exists
-                const ticket = db.prepare('SELECT id FROM tickets WHERE id = ?').get(params.ticketId)
+                const ticket = getDb().prepare('SELECT id FROM tickets WHERE id = ?').get(ticketId)
                 if (!ticket) {
                     return {
-                        error: `Ticket not found: ${params.ticketId}`,
+                        error: `Ticket not found: ${ticketId}`,
                         success: false,
                     }
                 }
 
-                const authorType = params.authorType || (context.agent ? 'agent' : 'user')
-                const authorId = params.authorId || (context.agent ? context.agent.getName() : 'system')
+                const authorType = authorTypeParam || (context.agent ? 'agent' : 'user')
+                const authorId = authorIdParam || (context.agent ? context.agent.getName() : 'system')
                 const commentId = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 
-                db.prepare(`
+                getDb().prepare(`
                     INSERT INTO comments (id, ticket_id, content, author_type, author_id, created_at)
                     VALUES (?, ?, ?, ?, ?, ?)
-                `).run(commentId, params.ticketId, params.content, authorType, authorId, Date.now())
+                `).run(commentId, ticketId, content, authorType, authorId, Date.now())
 
                 // Update ticket updated_at timestamp
-                db.prepare(`
+                getDb().prepare(`
                     UPDATE tickets
                     SET updated_at = ?
                     WHERE id = ?
-                `).run(Date.now(), params.ticketId)
+                `).run(Date.now(), ticketId)
 
                 return {
                     data: {
                         authorId,
                         authorType,
                         commentId,
-                        content: params.content,
-                        ticketId: params.ticketId,
+                        content,
+                        ticketId,
                     },
                     success: true,
                 }
@@ -91,14 +87,15 @@ export const ticketTools: Record<string, Tool> = {
 
     get_ticket: {
         description: 'Get a single ticket by ID with full details',
-        execute: async(params: {ticketId: string}, context: ToolContext): Promise<ToolResult> => {
+        execute: async(params: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
+            const {ticketId} = params as {ticketId: string}
             try {
-                const ticket = db.prepare(`
+                const ticket = getDb().prepare(`
                     SELECT t.*, r.name as repository_name, r.path as repository_path
                     FROM tickets t
                     LEFT JOIN repositories r ON t.repository_id = r.id
                     WHERE t.id = ?
-                `).get(params.ticketId) as {
+                `).get(ticketId) as {
                     assignee_id: string | null
                     assignee_type: string | null
                     branch_name: string | null
@@ -117,20 +114,20 @@ export const ticketTools: Record<string, Tool> = {
 
                 if (!ticket) {
                     return {
-                        error: `Ticket not found: ${params.ticketId}`,
+                        error: `Ticket not found: ${ticketId}`,
                         success: false,
                     }
                 }
 
                 // Get labels
-                const labels = db.prepare(`
+                const labels = getDb().prepare(`
                     SELECT label FROM ticket_labels WHERE ticket_id = ?
-                `).all(params.ticketId) as Array<{label: string}>
+                `).all(ticketId) as Array<{label: string}>
 
                 // Get assignees
-                const assignees = db.prepare(`
+                const assignees = getDb().prepare(`
                     SELECT assignee_type, assignee_id FROM ticket_assignees WHERE ticket_id = ?
-                `).all(params.ticketId) as Array<{assignee_id: string; assignee_type: string}>
+                `).all(ticketId) as Array<{assignee_id: string; assignee_type: string}>
 
                 return {
                     data: {
@@ -144,7 +141,7 @@ export const ticketTools: Record<string, Tool> = {
                     success: true,
                 }
             } catch(error) {
-                logger.error(`[TicketTool] Failed to get ticket ${params.ticketId}:`, error)
+                logger.error(`[TicketTool] Failed to get ticket ${ticketId}:`, error)
                 return {
                     error: error instanceof Error ? error.message : String(error),
                     success: false,
@@ -177,7 +174,7 @@ export const ticketTools: Record<string, Tool> = {
                 const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
 
                 // Get counts by status
-                const statusCounts = db.prepare(`
+                const statusCounts = getDb().prepare(`
                     SELECT status, COUNT(*) as count
                     FROM tickets
                     ${whereClause}
@@ -185,7 +182,7 @@ export const ticketTools: Record<string, Tool> = {
                 `).all(...(values as any)) as Array<{count: number; status: string}>
 
                 // Get counts by priority range
-                const priorityCounts = db.prepare(`
+                const priorityCounts = getDb().prepare(`
                     SELECT
                         CASE
                             WHEN priority >= 8 THEN 'high'
@@ -200,14 +197,14 @@ export const ticketTools: Record<string, Tool> = {
                 `).all(...(values as any)) as Array<{count: number; priority_level: string}>
 
                 // Get total count
-                const totalResult = db.prepare(`
+                const totalResult = getDb().prepare(`
                     SELECT COUNT(*) as total
                     FROM tickets
                     ${whereClause}
                 `).get(...(values as any)) as {total: number}
 
                 // Get tickets by assignee type
-                const assigneeCounts = db.prepare(`
+                const assigneeCounts = getDb().prepare(`
                     SELECT ta.assignee_type, COUNT(DISTINCT t.id) as count
                     FROM tickets t
                     LEFT JOIN ticket_assignees ta ON t.id = ta.ticket_id
@@ -349,7 +346,7 @@ export const ticketTools: Record<string, Tool> = {
                 query += ' ORDER BY t.priority DESC, t.created_at DESC LIMIT ?'
                 values.push(limit)
 
-                const tickets = db.prepare(query).all(...(values as any)) as Array<{
+                const tickets = getDb().prepare(query).all(...(values as any)) as Array<{
                     assignee_id: string | null
                     assignee_type: string | null
                     branch_name: string | null
@@ -368,11 +365,11 @@ export const ticketTools: Record<string, Tool> = {
                 // Enrich with labels and assignees
                 const enriched = await Promise.all(
                     tickets.map(async(ticket) => {
-                        const labels = db.prepare(`
+                        const labels = getDb().prepare(`
                             SELECT label FROM ticket_labels WHERE ticket_id = ?
                         `).all(ticket.id) as Array<{label: string}>
 
-                        const assignees = db.prepare(`
+                        const assignees = getDb().prepare(`
                             SELECT assignee_type, assignee_id FROM ticket_assignees WHERE ticket_id = ?
                         `).all(ticket.id) as Array<{assignee_id: string; assignee_type: string}>
 
@@ -459,24 +456,25 @@ export const ticketTools: Record<string, Tool> = {
 
     update_ticket: {
         description: 'Update ticket fields (title, description, status, priority, solution_plan). Only include fields you want to update. All fields are optional.',
-        execute: async(params: {
-            description?: string | null
-            priority?: number | null
-            solution_plan?: string | null
-            status?: string | null
-            ticketId: string
-            title?: string | null
-        }, context: ToolContext): Promise<ToolResult> => {
+        execute: async(params: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
+            const {description, priority, solution_plan, status, ticketId, title} = params as {
+                description?: string | null
+                priority?: number | null
+                solution_plan?: string | null
+                status?: string | null
+                ticketId: string
+                title?: string | null
+            }
             try {
                 const agentType = context.agent?.getType()
                 const result = await updateTicketFields(
-                    params.ticketId,
+                    ticketId,
                     {
-                        description: params.description,
-                        priority: params.priority,
-                        solution_plan: params.solution_plan,
-                        status: params.status,
-                        title: params.title,
+                        description,
+                        priority,
+                        solution_plan,
+                        status,
+                        title,
                     },
                     agentType,
                 )
@@ -489,12 +487,12 @@ export const ticketTools: Record<string, Tool> = {
                 }
 
                 // Get updated ticket to return
-                const ticket = db.prepare(`
+                const ticket = getDb().prepare(`
                     SELECT t.*, r.name as repository_name
                     FROM tickets t
                     LEFT JOIN repositories r ON t.repository_id = r.id
                     WHERE t.id = ?
-                `).get(params.ticketId) as {
+                `).get(ticketId) as {
                     description: string | null
                     id: string
                     priority: number | null
@@ -506,8 +504,8 @@ export const ticketTools: Record<string, Tool> = {
                 return {
                     data: {
                         ticket: ticket || null,
-                        ticketId: params.ticketId,
-                        updatedFields: Object.keys(params).filter((key) => key !== 'ticketId' && params[key as keyof typeof params] !== undefined),
+                        ticketId,
+                        updatedFields: Object.keys(params).filter((key) => key !== 'ticketId' && (params as Record<string, unknown>)[key] !== undefined),
                     },
                     success: true,
                 }
@@ -562,12 +560,13 @@ export const ticketTools: Record<string, Tool> = {
 
     update_ticket_priority: {
         description: 'Update ticket priority (0-10, where 10 is highest priority). Deprecated: Use update_ticket instead.',
-        execute: async(params: {priority: number; ticketId: string}, context: ToolContext): Promise<ToolResult> => {
+        execute: async(params: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
+            const {priority, ticketId} = params as {priority: number; ticketId: string}
             try {
                 const agentType = context.agent?.getType()
                 const result = await updateTicketFields(
-                    params.ticketId,
-                    {priority: params.priority},
+                    ticketId,
+                    {priority},
                     agentType,
                 )
 
@@ -580,8 +579,8 @@ export const ticketTools: Record<string, Tool> = {
 
                 return {
                     data: {
-                        priority: params.priority,
-                        ticketId: params.ticketId,
+                        priority,
+                        ticketId,
                     },
                     success: true,
                 }
@@ -612,12 +611,13 @@ export const ticketTools: Record<string, Tool> = {
 
     update_ticket_status: {
         description: 'Update ticket status (e.g., "todo", "in_progress", "review", "closed", "backlog"). Deprecated: Use update_ticket instead.',
-        execute: async(params: {status: string; ticketId: string}, context: ToolContext): Promise<ToolResult> => {
+        execute: async(params: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
+            const {status, ticketId} = params as {status: string; ticketId: string}
             try {
                 const agentType = context.agent?.getType()
                 const result = await updateTicketFields(
-                    params.ticketId,
-                    {status: params.status},
+                    ticketId,
+                    {status},
                     agentType,
                 )
 
@@ -630,8 +630,8 @@ export const ticketTools: Record<string, Tool> = {
 
                 return {
                     data: {
-                        status: params.status,
-                        ticketId: params.ticketId,
+                        status,
+                        ticketId,
                     },
                     success: true,
                 }

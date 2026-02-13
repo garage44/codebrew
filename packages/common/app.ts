@@ -66,7 +66,7 @@ class App {
              * This ensures any changes in non-component files are picked up
              */
             env(store.state.env, store)
-            await i18n.init(translations, api, store)
+            await i18n.init(translations as Record<string, unknown> | null | undefined || null, api, store)
             notifier.init(store.state.notifications as Notification[])
 
             // Update Main component reference
@@ -100,8 +100,8 @@ class App {
 
                 if (rootElement) {
                     // Wait a microtask to ensure state propagates
-                    await new Promise<void>((resolve) => {
-                        setTimeout(() => {
+                    await new Promise<void>((resolve): void => {
+                        setTimeout((): void => {
                             resolve()
                         }, 0)
                     })
@@ -110,8 +110,8 @@ class App {
                     renderFn(null, document.body)
 
                     // Wait a tick for Preact to complete unmounting
-                    await new Promise<void>((resolve) => {
-                        setTimeout(() => {
+                    await new Promise<void>((resolve): void => {
+                        setTimeout((): void => {
                             resolve()
                         }, 0)
                     })
@@ -130,7 +130,7 @@ class App {
                 }
 
                 // Restore scroll position after render
-                requestAnimationFrame(() => {
+                requestAnimationFrame((): void => {
                     const newViewElement = document.querySelector('.view')
                     if (newViewElement) {
                         newViewElement.scrollTop = scrollPosition
@@ -145,7 +145,7 @@ class App {
             }
 
             // Reset HMR flag after render completes
-            setTimeout(() => {
+            setTimeout((): void => {
                 store.state.hmr_updating = false
 
                 /*
@@ -169,10 +169,10 @@ class App {
         // oxlint-disable-next-line no-console
         console.log('[App] Normal initialization path')
 
-        // Normal initialization (not HMR)
-        env(store.state.env, store)
-        await i18n.init(translations, api, store)
-        notifier.init(store.state.notifications as Notification[])
+            // Normal initialization (not HMR)
+            env(store.state.env, store)
+            await i18n.init(translations as Record<string, unknown> | null | undefined || null, api, store)
+            notifier.init(store.state.notifications as Notification[])
 
         // Store Main component reference for HMR re-rendering
         globalState.__HMR_MAIN_COMPONENT__ = Main

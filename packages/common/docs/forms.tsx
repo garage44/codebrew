@@ -221,7 +221,7 @@ export const Forms = () => {
                                 />
                                 <FieldSelect
                                     label='Country'
-                                    model={formData.$country}
+                                    model={formData.$country!}
                                     options={[
                                         {id: '', name: 'Select a country'},
                                         {id: 'us', name: 'United States'},

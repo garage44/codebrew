@@ -50,7 +50,7 @@ const config = rc('expressio', {
     workspaces: [],
 })
 
-async function initConfig(config) {
+async function initConfig(_cfg?: unknown): Promise<void> {
     // Check for environment variable first (for PR deployments and isolated instances)
     const envConfigPath = process.env.CONFIG_PATH
     const configPath = envConfigPath || path.join(homedir(), '.expressiorc')
@@ -58,22 +58,26 @@ async function initConfig(config) {
     if (!(await fs.pathExists(configPath))) {
         await saveConfig()
     }
-    return config
 }
 
 async function saveConfig() {
     // Check for environment variable first (for PR deployments and isolated instances)
     const envConfigPath = process.env.CONFIG_PATH
     const configPath = envConfigPath || path.join(homedir(), '.expressiorc')
-    const data = copyObject(config)
-    delete data.configs
-    delete data.config
-    delete data._
-    delete data.source_file
-    delete data.enola.languages
-    data.workspaces = workspaces.workspaces.map((i) => i.config.source_file)
+    const data = copyObject(config) as Record<string, unknown>
+    delete (data as {configs?: unknown}).configs
+    delete (data as {config?: unknown}).config
+    delete (data as {_?: unknown})._
+    delete (data as {source_file?: unknown}).source_file
+    const enolaData = data.enola as {languages?: unknown}
+    if ('languages' in enolaData) {
+        delete enolaData.languages
+    }
+    ;(data as {workspaces: string[]}).workspaces = workspaces.workspaces
+        .map((i) => i.config.source_file)
+        .filter((f): f is string => f !== null)
 
-    for (const engine of Object.values(data.enola.engines)) {
+    for (const engine of Object.values((data.enola as {engines: Record<string, unknown>}).engines)) {
         const engineData = engine as {active?: unknown; usage?: unknown}
         delete engineData.usage
         delete engineData.active

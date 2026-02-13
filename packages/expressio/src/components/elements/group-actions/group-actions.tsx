@@ -80,14 +80,14 @@ export function GroupActions({className, group, path}: {className?: string; grou
 
                         // Create a new tag
                         const targetLanguagesArray = Array.isArray($s.workspace.config.languages.target)
-                            ? Array.from($s.workspace.config.languages.target)
+                            ? [...$s.workspace.config.languages.target]
                             : []
-                        const targetLanguages = targetLanguagesArray as unknown as Array<{
+                        const targetLanguages = targetLanguagesArray as unknown as {
                             engine: 'anthropic' | 'deepl'
                             formality: 'default' | 'more' | 'less'
                             id: string
                             name: string
-                        }>
+                        }[]
                         const {ref} = pathCreate(
                             $s.workspace.i18n,
                             targetPath,
@@ -134,9 +134,9 @@ export function GroupActions({className, group, path}: {className?: string; grou
                                     type: 'error',
                                 })
                             }
-                        } catch (error) {
+                        } catch (err) {
                             notifier.notify({
-                                message: `Translation error: ${error.message}`,
+                                message: `Translation error: ${err instanceof Error ? err.message : String(err)}`,
                                 type: 'error',
                             })
                         }

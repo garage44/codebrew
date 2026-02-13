@@ -3,7 +3,7 @@
  */
 
 import {logger} from '../../service.ts'
-import {db, type Documentation, type Ticket} from '../database.ts'
+import {getDb, type Documentation, type Ticket} from '../database.ts'
 import {generateEmbedding} from './embeddings.ts'
 
 export interface DocFilters {
@@ -39,8 +39,6 @@ export async function unifiedVectorSearch(
     docs: SearchResult[]
     tickets: TicketSearchResult[]
 }> {
-    if (!db) {throw new Error('Database not initialized')}
-
     const {contentType = 'both', filters, limit = 10} = options
 
     // Generate query embedding
@@ -92,7 +90,7 @@ export async function unifiedVectorSearch(
     }[] = []
 
     try {
-        results = db.prepare(querySql).all(...params) as {
+        results = getDb().prepare(querySql).all(...params) as {
             chunk_index: number | null
             chunk_text: string
             content_id: string
@@ -115,11 +113,11 @@ export async function unifiedVectorSearch(
         const score = 1 - (result.distance / 2)
 
         if (result.content_type === 'doc') {
-            const doc = db.prepare('SELECT * FROM documentation WHERE id = ?').get(result.content_id) as Documentation | undefined
+            const doc = getDb().prepare('SELECT * FROM documentation WHERE id = ?').get(result.content_id) as Documentation | undefined
             if (doc) {
                 // Apply tag filtering if provided
                 if (filters?.tags && filters.tags.length > 0) {
-                    const docLabels = db.prepare(`
+                    const docLabels = getDb().prepare(`
                         SELECT label FROM documentation_labels WHERE doc_id = ?
                     `).all(doc.id) as {label: string}[]
                     const docTags = new Set(docLabels.map((l): string => l.label))
@@ -146,11 +144,11 @@ export async function unifiedVectorSearch(
                 }
             }
         } else if (result.content_type === 'ticket') {
-            const ticket = db.prepare('SELECT * FROM tickets WHERE id = ?').get(result.content_id) as Ticket | undefined
+            const ticket = getDb().prepare('SELECT * FROM tickets WHERE id = ?').get(result.content_id) as Ticket | undefined
             if (ticket) {
                 // Apply tag filtering if provided
                 if (filters?.tags && filters.tags.length > 0) {
-                    const ticketLabels = db.prepare(`
+                    const ticketLabels = getDb().prepare(`
                         SELECT label FROM ticket_labels WHERE ticket_id = ?
                     `).all(ticket.id) as {label: string}[]
                     const ticketTags = new Set(ticketLabels.map((l): string => l.label))

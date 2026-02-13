@@ -5,7 +5,7 @@
  */
 
 import type {WebSocketServerManager} from '@garage44/common/lib/ws-server'
-import {db} from '../database.ts'
+import {getDb} from '../database.ts'
 import {logger} from '../../service.ts'
 import {getAgentStatus} from './status.ts'
 import {getTaskStats} from './tasks.ts'
@@ -131,7 +131,7 @@ class AgentStateTracker {
         this.wsManager = manager
 
         // Load all agents and initialize their state
-        const agents = db.prepare('SELECT id FROM agents').all() as {id: string}[]
+        const agents = getDb().prepare('SELECT id FROM agents').all() as {id: string}[]
         for (const agent of agents) {
             // Check if agent service is already online by checking subscriptions
             const taskTopic = `/agents/${agent.id}/tasks`

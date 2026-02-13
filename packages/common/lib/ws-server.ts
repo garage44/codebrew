@@ -95,7 +95,8 @@ class WebSocketServerManager extends EventEmitter {
                         process.env.BUN_ENV === 'test' ||
                         process.argv.some((arg) => arg.includes('test')))
                 if (!isTest) {
-                    logger.error(`${ctx.method} ${ctx.url} - Failed: ${error.message}`)
+                    const errorMessage = error instanceof Error ? error.message : String(error)
+                    logger.error(`${ctx.method} ${ctx.url} - Failed: ${errorMessage}`)
                 }
                 throw error
             }
@@ -130,21 +131,22 @@ class WebSocketServerManager extends EventEmitter {
     }
 
     composeMiddleware(middlewares: Middleware[], handler: ApiHandler): ApiHandler {
-        return (ctx, request) => {
+        return (ctx: WebSocketContext, request: ApiRequest) => {
             let index = -1
 
-            const dispatch = (_index: number) => {
+            const dispatch = (_index: number): Promise<unknown> => {
                 if (_index <= index) {
                     throw new Error('next() called multiple times')
                 }
                 index = _index
 
-                const middleware = _index === middlewares.length ? (ctx) => handler(ctx, request) : middlewares[_index]
+                const middleware =
+                    _index === middlewares.length ? (c: WebSocketContext) => handler(c, request) : middlewares[_index]
 
-                return middleware(ctx, (_ctx) => dispatch(_index + 1))
+                return middleware(ctx, (c: WebSocketContext) => dispatch(_index + 1))
             }
 
-            return dispatch(0)
+            return dispatch(0) as Promise<unknown>
         }
     }
 
@@ -161,7 +163,7 @@ class WebSocketServerManager extends EventEmitter {
 
                 const params: Record<string, string> = {}
                 for (const [key, value] of Object.entries(result.params)) {
-                    params[key] = Array.isArray(value) ? value[0] : value
+                    params[key] = Array.isArray(value) ? value[0] || '' : value || ''
                 }
                 return {params}
             },
@@ -281,7 +283,7 @@ class WebSocketServerManager extends EventEmitter {
     }
 
     // Check authentication for a request
-    private checkAuth(request: {session?: {userid?: string}}): boolean {
+    private checkAuth(request?: {session?: {userid?: string}}): boolean {
         if (!this.authOptions) {
             return true
         }
@@ -292,13 +294,13 @@ class WebSocketServerManager extends EventEmitter {
         }
 
         // Check session
-        if (!request.session?.userid) {
+        if (!request?.session?.userid) {
             return false
         }
 
         // Verify user exists if users list is provided
         if (this.authOptions.users && this.authOptions.users.length > 0) {
-            const user = this.authOptions.users.find((u) => u.name === request.session.userid)
+            const user = this.authOptions.users.find((u) => u.name === request.session?.userid)
             return !!user
         }
 
@@ -306,7 +308,7 @@ class WebSocketServerManager extends EventEmitter {
     }
 
     // Handle WebSocket connection open
-    open(ws: WebSocketConnection, request?: {session?: {userid?: string}}) {
+    open(ws: WebSocketConnection, request?: {session?: {userid?: string}} | undefined) {
         // Check authentication if required
         if (this.authOptions && !this.checkAuth(request)) {
             logger.warn(`[WS] connection denied (unauthorized) on ${this.endpoint}`)
@@ -509,9 +511,11 @@ function createBunWebSocketHandler(managers: Map<string, WebSocketServerManager>
             }
 
             const endpoint = ws.data?.endpoint
-            const manager = managers.get(endpoint)
-            if (manager) {
-                manager.close(ws as WebSocketConnection & {data?: {session?: {userid?: string}}})
+            if (endpoint) {
+                const manager = managers.get(endpoint)
+                if (manager) {
+                    manager.close(ws as WebSocketConnection & {data?: {session?: {userid?: string}}})
+                }
             }
         },
         message: (
@@ -529,9 +533,11 @@ function createBunWebSocketHandler(managers: Map<string, WebSocketServerManager>
             }
 
             const endpoint = ws.data?.endpoint
-            const manager = managers.get(endpoint)
-            if (manager) {
-                manager.message(ws, message, ws.data as {session?: {userid?: string}})
+            if (endpoint) {
+                const manager = managers.get(endpoint)
+                if (manager) {
+                    manager.message(ws, message, ws.data as {session?: {userid?: string}})
+                }
             }
         },
         open: (ws: WebSocketConnection & {data?: {endpoint?: string; proxy?: boolean; upstream?: WebSocket}}) => {
@@ -576,12 +582,14 @@ function createBunWebSocketHandler(managers: Map<string, WebSocketServerManager>
 
             // Normal manager-based handling
             const endpoint = ws.data?.endpoint
-            const manager = managers.get(endpoint)
-            if (manager) {
-                manager.open(ws, ws.data as {session?: {userid?: string}})
-            } else {
-                logger.error(`[WS] no manager found for endpoint: ${endpoint}`)
-                ws.close(1011, 'Server Error')
+            if (endpoint) {
+                const manager = managers.get(endpoint)
+                if (manager) {
+                    manager.open(ws, ws.data as {session?: {userid?: string}})
+                } else {
+                    logger.error(`[WS] no manager found for endpoint: ${endpoint}`)
+                    ws.close(1011, 'Server Error')
+                }
             }
         },
     }

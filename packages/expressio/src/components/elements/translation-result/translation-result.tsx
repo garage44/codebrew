@@ -2,7 +2,14 @@ import classnames from 'classnames'
 
 import {$s} from '@/app'
 
-export function TranslationResult({group}) {
+export function TranslationResult({
+    group,
+    path,
+}: {
+    group: {_collapsed?: boolean; target: Record<string, string>}
+    path?: string[]
+}) {
+    const pathStr = path?.join('.') ?? ''
     return (
         <div
             class={classnames(
@@ -11,7 +18,7 @@ export function TranslationResult({group}) {
                     collapsed: group._collapsed,
                 },
                 {
-                    'tag-updated': $s.tags.updated === null,
+                    'tag-updated': $s.tags.updated === pathStr,
                 },
             )}
         >

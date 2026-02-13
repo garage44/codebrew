@@ -71,8 +71,8 @@ export function ChannelsForm({
     useEffect(() => {
         if (isEditing && channelId) {
             // Load the specific channel for editing
-            api.get(`/api/channels/${channelId}`).then((channel: Channel) => {
-                manager.startEdit(channel)
+            api.get(`/api/channels/${channelId}`).then((channel: unknown) => {
+                manager.startEdit(channel as Channel)
             }).catch(() => {
                 // Channel not found, redirect back to list
                 route('/settings/channels')

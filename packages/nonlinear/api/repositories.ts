@@ -10,7 +10,7 @@ import path from 'node:path'
 import {z} from 'zod'
 
 import {validateRequest} from '../lib/api/validate.ts'
-import {db} from '../lib/database.ts'
+import {getDb} from '../lib/database.ts'
 import {getDefaultPlatform} from '../lib/git/index.ts'
 import {
     CreateRepositoryRequestSchema,
@@ -24,7 +24,7 @@ import {logger} from '../service.ts'
 export function registerRepositoriesWebSocketApiRoutes(wsManager: WebSocketServerManager) {
     // Get all repositories
     wsManager.api.get('/api/repositories', async (_ctx, _req) => {
-        const repositories = db
+        const repositories = getDb()
             .prepare(`
             SELECT * FROM repositories
             ORDER BY name ASC
@@ -52,7 +52,7 @@ export function registerRepositoriesWebSocketApiRoutes(wsManager: WebSocketServe
     wsManager.api.get('/api/repositories/:id', async (_ctx, req) => {
         const params = validateRequest(RepositoryParamsSchema, req.params)
 
-        const repo = db.prepare('SELECT * FROM repositories WHERE id = ?').get(params.id) as
+        const repo = getDb().prepare('SELECT * FROM repositories WHERE id = ?').get(params.id) as
             | {
                   config: string
                   created_at: number
@@ -136,14 +136,16 @@ export function registerRepositoriesWebSocketApiRoutes(wsManager: WebSocketServe
         const now = Date.now()
         const repoPlatform = data.platform || getDefaultPlatform()
 
-        db.prepare(`
+        getDb()
+            .prepare(`
             INSERT INTO repositories (
                 id, name, path, platform, remote_url, config, created_at, updated_at
             )
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(repoId, data.name, data.path, repoPlatform, data.remote_url || null, JSON.stringify(data.config || {}), now, now)
+        `)
+            .run(repoId, data.name, data.path, repoPlatform, data.remote_url || null, JSON.stringify(data.config || {}), now, now)
 
-        const repository = db.prepare('SELECT * FROM repositories WHERE id = ?').get(repoId) as {
+        const repository = getDb().prepare('SELECT * FROM repositories WHERE id = ?').get(repoId) as {
             config: string
             created_at: number
             id: string
@@ -210,13 +212,15 @@ export function registerRepositoriesWebSocketApiRoutes(wsManager: WebSocketServe
         values.push(Date.now())
         values.push(params.id)
 
-        db.prepare(`
+        getDb()
+            .prepare(`
             UPDATE repositories
             SET ${fields.join(', ')}
             WHERE id = ?
-        `).run(...(values as unknown as Parameters<ReturnType<typeof db.prepare>['run']>))
+        `)
+            .run(...(values as (string | number)[]))
 
-        const repository = db.prepare('SELECT * FROM repositories WHERE id = ?').get(params.id) as
+        const repository = getDb().prepare('SELECT * FROM repositories WHERE id = ?').get(params.id) as
             | {
                   config: string
                   created_at: number
@@ -250,7 +254,7 @@ export function registerRepositoriesWebSocketApiRoutes(wsManager: WebSocketServe
     wsManager.api.delete('/api/repositories/:id', async (_ctx, req) => {
         const params = validateRequest(RepositoryParamsSchema, req.params)
 
-        db.prepare('DELETE FROM repositories WHERE id = ?').run(params.id)
+        getDb().prepare('DELETE FROM repositories WHERE id = ?').run(params.id)
 
         // Broadcast repository deletion
         wsManager.broadcast('/repositories', {
@@ -292,7 +296,7 @@ export default function apiRepositories(router: unknown) {
     }
 
     routerTyped.get('/api/repositories', async (_req: Request, _params: Record<string, string>, _session: unknown) => {
-        const repositories = db
+        const repositories = getDb()
             .prepare(`
             SELECT * FROM repositories
             ORDER BY name ASC
@@ -318,7 +322,7 @@ export default function apiRepositories(router: unknown) {
     routerTyped.get('/api/repositories/:id', async (_req: Request, params: Record<string, string>, _session: unknown) => {
         try {
             const validatedParams = validateRequest(RepositoryParamsSchema, params)
-            const repo = db.prepare('SELECT * FROM repositories WHERE id = ?').get(validatedParams.id) as
+            const repo = getDb().prepare('SELECT * FROM repositories WHERE id = ?').get(validatedParams.id) as
                 | {
                       config: string
                       created_at: number
@@ -369,23 +373,25 @@ export default function apiRepositories(router: unknown) {
             const now = Date.now()
             const repoPlatform = data.platform || getDefaultPlatform()
 
-            db.prepare(`
+            getDb()
+                .prepare(`
                 INSERT INTO repositories (
                     id, name, path, platform, remote_url, config, created_at, updated_at
                 )
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            `).run(
-                repoId,
-                data.name,
-                data.path,
-                repoPlatform,
-                data.remote_url || null,
-                JSON.stringify(data.config || {}),
-                now,
-                now,
-            )
+            `)
+                .run(
+                    repoId,
+                    data.name,
+                    data.path,
+                    repoPlatform,
+                    data.remote_url || null,
+                    JSON.stringify(data.config || {}),
+                    now,
+                    now,
+                )
 
-            const repository = db.prepare('SELECT * FROM repositories WHERE id = ?').get(repoId) as
+            const repository = getDb().prepare('SELECT * FROM repositories WHERE id = ?').get(repoId) as
                 | {
                       config: string
                       created_at: number
@@ -461,13 +467,15 @@ export default function apiRepositories(router: unknown) {
             values.push(Date.now())
             values.push(validatedParams.id)
 
-            db.prepare(`
+            getDb()
+                .prepare(`
                 UPDATE repositories
                 SET ${fields.join(', ')}
                 WHERE id = ?
-            `).run(...(values as unknown as Parameters<ReturnType<typeof db.prepare>['run']>))
+            `)
+                .run(...(values as (string | number)[]))
 
-            const repository = db.prepare('SELECT * FROM repositories WHERE id = ?').get(validatedParams.id) as
+            const repository = getDb().prepare('SELECT * FROM repositories WHERE id = ?').get(validatedParams.id) as
                 | {
                       config: string
                       created_at: number
@@ -507,7 +515,7 @@ export default function apiRepositories(router: unknown) {
         try {
             const validatedParams = validateRequest(RepositoryParamsSchema, params)
 
-            db.prepare('DELETE FROM repositories WHERE id = ?').run(validatedParams.id)
+            getDb().prepare('DELETE FROM repositories WHERE id = ?').run(validatedParams.id)
 
             logger.info(`[API] Deleted repository ${validatedParams.id}`)
 

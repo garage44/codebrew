@@ -67,7 +67,10 @@ class Router {
 }
 
 // Auth middleware that can be reused across routes
-const requireAdmin = async (ctx, next) => {
+const requireAdmin = async (
+    ctx: {session?: {userid?: string}},
+    next: (ctx: {session?: {userid?: string}}) => Promise<unknown>,
+) => {
     if (!ctx.session?.userid) {
         throw new Error('Unauthorized')
     }
@@ -75,7 +78,7 @@ const requireAdmin = async (ctx, next) => {
     return next(ctx)
 }
 
-async function initMiddleware(_bunchyConfig) {
+async function initMiddleware(_bunchyConfig: unknown) {
     const router = new Router()
 
     // Register common avatar routes (placeholder images and uploaded avatars)
@@ -84,8 +87,8 @@ async function initMiddleware(_bunchyConfig) {
         logger: logger as Logger,
         runtime,
     })
-    avatarRoutes.registerPlaceholderRoute(router)
-    avatarRoutes.registerAvatarRoute(router)
+    avatarRoutes.registerPlaceholderRoute(router as {get: (path: string, handler: unknown) => void})
+    avatarRoutes.registerAvatarRoute(router as {get: (path: string, handler: unknown) => void})
 
     // Register HTTP API endpoints
     const apiRepositories = (await import('../api/repositories.ts')).default

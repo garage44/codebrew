@@ -8,7 +8,7 @@ import {REPL, type REPLOptions} from './repl.ts'
 import {executeToolCommand, getToolsHelp, getToolsList} from './command-parser.ts'
 import {getPendingTasks, markTaskCompleted, markTaskFailed, markTaskProcessing} from '../agent/tasks.ts'
 import {runAgent as runAgentScheduler} from '../agent/scheduler.ts'
-import {db} from '../database.ts'
+import {getDb} from '../database.ts'
 
 /**
  * Create a writable stream for agent reasoning output
@@ -63,7 +63,7 @@ export async function runAgentInteractive(options: InteractiveCLIOptions): Promi
     let pendingTasksMessage = ''
     try {
         // Get agent ID from database
-        const agentRecord = db.prepare(`
+        const agentRecord = getDb().prepare(`
             SELECT id FROM agents
             WHERE name = ? OR id = ?
             LIMIT 1
@@ -155,7 +155,7 @@ export async function runAgentInteractive(options: InteractiveCLIOptions): Promi
                 if (trimmed === 'process-pending' || trimmed === 'catch-up' || trimmed === 'pending') {
                     try {
                         // Get agent ID from database
-                        const agentRecord = db.prepare(`
+                        const agentRecord = getDb().prepare(`
                             SELECT id FROM agents
                             WHERE name = ? OR id = ?
                             LIMIT 1

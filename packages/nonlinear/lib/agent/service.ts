@@ -6,7 +6,7 @@
  */
 
 import {config, initConfig} from '../config.ts'
-import {db, initDatabase} from '../database.ts'
+import {getDb, initDatabase} from '../database.ts'
 import {loggerTransports} from '@garage44/common/service'
 import {WebSocketClient} from '@garage44/common/lib/ws-client'
 import {runAgent as runAgentScheduler} from './scheduler.ts'
@@ -21,7 +21,7 @@ import {setBroadcastWebSocketClient} from './streaming.ts'
 
 export interface AgentStatusState {
     agentId: string
-    lastError?: string
+    lastError?: string | null
     lastRun?: number
     running: boolean
 }
@@ -31,7 +31,7 @@ class AgentService {
 
     private logger: ReturnType<typeof loggerTransports> | null = null
 
-    private lastError?: string
+    private lastError: string | null = null
 
     private lastRun?: number
 
@@ -48,7 +48,7 @@ class AgentService {
     constructor(agentId: string) {
         this.agentId = agentId
         // Load agent config from DB
-        const agentRecord = db.prepare(`
+        const agentRecord = getDb().prepare(`
             SELECT type, enabled
             FROM agents
             WHERE id = ?
@@ -210,11 +210,15 @@ class AgentService {
             this.logger?.info(`[AgentService] WebSocket connected to ${this.wsUrl}`)
 
             // Set WebSocket client for comment broadcasting
-            setBroadcastWebSocketClient(this.wsClient)
+            if (this.wsClient) {
+                setBroadcastWebSocketClient(this.wsClient)
+            }
 
             // Subscribe to agent task topic
             try {
-                await this.wsClient.post(`/api/agents/${this.agentId}/subscribe`, {})
+                if (this.wsClient) {
+                    await this.wsClient.post(`/api/agents/${this.agentId}/subscribe`, {})
+                }
                 this.logger?.info(`[AgentService] Subscribed to /agents/${this.agentId}/tasks`)
             } catch(error: unknown) {
                 this.logger?.warn(`[AgentService] Failed to subscribe to task topic: ${error}`)
@@ -378,13 +382,13 @@ if (import.meta.main) {
 
         /* Handle graceful shutdown */
         process.on('SIGINT', (): void => {
-            logger.info(`[AgentService] Received SIGINT, shutting down agent ${agentId}...`)
+            logger?.info(`[AgentService] Received SIGINT, shutting down agent ${agentId}...`)
             service.stop()
             process.exit(0)
         })
 
         process.on('SIGTERM', (): void => {
-            logger.info(`[AgentService] Received SIGTERM, shutting down agent ${agentId}...`)
+            logger?.info(`[AgentService] Received SIGTERM, shutting down agent ${agentId}...`)
             service.stop()
             process.exit(0)
         })
@@ -394,7 +398,7 @@ if (import.meta.main) {
         /* Keep process alive - log status every minute */
         setInterval((): void => {
             const status = service.getStatus()
-            logger.debug(`[AgentService] Status: ${JSON.stringify(status)}`)
+            logger?.debug(`[AgentService] Status: ${JSON.stringify(status)}`)
         }, 60_000)
     })()
 }

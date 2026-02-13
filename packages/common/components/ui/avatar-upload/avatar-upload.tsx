@@ -82,7 +82,7 @@ export function AvatarUpload({
             const userId = state ? getUserId(state) : null
             if (!userId) {
                 try {
-                    const user = await api.get(userEndpoint)
+                    const user = await api.get(userEndpoint) as {id?: string}
                     logger.debug('[AvatarUpload] Received user from API:', user)
                     if (user?.id && state) {
                         setProfile(state, user)
@@ -146,7 +146,7 @@ export function AvatarUpload({
     const handleUpload = async (file?: File) => {
         const fileInput = fileInputRef.current
         const fileToUpload = file || fileInput?.files?.[0]
-        
+
         if (!fileToUpload) {
             notifier.notify({
                 level: 'error',

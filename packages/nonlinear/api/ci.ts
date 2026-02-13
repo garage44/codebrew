@@ -6,7 +6,7 @@ import type {WebSocketServerManager} from '@garage44/common/lib/ws-server'
 
 import {validateRequest} from '../lib/api/validate.ts'
 import {CIRunner} from '../lib/ci/runner.ts'
-import {db} from '../lib/database.ts'
+import {getDb} from '../lib/database.ts'
 import {CIRunIdParamsSchema, CIRunParamsSchema, CIRunSchema, TriggerCIRunRequestSchema} from '../lib/schemas/ci.ts'
 import {logger} from '../service.ts'
 
@@ -15,7 +15,7 @@ export function registerCIWebSocketApiRoutes(wsManager: WebSocketServerManager) 
     wsManager.api.get('/api/ci/runs/:ticketId', async (_ctx, req) => {
         const params = validateRequest(CIRunParamsSchema, req.params)
 
-        const runs = db
+        const runs = getDb()
             .prepare(`
             SELECT * FROM ci_runs
             WHERE ticket_id = ?
@@ -42,7 +42,7 @@ export function registerCIWebSocketApiRoutes(wsManager: WebSocketServerManager) 
     wsManager.api.get('/api/ci/runs/id/:id', async (_ctx, req) => {
         const params = validateRequest(CIRunIdParamsSchema, req.params)
 
-        const run = db.prepare('SELECT * FROM ci_runs WHERE id = ?').get(params.id) as
+        const run = getDb().prepare('SELECT * FROM ci_runs WHERE id = ?').get(params.id) as
             | {
                   completed_at: number | null
                   fixes_applied: string | null
@@ -70,7 +70,7 @@ export function registerCIWebSocketApiRoutes(wsManager: WebSocketServerManager) 
         const data = validateRequest(TriggerCIRunRequestSchema, req.data)
 
         // Verify ticket exists
-        const ticket = db.prepare('SELECT * FROM tickets WHERE id = ?').get(data.ticket_id)
+        const ticket = getDb().prepare('SELECT * FROM tickets WHERE id = ?').get(data.ticket_id)
         if (!ticket) {
             throw new Error('Ticket not found')
         }

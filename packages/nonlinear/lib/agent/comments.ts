@@ -5,7 +5,7 @@
  */
 
 import type {WebSocketServerManager} from '@garage44/common/lib/ws-server'
-import {db} from '../database.ts'
+import {getDb} from '../database.ts'
 import {logger} from '../../service.ts'
 import {
     createStreamingMessage,

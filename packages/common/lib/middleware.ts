@@ -243,8 +243,8 @@ export const createMiddleware = (config: MiddlewareConfig, userManager: UserMana
                 return new Response('Unauthorized', {status: 401})
             }
 
-            // Return null to indicate no handler matched - let the package handle routing
-            return null
+            // Return undefined to indicate no handler matched - let the package handle routing
+            return undefined
         },
         handleWebSocket,
         sessionMiddleware: (request: Request) => sessionMiddleware(request, config.sessionCookieName),
@@ -365,7 +365,7 @@ export const createFinalHandler = (config: {
                 // Fallback to first admin user if session has no user
                 if (!targetUser) {
                     const users = await config.userManager.listUsers()
-                    targetUser = users.find((user) => user.permissions?.admin)
+                    targetUser = users.find((user) => user.permissions?.admin) || null
                 }
 
                 // Use adminContext for all no-security users (full access in dev mode)
@@ -381,7 +381,7 @@ export const createFinalHandler = (config: {
                             displayName: targetUser.profile.displayName || targetUser.username,
                         },
                         username: targetUser.username,
-                    } as typeof context
+                    } as unknown as typeof context
                 } else {
                     context = baseContext
                 }
@@ -412,7 +412,7 @@ export const createFinalHandler = (config: {
                             displayName: user.profile.displayName || user.username,
                         },
                         username: user.username,
-                    } as typeof context
+                    } as unknown as typeof context
                 } else {
                     context = config.contextFunctions.deniedContext()
                 }

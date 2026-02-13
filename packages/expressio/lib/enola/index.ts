@@ -23,7 +23,7 @@ export class Enola {
 
     engines: Record<string, EnolaEngine> = {}
 
-    logger: EnolaLogger
+    logger!: EnolaLogger
 
     serviceKeyException = new Error('API translator key required for auto-translate')
 
@@ -47,8 +47,9 @@ export class Enola {
         // Make sure not to expose API keys to non-admin users.
         for (const engine of Object.values(engines)) {
             if (!admin) {
-                delete engine.api_key
-                delete engine.base_url
+                const engineConfig = engine as {api_key?: string; base_url?: string}
+                delete engineConfig.api_key
+                delete engineConfig.base_url
             }
         }
 
@@ -63,7 +64,7 @@ export class Enola {
         const parentPath = tagPath.slice(0, -1)
         const parentGroup = parentPath.join('.')
         const similarTranslations: {path: string[]; source: string}[] = []
-        keyMod(i18n, (ref: unknown, _id: string, refPath: string[]): void => {
+        keyMod(i18n, (ref: Record<string, unknown>, key: string | null, refPath: string[], _nestingLevel: number): void => {
             const refGroup = refPath.slice(0, -1).join('.')
             if (ref &&
                 typeof ref === 'object' &&

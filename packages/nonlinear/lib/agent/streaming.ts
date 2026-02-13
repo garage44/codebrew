@@ -4,7 +4,7 @@
  */
 
 import type {WebSocketServerManager} from '@garage44/common/lib/ws-server'
-import {db} from '../database.ts'
+import {getDb} from '../database.ts'
 import {randomId} from '@garage44/common/lib/utils'
 import {logger} from '../../service.ts'
 import type {WebSocketClient} from '@garage44/common/lib/ws-client'
@@ -40,7 +40,7 @@ async function broadcastCommentUpdate(
     ticketId: string,
     type: 'created' | 'updated' | 'completed',
 ): Promise<void> {
-    const comment = db.prepare('SELECT * FROM comments WHERE id = ?').get(commentId) as {
+    const comment = getDb().prepare('SELECT * FROM comments WHERE id = ?').get(commentId) as {
         [key: string]: unknown
     } | undefined
 
@@ -87,7 +87,7 @@ export async function createStreamingMessage(
         const authorId = metadata.author_id as string
         const respondingTo = metadata.responding_to as string | undefined
 
-        db.prepare(`
+        getDb().prepare(`
             INSERT INTO comments (
                 id, ticket_id, author_type, author_id, content,
                 status, responding_to, created_at, updated_at
@@ -126,13 +126,13 @@ export async function updateStreamingMessage(
     const status: StreamingMessageStatus = isFinal ? 'completed' : 'generating'
 
     // Determine message type from database
-    const comment = db.prepare('SELECT * FROM comments WHERE id = ?').get(messageId) as {
+    const comment = getDb().prepare('SELECT * FROM comments WHERE id = ?').get(messageId) as {
         ticket_id: string
     } | undefined
 
     if (comment) {
         // Update comment
-        db.prepare(`
+        getDb().prepare(`
             UPDATE comments
             SET content = ?, status = ?, updated_at = ?
             WHERE id = ?
@@ -156,13 +156,13 @@ export async function finalizeStreamingMessage(
     const now = Date.now()
 
     // Determine message type from database
-    const comment = db.prepare('SELECT * FROM comments WHERE id = ?').get(messageId) as {
+    const comment = getDb().prepare('SELECT * FROM comments WHERE id = ?').get(messageId) as {
         ticket_id: string
     } | undefined
 
     if (comment) {
         // Update comment to final state
-        db.prepare(`
+        getDb().prepare(`
             UPDATE comments
             SET content = ?, status = 'completed', updated_at = ?
             WHERE id = ?
@@ -185,7 +185,7 @@ export function getStreamingMessage(messageId: string): {
     status: StreamingMessageStatus
     type: StreamingMessageType
 } | null {
-    const comment = db.prepare('SELECT * FROM comments WHERE id = ?').get(messageId) as {
+    const comment = getDb().prepare('SELECT * FROM comments WHERE id = ?').get(messageId) as {
         content: string
         id: string
         status: string

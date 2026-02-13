@@ -66,7 +66,8 @@ async function getFileContext(filePath: string, content: string): Promise<{
 export const fileTools: Record<string, Tool> = {
     read_file: {
         description: 'Read file with syntax context and related file hints',
-        execute: async(params: {path: string}, context: ToolContext): Promise<ToolResult> => {
+        execute: async(params: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
+            const {path: filePath} = params as {path: string}
             try {
                 if (!context.repositoryPath) {
                     return {
@@ -75,10 +76,10 @@ export const fileTools: Record<string, Tool> = {
                     }
                 }
 
-                const filePath = path.join(context.repositoryPath, params.path)
+                const fullPath = path.join(context.repositoryPath, filePath)
 
                 // Validate path (prevent directory traversal)
-                const resolvedPath = path.resolve(filePath)
+                const resolvedPath = path.resolve(fullPath)
                 const resolvedRepo = path.resolve(context.repositoryPath)
                 if (!resolvedPath.startsWith(resolvedRepo)) {
                     return {
@@ -87,8 +88,8 @@ export const fileTools: Record<string, Tool> = {
                     }
                 }
 
-                const content = await Bun.file(filePath).text()
-                const contextInfo = await getFileContext(filePath, content)
+                const content = await Bun.file(fullPath).text()
+                const contextInfo = await getFileContext(fullPath, content)
 
                 return {
                     context: {
@@ -102,7 +103,7 @@ export const fileTools: Record<string, Tool> = {
                     success: true,
                 }
             } catch(error) {
-                logger.error(`[FileTool] Failed to read file ${params.path}:`, error)
+                logger.error(`[FileTool] Failed to read file ${filePath}:`, error)
                 return {
                     error: error instanceof Error ? error.message : String(error),
                     success: false,
@@ -122,39 +123,37 @@ export const fileTools: Record<string, Tool> = {
 
     search_files: {
         description: 'Search files by pattern or content',
-        execute: async(params: {
-            content?: string
-            directory?: string
-            pattern?: string
-        }, context: ToolContext): Promise<ToolResult> => {
+        execute: async(params: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
+            const {content, directory, pattern} = params as {content?: string; directory?: string; pattern?: string}
+            const repoPath = context.repositoryPath
             try {
-                if (!context.repositoryPath) {
+                if (!repoPath) {
                     return {
                         error: 'Repository path not available in context',
                         success: false,
                     }
                 }
 
-                const searchDir = params.directory ?
-                        path.join(context.repositoryPath, params.directory) :
-                    context.repositoryPath
+                const searchDir = directory ?
+                        path.join(repoPath, directory) :
+                    repoPath
 
                 // Use Bun Shell for file search
                 const {$} = await import('bun')
 
                 let results: string[] = []
 
-                if (params.pattern) {
+                if (pattern) {
                     // Search by pattern
-                    const result = await $`find ${searchDir} -name ${params.pattern}`
-                        .cwd(context.repositoryPath)
+                    const result = await $`find ${searchDir} -name ${pattern}`
+                        .cwd(repoPath)
                         .quiet()
                         .text()
                     results = result.split('\n').filter(Boolean)
-                } else if (params.content) {
+                } else if (content) {
                     // Search by content (grep)
-                    const result = await $`grep -r -l ${params.content} ${searchDir}`
-                        .cwd(context.repositoryPath)
+                    const result = await $`grep -r -l ${content} ${searchDir}`
+                        .cwd(repoPath)
                         .quiet()
                         .nothrow()
                         .text()
@@ -168,12 +167,12 @@ export const fileTools: Record<string, Tool> = {
 
                 // Enrich with file metadata
                 const enriched = await Promise.all(
-                    results.map(async(filePath) => {
-                        const fullPath = path.isAbsolute(filePath) ? filePath : path.join(context.repositoryPath, filePath)
-                        const stat = await Bun.file(fullPath).stat().catch(() => null)
+                    results.map(async(resultPath) => {
+                        const absPath = path.isAbsolute(resultPath) ? resultPath : path.join(repoPath, resultPath)
+                        const stat = await Bun.file(absPath).stat().catch(() => null)
                         return {
                             modified: stat?.mtime || null,
-                            path: path.relative(context.repositoryPath, fullPath),
+                            path: path.relative(repoPath, absPath),
                             size: stat?.size || 0,
                         }
                     }),
@@ -219,12 +218,8 @@ export const fileTools: Record<string, Tool> = {
 
     write_file: {
         description: 'Write file using AST-based editing when possible, otherwise full replacement',
-        execute: async(params: {
-            content?: string
-            edits?: unknown[]
-            mode?: 'replace' | 'ast' | 'patch'
-            path: string
-        }, context: ToolContext): Promise<ToolResult> => {
+        execute: async(params: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
+            const {content, edits, mode, path: writePath} = params as {content?: string; edits?: unknown[]; mode?: 'replace' | 'ast' | 'patch'; path: string}
             try {
                 if (!context.repositoryPath) {
                     return {
@@ -233,7 +228,7 @@ export const fileTools: Record<string, Tool> = {
                     }
                 }
 
-                const filePath = path.join(context.repositoryPath, params.path)
+                const filePath = path.join(context.repositoryPath, writePath)
 
                 // Validate path
                 const resolvedPath = path.resolve(filePath)
@@ -246,17 +241,15 @@ export const fileTools: Record<string, Tool> = {
                 }
 
                 // For now, use full replacement (AST editing will be added later)
-                if (params.content) {
-                    // Ensure directory exists
-                    const dir = path.dirname(filePath)
-                    await Bun.write(filePath, params.content)
+                if (content) {
+                    await Bun.write(filePath, content)
 
-                    logger.info(`[FileTool] Wrote file: ${params.path}`)
+                    logger.info(`[FileTool] Wrote file: ${writePath}`)
 
                     return {
                         context: {
                             changesSummary: 'File written',
-                            filesAffected: [params.path],
+                            filesAffected: [writePath],
                         },
                         success: true,
                     }
@@ -267,7 +260,7 @@ export const fileTools: Record<string, Tool> = {
                     success: false,
                 }
             } catch(error) {
-                logger.error(`[FileTool] Failed to write file ${params.path}:`, error)
+                logger.error(`[FileTool] Failed to write file ${(params as {path?: string})?.path ?? 'unknown'}:`, error)
                 return {
                     error: error instanceof Error ? error.message : String(error),
                     success: false,

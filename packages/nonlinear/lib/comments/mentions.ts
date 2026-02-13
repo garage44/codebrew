@@ -3,7 +3,7 @@
  * Extracts @agent-name and @human mentions from comment content
  */
 
-import {db} from '../database.ts'
+import {getDb} from '../database.ts'
 
 export interface ParsedMention {
     name: string
@@ -25,7 +25,7 @@ export function parseMentions(content: string): ParsedMention[] {
         const original = match[0]
 
         // Check if it's an agent (case-insensitive match)
-        const agent = db.prepare(`
+        const agent = getDb().prepare(`
             SELECT id, name, enabled
             FROM agents
             WHERE LOWER(name) = LOWER(?) OR LOWER(id) = LOWER(?)
@@ -66,7 +66,7 @@ export function validateMentions(mentions: ParsedMention[]): {
 
     for (const mention of mentions) {
         if (mention.type === 'agent') {
-            const agent = db.prepare(`
+            const agent = getDb().prepare(`
                 SELECT id, name, enabled
                 FROM agents
                 WHERE LOWER(name) = LOWER(?) OR LOWER(id) = LOWER(?)

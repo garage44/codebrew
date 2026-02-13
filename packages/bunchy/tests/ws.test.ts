@@ -16,15 +16,15 @@ ws.on('open', function open() {
     ws.send(JSON.stringify(testMessage))
 })
 
-ws.on('message', function message(data) {
+ws.on('message', function message(data: WebSocket.Data) {
     console.log('📨 Received message:', data.toString())
 })
 
-ws.on('error', function error(err) {
+ws.on('error', function error(err: Error) {
     console.error('❌ Bunchy WebSocket error:', err.message)
 })
 
-ws.on('close', function close(code, reason) {
+ws.on('close', function close(code: number, reason: Buffer) {
     console.log('🔌 Bunchy WebSocket connection closed:', code, reason)
 })
 

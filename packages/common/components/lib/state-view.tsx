@@ -74,7 +74,7 @@ export const StateView = ({state, title = 'Component State'}: StateViewProps): R
             {isOpen &&
                 <div class='content'>
                     {typeof state === 'object' && state !== null ?
-                            Object.entries(state).map(([key, value]) => renderStateEntry(key, value)) :
+                            Object.entries(state).map(([key, value]): JSX.Element => renderStateEntry(key, value)) :
                         <div class='entry'>
                             <span class='value'>{renderValue(state)}</span>
                         </div>}

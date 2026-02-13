@@ -27,6 +27,9 @@ export function registerI18nWebSocketApiRoutes(wsManager: WebSocketServerManager
     apiWs.post('/api/workspaces/:workspace_id/paths', async (_context, request) => {
         const {workspace_id} = validateRequest(WorkspaceIdParamsSchema, request.params)
         const workspace = workspaces.get(workspace_id)
+        if (!workspace) {
+            throw new Error(`Workspace ${workspace_id} not found`)
+        }
         const {path, value} = validateRequest(CreatePathRequestSchema, request.data)
         const targetLanguages = workspace.config.languages.target
         pathCreate(
@@ -47,6 +50,9 @@ export function registerI18nWebSocketApiRoutes(wsManager: WebSocketServerManager
     apiWs.delete('/api/workspaces/:workspace_id/paths', async (_context, request) => {
         const {workspace_id} = validateRequest(WorkspaceIdParamsSchema, request.params)
         const workspace = workspaces.get(workspace_id)
+        if (!workspace) {
+            throw new Error(`Workspace ${workspace_id} not found`)
+        }
         const {path} = validateRequest(DeletePathRequestSchema, request.data)
         const pathArray = Array.isArray(path) ? path : [path]
         pathDelete(workspace.i18n, pathArray)
@@ -57,6 +63,9 @@ export function registerI18nWebSocketApiRoutes(wsManager: WebSocketServerManager
     apiWs.put('/api/workspaces/:workspace_id/paths', async (_context, request) => {
         const {workspace_id} = validateRequest(WorkspaceIdParamsSchema, request.params)
         const workspace = workspaces.get(workspace_id)
+        if (!workspace) {
+            throw new Error(`Workspace ${workspace_id} not found`)
+        }
         const {new_path, old_path} = validateRequest(MovePathRequestSchema, request.data)
         pathMove(workspace.i18n, old_path, new_path)
         workspace.save()
@@ -66,6 +75,9 @@ export function registerI18nWebSocketApiRoutes(wsManager: WebSocketServerManager
         const {workspace_id} = validateRequest(WorkspaceIdParamsSchema, request.params)
         const {path, tag_modifier, value} = validateRequest(CollapsePathRequestSchema, request.data)
         const workspace = workspaces.get(workspace_id)
+        if (!workspace) {
+            throw new Error(`Workspace ${workspace_id} not found`)
+        }
 
         // Determine which mode to use based on the request
         const valueData = value
@@ -81,8 +93,14 @@ export function registerI18nWebSocketApiRoutes(wsManager: WebSocketServerManager
     apiWs.post('/api/workspaces/:workspace_id/tags', async (_context, request) => {
         const {workspace_id} = validateRequest(WorkspaceIdParamsSchema, request.params)
         const workspace = workspaces.get(workspace_id)
+        if (!workspace) {
+            throw new Error(`Workspace ${workspace_id} not found`)
+        }
         const {path, source} = validateRequest(UpdateTagRequestSchema, request.data)
         const {id, ref} = pathRef(workspace.i18n, path)
+        if (!id) {
+            throw new Error('Invalid path')
+        }
         const refId = ref[id] as {source: string}
         refId.source = source
         workspace.save()
@@ -91,6 +109,9 @@ export function registerI18nWebSocketApiRoutes(wsManager: WebSocketServerManager
     apiWs.post('/api/workspaces/:workspace_id/translate', async (_context, request) => {
         const {workspace_id} = validateRequest(WorkspaceIdParamsSchema, request.params)
         const workspace = workspaces.get(workspace_id)
+        if (!workspace) {
+            throw new Error(`Workspace ${workspace_id} not found`)
+        }
 
         const {ignore_cache, path, value} = validateRequest(TranslateRequestSchema, request.data)
 
@@ -111,6 +132,9 @@ export function registerI18nWebSocketApiRoutes(wsManager: WebSocketServerManager
                     success: true as const,
                     targets: [result],
                     translations: workspace.config.languages.target.map((lang) => {
+                        if (!result.id) {
+                            return ''
+                        }
                         const resultTag = result.ref[result.id] as {target: Record<string, string>}
                         return resultTag.target[lang.id]
                     }),
@@ -133,7 +157,7 @@ export function registerI18nWebSocketApiRoutes(wsManager: WebSocketServerManager
             }
         } else {
             try {
-                const {cached, targets, translations} = await translate_path(workspace, path, ignore_cache)
+                const {cached, targets, translations} = await translate_path(workspace, path, ignore_cache ?? false)
                 workspace.save()
                 const response = {cached, success: true as const, targets, translations}
                 // Validate response matches schema
@@ -159,6 +183,9 @@ export function registerI18nWebSocketApiRoutes(wsManager: WebSocketServerManager
     apiWs.post('/api/workspaces/:workspace_id/undo', async (_context, request) => {
         const {workspace_id} = validateRequest(WorkspaceIdParamsSchema, request.params)
         const workspace = workspaces.get(workspace_id)
+        if (!workspace) {
+            throw new Error(`Workspace ${workspace_id} not found`)
+        }
         workspace.undo()
     })
 
@@ -166,6 +193,9 @@ export function registerI18nWebSocketApiRoutes(wsManager: WebSocketServerManager
     apiWs.post('/api/workspaces/:workspace_id/redo', async (_context, request) => {
         const {workspace_id} = validateRequest(WorkspaceIdParamsSchema, request.params)
         const workspace = workspaces.get(workspace_id)
+        if (!workspace) {
+            throw new Error(`Workspace ${workspace_id} not found`)
+        }
         workspace.redo()
     })
 }
@@ -178,6 +208,12 @@ export default function apiI18n(router: {
     router.get('/api/workspaces/:workspace_id/translations', (req: Request, params: Record<string, string>) => {
         const {param0: workspaceId} = validateRequest(GetTranslationsParamsSchema, params)
         const workspace = workspaces.get(workspaceId)
+        if (!workspace) {
+            return new Response(JSON.stringify({error: `Workspace ${workspaceId} not found`}), {
+                headers: {'Content-Type': 'application/json'},
+                status: 404,
+            })
+        }
         const targetLanguages = workspace.config.languages.target
         return new Response(JSON.stringify(i18nFormat(workspace.i18n, targetLanguages)), {
             headers: {'Content-Type': 'application/json'},

@@ -3,7 +3,7 @@
  * Manages agent avatars using the same system as users
  */
 
-import {db} from '../database.ts'
+import {getDb} from '../database.ts'
 import {logger} from '../../service.ts'
 
 /**
@@ -20,7 +20,7 @@ export const DEFAULT_AVATARS: Record<'planner' | 'developer' | 'reviewer', strin
  * Assigns default avatars to agents that don't have one
  */
 export function initAgentAvatars(): void {
-    const agents = db.prepare(`
+    const agents = getDb().prepare(`
         SELECT id, name, type, avatar, display_name
         FROM agents
     `).all() as {
@@ -49,7 +49,7 @@ export function initAgentAvatars(): void {
         }
 
         if (needsUpdate) {
-            db.prepare(`
+            getDb().prepare(`
                 UPDATE agents
                 SET avatar = ?, display_name = ?
                 WHERE id = ?
@@ -66,7 +66,7 @@ export function initAgentAvatars(): void {
  * Get avatar for an agent
  */
 export function getAgentAvatar(agentId: string): string | null {
-    const agent = db.prepare('SELECT avatar FROM agents WHERE id = ?').get(agentId) as {avatar: string | null} | undefined
+    const agent = getDb().prepare('SELECT avatar FROM agents WHERE id = ?').get(agentId) as {avatar: string | null} | undefined
     return agent?.avatar || null
 }
 
@@ -74,7 +74,7 @@ export function getAgentAvatar(agentId: string): string | null {
  * Set avatar for an agent
  */
 export function setAgentAvatar(agentId: string, avatar: string): void {
-    db.prepare(`
+    getDb().prepare(`
         UPDATE agents
         SET avatar = ?
         WHERE id = ?

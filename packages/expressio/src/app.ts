@@ -1,8 +1,8 @@
 import type {CommonState} from '@garage44/common/types'
+import type {DeepSignal} from 'deepsignal'
 
 import {App, api, logger, notifier, store} from '@garage44/common/app'
 import {$t, createTypedI18n, i18nFormat} from '@garage44/expressio'
-import {type DeepSignal} from 'deepsignal'
 import {h, render} from 'preact'
 
 import workspace from '@/.expressio.json'
@@ -21,9 +21,15 @@ store.load(
 
 const app = new App()
 
-app.init(Main, render, h, i18nFormat(workspace.i18n, workspace.config.languages.target), {
-    enableBunchy: process.env.NODE_ENV !== 'production',
-})
+app.init(
+    Main,
+    render as (vnode: unknown, container: HTMLElement) => void,
+    h as (component: unknown, props: Record<string, unknown>) => unknown,
+    i18nFormat(workspace.i18n, workspace.config.languages.target),
+    {
+        enableBunchy: process.env.NODE_ENV !== 'production',
+    },
+)
 
 /*
  * Export typed i18n object for type-safe translation references

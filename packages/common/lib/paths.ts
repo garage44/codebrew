@@ -118,7 +118,8 @@ function pathCreate(
          * Attach path symbol for type-safe translation references
          * Path format: i18n.path.to.translation
          */
-        ref[id][I18N_PATH_SYMBOL] = `i18n.${tag}`
+        const refObj = ref[id] as Record<string | symbol, unknown>
+        refObj[I18N_PATH_SYMBOL] = `i18n.${tag}`
 
         logger.info(`create path tag: ${tag} ${'_soft' in value ? '(soft create)' : ''}`)
         const refIdTag = refId as Tag & {target: Record<string, string>}
@@ -171,7 +172,7 @@ function pathToggle(
     modifier: Record<string, unknown>,
     mode: 'self' | 'groups' | 'all' = 'groups',
 ): void {
-    function applyRecursively(obj) {
+    function applyRecursively(obj: Record<string, unknown>): void {
         if (!obj || typeof obj !== 'object') {
             return
         }
@@ -179,23 +180,24 @@ function pathToggle(
         for (const key in obj) {
             if (Object.hasOwn(obj, key)) {
                 const value = obj[key]
-                if (value && typeof value === 'object') {
-                    const isTag = 'source' in value
+                if (value && typeof value === 'object' && !Array.isArray(value)) {
+                    const valueObj = value as Record<string, unknown>
+                    const isTag = 'source' in valueObj
 
                     // Apply based on mode and node type
                     if (mode === 'all' || (!isTag && mode === 'groups')) {
-                        mergeDeep(value, modifier)
+                        mergeDeep(valueObj, modifier)
                     }
 
                     // Continue recursion
-                    applyRecursively(value)
+                    applyRecursively(valueObj)
                 }
             }
         }
     }
 
     // Apply modifier to children recursively
-    function applyToChildren(obj) {
+    function applyToChildren(obj: Record<string, unknown>): void {
         if (!obj || typeof obj !== 'object') {
             return
         }
@@ -203,17 +205,18 @@ function pathToggle(
         for (const key in obj) {
             if (Object.hasOwn(obj, key)) {
                 const value = obj[key]
-                if (value && typeof value === 'object') {
-                    const isTag = 'source' in value
+                if (value && typeof value === 'object' && !Array.isArray(value)) {
+                    const valueObj = value as Record<string, unknown>
+                    const isTag = 'source' in valueObj
 
                     // Apply based on mode and node type
                     const shouldApply = mode === 'all' || (!isTag && mode === 'groups')
                     if (shouldApply) {
-                        mergeDeep(value, modifier)
+                        mergeDeep(valueObj, modifier)
                     }
 
                     // Continue recursion
-                    applyToChildren(value)
+                    applyToChildren(valueObj)
                 }
             }
         }
@@ -239,12 +242,12 @@ function pathToggle(
 
     // Non-root path handling
     const {id, ref} = pathRef(source, path)
-    if (!ref[id]) {
+    if (!id || !ref[id]) {
         return
     }
 
     // Apply to target node
-    if (id && ref[id] && typeof ref[id] === 'object') {
+    if (ref[id] && typeof ref[id] === 'object') {
         mergeDeep(ref[id] as Record<string, unknown>, modifier)
 
         // Apply to nested nodes based on mode
@@ -306,7 +309,7 @@ function pathMove(source: Record<string, unknown>, oldPath: string[], newPath: s
      */
     const newPathParts = newPath.join('.')
     const newPathString = `i18n.${newPathParts}`
-    if (typeof newSourceRef[newId] === 'object' && 'source' in newSourceRef[newId]) {
+    if (newId && typeof newSourceRef[newId] === 'object' && newSourceRef[newId] !== null && 'source' in newSourceRef[newId]) {
         movedObj[I18N_PATH_SYMBOL] = newPathString
     }
 

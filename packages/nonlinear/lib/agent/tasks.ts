@@ -3,7 +3,7 @@
  * Handles creation, retrieval, and status updates for agent tasks
  */
 
-import {db, type AgentTask} from '../database.ts'
+import {getDb, type AgentTask} from '../database.ts'
 import {randomId} from '@garage44/common/lib/utils'
 
 export type TaskType = 'mention' | 'assignment' | 'manual' | 'refinement'
@@ -26,7 +26,7 @@ export function createTask(
     const taskId = randomId()
     const now = Date.now()
 
-    db.prepare(`
+    getDb().prepare(`
         INSERT INTO agent_tasks (
             id, agent_id, task_type, task_data, status, priority, created_at
         )
@@ -47,7 +47,7 @@ export function createTask(
  * Get all pending tasks for an agent, ordered by priority and creation time
  */
 export function getPendingTasks(agentId: string): AgentTask[] {
-    return db.prepare(`
+    return getDb().prepare(`
         SELECT *
         FROM agent_tasks
         WHERE agent_id = ? AND status = 'pending'
@@ -59,7 +59,7 @@ export function getPendingTasks(agentId: string): AgentTask[] {
  * Get a task by ID
  */
 export function getTask(taskId: string): AgentTask | undefined {
-    return db.prepare(`
+    return getDb().prepare(`
         SELECT *
         FROM agent_tasks
         WHERE id = ?
@@ -77,19 +77,19 @@ export function updateTaskStatus(
     const now = Date.now()
 
     if (status === 'processing') {
-        db.prepare(`
+        getDb().prepare(`
             UPDATE agent_tasks
             SET status = ?, started_at = ?
             WHERE id = ?
         `).run(status, now, taskId)
     } else if (status === 'completed' || status === 'failed') {
-        db.prepare(`
+        getDb().prepare(`
             UPDATE agent_tasks
             SET status = ?, completed_at = ?, error = ?
             WHERE id = ?
         `).run(status, now, error || null, taskId)
     } else {
-        db.prepare(`
+        getDb().prepare(`
             UPDATE agent_tasks
             SET status = ?
             WHERE id = ?
@@ -127,7 +127,7 @@ export function getTaskStats(agentId: string): {
     pending: number
     processing: number
 } {
-    const stats = db.prepare(`
+    const stats = getDb().prepare(`
         SELECT status, COUNT(*) as count
         FROM agent_tasks
         WHERE agent_id = ?

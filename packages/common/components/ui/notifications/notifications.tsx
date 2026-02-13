@@ -3,7 +3,7 @@ import {Icon, Progress} from '@/components'
 import type {Notification} from '@/lib/notifier'
 import classnames from 'classnames'
 
-export function Notifications({notifications}) {
+export function Notifications({notifications}: {notifications: Notification[]}) {
     return <div class="c-notifications">
         <TransitionGroup>
             {notifications.map((notification:Notification) =>
@@ -28,9 +28,9 @@ export function Notifications({notifications}) {
                                 <span>{notification.message}</span>
                                 {notification.link && (
                                     <span class="cf link" onClick={() => {
-                                        window.open(notification.link.url, '_blank')
+                                        window.open(notification.link!.url, '_blank')
                                     }}>
-                                        {notification.link.text}
+                                        {notification.link!.text}
                                     </span>
                                 )}
                                 {notification.list && <ul class="message-list">
@@ -43,7 +43,7 @@ export function Notifications({notifications}) {
                             className="icon btn-close"
                             name="close"
                             onClick={() => {
-                                notifications.splice(notifications.findIndex(i => i.id === notification.id), 1)
+                                notifications.splice(notifications.findIndex((i: Notification) => i.id === notification.id), 1)
                             }}
                             type={notification.type}
                         />

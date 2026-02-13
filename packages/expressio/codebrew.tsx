@@ -1,8 +1,8 @@
-import {h} from 'preact'
 import {registerApp} from '@garage44/common/lib/codebrew-registry'
+import {h} from 'preact'
 
 const Placeholder = ({name}: {name: string}) => (
-    <div class="c-codebrew-placeholder" style={{padding: 'var(--spacer-4)'}}>
+    <div class='c-codebrew-placeholder' style={{padding: 'var(--spacer-4)'}}>
         <h2>{name}</h2>
         <p>Coming soon in Codebrew</p>
     </div>
@@ -18,7 +18,7 @@ registerApp({
     ],
     name: 'Expressio',
     routes: [
-        {component: () => <Placeholder name="Expressio" />, default: true, path: '/expressio/translations'},
-        {component: () => <Placeholder name="Expressio Settings" />, path: '/expressio/config'},
+        {component: () => <Placeholder name='Expressio' />, default: true, path: '/expressio/translations'},
+        {component: () => <Placeholder name='Expressio Settings' />, path: '/expressio/config'},
     ],
 })

@@ -145,7 +145,7 @@ export function useCollectionManager<TItem, TFormData>(config: CollectionManager
                     : config.createEndpoint
             const newItem = (await api.post(endpoint, payload)) as TItem
             state.items = [...state.items, newItem] as (TItem & DeepSignal<TItem>)[]
-            Object.assign(state.formData, config.initialFormData)
+            Object.assign(state.formData as Record<string, unknown>, config.initialFormData as Record<string, unknown>)
             notifier.notify({
                 level: 'success',
                 message: config.messages?.createSuccess || 'Item created successfully',
@@ -179,7 +179,7 @@ export function useCollectionManager<TItem, TFormData>(config: CollectionManager
                 return config.getId(itemValue) === itemId ? updatedItem : itemValue
             }) as (TItem & DeepSignal<TItem>)[]
             state.editing = null
-            Object.assign(state.formData, config.initialFormData)
+            Object.assign(state.formData as Record<string, unknown>, config.initialFormData as Record<string, unknown>)
             notifier.notify({
                 level: 'success',
                 message: config.messages?.updateSuccess || 'Item updated successfully',
@@ -221,7 +221,7 @@ export function useCollectionManager<TItem, TFormData>(config: CollectionManager
                 DeepSignal<TItem>)[]
             if (state.editing === itemId) {
                 state.editing = null
-                Object.assign(state.formData, config.initialFormData)
+                Object.assign(state.formData as Record<string, unknown>, config.initialFormData as Record<string, unknown>)
             }
             notifier.notify({
                 level: 'success',
@@ -242,12 +242,12 @@ export function useCollectionManager<TItem, TFormData>(config: CollectionManager
 
     const startEdit = (item: TItem) => {
         state.editing = config.getId(item)
-        Object.assign(state.formData, config.populateFormData(item))
+        Object.assign(state.formData as Record<string, unknown>, config.populateFormData(item) as Record<string, unknown>)
     }
 
     const cancelEdit = () => {
         state.editing = null
-        Object.assign(state.formData, config.initialFormData)
+        Object.assign(state.formData as Record<string, unknown>, config.initialFormData as Record<string, unknown>)
     }
 
     return {

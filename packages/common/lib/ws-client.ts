@@ -176,7 +176,7 @@ class WebSocketClient extends EventEmitter {
             // Handle route-specific handlers (only if url exists)
             if (message.url && this.eventHandlers[message.url]) {
                 logger.debug(`[WS] Calling handlers for ${message.url}:`, this.eventHandlers[message.url].length)
-                this.eventHandlers[message.url].forEach((handler) => handler(message.data))
+                this.eventHandlers[message.url].forEach((handler) => handler(message.data || {}))
             } else if (message.url) {
                 logger.debug(`[WS] No handlers registered for ${message.url}`)
             }

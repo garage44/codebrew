@@ -35,7 +35,7 @@ export class TestServer {
     }
 
     start(): Promise<void> {
-        return new Promise((resolve, reject) => {
+        return new Promise<void>((resolve, reject): void => {
             try {
                 const wsManagers = new Map([[this.endpoint, this.wsManager]])
                 const wsHandler = createBunWebSocketHandler(wsManagers)
@@ -44,7 +44,7 @@ export class TestServer {
                 const port = this.port || 0
 
                 this.server = Bun.serve({
-                    fetch: (req, server) => {
+                    fetch: (req: Request, server: {upgrade: (req: Request, opts: {data: {endpoint: string}}) => boolean}): Response | void => {
                         // Handle WebSocket upgrade
                         if (server.upgrade(req, {data: {endpoint: this.endpoint}})) {
                             return
@@ -56,7 +56,7 @@ export class TestServer {
                 })
 
                 // Update port in case it was 0 (random port)
-                this.port = this.server.port
+                this.port = this.server.port || this.port
 
                 resolve()
             } catch(error) {

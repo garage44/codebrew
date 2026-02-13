@@ -17,16 +17,16 @@ const config = rc('codebrew', {
     },
 })
 
-async function initConfig() {
+async function initConfig(): Promise<typeof config> {
     const envConfigPath = process.env.CONFIG_PATH
     const configPath = envConfigPath || path.join(homedir(), '.codebrewrc')
-    if (!await fs.pathExists(configPath)) {
+    if (!(await fs.pathExists(configPath))) {
         await saveConfig()
     }
     return config
 }
 
-async function saveConfig() {
+async function saveConfig(): Promise<void> {
     const envConfigPath = process.env.CONFIG_PATH
     const configPath = envConfigPath || path.join(homedir(), '.codebrewrc')
     const data = copyObject(config)
@@ -36,8 +36,4 @@ async function saveConfig() {
     await fs.writeFile(configPath, JSON.stringify(data, null, 4))
 }
 
-export {
-    config,
-    initConfig,
-    saveConfig,
-}
+export {config, initConfig, saveConfig}

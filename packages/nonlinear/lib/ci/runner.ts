@@ -5,7 +5,7 @@
 
 import {logger} from '../../service.ts'
 import {config} from '../config.ts'
-import {db} from '../database.ts'
+import {getDb} from '../database.ts'
 import {randomId} from '@garage44/common/lib/utils'
 import {updateUsageFromHeaders} from '../agent/token-usage.ts'
 import {$} from 'bun'
@@ -44,7 +44,7 @@ export class CIRunner {
         const startedAt = Date.now()
 
         // Create CI run record
-        db.prepare(`
+        getDb().prepare(`
             INSERT INTO ci_runs (id, ticket_id, status, started_at)
             VALUES (?, ?, 'running', ?)
         `).run(runId, ticketId, startedAt)
@@ -220,7 +220,7 @@ Generate a command to fix this issue.`
                 updateUsageFromHeaders({
                     limit,
                     remaining,
-                    reset: resetHeader || null,
+                    ...(resetHeader === null ? {} : {reset: resetHeader}),
                 })
             } else {
                 logger.warn('[CI Runner] Rate limit headers not found in response')
@@ -277,7 +277,7 @@ Generate a command to fix this issue.`
         output: string,
         fixesApplied: {command: string; output: string}[],
     ): void {
-        db.prepare(`
+        getDb().prepare(`
             UPDATE ci_runs
             SET status = ?,
                 output = ?,

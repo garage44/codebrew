@@ -9,13 +9,10 @@ import {searchCode, findSimilarCode} from '../../docs/code-embeddings.ts'
 export const codeTools: Record<string, Tool> = {
     find_similar_code: {
         description: 'Find code similar to given code snippet',
-        execute: async(params: {
-            code: string
-            limit?: number
-            repositoryId: string
-        }, context: ToolContext): Promise<ToolResult> => {
+        execute: async(params: Record<string, unknown>, _context: ToolContext): Promise<ToolResult> => {
+            const {code, repositoryId, limit} = params as {code: string; limit?: number; repositoryId: string}
             try {
-                const results = await findSimilarCode(params.code, params.repositoryId, params.limit || 5)
+                const results = await findSimilarCode(code, repositoryId, limit || 5)
 
                 return {
                     context: {
@@ -65,16 +62,12 @@ export const codeTools: Record<string, Tool> = {
 
     search_code: {
         description: 'Semantic code search - find similar functions, classes, or patterns',
-        execute: async(params: {
-            fileType?: string
-            limit?: number
-            query: string
-            repositoryId: string
-        }, context: ToolContext): Promise<ToolResult> => {
+        execute: async(params: Record<string, unknown>, _context: ToolContext): Promise<ToolResult> => {
+            const {fileType, limit, query, repositoryId} = params as {fileType?: string; limit?: number; query: string; repositoryId: string}
             try {
-                const results = await searchCode(params.query, params.repositoryId, {
-                    fileType: params.fileType,
-                    limit: params.limit || 10,
+                const results = await searchCode(query, repositoryId, {
+                    fileType,
+                    limit: limit || 10,
                 })
 
                 return {

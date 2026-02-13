@@ -6,7 +6,10 @@ import {config, saveConfig} from '../lib/config.ts'
 import {UpdateConfigRequestSchema, GetConfigResponseSchema} from '../lib/schemas/config.ts'
 import {enola, logger, workspaces} from '../service.ts'
 
-export default function apiConfig(router) {
+export default function apiConfig(router: {
+    get: (path: string, handler: () => Promise<Response>) => void
+    post: (path: string, handler: (req: Request) => Promise<Response>) => void
+}) {
     // HTTP API endpoints using familiar Express-like pattern
     router.get('/api/config', async () => {
         /*
@@ -41,7 +44,7 @@ export default function apiConfig(router) {
 
         try {
             const body = validateRequest(UpdateConfigRequestSchema, await req.json())
-            config.enola = body.enola
+            config.enola = body.enola as typeof config.enola
 
             for (const [engineName, engine] of Object.entries(config.enola.engines)) {
                 const engineConfig: {api_key?: string; base_url?: string} = engine
@@ -69,7 +72,8 @@ export default function apiConfig(router) {
                 logger.info(`[api] [settings] removing redundant workspace ${workspace.config.workspace_id}`)
                 await workspaces.delete(workspace.config.workspace_id)
             }
-            // Add missing workspaces (only if source_file is provided)
+
+            // Add new workspaces
             for (const description of body.workspaces) {
                 if (!workspaces.get(description.workspace_id) && description.source_file) {
                     await workspaces.add({source_file: description.source_file, workspace_id: description.workspace_id})

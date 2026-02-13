@@ -1,3 +1,5 @@
+import type {Signal} from '@preact/signals'
+
 import {api, logger, notifier, ws} from '@garage44/common/app'
 import {
     AppLayout,
@@ -24,7 +26,7 @@ import {Settings} from '@/components/settings/settings'
 import {toIso6391} from '../../../lib/enola/iso-codes.ts'
 
 const state = deepSignal({
-    workspace_id: null,
+    workspace_id: null as string | null,
 })
 
 // Helper to determine if we're in single workspace mode
@@ -62,46 +64,55 @@ const getConfigUrl = () => {
  * Uses effect to watch for workspace loading (handles both login and page refresh)
  */
 const RootRedirect = () => {
-    useEffect(() => {
-        return effect(() => {
-            // Watch for workspace to be loaded, then redirect
-            try {
-                const currentUrl = getCurrentUrl()
-                if (!currentUrl || typeof currentUrl !== 'string') {
-                    return
-                }
-                if ($s.workspace && $s.workspaces && $s.workspaces.length > 0 && currentUrl === '/') {
-                    try {
-                        if (isSingleWorkspace()) {
-                            route('/translations', true)
-                        } else {
-                            const firstWorkspace = $s.workspaces[0]
-                            if (
-                                firstWorkspace &&
-                                firstWorkspace.workspace_id &&
-                                typeof firstWorkspace.workspace_id === 'string'
-                            ) {
-                                const targetUrl = `/workspaces/${firstWorkspace.workspace_id}/translations`
-                                route(targetUrl, true)
-                            }
-                        }
-                    } catch (error) {
-                        logger.debug('[RootRedirect] Routing error:', error)
+    useEffect(
+        () =>
+            effect(() => {
+                // Watch for workspace to be loaded, then redirect
+                try {
+                    const currentUrl = getCurrentUrl()
+                    if (!currentUrl || typeof currentUrl !== 'string') {
+                        return
                     }
+                    if ($s.workspace && $s.workspaces && $s.workspaces.length > 0 && currentUrl === '/') {
+                        try {
+                            if (isSingleWorkspace()) {
+                                route('/translations', true)
+                            } else {
+                                const firstWorkspace = $s.workspaces[0]
+                                if (
+                                    firstWorkspace &&
+                                    firstWorkspace.workspace_id &&
+                                    typeof firstWorkspace.workspace_id === 'string'
+                                ) {
+                                    const targetUrl = `/workspaces/${firstWorkspace.workspace_id}/translations`
+                                    route(targetUrl, true)
+                                }
+                            }
+                        } catch (error) {
+                            logger.debug('[RootRedirect] Routing error:', error)
+                        }
+                    }
+                } catch (error) {
+                    // Silently handle routing errors during initialization
+                    logger.debug('[RootRedirect] Routing error:', error)
                 }
-            } catch (error) {
-                // Silently handle routing errors during initialization
-                logger.debug('[RootRedirect] Routing error:', error)
-            }
-        })
-    }, [])
+            }),
+        [],
+    )
     return null
 }
 
 export const Main = () => {
     useEffect(() => {
         ;(async () => {
-            const context = await api.get('/api/context')
+            const context = (await api.get('/api/context')) as {
+                admin?: boolean
+                authenticated?: boolean
+                id?: string
+                password?: string
+                profile?: {avatar?: string; displayName?: string}
+                username?: string
+            }
 
             /*
              * Context now includes full user profile (id, username, profile.avatar, profile.displayName)
@@ -120,18 +131,29 @@ export const Main = () => {
 
             if (context.authenticated) {
                 ws.connect()
-                const config = await api.get('/api/config')
+                const config = (await api.get('/api/config')) as {
+                    enola?: unknown
+                    workspaces?: Array<{workspace_id: string}>
+                }
 
                 $s.profile.authenticated = true
-                mergeDeep($s, {
-                    enola: config.enola,
-                    workspaces: config.workspaces,
-                })
+                mergeDeep(
+                    $s as Record<string, unknown>,
+                    {
+                        enola: config.enola,
+                        workspaces: config.workspaces,
+                    } as Record<string, unknown>,
+                )
 
                 // Auto-select first workspace if available and no workspace is selected
-                if (config.workspaces && config.workspaces.length > 0 && !state.workspace_id) {
+                if (
+                    config.workspaces &&
+                    Array.isArray(config.workspaces) &&
+                    config.workspaces.length > 0 &&
+                    !state.workspace_id
+                ) {
                     const firstWorkspace = config.workspaces[0]
-                    state.workspace_id = firstWorkspace.workspace_id
+                    state.workspace_id = firstWorkspace.workspace_id ?? null
                     const workspaceResult = (await ws.get(`/api/workspaces/${firstWorkspace.workspace_id}`)) as {
                         config: unknown
                         i18n: unknown
@@ -207,7 +229,7 @@ export const Main = () => {
             // Ensure workspace is loaded for root redirect
             if (!$s.workspace && $s.workspaces && $s.workspaces.length > 0) {
                 const firstWorkspace = $s.workspaces[0]
-                state.workspace_id = firstWorkspace.workspace_id
+                state.workspace_id = firstWorkspace.workspace_id ?? null
                 const workspaceResult = (await ws.get(`/api/workspaces/${firstWorkspace.workspace_id}`)) as {
                     config: unknown
                     i18n: unknown
@@ -229,7 +251,7 @@ export const Main = () => {
             // Ensure a workspace is loaded for these routes
             if (!$s.workspace && $s.workspaces && $s.workspaces.length > 0) {
                 const firstWorkspace = $s.workspaces[0]
-                state.workspace_id = firstWorkspace.workspace_id
+                state.workspace_id = firstWorkspace.workspace_id ?? null
                 const workspaceResult = (await ws.get(`/api/workspaces/${firstWorkspace.workspace_id}`)) as {
                     config: unknown
                     i18n: unknown
@@ -280,7 +302,7 @@ export const Main = () => {
                         logger.debug('[Main] Routing error on workspace not found:', error)
                     }
                 } else {
-                    state.workspace_id = workspaceIdFromUrl
+                    state.workspace_id = workspaceIdFromUrl as string
                     $s.workspace = {
                         config: result.config,
                         i18n: result.i18n,
@@ -299,7 +321,7 @@ export const Main = () => {
                             <UserMenu
                                 collapsed={$s.panels.menu.collapsed}
                                 onLogout={async () => {
-                                    const result = await api.get('/api/logout')
+                                    const result = (await api.get('/api/logout')) as {admin?: boolean; authenticated?: boolean}
                                     $s.profile.authenticated = result.authenticated || false
                                     $s.profile.admin = result.admin || false
                                     try {
@@ -311,9 +333,9 @@ export const Main = () => {
                                 }}
                                 settingsHref='/settings'
                                 user={{
-                                    id: $s.profile.id || null,
+                                    id: $s.profile.id ?? undefined,
                                     profile: {
-                                        avatar: $s.profile.avatar || null,
+                                        avatar: $s.profile.avatar ?? undefined,
                                         displayName: $s.profile.displayName || $s.profile.username || 'User',
                                     },
                                 }}
@@ -339,10 +361,15 @@ export const Main = () => {
                                             }
                                             return (
                                                 <div class='usage' key={engineConfig.name}>
-                                                    <span>{$t(i18n.menu.usage, {engine: engineConfig.name})}</span>
+                                                    <span>
+                                                        {$t(i18n.menu.usage, {engine: engineConfig.name} as Record<
+                                                            string,
+                                                            unknown
+                                                        >)}
+                                                    </span>
                                                     <Progress
                                                         boundaries={[engineConfig.usage.count, engineConfig.usage.limit]}
-                                                        iso6391={toIso6391($s.language_ui.selection)}
+                                                        iso6391={toIso6391($s.language_ui.selection ?? undefined) || undefined}
                                                         loading={engineConfig.usage.loading || false}
                                                         percentage={engineConfig.usage.count / engineConfig.usage.limit}
                                                     />
@@ -366,7 +393,7 @@ export const Main = () => {
                                         disabled={!$s.workspaces.length}
                                         help={$t(i18n.menu.workspaces.help)}
                                         label={$t(i18n.menu.workspaces.label)}
-                                        model={state.$workspace_id}
+                                        model={state.$workspace_id as unknown as Signal<string>}
                                         onChange={async (workspace_id) => {
                                             if (!workspace_id) {
                                                 return
@@ -401,7 +428,10 @@ export const Main = () => {
                                                 logger.debug('[Main] Routing error on workspace change:', error)
                                             }
                                         }}
-                                        options={$s.workspaces.map((i) => ({id: i.workspace_id, name: i.workspace_id}))}
+                                        options={$s.workspaces.map((i) => ({
+                                            id: i.workspace_id ?? '',
+                                            name: i.workspace_id ?? '',
+                                        }))}
                                         placeholder={$t(i18n.menu.workspaces.placeholder)}
                                     />
                                 )}

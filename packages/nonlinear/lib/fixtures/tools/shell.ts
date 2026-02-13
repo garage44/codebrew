@@ -68,12 +68,8 @@ export const shellTools: Record<string, Tool> = {
 
     run_command: {
         description: 'Execute shell command with Bun Shell',
-        execute: async(params: {
-            args?: string[]
-            command: string
-            cwd?: string
-            env?: Record<string, string>
-        }, context: ToolContext): Promise<ToolResult> => {
+        execute: async(params: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
+            const {args: cmdArgs, command, cwd, env} = params as {args?: string[]; command: string; cwd?: string; env?: Record<string, string>}
             try {
                 if (!context.repositoryPath) {
                     return {
@@ -82,8 +78,8 @@ export const shellTools: Record<string, Tool> = {
                     }
                 }
 
-                const workDir = params.cwd ?
-                        path.join(context.repositoryPath, params.cwd) :
+                const workDir = cwd ?
+                        path.join(context.repositoryPath, cwd) :
                     context.repositoryPath
 
                 /*
@@ -91,15 +87,15 @@ export const shellTools: Record<string, Tool> = {
                  * Bun Shell handles pipes, redirects, and shell operators natively
                  * Variables are automatically escaped (safe from injection)
                  */
-                const args = params.args || []
+                const args = cmdArgs || []
 
                 /*
                  * Construct command string - Bun Shell will parse it correctly
                  * (supports pipes, redirects, etc. natively)
                  */
                 const cmdString = args.length > 0 ?
-                    `${params.command} ${args.join(' ')}` :
-                    params.command
+                    `${command} ${args.join(' ')}` :
+                    command
 
                 /*
                  * Use Bun Shell template literal - it handles shell operators natively
@@ -107,14 +103,14 @@ export const shellTools: Record<string, Tool> = {
                  */
                 const result = await $`${cmdString}`
                     .cwd(workDir)
-                    .env(params.env || {})
+                    .env(env || {})
                     .quiet()
                     .nothrow()
 
                 return {
                     context: {
-                        command: params.command,
-                        cwd: params.cwd || context.repositoryPath,
+                        command,
+                        cwd: cwd || context.repositoryPath,
                     },
                     data: {
                         exitCode: result.exitCode,

@@ -77,8 +77,8 @@ export function UsersForm({
     useEffect(() => {
         if (isEditing && userId) {
             // Load the specific user for editing
-            api.get(`/api/users/${encodeURIComponent(userId)}`).then((user: User) => {
-                manager.startEdit(user)
+            api.get(`/api/users/${encodeURIComponent(userId)}`).then((user: unknown) => {
+                manager.startEdit(user as User)
             }).catch(() => {
                 // User not found, redirect back to list
                 route('/settings/users')
@@ -135,7 +135,7 @@ export function UsersForm({
                     model={manager.state.formData.$password}
                     label={$t('user.management.field.password') || 'Password'}
                     type="password"
-                    placeholder={isEditing 
+                    placeholder={isEditing
                         ? ($t('user.management.placeholder.password_optional') || 'Leave empty to keep current password')
                         : ($t('user.management.placeholder.password') || 'Enter password')
                     }

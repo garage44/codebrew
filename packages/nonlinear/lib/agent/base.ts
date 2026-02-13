@@ -364,7 +364,7 @@ ${result.doc.content}
                 updateUsageFromHeaders({
                     limit,
                     remaining,
-                    reset: resetHeader || null,
+                    ...(resetHeader === null ? {} : {reset: resetHeader}),
                 })
             }
 
@@ -376,7 +376,7 @@ ${result.doc.content}
                 if (textContent) {
                     // eslint-disable-next-line no-await-in-loop
                     await this.streamReasoning('✅ Completed')
-                    return textContent.text
+                    return textContent.text ?? ''
                 }
                 throw new Error('Unexpected response type from Anthropic API')
             }
@@ -571,7 +571,7 @@ ${result.doc.content}
                 updateUsageFromHeaders({
                     limit,
                     remaining,
-                    reset: resetHeader || null,
+                    ...(resetHeader === null ? {} : {reset: resetHeader}),
                 })
             }
 
@@ -644,7 +644,7 @@ ${result.doc.content}
                 updateUsageFromHeaders({
                     limit,
                     remaining,
-                    reset: resetHeader || null,
+                    ...(resetHeader === null ? {} : {reset: resetHeader}),
                 })
             } else {
                 logger.debug(`[Agent ${this.name}] Rate limit headers not found in response`)
@@ -652,7 +652,7 @@ ${result.doc.content}
 
             const content = data.content[0]
             if (content && content.type === 'text') {
-                return content.text
+                return content.text ?? ''
             }
 
             throw new Error('Unexpected response type from Anthropic API')
@@ -668,28 +668,28 @@ ${result.doc.content}
     protected log(message: string, level: 'info' | 'warn' | 'error' = 'info'): void {
         const logMessage = `[Agent ${this.name}] ${message}`
         switch (level) {
-            case 'info': {  
+            case 'info':   
                 logger.info(logMessage)
                 break
-            }
             
             
             
-            case 'warn': {  
+            
+            case 'warn':   
                 logger.warn(logMessage)
                 break
-            }
             
             
             
-            case 'error': {  
+            
+            case 'error':   
                 logger.error(logMessage)
                 break
-            }
-            default: {
+            
+            default: 
                 logger.info(logMessage)
                 break
-            }
+            
         }
     }
 

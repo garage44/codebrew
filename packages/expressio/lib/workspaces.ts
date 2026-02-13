@@ -34,7 +34,7 @@ export class Workspaces {
         return workspace
     }
 
-    delete(workspace_id) {
+    delete(workspace_id: string): void {
         this.workspaces = this.workspaces.filter((i) => i.config.workspace_id !== workspace_id)
         logger.info(`[workspaces] removed workspace ${workspace_id} from configuration`)
     }

@@ -6,7 +6,7 @@ import {PlannerAgent} from './planner.ts'
 import {DeveloperAgent} from './developer.ts'
 import {ReviewerAgent} from './reviewer.ts'
 import type {BaseAgent} from './base.ts'
-import {db} from '../database.ts'
+import {getDb} from '../database.ts'
 
 // Agent instances cache (by ID)
 const agentInstances = new Map<string, BaseAgent>()
@@ -22,7 +22,7 @@ export function getAgentById(agentId: string): BaseAgent | null {
     }
 
     // Load agent from database
-    const agentRecord = db.prepare(`
+    const agentRecord = getDb().prepare(`
         SELECT id, name, type, config, enabled
         FROM agents
         WHERE id = ?
@@ -39,7 +39,8 @@ export function getAgentById(agentId: string): BaseAgent | null {
     }
 
     // Parse agent config
-    let agentConfig = null as {skills?: string[]; tools?: string[]} | undefined
+    // eslint-disable-next-line init-declarations -- assigned in try block
+    let agentConfig: {skills?: string[]; tools?: string[]} | undefined
     try {
         if (agentRecord.config) {
             agentConfig = JSON.parse(agentRecord.config)
@@ -51,21 +52,21 @@ export function getAgentById(agentId: string): BaseAgent | null {
     // Create agent instance based on type
     let agent: BaseAgent = null as unknown as BaseAgent
     switch (agentRecord.type) {
-        case 'planner': {
+        case 'planner': 
             agent = new PlannerAgent(agentConfig)
             break
-        }
-        case 'developer': {
+        
+        case 'developer': 
             agent = new DeveloperAgent(agentConfig)
             break
-        }
-        case 'reviewer': {
+        
+        case 'reviewer': 
             agent = new ReviewerAgent(agentConfig)
             break
-        }
-        default: {
+        
+        default: 
             return null
-        }
+        
     }
 
     // Cache instance
@@ -80,7 +81,7 @@ export function getAgentById(agentId: string): BaseAgent | null {
  */
 export function getAgent(type: 'planner' | 'developer' | 'reviewer'): BaseAgent | null {
     // Find first agent of this type
-    const agentRecord = db.prepare(`
+    const agentRecord = getDb().prepare(`
         SELECT id
         FROM agents
         WHERE type = ? AND enabled = 1

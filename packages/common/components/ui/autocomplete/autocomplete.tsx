@@ -181,25 +181,26 @@ export function Autocomplete<T = unknown>({
         const input = inputRef.current
         if (!input || !showSuggestions) return
 
-        const handleKeyDown = (e: KeyboardEvent) => {
+        const handleKeyDown = (e: Event) => {
+            const keyEvent = e as KeyboardEvent
             if (!showSuggestions || suggestions.length === 0) return
 
-            if (e.key === 'ArrowDown') {
-                e.preventDefault()
+            if (keyEvent.key === 'ArrowDown') {
+                keyEvent.preventDefault()
                 lastKeyRef.current = 'ArrowDown'
                 setSelectedIndex((prev) => (prev + 1) % suggestions.length)
-            } else if (e.key === 'ArrowUp') {
-                e.preventDefault()
+            } else if (keyEvent.key === 'ArrowUp') {
+                keyEvent.preventDefault()
                 lastKeyRef.current = 'ArrowUp'
                 setSelectedIndex((prev) => (prev - 1 + suggestions.length) % suggestions.length)
-            } else if (e.key === 'Enter' || e.key === 'Tab') {
-                e.preventDefault()
+            } else if (keyEvent.key === 'Enter' || keyEvent.key === 'Tab') {
+                keyEvent.preventDefault()
                 lastKeyRef.current = null
                 if (suggestions[selectedIndex]) {
                     insertItem(suggestions[selectedIndex])
                 }
-            } else if (e.key === 'Escape') {
-                e.preventDefault()
+            } else if (keyEvent.key === 'Escape') {
+                keyEvent.preventDefault()
                 lastKeyRef.current = null
                 setShowSuggestions(false)
             } else {

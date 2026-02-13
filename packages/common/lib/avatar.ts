@@ -9,7 +9,7 @@
 function hashString(str: string): number {
     let hash = 0
     for (let i = 0; i < str.length; i++) {
-        const char = str.codePointAt(i)
+        const char = str.codePointAt(i) ?? 0
         hash = (hash << 5) - hash + char
         // Convert to 32bit integer
         hash = hash & hash

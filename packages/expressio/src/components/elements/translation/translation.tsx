@@ -1,3 +1,5 @@
+import type {Signal} from '@preact/signals'
+
 import {notifier, ws} from '@garage44/common/app'
 import {FieldText, Icon} from '@garage44/common/components'
 import {$t} from '@garage44/expressio'
@@ -6,14 +8,29 @@ import classnames from 'classnames'
 import {$s, i18n} from '@/app'
 import {TranslationResult} from '@/components/elements'
 
-export function Translation({group, path}) {
+export function Translation({
+    group,
+    path,
+}: {
+    group: {
+        $source?: Signal<string>
+        $_id?: Signal<string>
+        _collapsed?: boolean
+        _id?: string
+        _redundant?: boolean
+        _soft?: boolean
+        source?: string
+        target?: Record<string, string>
+    }
+    path: string[]
+}) {
     const path_update = path.join('.')
 
     async function translate() {
         try {
             const result = await ws.post(`/api/workspaces/${$s.workspace.config.workspace_id}/translate`, {
                 path,
-                value: group,
+                value: group as Record<string, unknown>,
             })
 
             if (result?.success) {
@@ -27,9 +44,9 @@ export function Translation({group, path}) {
                     type: 'error',
                 })
             }
-        } catch (error) {
+        } catch (err) {
             notifier.notify({
-                message: `Translation error: ${error.message}`,
+                message: `Translation error: ${err instanceof Error ? err.message : String(err)}`,
                 type: 'error',
             })
         }
@@ -51,13 +68,13 @@ export function Translation({group, path}) {
                             ws.post(`/api/workspaces/${$s.workspace.config.workspace_id}/collapse`, {
                                 path,
                                 tag_modifier: {_collapsed: !group._collapsed},
-                                value: {_collapsed: !group._collapsed},
+                                value: {_collapsed: !group._collapsed} as Record<string, unknown>,
                             })
                         }}
                         size='s'
                         tip={$t(i18n.translation.tip.translation_view)}
                         type={
-                            Object.keys(group.target).length === $s.workspace.config.languages.target.length
+                            Object.keys(group.target ?? {}).length === $s.workspace.config.languages.target.length
                                 ? 'success'
                                 : 'warning'
                         }
@@ -76,10 +93,10 @@ export function Translation({group, path}) {
 
                 <FieldText
                     className='id-field'
-                    model={group.$_id}
+                    model={group.$_id as Signal<string> | undefined}
                     onBlur={async () => {
                         const oldPath = [...path]
-                        const newPath = [...oldPath.slice(0, -1), group._id]
+                        const newPath = [...oldPath.slice(0, -1), group._id ?? '']
                         if (oldPath.join('.') !== newPath.join('.')) {
                             await ws.put(`/api/workspaces/${$s.workspace.config.workspace_id}/paths`, {
                                 new_path: newPath,
@@ -94,7 +111,7 @@ export function Translation({group, path}) {
                 />
                 <FieldText
                     className='src-field'
-                    model={group.$source}
+                    model={group.$source as Signal<string> | undefined}
                     onBlur={async () => {
                         await ws.post(`/api/workspaces/${$s.workspace.config.workspace_id}/tags`, {
                             path,
@@ -111,7 +128,7 @@ export function Translation({group, path}) {
                     placeholder={$t(i18n.translation.placeholder.translate)}
                 />
             </div>
-            <TranslationResult group={group} />
+            <TranslationResult group={{_collapsed: group._collapsed, target: group.target ?? {}}} path={path} />
         </div>
     )
 }

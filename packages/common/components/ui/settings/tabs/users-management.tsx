@@ -96,8 +96,8 @@ export function UsersManagement({
                 },
             }
 
-            const newUser = await api.post(`/api/users/${state.formData.username}`, userData)
-            state.users = [...state.users, newUser]
+            const newUser = (await api.post(`/api/users/${state.formData.username}`, userData)) as User
+            state.users = [...state.users, newUser] as User[]
             state.formData = {username: '', password: '', admin: false}
             notifier.notify({
                 level: 'success',
@@ -143,8 +143,8 @@ export function UsersManagement({
                 }
             }
 
-            const updatedUser = await api.post(`/api/users/${userId}`, userData)
-            state.users = state.users.map((u) => u.id === userId ? updatedUser : u)
+            const updatedUser = (await api.post(`/api/users/${userId}`, userData)) as User
+            state.users = state.users.map((u) => u.id === userId ? updatedUser : u) as User[]
             state.editing = null
             state.formData = {username: '', password: '', admin: false}
             notifier.notify({

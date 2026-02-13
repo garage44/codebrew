@@ -1,9 +1,11 @@
 import {effect} from '@preact/signals'
 
+import type {Store} from './store'
+
 import {store} from '../app'
 
 // Apply theme based on preference (light/dark/system)
-const applyTheme = (themePreference: 'light' | 'dark' | 'system') => {
+const applyTheme = (themePreference: 'light' | 'dark' | 'system'): void => {
     const htmlElement = document.documentElement
     htmlElement.classList.remove('dark', 'light')
 
@@ -16,18 +18,19 @@ const applyTheme = (themePreference: 'light' | 'dark' | 'system') => {
     }
 }
 
-export default function env(env, _storeParam = null) {
+export default function env(env: Record<string, unknown>, _storeParam: Store | null = null): void {
     env.ua = navigator.userAgent.toLowerCase()
 
     if (globalThis.navigator) {
         env.isBrowser = true
 
-        if (env.ua.includes('safari') && !env.ua.includes('chrome')) {
+        const ua = String(env.ua)
+        if (ua.includes('safari') && !ua.includes('chrome')) {
             env.isSafari = true
             env.browserName = 'Safari'
         }
-        if (env.ua.includes('firefox')) {
-            env.isFirefox = env.ua.includes('firefox')
+        if (ua.includes('firefox')) {
+            env.isFirefox = ua.includes('firefox')
             env.browserName = 'Firefox'
         }
     }

@@ -24,10 +24,26 @@ if [ -n "$TS_FILES" ]; then
     echo "$TS_FILES" | xargs -r bunx oxlint --fix || HAS_ERRORS=1
 fi
 
-# Run eslint on TypeScript files
+# Run oxfmt on TypeScript files
 if [ -n "$TS_FILES" ]; then
-    echo "Running eslint on staged TypeScript files..."
-    echo "$TS_FILES" | xargs -r bunx eslint --fix --no-color || HAS_ERRORS=1
+    echo "Running oxfmt on staged TypeScript files..."
+    echo "$TS_FILES" | xargs -r bunx oxfmt --write || HAS_ERRORS=1
+fi
+
+# Run tsgo type checking in affected packages
+if [ -n "$TS_FILES" ]; then
+    echo "Running tsgo type checking..."
+    # Find unique package directories that contain staged TS files
+    AFFECTED_PACKAGES=$(echo "$TS_FILES" | sed -n 's|packages/\([^/]*\)/.*|\1|p' | sort -u)
+    if [ -n "$AFFECTED_PACKAGES" ]; then
+        for PKG in $AFFECTED_PACKAGES; do
+            PKG_DIR="packages/$PKG"
+            if [ -f "$PKG_DIR/tsconfig.json" ]; then
+                echo "  Checking types in $PKG_DIR..."
+                (cd "$PKG_DIR" && bun tsgo --noEmit) || HAS_ERRORS=1
+            fi
+        done
+    fi
 fi
 
 # Run stylelint on CSS files

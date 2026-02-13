@@ -11,19 +11,16 @@ import type {DocFilters} from '../../docs/search.ts'
 export const documentationTools: Record<string, Tool> = {
     search_documentation: {
         description: 'Search ADRs, rules, and project documentation semantically. Use this to find architectural decisions, patterns, and project guidelines.',
-        execute: async(params: {
-            labels?: string[]
-            limit?: number
-            query: string
-        }, context: ToolContext): Promise<ToolResult> => {
+        execute: async(params: Record<string, unknown>, _context: ToolContext): Promise<ToolResult> => {
+            const {labels, limit: limitParam, query} = params as {labels?: string[]; limit?: number; query: string}
             try {
                 const filters: DocFilters = {}
-                if (params.labels && params.labels.length > 0) {
-                    filters.tags = params.labels
+                if (labels && labels.length > 0) {
+                    filters.tags = labels
                 }
 
-                const limit = params.limit || 5
-                const results = await searchDocs(params.query, filters, limit)
+                const limit = limitParam || 5
+                const results = await searchDocs(query, filters, limit)
 
                 if (results.length === 0) {
                     return {
@@ -46,8 +43,8 @@ export const documentationTools: Record<string, Tool> = {
 
                 return {
                     context: {
-                        labels: params.labels || [],
-                        query: params.query,
+                        labels: labels || [],
+                        query,
                         totalResults: results.length,
                     },
                     data: formatted,

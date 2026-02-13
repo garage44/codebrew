@@ -19,11 +19,11 @@ export function FieldUpload({
     label = '',
     help = '',
     model,
-    onBlur = null,
-    onClick = null,
+    onBlur,
+    onClick,
     accept = '*',
     placeholder = 'Choose a file...',
-    transform = null,
+    transform,
 }: FieldUploadProps) {
     return (
         <div class={classnames('c-field-upload', 'field', className)}>

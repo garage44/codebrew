@@ -45,7 +45,7 @@ export class Store<StateType extends Record<string, unknown> = Record<string, un
             ),
         )
         if ('beta' in this.state && (this.state as Record<string, unknown>).beta) {
-            globalThis.$s = this.state as unknown as DeepSignal<CommonState>
+            ;(globalThis as {[key: string]: unknown}).$s = this.state as unknown as DeepSignal<CommonState>
         }
     }
 

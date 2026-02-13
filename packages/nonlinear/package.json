@@ -29,7 +29,10 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@types/fs-extra": "^11.0.4",
     "@types/node": "catalog:dev",
+    "@types/rc": "^1.2.4",
+    "@types/yargs": "catalog:dev",
     "bun-types": "catalog:dev",
     "oxfmt": "catalog:dev",
     "oxlint": "catalog:dev",
@@ -37,7 +40,8 @@
     "stylelint-order": "catalog:dev"
   },
   "exports": {
-    ".": "./index.ts","./codebrew":"./codebrew.ts"
+    ".": "./index.ts",
+    "./codebrew": "./codebrew.tsx"
   },
   "files": [
     "api/*",

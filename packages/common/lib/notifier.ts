@@ -18,9 +18,9 @@ export interface Notification {
 export class Notifier {
     notificationId = 1
 
-    notifications: Notification[]
+    notifications: Notification[] = []
 
-    init(notifications: Notification[]) {
+    init(notifications: Notification[]): void {
         this.notifications = notifications
     }
 

@@ -5,6 +5,8 @@
 
 import type {ComponentType} from 'preact'
 
+import type {WebSocketServerManager} from './ws-server'
+
 export interface CodebrewRoute {
     component: ComponentType
     default?: boolean
@@ -34,14 +36,7 @@ export interface ApiRouter {
     put: (path: string, handler: unknown) => void
 }
 
-export interface WebSocketServerManager {
-    api: {
-        delete: (route: string, handler: unknown, middlewares?: unknown[]) => void
-        get: (route: string, handler: unknown, middlewares?: unknown[]) => void
-        post: (route: string, handler: unknown, middlewares?: unknown[]) => void
-        put: (route: string, handler: unknown, middlewares?: unknown[]) => void
-    }
-}
+export type {WebSocketServerManager}
 
 const plugins = new Map<string, CodebrewAppPlugin>()
 

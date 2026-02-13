@@ -60,6 +60,6 @@
   },
   "exports": {
     ".": "./service.ts",
-    "./codebrew": "./codebrew.ts"
+    "./codebrew": "./codebrew.tsx"
   }
 }

@@ -15,7 +15,7 @@ import {getTaskStats} from '../lib/agent/tasks.ts'
 import {getTokenUsage} from '../lib/agent/token-usage.ts'
 import {validateRequest} from '../lib/api/validate.ts'
 import {config} from '../lib/config.ts'
-import {db} from '../lib/database.ts'
+import {getDb} from '../lib/database.ts'
 import {
     AgentDbSchema,
     AgentParamsSchema,
@@ -41,7 +41,7 @@ export async function startAgentService(
     pid?: number
     success: boolean
 }> {
-    const agent = db.prepare('SELECT * FROM agents WHERE id = ?').get(agentId) as
+    const agent = getDb().prepare('SELECT * FROM agents WHERE id = ?').get(agentId) as
         | {
               config: string
               enabled: number
@@ -161,7 +161,7 @@ export async function autostartAgents(wsManager: WebSocketServerManager, overrid
     }
 
     // Get all enabled agents
-    const agents = db
+    const agents = getDb()
         .prepare(`
         SELECT * FROM agents
         WHERE enabled = 1
@@ -234,7 +234,7 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
 
     // Get all agents
     wsManager.api.get('/api/agents', async (_ctx, _req) => {
-        const agents = db
+        const agents = getDb()
             .prepare(`
             SELECT * FROM agents
             ORDER BY type, name
@@ -296,7 +296,7 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
     wsManager.api.get('/api/agents/:id', async (_ctx, req) => {
         const params = validateRequest(AgentParamsSchema, req.params)
 
-        const agent = db.prepare('SELECT * FROM agents WHERE id = ?').get(params.id) as
+        const agent = getDb().prepare('SELECT * FROM agents WHERE id = ?').get(params.id) as
             | {
                   avatar: string | null
                   config: string
@@ -331,22 +331,24 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
         const defaultAvatar = DEFAULT_AVATARS[data.type]
         const defaultDisplayName = `${data.name} Agent`
 
-        db.prepare(`
+        getDb()
+            .prepare(`
             INSERT INTO agents (id, name, type, config, enabled, avatar, display_name, status, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(
-            agentId,
-            data.name,
-            data.type,
-            JSON.stringify(data.config || {}),
-            data.enabled === false ? 0 : 1,
-            defaultAvatar,
-            defaultDisplayName,
-            'idle',
-            now,
-        )
+        `)
+            .run(
+                agentId,
+                data.name,
+                data.type,
+                JSON.stringify(data.config || {}),
+                data.enabled === false ? 0 : 1,
+                defaultAvatar,
+                defaultDisplayName,
+                'idle',
+                now,
+            )
 
-        const agent = db.prepare('SELECT * FROM agents WHERE id = ?').get(agentId) as
+        const agent = getDb().prepare('SELECT * FROM agents WHERE id = ?').get(agentId) as
             | {
                   avatar: string | null
                   config: string
@@ -390,7 +392,7 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
         const data = validateRequest(TriggerAgentRequestSchema, req.data)
         const stream = req.query?.stream === 'true' || data.stream === true
 
-        const agent = db.prepare('SELECT * FROM agents WHERE id = ?').get(params.id) as
+        const agent = getDb().prepare('SELECT * FROM agents WHERE id = ?').get(params.id) as
             | {
                   config: string
                   enabled: number
@@ -473,13 +475,15 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
 
         values.push(params.id)
 
-        db.prepare(`
+        getDb()
+            .prepare(`
             UPDATE agents
             SET ${fields.join(', ')}
             WHERE id = ?
-        `).run(...(values as Array<string | number>))
+        `)
+            .run(...(values as Array<string | number>))
 
-        const agent = db.prepare('SELECT * FROM agents WHERE id = ?').get(params.id) as
+        const agent = getDb().prepare('SELECT * FROM agents WHERE id = ?').get(params.id) as
             | {
                   avatar: string | null
                   config: string
@@ -514,7 +518,7 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
     wsManager.api.delete('/api/agents/:id', async (_ctx, req) => {
         const params = validateRequest(AgentParamsSchema, req.params)
 
-        db.prepare('DELETE FROM agents WHERE id = ?').run(params.id)
+        getDb().prepare('DELETE FROM agents WHERE id = ?').run(params.id)
 
         // Broadcast agent deletion
         wsManager.broadcast('/agents', {
@@ -533,7 +537,7 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
     wsManager.api.get('/api/agents/:id/stats', async (_ctx, req) => {
         const params = validateRequest(AgentParamsSchema, req.params)
 
-        const agent = db.prepare('SELECT id FROM agents WHERE id = ?').get(params.id)
+        const agent = getDb().prepare('SELECT id FROM agents WHERE id = ?').get(params.id)
         if (!agent) {
             throw new Error('Agent not found')
         }
@@ -550,7 +554,7 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
     wsManager.api.get('/api/agents/:id/service-status', async (_ctx, req) => {
         const params = validateRequest(AgentParamsSchema, req.params)
 
-        const agent = db.prepare('SELECT id FROM agents WHERE id = ?').get(params.id)
+        const agent = getDb().prepare('SELECT id FROM agents WHERE id = ?').get(params.id)
         if (!agent) {
             throw new Error('Agent not found')
         }
@@ -599,7 +603,7 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
     wsManager.api.post('/api/agents/:id/service/stop', async (_ctx, req) => {
         const params = validateRequest(AgentParamsSchema, req.params)
 
-        const agent = db.prepare('SELECT id, name FROM agents WHERE id = ?').get(params.id) as
+        const agent = getDb().prepare('SELECT id, name FROM agents WHERE id = ?').get(params.id) as
             | {
                   id: string
                   name: string

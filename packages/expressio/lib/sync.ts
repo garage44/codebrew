@@ -1,6 +1,8 @@
 import {pathRef} from '@garage44/common/lib/paths.ts'
 import {keyMod} from '@garage44/common/lib/utils.ts'
 
+import type {TargetLanguage} from './enola/types.ts'
+
 import {enola} from '../service.ts'
 
 /**
@@ -16,12 +18,19 @@ import {enola} from '../service.ts'
  * @param {string} action - The action to perform ('remove' or 'update').
  * @returns {Promise<Object>} An object containing arrays of added and removed translations.
  */
-export async function syncLanguage(workspace, language, action) {
-    const syncTags = []
+export async function syncLanguage(
+    workspace: {config: {languages: {target: Array<{engine: string; id: string}>}}; i18n: Record<string, unknown>},
+    language: {engine: string; id: string},
+    action: 'remove' | 'update',
+): Promise<Array<[{source: string; target: Record<string, string>}, string]>> {
+    const syncTags: Array<[{source: string; target: Record<string, string>}, string]> = []
 
-    keyMod(workspace.i18n, (_srcRef, _id, refPath) => {
-        const {id, ref} = pathRef(workspace.i18n, refPath)
-        const refId = ref[id] as {source?: string; target?: Record<string, string>}
+    keyMod(workspace.i18n, (ref: Record<string, unknown>, key: string | null, refPath: string[], _nestingLevel: number) => {
+        const {id, ref: refObj} = pathRef(workspace.i18n, refPath)
+        if (!id) {
+            return
+        }
+        const refId = refObj[id] as {source?: string; target?: Record<string, string>}
         if (typeof refId === 'object' && refId !== null && 'target' in refId && refId.target) {
             if (action === 'remove') {
                 if (language.id in refId.target) {
@@ -42,7 +51,11 @@ export async function syncLanguage(workspace, language, action) {
 
     if (syncTags.length) {
         const tags = syncTags.map(([tag]) => tag as {source: string; target: Record<string, string>})
-        const translations = await enola.translateBatch(language.engine, tags, language)
+        const translations = await enola.translateBatch(language.engine, tags, {
+            ...language,
+            formality: (language as {formality?: string}).formality ?? 'default',
+            name: (language as {name?: string}).name ?? language.id,
+        } as TargetLanguage)
         for (let i = 0; i < translations.length; i++) {
             const tag = syncTags[i][0] as {target: Record<string, string>}
             tag.target[language.id] = translations[i]

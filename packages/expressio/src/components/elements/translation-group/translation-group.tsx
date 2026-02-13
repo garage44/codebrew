@@ -15,6 +15,7 @@ interface TranslationGroupType {
     [key: string]: unknown
     _id: string
     source?: string
+    target?: Record<string, string>
 }
 
 function groupMatchesFilter(group: TranslationGroupType, id: string, filter: string): boolean {

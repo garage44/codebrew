@@ -3,7 +3,7 @@
  */
 
 import {logger} from '../../service.ts'
-import {db} from '../database.ts'
+import {getDb} from '../database.ts'
 import {config} from '../config.ts'
 import {generateEmbedding} from './embeddings.ts'
 import {type CodeChunk, chunkCode} from './code-chunking.ts'
@@ -38,17 +38,13 @@ export async function indexCodeFile(
     repositoryId: string,
     filePath: string,
 ): Promise<void> {
-    if (!db) {
-        throw new Error('Database not initialized')
-    }
-
     try {
         // 1. Read file and calculate hash
         const code = await Bun.file(filePath).text()
         const fileHash = await calculateFileHash(filePath)
 
         // 2. Check cache (skip if unchanged)
-        const cached = db.prepare(`
+        const cached = getDb().prepare(`
             SELECT file_hash FROM code_embeddings
             WHERE repository_id = ? AND file_path = ?
             LIMIT 1
@@ -61,7 +57,7 @@ export async function indexCodeFile(
         }
 
         // 3. Delete old embeddings
-        db.prepare(`
+        getDb().prepare(`
             DELETE FROM code_embeddings
             WHERE repository_id = ? AND file_path = ?
         `).run(repositoryId, filePath)
@@ -83,7 +79,7 @@ export async function indexCodeFile(
         // 6. Store embeddings
         for (const chunk of chunksWithEmbeddings) {
             try {
-                db.prepare(`
+                getDb().prepare(`
                     INSERT INTO code_embeddings (
                         embedding, repository_id, file_path, file_hash,
                         chunk_index, chunk_type, chunk_name, chunk_text,
@@ -123,10 +119,6 @@ export async function searchCode(
     repositoryId: string,
     options?: {fileType?: string; limit?: number},
 ): Promise<CodeSearchResult[]> {
-    if (!db) {
-        throw new Error('Database not initialized')
-    }
-
     try {
         // 1. Generate embedding for QUERY (local provider - fast, no network)
         const queryEmbedding = await generateEmbedding(query)
@@ -159,7 +151,7 @@ export async function searchCode(
         params.push(options?.limit || 10)
 
         // 3. Search against STORED embeddings
-        const results = db.prepare(sql).all(...params) as CodeSearchResult[]
+        const results = getDb().prepare(sql).all(...params) as CodeSearchResult[]
 
         return results
     } catch(error: unknown) {
@@ -180,12 +172,8 @@ export async function findSimilarCode(
     const codeEmbedding = await generateEmbedding(code)
     const embeddingJson = JSON.stringify([...codeEmbedding])
 
-    if (!db) {
-        throw new Error('Database not initialized')
-    }
-
     try {
-        const results = db.prepare(`
+        const results = getDb().prepare(`
             SELECT
                 repository_id,
                 file_path,

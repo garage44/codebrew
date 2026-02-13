@@ -19,7 +19,7 @@ function WorkspaceField({workspace}: {workspace: WorkspaceDescription}) {
     workspaceIdSignalRef.current.value = workspace.workspace_id || ''
     return (
         <FieldText
-            autofocus={true}
+            autofocus
             model={workspaceIdSignalRef.current}
             onChange={(value) => {
                 workspace.workspace_id = value
@@ -39,36 +39,40 @@ export function WorkspaceSelector({workspaces}: WorkspaceSelectorProps) {
 
                 <div class='wrapper'>
                     <div className='options'>
-                        {workspaces.map((workspace: WorkspaceDescription) => {
-                            return (
-                                <div className={classnames('option', workspace.status)} key={workspace.workspace_id}>
-                                    <Icon
-                                        name='close'
-                                        onClick={() => {
-                                            workspaces.splice(0, workspaces.length, ...workspaces.filter((w) => w !== workspace))
-                                        }}
-                                        tip={
-                                            workspace.status === 'existing'
-                                                ? $t(i18n.settings.tip.workspace_existing, {source_file: workspace.source_file})
-                                                : $t(i18n.settings.tip.workspace_new, {source_file: workspace.source_file})
-                                        }
-                                        type='info'
-                                    />
-                                    {workspace.status === 'new' ? (
-                                        <WorkspaceField workspace={workspace} />
-                                    ) : (
-                                        <div className='label'>{workspace.workspace_id}</div>
-                                    )}
-                                </div>
-                            )
-                        })}
+                        {workspaces.map((workspace: WorkspaceDescription) => (
+                            <div className={classnames('option', workspace.status)} key={workspace.workspace_id}>
+                                <Icon
+                                    name='close'
+                                    onClick={() => {
+                                        workspaces.splice(0, workspaces.length, ...workspaces.filter((w) => w !== workspace))
+                                    }}
+                                    tip={
+                                        workspace.status === 'existing'
+                                            ? $t(i18n.settings.tip.workspace_existing, {
+                                                  source_file: workspace.source_file,
+                                              } as Record<string, unknown>)
+                                            : $t(i18n.settings.tip.workspace_new, {
+                                                  source_file: workspace.source_file,
+                                              } as Record<string, unknown>)
+                                    }
+                                    type='info'
+                                />
+                                {workspace.status === 'new' ? (
+                                    <WorkspaceField workspace={workspace} />
+                                ) : (
+                                    <div className='label'>{workspace.workspace_id}</div>
+                                )}
+                            </div>
+                        ))}
                     </div>
                     <DirectoryBrowser
-                        onSelect={({path, workspace}) => {
+                        onSelect={({path, workspace: workspaceData}) => {
                             workspaces.push({
                                 source_file: `${path}/.expressio.json`,
-                                status: workspace ? 'existing' : 'new',
-                                workspace_id: workspace ? workspace.workspace_id : '',
+                                status: workspaceData ? 'existing' : 'new',
+                                workspace_id: workspaceData
+                                    ? (workspaceData as unknown as {workspace_id: string}).workspace_id
+                                    : '',
                             })
                         }}
                     />

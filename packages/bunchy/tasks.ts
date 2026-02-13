@@ -66,7 +66,8 @@ const runner = {
             }, 'POST')
         }
     }, debounce.wait, debounce.options),
-    hmr: throttle(async(filePath: string): Promise<void> => {
+    hmr: throttle(async(...args: unknown[]): Promise<void> => {
+        const filePath = args[0] as string
         // Rebuild the frontend code
         await tasks.code_frontend.start({minify: false, sourcemap: true})
         if (settings.reload_ignore.includes('/tasks/hmr')) {
@@ -200,7 +201,8 @@ tasks.assets = new Task('assets', async function taskAssets(): Promise<void> {
 })
 
 
-tasks.build = new Task('build', async function taskBuild({minify = false, sourcemap = false} = {}): Promise<void> {
+tasks.build = new Task('build', async function taskBuild(...args: unknown[]): Promise<void> {
+    const {minify = false, sourcemap = false} = (args[0] as {minify?: boolean; sourcemap?: boolean} | undefined) ?? {}
     await tasks.clean.start()
     await Promise.all([
         tasks.assets.start(),
@@ -218,7 +220,8 @@ tasks.clean = new Task('clean', async function taskClean(): Promise<void> {
 })
 
 
-tasks.code_frontend = new Task('code:frontend', async function taskCodeFrontend({minify = false, sourcemap = false} = {}): Promise<{filename: string; size: number} | undefined> {
+tasks.code_frontend = new Task('code:frontend', async function taskCodeFrontend(...args: unknown[]): Promise<{filename: string; size: number} | undefined> {
+    const {minify = false, sourcemap = false} = (args[0] as {minify?: boolean; sourcemap?: boolean} | undefined) ?? {}
     try {
         // Get git commit hash
         let commitHash = process.env.APP_COMMIT_HASH || ''
@@ -300,7 +303,8 @@ tasks.code_frontend = new Task('code:frontend', async function taskCodeFrontend(
     }
 })
 
-tasks.code_bunchy = new Task('code:bunchy', async function taskCodeBunchy({minify = false, sourcemap = false} = {}): Promise<{filename: string; size: number} | undefined> {
+tasks.code_bunchy = new Task('code:bunchy', async function taskCodeBunchy(...args: unknown[]): Promise<{filename: string; size: number} | undefined> {
+    const {minify = false, sourcemap = false} = (args[0] as {minify?: boolean; sourcemap?: boolean} | undefined) ?? {}
     try {
         const nodeEnv = process.env.NODE_ENV || 'development'
         const result = await Bun.build({
@@ -376,7 +380,8 @@ tasks.code_bunchy = new Task('code:bunchy', async function taskCodeBunchy({minif
     }
 })
 
-tasks.dev = new Task('dev', async function taskDev({minify = false, sourcemap = true} = {}): Promise<void> {
+tasks.dev = new Task('dev', async function taskDev(...args: unknown[]): Promise<void> {
+    const {minify = false, sourcemap = true} = (args[0] as {minify?: boolean; sourcemap?: boolean} | undefined) ?? {}
     await tasks.clean.start()
     await Promise.all([
         tasks.assets.start(),
@@ -386,7 +391,8 @@ tasks.dev = new Task('dev', async function taskDev({minify = false, sourcemap = 
         tasks.styles.start({minify, sourcemap}),
     ])
 
-    watch(settings.dir.common, {recursive: true}, (_event: string, filename: string): void => {
+    watch(settings.dir.common, {recursive: true}, (_event: string, filename: string | Buffer | null): void => {
+        if (!filename || typeof filename !== 'string') {return}
         const extension = path.extname(filename)
         if (extension === '.ts' || extension === '.tsx') {
             /*
@@ -400,7 +406,8 @@ tasks.dev = new Task('dev', async function taskDev({minify = false, sourcemap = 
         }
     })
 
-    watch(settings.dir.src, {recursive: true}, (_event: string, filename: string): void => {
+    watch(settings.dir.src, {recursive: true}, (_event: string, filename: string | Buffer | null): void => {
+        if (!filename || typeof filename !== 'string') {return}
         const extension = path.extname(filename)
 
         if (filename.startsWith('assets/')) {
@@ -432,7 +439,7 @@ tasks.dev = new Task('dev', async function taskDev({minify = false, sourcemap = 
 
 
 tasks.html = new Task('html', async function taskHtml(): Promise<{filename: string; size: number}> {
-    const indexFile = await fs.readFile(path.join(settings.dir.src, 'index.html'))
+    const indexFile = await fs.readFile(path.join(settings.dir.src, 'index.html'), 'utf8')
     const html = template(indexFile)({
         settings: {
             ...settings,
@@ -445,7 +452,8 @@ tasks.html = new Task('html', async function taskHtml(): Promise<{filename: stri
 })
 
 
-tasks.styles = new Task('styles', async function taskStyles({minify = false, sourcemap = false} = {}): Promise<{size: number}> {
+tasks.styles = new Task('styles', async function taskStyles(...args: unknown[]): Promise<{size: number}> {
+    const {minify = false, sourcemap = false} = (args[0] as {minify?: boolean; sourcemap?: boolean} | undefined) ?? {}
     const actions = [
         tasks.stylesApp.start({minify, sourcemap}) as Promise<{filename: string; size: number} | undefined>,
         tasks.stylesComponents.start({minify, sourcemap}) as Promise<{filename: string; size: number} | undefined>,
@@ -463,7 +471,8 @@ tasks.styles = new Task('styles', async function taskStyles({minify = false, sou
 })
 
 
-tasks.stylesApp = new Task('styles:app', async function taskStylesApp({minify, sourcemap}: {minify: boolean; sourcemap: boolean}): Promise<{filename: string; size: number} | undefined> {
+tasks.stylesApp = new Task('styles:app', async function taskStylesApp(...args: unknown[]): Promise<{filename: string; size: number} | undefined> {
+    const {minify, sourcemap} = args[0] as {minify: boolean; sourcemap: boolean}
     const filename = `app.${settings.buildId}.css`
     const appCssPath = path.join(settings.dir.src, 'css', 'app.css')
 
@@ -503,7 +512,8 @@ tasks.stylesApp = new Task('styles:app', async function taskStylesApp({minify, s
 })
 
 
-tasks.stylesComponents = new Task('styles:components', async function taskStylesComponents({minify, sourcemap}: {minify: boolean; sourcemap: boolean}): Promise<{filename: string; size: number} | undefined> {
+tasks.stylesComponents = new Task('styles:components', async function taskStylesComponents(...args: unknown[]): Promise<{filename: string; size: number} | undefined> {
+    const {minify, sourcemap} = args[0] as {minify: boolean; sourcemap: boolean}
     /*
      * Create a temporary components entry file that imports all component CSS files
      * Bun's Glob handles multiple patterns by creating separate instances

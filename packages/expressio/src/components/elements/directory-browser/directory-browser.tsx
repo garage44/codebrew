@@ -8,26 +8,29 @@ import {useEffect} from 'preact/hooks'
 const state = deepSignal({
     current: {
         path: '',
-        workspace: null,
+        workspace: null as string | null,
     },
-    directories: [],
+    directories: [] as Array<{is_workspace?: boolean; name: string; path: string}>,
     loading: false,
     parentPath: '',
 })
 
-async function loadDirectory(path = null) {
+async function loadDirectory(path: string | null = null) {
     state.loading = true
     try {
         const response = (await ws.get('/api/workspaces/browse', {
             path,
         })) as {
             current: {path: string; workspace: unknown}
-            directories: Array<{is_workspace?: boolean; name: string; path: string}>
+            directories: {is_workspace?: boolean; name: string; path: string}[]
             parent: string
         }
 
         mergeDeep(state, {
-            current: response.current as {path: string; workspace: unknown},
+            current: {
+                path: (response.current as {path?: string}).path ?? '',
+                workspace: (response.current as {workspace?: string | null}).workspace ?? null,
+            },
             directories: response.directories as Array<{is_workspace?: boolean; name: string; path: string}>,
             parentPath: response.parent as string,
         })
@@ -38,7 +41,7 @@ async function loadDirectory(path = null) {
     state.loading = false
 }
 
-export function DirectoryBrowser({onSelect}) {
+export function DirectoryBrowser({onSelect}: {onSelect: (current: {path: string; workspace: string | null}) => void}) {
     useEffect(() => {
         loadDirectory()
     }, [])
@@ -63,7 +66,7 @@ export function DirectoryBrowser({onSelect}) {
                 <div class='directory-list'>
                     {state.parentPath && (
                         <div class='directory-item'>
-                            <div class='directory' onClick={() => loadDirectory(state.parentPath)}>
+                            <div class='directory' onClick={() => loadDirectory(state.parentPath || null)}>
                                 ..
                             </div>
                         </div>
@@ -72,6 +75,7 @@ export function DirectoryBrowser({onSelect}) {
                         <div
                             class={classnames('directory', {'is-workspace': dir.is_workspace})}
                             onClick={() => loadDirectory(dir.path)}
+                            key={dir.path}
                         >
                             {dir.name}
                         </div>

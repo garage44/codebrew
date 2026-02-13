@@ -169,12 +169,12 @@ const required = (message: string): ValidationRule => ({
 
 const minLength = (length: number, message: string): ValidationRule => ({
     message,
-    test: (value: string) => typeof value === 'string' && value.length >= length,
+    test: (value: unknown) => typeof value === 'string' && value.length >= length,
 })
 
 const email = (message: string): ValidationRule => ({
     message,
-    test: (value: string) => typeof value === 'string' && /^[^@]+@[^@]+\.[^@]+$/.test(value),
+    test: (value: unknown) => typeof value === 'string' && /^[^@]+@[^@]+\.[^@]+$/.test(value),
 })
 
 export {

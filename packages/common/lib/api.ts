@@ -1,5 +1,5 @@
 export class Api {
-    async delete(endpoint, data) {
+    async delete(endpoint: string, data: unknown): Promise<unknown> {
         const response = await fetch(endpoint, {
             body: JSON.stringify(data),
             credentials: 'same-origin',
@@ -11,7 +11,7 @@ export class Api {
         return await response.json()
     }
 
-    async get(endpoint, params = null) {
+    async get(endpoint: string, params: Record<string, unknown> | null = null): Promise<unknown> {
         const url = new URL(endpoint, globalThis.location.origin)
         if (params) {
             Object.entries(params).forEach(([key, value]) => {
@@ -36,7 +36,7 @@ export class Api {
         return await res.json()
     }
 
-    async post(endpoint, data) {
+    async post(endpoint: string, data: unknown): Promise<unknown> {
         const response = await fetch(endpoint, {
             body: JSON.stringify(data),
             credentials: 'same-origin',
@@ -48,7 +48,7 @@ export class Api {
         return await response.json()
     }
 
-    async put(endpoint, data) {
+    async put(endpoint: string, data: unknown): Promise<unknown> {
         const response = await fetch(endpoint, {
             body: JSON.stringify(data),
             credentials: 'same-origin',

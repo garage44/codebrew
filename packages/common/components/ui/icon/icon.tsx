@@ -130,7 +130,7 @@ function Icon({className = '', disabled = false, name, onClick = null, size = 'd
 
     useEffect(() => {
         tipSignal.value = tip
-        if (tippyInstanceRef.current) {
+        if (tippyInstanceRef.current && tip) {
             tippyInstanceRef.current.setContent(tip)
         }
     }, [tip])
@@ -147,7 +147,7 @@ function Icon({className = '', disabled = false, name, onClick = null, size = 'd
             className,
         )}
         height='40'
-        onClick={onClick}
+        onClick={onClick || undefined}
         ref={iconRef}
         viewBox='0 0 24 24'
         width='40'

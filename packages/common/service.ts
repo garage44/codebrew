@@ -209,17 +209,17 @@ export function setupBunchyConfig(options: BunchyConfigOptions): {common: string
 }
 
 export function createWebSocketManagers(
-    authOptions: unknown,
+    authOptions: {noSecurityEnv?: string; users?: {[key: string]: unknown; name: string}[]} | null | undefined,
     sessionMiddleware: (request: Request) => {session: {userid?: string}; sessionId: string},
 ): {bunchyManager: WebSocketServerManager; wsManager: WebSocketServerManager} {
     const wsManager = new WebSocketServerManager({
-        authOptions,
+        authOptions: authOptions as {noSecurityEnv?: string; users?: {[key: string]: unknown; name: string}[]} | undefined,
         endpoint: '/ws',
         sessionMiddleware,
     })
 
     const bunchyManager = new WebSocketServerManager({
-        authOptions,
+        authOptions: authOptions as {noSecurityEnv?: string; users?: {[key: string]: unknown; name: string}[]} | undefined,
         endpoint: '/bunchy',
         sessionMiddleware,
     })

@@ -4,7 +4,7 @@
  */
 
 import type {WebSocketServerManager} from '@garage44/common/lib/ws-server'
-import {db} from '../database.ts'
+import {getDb} from '../database.ts'
 import {logger} from '../../service.ts'
 
 export type AgentStatus = 'idle' | 'working' | 'error' | 'offline'
@@ -28,7 +28,7 @@ export function initAgentStatusTracking(manager: WebSocketServerManager): void {
     wsManager = manager
 
     // Load existing agent statuses from database
-    const agents = db.prepare('SELECT id, status FROM agents').all() as {id: string; status: string}[]
+    const agents = getDb().prepare('SELECT id, status FROM agents').all() as {id: string; status: string}[]
     for (const agent of agents) {
         agentStatuses.set(agent.id, {
             agentId: agent.id,
@@ -70,11 +70,11 @@ export function updateAgentStatus(
     agentStatuses.set(agentId, newState)
 
     // Get agent name for logging
-    const agent = db.prepare('SELECT name FROM agents WHERE id = ?').get(agentId) as {name: string} | undefined
+    const agent = getDb().prepare('SELECT name FROM agents WHERE id = ?').get(agentId) as {name: string} | undefined
     const agentName = agent?.name || agentId
 
     // Update database
-    db.prepare(`
+    getDb().prepare(`
         UPDATE agents
         SET status = ?
         WHERE id = ?

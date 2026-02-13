@@ -159,9 +159,9 @@ async function takeScreenshot(browser: Browser, config: ScreenshotConfig): Promi
 
         // eslint-disable-next-line no-console
         console.log(`✅ Screenshot saved: ${config.name}`)
-    } catch(error) {
+    } catch(error: unknown) {
         // eslint-disable-next-line no-console
-        console.error(`❌ Failed to take screenshot ${config.name}:`, error.message)
+        console.error(`❌ Failed to take screenshot ${config.name}:`, error instanceof Error ? error.message : String(error))
 
         // Log current URL for debugging
         try {
@@ -232,9 +232,9 @@ export async function takeScreenshots(): Promise<void> {
 
         // eslint-disable-next-line no-console
         console.log('\n🎉 All screenshots captured successfully!')
-    } catch(error) {
+    } catch(error: unknown) {
         // eslint-disable-next-line no-console
-        console.error('❌ Screenshot capture failed:', error.message)
+        console.error('❌ Screenshot capture failed:', error instanceof Error ? error.message : String(error))
         throw error
     } finally {
     // Cleanup

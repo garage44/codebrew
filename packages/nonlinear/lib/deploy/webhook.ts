@@ -658,7 +658,7 @@ export async function handleWebhook(req: Request): Promise<Response> {
 
     // Handle pull request events
     if (eventType === 'pull_request') {
-        return await handlePullRequestEvent(event)
+        return await handlePullRequestEvent(event as PullRequestWebhookEvent)
     }
 
     // Handle push events (main branch deployment)

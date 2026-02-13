@@ -72,7 +72,10 @@ class Router {
 }
 
 // Auth middleware that can be reused across workspace routes
-const requireAdmin = async (ctx, next) => {
+const requireAdmin = async (
+    ctx: {session?: {userid?: string}},
+    next: (ctx: {session?: {userid?: string}}) => Promise<unknown>,
+) => {
     if (!ctx.session?.userid) {
         throw new Error('Unauthorized')
     }
@@ -84,7 +87,7 @@ const requireAdmin = async (ctx, next) => {
     return next(ctx)
 }
 
-async function initMiddleware(_bunchyConfig) {
+async function initMiddleware(_bunchyConfig: unknown) {
     const router = new Router()
 
     // Register common avatar routes (placeholder images and uploaded avatars)
@@ -130,13 +133,13 @@ async function initMiddleware(_bunchyConfig) {
             userContext,
         },
         customWebSocketHandlers: undefined,
-        devContext,
+        devContext: devContext as {addHttp: (data: unknown) => void},
         endpointAllowList: ['/api/translations', '/api/login'],
         logger,
         mimeTypes: undefined,
         packageName: 'expressio',
         publicPath,
-        router,
+        router: router as {route: (request: Request, session: unknown) => Promise<Response | null>},
         sessionCookieName: 'expressio-session',
         userManager,
     })

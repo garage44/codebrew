@@ -129,9 +129,9 @@ export async function publish(): Promise<void> {
             await takeScreenshots()
             // eslint-disable-next-line no-console
             console.log('✅ Screenshots updated\n')
-        } catch(error) {
+        } catch(error: unknown) {
             // eslint-disable-next-line no-console
-            console.warn('⚠️ Screenshot generation failed:', error.message)
+            console.warn('⚠️ Screenshot generation failed:', error instanceof Error ? error.message : String(error))
             // eslint-disable-next-line unicorn/no-process-exit
             process.exit(1)
         }
@@ -185,9 +185,9 @@ export async function publish(): Promise<void> {
                         // eslint-disable-next-line no-console
                         console.log('📄 Copied root README.md to expressio package')
                         readmeCopied = true
-                    } catch(error) {
+                    } catch(error: unknown) {
                         // eslint-disable-next-line no-console
-                        console.warn('⚠️ Could not copy README.md:', error.message)
+                        console.warn('⚠️ Could not copy README.md:', error instanceof Error ? error.message : String(error))
                     }
                 }
 
@@ -201,9 +201,9 @@ export async function publish(): Promise<void> {
                     await $`cd ${packagePath} && bun publish`
                     // eslint-disable-next-line no-console
                     console.log(`✅ ${packageName} published successfully`)
-                } catch(error) {
+                } catch(error: unknown) {
                     // eslint-disable-next-line no-console
-                    console.error(`❌ Failed to publish ${packageName}:`, error.message)
+                    console.error(`❌ Failed to publish ${packageName}:`, error instanceof Error ? error.message : String(error))
                     throw error
                 } finally {
                     // Clean up copied README for expressio package
@@ -213,9 +213,9 @@ export async function publish(): Promise<void> {
                             await unlink(join(packagePath, 'README.md'))
                             // eslint-disable-next-line no-console
                             console.log('🧹 Removed copied README.md from expressio package')
-                        } catch(error) {
+                        } catch(error: unknown) {
                             // eslint-disable-next-line no-console
-                            console.warn('⚠️ Could not remove copied README.md:', error.message)
+                            console.warn('⚠️ Could not remove copied README.md:', error instanceof Error ? error.message : String(error))
                         }
                     }
                 }
@@ -258,13 +258,13 @@ export async function publish(): Promise<void> {
             console.log('✅ Changes pushed to remote repository')
         } catch(error) {
             // eslint-disable-next-line no-console
-            console.warn('⚠️ Could not commit/push to git:', error.message)
+            console.warn('⚠️ Could not commit/push to git:', error instanceof Error ? error.message : String(error))
             // eslint-disable-next-line no-console
             console.warn('📝 Please manually commit and push the version changes')
         }
     } catch(error) {
         // eslint-disable-next-line no-console
-        console.error('❌ Publish failed:', error.message)
+        console.error('❌ Publish failed:', error instanceof Error ? error.message : String(error))
         // eslint-disable-next-line unicorn/no-process-exit
         process.exit(1)
     }

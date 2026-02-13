@@ -56,7 +56,7 @@ function hash(str: string): string {
     let h2 = 0x41_c6_ce_57
 
     for (let index = 0; index < str.length; index++) {
-        const char = str.codePointAt(index)
+        const char = str.codePointAt(index) ?? 0
         h1 = Math.imul(h1 ^ char, 2_654_435_761)
         h2 = Math.imul(h2 ^ char, 1_597_334_677)
     }
@@ -136,7 +136,7 @@ function keyPath<T extends Record<string, unknown>>(obj: T, refPath: string[], c
 }
 
 function isObject(argument: unknown): argument is Record<string, unknown> {
-    return argument && typeof argument === 'object' && !Array.isArray(argument)
+    return (argument !== null && argument !== undefined && typeof argument === 'object' && !Array.isArray(argument)) as boolean
 }
 
 function mergeDeep<T extends Record<string, unknown>>(target: T, ...sources: Partial<T>[]): T {
@@ -221,9 +221,9 @@ function throttle<T extends (...args: unknown[]) => void>(
 ): (...args: Parameters<T>) => void {
     const trailing = options?.trailing ?? true
     let lastCallTime = 0
-    let timeoutId = null
+    let timeoutId: ReturnType<typeof setTimeout> | null = null
 
-    return function throttled(...args) {
+    return function throttled(this: unknown, ...args: Parameters<T>): void {
         const now = Date.now()
         const remainingTime = wait - (now - lastCallTime)
 

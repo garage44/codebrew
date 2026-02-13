@@ -4,7 +4,7 @@
  */
 
 import {type AgentContext, type AgentResponse, BaseAgent} from './base.ts'
-import {addTicketLabel, db} from '../database.ts'
+import {addTicketLabel, getDb} from '../database.ts'
 import {logger} from '../../service.ts'
 import {addAgentComment} from './comments.ts'
 import {updateTicketFromAgent} from './ticket-updates.ts'
@@ -21,7 +21,7 @@ export class PrioritizerAgent extends BaseAgent {
             const ticketId = context.ticket_id as string | undefined
             if (ticketId) {
                 this.log(`Processing ticket ${ticketId}`)
-                const ticket = db.prepare(`
+                const ticket = getDb().prepare(`
                     SELECT t.*, r.name as repository_name, r.path as repository_path
                     FROM tickets t
                     LEFT JOIN repositories r ON t.repository_id = r.id
@@ -70,7 +70,7 @@ export class PrioritizerAgent extends BaseAgent {
             }
 
             // Get all backlog tickets
-            const backlogTickets = db.prepare(`
+            const backlogTickets = getDb().prepare(`
                 SELECT * FROM tickets
                 WHERE status = 'backlog'
                 ORDER BY created_at ASC
@@ -97,7 +97,7 @@ export class PrioritizerAgent extends BaseAgent {
             const repositories = new Map<string, {name: string; path: string}>()
             for (const ticket of backlogTickets) {
                 if (!repositories.has(ticket.repository_id)) {
-                    const repo = db
+                    const repo = getDb()
                         .prepare('SELECT name, path FROM repositories WHERE id = ?')
                         .get(ticket.repository_id) as {name: string; path: string} | undefined
                     if (repo) {
@@ -188,13 +188,13 @@ ${JSON.stringify(ticketsContext, null, 2)}`
 
             // Update tickets in database
             let movedCount = 0
-            const updateStmt = db.prepare(`
+            const updateStmt = getDb().prepare(`
                 UPDATE tickets
                 SET priority = ?, status = ?, updated_at = ?
                 WHERE id = ?
             `)
 
-            const updateTransaction = db.transaction((prioritizations): void => {
+            const updateTransaction = getDb().transaction((prioritizations): void => {
                 for (const p of prioritizations) {
                     const newStatus = p.should_move_to_todo ? 'todo' : 'backlog'
                     updateStmt.run(p.priority, newStatus, Date.now(), p.ticket_id)
@@ -266,7 +266,7 @@ ${JSON.stringify(ticketsContext, null, 2)}`
 
             // Get relevant documentation for this ticket
             const searchQuery = `${ticket.title} ${ticket.description || ''}`
-            const relevantDocs = await this.getRelevantDocs(searchQuery, null, 3)
+            const relevantDocs = await this.getRelevantDocs(searchQuery, {}, 3)
 
             const systemPrompt = `You are a project management AI agent that refines and clarifies software development tickets.
 
@@ -455,7 +455,7 @@ Provide a refined description and analysis.`
             }
 
             // Get recent comments for context
-            const recentComments = db.prepare(`
+            const recentComments = getDb().prepare(`
                 SELECT author_type, author_id, content, created_at
                 FROM comments
                 WHERE ticket_id = ?
@@ -582,7 +582,7 @@ Please respond to the user's request and refine the ticket as requested.`
                                 const rawValue = valueText.slice(0, endIdx)
                                 try {
                                     const extracted = JSON.parse(`"${rawValue}"`)
-                                    if (extracted !== lastBroadcast) {
+                                    if (extracted !== lastBroadcast && responseCommentId) {
                                         lastBroadcast = extracted
                                         await updateAgentComment(responseCommentId, extracted, false)
                                         lastBroadcastTime = Date.now()
@@ -590,7 +590,7 @@ Please respond to the user's request and refine the ticket as requested.`
                                 } catch {
                                     // Fallback unescaping
                                     const unescaped = rawValue.replaceAll(String.raw`\n`, '\n').replaceAll(String.raw`\"`, '"').replaceAll(String.raw`\\`, '\\')
-                                    if (unescaped !== lastBroadcast) {
+                                    if (unescaped !== lastBroadcast && responseCommentId) {
                                         lastBroadcast = unescaped
                                         await updateAgentComment(responseCommentId, unescaped, false)
                                         lastBroadcastTime = Date.now()
@@ -600,7 +600,7 @@ Please respond to the user's request and refine the ticket as requested.`
                                 // Incomplete - show partial with basic unescaping
                                 const partial = valueText.replaceAll(String.raw`\n`, '\n').replaceAll(String.raw`\"`, '"').replaceAll(String.raw`\\`, '\\')
                                 const now = Date.now()
-                                if (partial !== lastBroadcast && now - lastBroadcastTime > 100) {
+                                if (partial !== lastBroadcast && now - lastBroadcastTime > 100 && responseCommentId) {
                                     lastBroadcast = partial
                                     await updateAgentComment(responseCommentId, partial, false)
                                     lastBroadcastTime = now
@@ -610,7 +610,7 @@ Please respond to the user's request and refine the ticket as requested.`
                     } else {
                         // Field not found yet
                         const now = Date.now()
-                        if (accumulatedResponse.length > 30 && now - lastBroadcastTime > 500) {
+                        if (accumulatedResponse.length > 30 && now - lastBroadcastTime > 500 && responseCommentId) {
                             await updateAgentComment(responseCommentId, 'Generating response...', false)
                             lastBroadcastTime = now
                         }
@@ -642,7 +642,7 @@ Please respond to the user's request and refine the ticket as requested.`
                  * Update comment with just the response_comment field (clean up from raw JSON)
                  * Only update if we didn't already stream it, or if it's different
                  */
-                if (!lastBroadcast || lastBroadcast !== refinement.response_comment) {
+                if ((!lastBroadcast || lastBroadcast !== refinement.response_comment) && responseCommentId) {
                     await updateAgentComment(responseCommentId, refinement.response_comment || 'I received your mention.', false)
                 }
             } catch{
@@ -658,7 +658,9 @@ Please respond to the user's request and refine the ticket as requested.`
                 }
 
                 // Update comment with fallback
-                await updateAgentComment(responseCommentId, fallbackComment, false)
+                if (responseCommentId) {
+                    await updateAgentComment(responseCommentId, fallbackComment, false)
+                }
             }
 
             /*

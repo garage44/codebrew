@@ -1,22 +1,15 @@
-import {$s} from '@/app'
 import {api, logger, store, ws} from '@garage44/common/app'
-import {getApps} from '@garage44/common/lib/codebrew-registry'
-import {
-    AppLayout,
-    Icon,
-    MenuGroup,
-    MenuItem,
-    Notifications,
-    PanelMenu,
-    UserMenu,
-} from '@garage44/common/components'
-import {Link, Route, Router} from 'preact-router'
+import {AppLayout, Icon, MenuGroup, MenuItem, Notifications, PanelMenu, UserMenu} from '@garage44/common/components'
 import {Login} from '@garage44/common/components'
+import {getApps} from '@garage44/common/lib/codebrew-registry'
+import {Link, Route, Router} from 'preact-router'
 import {useEffect} from 'preact/hooks'
+
+import {$s} from '@/app'
 
 export const Main = () => {
     useEffect(() => {
-        (async() => {
+        ;(async () => {
             const context = await api.get('/api/context')
             const isAuthenticated = context.authenticated || (context.id && context.username)
 
@@ -40,8 +33,8 @@ export const Main = () => {
     if (!$s.profile.authenticated) {
         return (
             <Login
-                LogoIcon={() => <Icon name="extension" />}
-                onLogin={async(username: string, password: string) => {
+                LogoIcon={() => <Icon name='extension' />}
+                onLogin={async (username: string, password: string) => {
                     const result = await api.post('/api/login', {password, username})
                     const isAuthenticated = result.authenticated || (result.id && result.username)
                     if (isAuthenticated) {
@@ -58,7 +51,7 @@ export const Main = () => {
                     }
                     return result.error || 'Invalid credentials'
                 }}
-                title="Codebrew"
+                title='Codebrew'
             />
         )
     }
@@ -70,16 +63,16 @@ export const Main = () => {
     return (
         <>
             <AppLayout
-                menu={(
+                menu={
                     <PanelMenu
-                        actions={(
+                        actions={
                             <UserMenu
                                 collapsed={$s.panels.menu.collapsed}
-                                onLogout={async() => {
+                                onLogout={async () => {
                                     await api.get('/api/logout')
                                     $s.profile.authenticated = false
                                 }}
-                                settingsHref="/settings"
+                                settingsHref='/settings'
                                 user={{
                                     id: $s.profile.id || null,
                                     profile: {
@@ -88,14 +81,14 @@ export const Main = () => {
                                     },
                                 }}
                             />
-                        )}
+                        }
                         collapsed={$s.panels.menu.collapsed}
                         LinkComponent={Link}
                         logoCommitHash={process.env.APP_COMMIT_HASH || ''}
-                        logoHref="/"
-                        logoText="Codebrew"
+                        logoHref='/'
+                        logoText='Codebrew'
                         logoVersion={process.env.APP_VERSION || ''}
-                        navigation={(
+                        navigation={
                             <>
                                 <MenuGroup collapsed={$s.panels.menu.collapsed}>
                                     {apps.map((app) => (
@@ -104,7 +97,7 @@ export const Main = () => {
                                             collapsed={$s.panels.menu.collapsed}
                                             href={app.defaultRoute}
                                             icon={app.icon}
-                                            iconType="info"
+                                            iconType='info'
                                             key={app.id}
                                             text={app.name}
                                         />
@@ -118,7 +111,7 @@ export const Main = () => {
                                                 collapsed={$s.panels.menu.collapsed}
                                                 href={item.href}
                                                 icon={item.icon}
-                                                iconType="info"
+                                                iconType='info'
                                                 key={item.href}
                                                 text={item.text}
                                             />
@@ -126,29 +119,24 @@ export const Main = () => {
                                     </MenuGroup>
                                 )}
                             </>
-                        )}
+                        }
                         onCollapseChange={(collapsed) => {
                             $s.panels.menu.collapsed = collapsed
                             store.save()
                         }}
                     />
-                )}
+                }
             >
-                <div class="view">
+                <div class='view'>
                     <Router>
                         {apps.flatMap((app) =>
                             app.routes.map((r) => (
-                                <Route
-                                    component={r.component}
-                                    default={r.default}
-                                    key={`${app.id}-${r.path}`}
-                                    path={r.path}
-                                />
+                                <Route component={r.component} default={r.default} key={`${app.id}-${r.path}`} path={r.path} />
                             )),
                         )}
                         <Route
                             component={() => (
-                                <div class="c-codebrew-welcome">
+                                <div class='c-codebrew-welcome'>
                                     <h1>Codebrew</h1>
                                     <p>Select an app from the sidebar</p>
                                 </div>

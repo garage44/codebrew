@@ -3,7 +3,7 @@
  * Automatically runs agents based on configuration and database state
  */
 
-import {db} from '../database.ts'
+import {getDb} from '../database.ts'
 import {logger} from '../../service.ts'
 import {getAgentStatus, updateAgentStatus} from './status.ts'
 import type {AgentContext} from './base.ts'
@@ -25,7 +25,7 @@ export async function initAgentScheduler(): Promise<void> {
  */
 export async function runAgent(agentId: string, context: Record<string, unknown> = {}): Promise<void> {
     // Load agent from database
-    const agentRecord = db.prepare(`
+    const agentRecord = getDb().prepare(`
         SELECT id, name, type, enabled, status
         FROM agents
         WHERE id = ?
@@ -56,7 +56,7 @@ export async function runAgent(agentId: string, context: Record<string, unknown>
      * before calling the scheduler, and AgentService ensures single-task processing
      */
     if (isTaskTrigger && taskId) {
-        const task = db.prepare(`
+        const task = getDb().prepare(`
             SELECT status FROM agent_tasks WHERE id = ?
         `).get(taskId) as {status: string} | undefined
 
@@ -115,7 +115,7 @@ export async function runAgent(agentId: string, context: Record<string, unknown>
  */
 export async function triggerAgent(agentId: string, context: Record<string, unknown> = {}): Promise<void> {
     // Load agent from database
-    const agentRecord = db.prepare(`
+    const agentRecord = getDb().prepare(`
         SELECT id, name, enabled
         FROM agents
         WHERE id = ?

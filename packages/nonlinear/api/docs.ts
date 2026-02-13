@@ -10,7 +10,7 @@ import {z} from 'zod'
 import type {DocFilters} from '../lib/docs/search.ts'
 
 import {validateRequest} from '../lib/api/validate.ts'
-import {db, getLabelDefinition} from '../lib/database.ts'
+import {getDb, getLabelDefinition} from '../lib/database.ts'
 import {unifiedVectorSearch, searchDocs} from '../lib/docs/search.ts'
 import {queueIndexingJob} from '../lib/indexing/queue.ts'
 import {DocDbSchema, EnrichedDocSchema} from '../lib/schemas/docs.ts'
@@ -21,7 +21,7 @@ import {logger} from '../service.ts'
  */
 function enrichDoc(doc: {[key: string]: unknown; id: string}): z.infer<typeof EnrichedDocSchema> {
     const validatedDoc = validateRequest(DocDbSchema, doc)
-    const labels = db
+    const labels = getDb()
         .prepare(`
         SELECT label FROM documentation_labels WHERE doc_id = ?
     `)
@@ -81,7 +81,9 @@ export default function apiDocs(router: {
 
         query += ' ORDER BY updated_at DESC'
 
-        const docs = db.prepare(query).all(...params) as Array<{
+        const docs = getDb()
+            .prepare(query)
+            .all(...params) as Array<{
             author_id: string
             content: string
             created_at: number
@@ -108,7 +110,7 @@ export default function apiDocs(router: {
             })
         }
 
-        const doc = db.prepare('SELECT * FROM documentation WHERE path = ?').get(path) as
+        const doc = getDb().prepare('SELECT * FROM documentation WHERE path = ?').get(path) as
             | {
                   author_id: string
                   content: string
@@ -209,8 +211,9 @@ export default function apiDocs(router: {
 export function registerDocsWebSocketApiRoutes(wsManager: WebSocketServerManager) {
     // List docs (filter by tags, workspace)
     wsManager.api.get('/api/docs', async (_ctx, req) => {
-        const tags = req.query.tags ? (req.query.tags as string).split(',') : undefined
-        const workspace = req.query.workspace as string | undefined
+        const reqQuery = req.query ?? {}
+        const tags = reqQuery.tags ? (reqQuery.tags as string).split(',') : undefined
+        const workspace = reqQuery.workspace as string | undefined
 
         let query = 'SELECT * FROM documentation WHERE 1=1'
         const params: string[] = []
@@ -234,7 +237,9 @@ export function registerDocsWebSocketApiRoutes(wsManager: WebSocketServerManager
 
         query += ' ORDER BY updated_at DESC'
 
-        const docs = db.prepare(query).all(...params) as Array<{
+        const docs = getDb()
+            .prepare(query)
+            .all(...params) as Array<{
             author_id: string
             content: string
             created_at: number
@@ -257,7 +262,7 @@ export function registerDocsWebSocketApiRoutes(wsManager: WebSocketServerManager
             return {error: 'Path parameter required'}
         }
 
-        const doc = db.prepare('SELECT * FROM documentation WHERE path = ?').get(path) as
+        const doc = getDb().prepare('SELECT * FROM documentation WHERE path = ?').get(path) as
             | {
                   author_id: string
                   content: string
@@ -306,30 +311,36 @@ export function registerDocsWebSocketApiRoutes(wsManager: WebSocketServerManager
 
         try {
             // Create doc
-            db.prepare(`
+            getDb()
+                .prepare(`
                 INSERT INTO documentation (id, path, title, content, author_id, created_at, updated_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
-            `).run(docId, body.path, body.title, body.content, userId, now, now)
+            `)
+                .run(docId, body.path, body.title, body.content, userId, now, now)
 
             // Add tags
             if (body.tags) {
                 for (const tag of body.tags) {
                     // Ensure tag exists
-                    const existing = db.prepare('SELECT id FROM label_definitions WHERE name = ?').get(tag)
+                    const existing = getDb().prepare('SELECT id FROM label_definitions WHERE name = ?').get(tag)
                     if (!existing) {
                         const labelId = `label-${tag.toLowerCase().replaceAll(':', '-')}`
-                        db.prepare(`
+                        getDb()
+                            .prepare(`
                             INSERT INTO label_definitions (id, name, color, created_at, updated_at)
                             VALUES (?, ?, ?, ?, ?)
-                        `).run(labelId, tag, '#64748b', now, now)
+                        `)
+                            .run(labelId, tag, '#64748b', now, now)
                     }
 
                     // Add to documentation_labels
                     try {
-                        db.prepare(`
+                        getDb()
+                            .prepare(`
                             INSERT INTO documentation_labels (doc_id, label)
                             VALUES (?, ?)
-                        `).run(docId, tag)
+                        `)
+                            .run(docId, tag)
                     } catch {
                         // Tag already exists, ignore
                     }
@@ -348,7 +359,7 @@ export function registerDocsWebSocketApiRoutes(wsManager: WebSocketServerManager
                 // Continue anyway - embeddings can be regenerated later
             }
 
-            const doc = db.prepare('SELECT * FROM documentation WHERE id = ?').get(docId) as
+            const doc = getDb().prepare('SELECT * FROM documentation WHERE id = ?').get(docId) as
                 | {
                       [key: string]: unknown
                       id: string
@@ -397,41 +408,49 @@ export function registerDocsWebSocketApiRoutes(wsManager: WebSocketServerManager
         try {
             // Update doc
             if (body.title) {
-                db.prepare(`
+                getDb()
+                    .prepare(`
                     UPDATE documentation
                     SET title = ?, content = ?, updated_at = ?
                     WHERE id = ?
-                `).run(body.title, body.content, now, docId)
+                `)
+                    .run(body.title, body.content, now, docId)
             } else {
-                db.prepare(`
+                getDb()
+                    .prepare(`
                     UPDATE documentation
                     SET content = ?, updated_at = ?
                     WHERE id = ?
-                `).run(body.content, now, docId)
+                `)
+                    .run(body.content, now, docId)
             }
 
             // Update tags if provided
             if (body.tags) {
                 // Delete existing tags
-                db.prepare('DELETE FROM documentation_labels WHERE doc_id = ?').run(docId)
+                getDb().prepare('DELETE FROM documentation_labels WHERE doc_id = ?').run(docId)
 
                 // Add new tags
                 for (const tag of body.tags) {
                     // Ensure tag exists
-                    const existing = db.prepare('SELECT id FROM label_definitions WHERE name = ?').get(tag)
+                    const existing = getDb().prepare('SELECT id FROM label_definitions WHERE name = ?').get(tag)
                     if (!existing) {
                         const labelId = `label-${tag.toLowerCase().replaceAll(':', '-')}`
-                        db.prepare(`
+                        getDb()
+                            .prepare(`
                             INSERT INTO label_definitions (id, name, color, created_at, updated_at)
                             VALUES (?, ?, ?, ?, ?)
-                        `).run(labelId, tag, '#64748b', now, now)
+                        `)
+                            .run(labelId, tag, '#64748b', now, now)
                     }
 
                     // Add to documentation_labels
-                    db.prepare(`
+                    getDb()
+                        .prepare(`
                         INSERT INTO documentation_labels (doc_id, label)
                         VALUES (?, ?)
-                    `).run(docId, tag)
+                    `)
+                        .run(docId, tag)
                 }
             }
 
@@ -446,7 +465,7 @@ export function registerDocsWebSocketApiRoutes(wsManager: WebSocketServerManager
                 logger.warn(`[Docs API] Failed to regenerate embeddings for ${docId}:`, error)
             }
 
-            const doc = db.prepare('SELECT * FROM documentation WHERE id = ?').get(docId) as
+            const doc = getDb().prepare('SELECT * FROM documentation WHERE id = ?').get(docId) as
                 | {
                       [key: string]: unknown
                       id: string
@@ -474,7 +493,7 @@ export function registerDocsWebSocketApiRoutes(wsManager: WebSocketServerManager
         const docId = req.params.id
 
         try {
-            db.prepare('DELETE FROM documentation WHERE id = ?').run(docId)
+            getDb().prepare('DELETE FROM documentation WHERE id = ?').run(docId)
             return {success: true}
         } catch (error) {
             logger.error('[Docs API] Failed to delete doc:', error)
@@ -484,11 +503,12 @@ export function registerDocsWebSocketApiRoutes(wsManager: WebSocketServerManager
 
     // Semantic search (unified docs + tickets)
     wsManager.api.get('/api/search', async (_ctx, req) => {
-        const query = req.query.q as string | undefined
-        const contentType = req.query.contentType as 'doc' | 'ticket' | 'both' | undefined
-        const workspace = req.query.workspace as string | undefined
-        const tags = req.query.tags ? (req.query.tags as string).split(',') : undefined
-        const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 10
+        const q = req.query ?? {}
+        const query = q.q as string | undefined
+        const contentType = q.contentType as 'doc' | 'ticket' | 'both' | undefined
+        const workspace = q.workspace as string | undefined
+        const tags = q.tags ? (q.tags as string).split(',') : undefined
+        const limit = q.limit ? parseInt(q.limit as string, 10) : 10
 
         if (!query) {
             return {error: 'Query parameter required'}
@@ -524,10 +544,11 @@ export function registerDocsWebSocketApiRoutes(wsManager: WebSocketServerManager
 
     // Search only docs
     wsManager.api.get('/api/docs/search', async (_ctx, req) => {
-        const query = req.query.q as string | undefined
-        const workspace = req.query.workspace as string | undefined
-        const tags = req.query.tags ? (req.query.tags as string).split(',') : undefined
-        const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 10
+        const q = req.query ?? {}
+        const query = q.q as string | undefined
+        const workspace = q.workspace as string | undefined
+        const tags = q.tags ? (q.tags as string).split(',') : undefined
+        const limit = q.limit ? parseInt(q.limit as string, 10) : 10
 
         if (!query) {
             return {error: 'Query parameter required'}

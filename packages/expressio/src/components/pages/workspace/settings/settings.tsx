@@ -1,7 +1,10 @@
+import type {Signal} from '@preact/signals'
+
 import {api, notifier, store} from '@garage44/common/app'
 import {Button, FieldCheckbox, FieldSelect, FieldText} from '@garage44/common/components'
 import {createValidator, required} from '@garage44/common/lib/validation'
 import {$t} from '@garage44/expressio'
+import {signal} from '@preact/signals'
 import classnames from 'classnames'
 import {deepSignal} from 'deepsignal'
 import {useEffect} from 'preact/hooks'
@@ -13,7 +16,19 @@ const state = deepSignal({
         {id: 'less', name: 'Less formal'},
         {id: 'more', name: 'More formal'},
     ],
-    target_languages: [],
+    target_languages: [] as Array<{
+        $engine?: Signal<string>
+        $formality?: Signal<string>
+        $selected?: Signal<boolean>
+        engine: string
+        engines: string[]
+        formality: string
+        formality_supported: string[]
+        id: string
+        name: string
+        selected: boolean
+        transcription: null
+    }>,
 })
 
 export function WorkspaceSettings() {
@@ -37,14 +52,20 @@ export function WorkspaceSettings() {
                     return engineConfig.name
                 })
                 const formalitySupported = language.formality ? availableEngineNames : []
+                const engineValue = selected ? selected.engine : ''
+                const formalityValue = selected ? selected.formality || 'less' : 'less'
+                const selectedValue = !!selected
                 return {
-                    engine: selected ? selected.engine : '',
+                    $engine: signal(engineValue),
+                    $formality: signal(formalityValue),
+                    $selected: signal(selectedValue),
+                    engine: engineValue,
                     engines: availableEngineNames,
-                    formality: selected ? selected.formality : 'less',
+                    formality: formalityValue,
                     formality_supported: formalitySupported,
                     id: language.id,
                     name: language.name,
-                    selected: !!selected,
+                    selected: selectedValue,
                     transcription: null,
                 }
             }),
@@ -56,7 +77,7 @@ export function WorkspaceSettings() {
     }
     // Updated validator usage
     const {errors, isValid, validation} = createValidator({
-        source: [$s.workspace.config.languages.$source, required('Source language is required')],
+        source: [$s.workspace.config.languages.$source as Signal<string>, required('Source language is required')],
         ...Object.fromEntries(
             state.target_languages.flatMap((language) => [
                 [
@@ -95,8 +116,11 @@ export function WorkspaceSettings() {
                     <FieldSelect
                         help={$t(i18n.settings.help.source_language)}
                         label={$t(i18n.settings.label.source_language)}
-                        model={$s.workspace.config.languages.$source}
-                        options={$s.enola.languages.source}
+                        model={$s.workspace.config.languages.$source as Signal<string>}
+                        options={$s.enola.languages.source.map((lang) => ({
+                            id: lang.id || '',
+                            name: lang.name || '',
+                        }))}
                         placeholder={`${$t(i18n.settings.placeholder.source_language)}...`}
                         validation={validation.value.source}
                     />
@@ -122,20 +146,23 @@ export function WorkspaceSettings() {
                                             <div class='field-wrapper'>
                                                 <FieldCheckbox
                                                     label={language.name}
-                                                    model={language.$selected}
+                                                    model={language.$selected as Signal<boolean> | undefined}
                                                     onInput={(value) => {
-                                                        if (!value) {
+                                                        if (!value && language.$engine) {
                                                             language.$engine.value = ''
                                                         }
                                                     }}
                                                 />
                                                 <FieldSelect
                                                     disabled={!language.selected}
-                                                    model={language.$engine}
-                                                    options={Object.values($s.enola.engines).map((engine) => ({
-                                                        id: engine.name,
-                                                        name: engine.name,
-                                                    }))}
+                                                    model={language.$engine as Signal<string>}
+                                                    options={Object.values($s.enola.engines).map((engine) => {
+                                                        const engineConfig = engine as {name: string}
+                                                        return {
+                                                            id: engineConfig.name || '',
+                                                            name: engineConfig.name || '',
+                                                        }
+                                                    })}
                                                     placeholder={$t(i18n.settings.placeholder.translation)}
                                                 />
                                             </div>
@@ -144,7 +171,7 @@ export function WorkspaceSettings() {
                                                     <FieldSelect
                                                         disabled={!language.selected}
                                                         label={$t(i18n.settings.label.formality)}
-                                                        model={language.$formality}
+                                                        model={language.$formality as Signal<string>}
                                                         options={state.formality}
                                                         placeholder={$t(i18n.settings.placeholder.formality)}
                                                     />
@@ -161,19 +188,23 @@ export function WorkspaceSettings() {
                                     )
                                 })}
                         </div>
-                        <div class='help'>{$t(i18n.settings.help.target_languages)}</div>
                     </div>
                 </div>
             </div>
 
-            {/* Workspace Sync */}
+            {/* Sync Configuration */}
             <div class='section'>
-                <div class='section-title'>Workspace Sync</div>
-                <div class='section-content sync-settings'>
+                <div class='section-title'>Sync</div>
+                <div class='section-content'>
                     <FieldCheckbox
                         help={$t(i18n.settings.help.sync_enabled)}
                         label={$t(i18n.settings.label.sync_enabled)}
                         model={$s.workspace.config.sync.$enabled}
+                        onInput={(value) => {
+                            if (!value) {
+                                $s.workspace.config.sync.dir = ''
+                            }
+                        }}
                     />
                     {$s.workspace.config.sync.enabled && (
                         <>
@@ -185,7 +216,7 @@ export function WorkspaceSettings() {
                             <FieldCheckbox
                                 help={$t(i18n.settings.help.sync_suggestions)}
                                 label={$t(i18n.settings.label.sync_suggestions)}
-                                model={$s.workspace.config.sync.$suggestions}
+                                model={$s.workspace.config.sync.$suggestions as Signal<boolean> | undefined}
                             />
                         </>
                     )}
@@ -207,9 +238,10 @@ export function WorkspaceSettings() {
                             .filter((language) => language.selected)
                             .map((language) => {
                                 return {
-                                    engine: language.engine,
-                                    formality: language.formality,
+                                    engine: language.engine as 'anthropic' | 'deepl',
+                                    formality: (language.formality ?? 'default') as 'default' | 'less' | 'more',
                                     id: language.id,
+                                    name: language.name ?? language.id,
                                 }
                             })
                         // Merge the selected languages state back to the workspace config.

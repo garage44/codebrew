@@ -5,7 +5,7 @@
 import {logger} from '../../../service.ts'
 import type {Tool, ToolContext, ToolResult} from './types.ts'
 import {createGitPlatform} from '../../git/index.ts'
-import {db} from '../../database.ts'
+import {getDb} from '../../database.ts'
 import {$} from 'bun'
 
 export const gitTools: Record<string, Tool> = {
@@ -142,12 +142,10 @@ export const gitTools: Record<string, Tool> = {
 
     git_branch: {
         description: 'Create a new git branch',
-        execute: async(params: {
-            branchName: string
-            repositoryId: string
-        }, context: ToolContext): Promise<ToolResult> => {
+        execute: async(params: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
+            const {branchName, repositoryId} = params as {branchName: string; repositoryId: string}
             try {
-                const repo = db.prepare('SELECT * FROM repositories WHERE id = ?').get(params.repositoryId) as {
+                const repo = getDb().prepare('SELECT * FROM repositories WHERE id = ?').get(repositoryId) as {
                     config: string
                     created_at: number
                     id: string
@@ -160,13 +158,13 @@ export const gitTools: Record<string, Tool> = {
 
                 if (!repo) {
                     return {
-                        error: `Repository not found: ${params.repositoryId}`,
+                        error: `Repository not found: ${repositoryId}`,
                         success: false,
                     }
                 }
 
                 const gitPlatform = createGitPlatform(repo)
-                const branch = await gitPlatform.createBranch(repo, params.branchName)
+                const branch = await gitPlatform.createBranch(repo, branchName)
 
                 return {
                     context: {
@@ -204,26 +202,23 @@ export const gitTools: Record<string, Tool> = {
 
     git_commit: {
         description: 'Commit changes to git',
-        execute: async(params: {
-            files?: string[]
-            message: string
-            repositoryId: string
-        }, context: ToolContext): Promise<ToolResult> => {
+        execute: async(params: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
+            const {files, message, repositoryId} = params as {files?: string[]; message: string; repositoryId: string}
             try {
-                const repo = db.prepare('SELECT * FROM repositories WHERE id = ?').get(params.repositoryId) as {
+                const repo = getDb().prepare('SELECT * FROM repositories WHERE id = ?').get(repositoryId) as {
                     path: string
                 } | undefined
 
                 if (!repo) {
                     return {
-                        error: `Repository not found: ${params.repositoryId}`,
+                        error: `Repository not found: ${repositoryId}`,
                         success: false,
                     }
                 }
 
                 // Stage files if specified
-                if (params.files && params.files.length > 0) {
-                    await $`git add ${params.files}`
+                if (files && files.length > 0) {
+                    await $`git add ${files}`
                         .cwd(repo.path)
                         .quiet()
                         .nothrow()
@@ -236,7 +231,7 @@ export const gitTools: Record<string, Tool> = {
                 }
 
                 // Commit
-                const result = await $`git commit -m ${params.message}`
+                const result = await $`git commit -m ${message}`
                     .cwd(repo.path)
                     .quiet()
                     .nothrow()
@@ -250,7 +245,7 @@ export const gitTools: Record<string, Tool> = {
 
                 return {
                     context: {
-                        filesAffected: params.files || [],
+                        filesAffected: files || [],
                     },
                     data: {
                         commitHash: result.stdout.toString().trim(),
@@ -290,14 +285,10 @@ export const gitTools: Record<string, Tool> = {
 
     git_create_mr: {
         description: 'Create a merge request/pull request',
-        execute: async(params: {
-            branch: string
-            description?: string
-            repositoryId: string
-            title: string
-        }, context: ToolContext): Promise<ToolResult> => {
+        execute: async(params: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
+            const {branch, description, repositoryId, title} = params as {branch: string; description?: string; repositoryId: string; title: string}
             try {
-                const repo = db.prepare('SELECT * FROM repositories WHERE id = ?').get(params.repositoryId) as {
+                const repo = getDb().prepare('SELECT * FROM repositories WHERE id = ?').get(repositoryId) as {
                     config: string
                     created_at: number
                     id: string
@@ -310,7 +301,7 @@ export const gitTools: Record<string, Tool> = {
 
                 if (!repo) {
                     return {
-                        error: `Repository not found: ${params.repositoryId}`,
+                        error: `Repository not found: ${repositoryId}`,
                         success: false,
                     }
                 }
@@ -318,14 +309,14 @@ export const gitTools: Record<string, Tool> = {
                 const gitPlatform = createGitPlatform(repo)
                 const mrId = await gitPlatform.createMergeRequest(
                     repo,
-                    params.branch,
-                    params.title,
-                    params.description || '',
+                    branch,
+                    title,
+                    description || '',
                 )
 
                 return {
                     context: {
-                        branchName: params.branch,
+                        branchName: branch,
                     },
                     data: {
                         mrId,
@@ -371,17 +362,16 @@ export const gitTools: Record<string, Tool> = {
 
     git_status: {
         description: 'Get git status (modified files, untracked files, current branch)',
-        execute: async(params: {
-            repositoryId: string
-        }, context: ToolContext): Promise<ToolResult> => {
+        execute: async(params: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
+            const {repositoryId} = params as {repositoryId: string}
             try {
-                const repo = db.prepare('SELECT * FROM repositories WHERE id = ?').get(params.repositoryId) as {
+                const repo = getDb().prepare('SELECT * FROM repositories WHERE id = ?').get(repositoryId) as {
                     path: string
                 } | undefined
 
                 if (!repo) {
                     return {
-                        error: `Repository not found: ${params.repositoryId}`,
+                        error: `Repository not found: ${repositoryId}`,
                         success: false,
                     }
                 }

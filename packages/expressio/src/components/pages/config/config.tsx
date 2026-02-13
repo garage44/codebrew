@@ -51,7 +51,7 @@ export function Config() {
             <FieldSelect
                 help={$t(i18n.config.help.ui_language)}
                 label={$t(i18n.config.label.ui_language)}
-                model={$s.language_ui.$selection}
+                model={$s.language_ui.$selection as Signal<string>}
                 options={$s.language_ui.options}
                 placeholder={$t(i18n.config.placeholder.ui_language)}
                 validation={validation?.value.language_ui}
@@ -80,7 +80,7 @@ export function Config() {
                             {/* $t('config.label.deepl_key') */}
                             {/* $t('config.label.deepl_base_url') */}
                             <FieldText
-                                copyable={true}
+                                copyable
                                 help={$t(i18n.config.help[`${engineConfig.name}_key` as keyof typeof i18n.config.help])}
                                 label={$t(i18n.config.label[`${engineConfig.name}_key` as keyof typeof i18n.config.label])}
                                 model={apiKeySignal}

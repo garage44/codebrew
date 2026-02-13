@@ -130,7 +130,7 @@ try {
         })
 }
 
-async function initConfig(config) {
+async function initConfig(config: Record<string, unknown>) {
     // Check for environment variable first (for PR deployments and isolated instances)
     const envConfigPath = process.env.CONFIG_PATH
     const configPath = envConfigPath || path.join(homedir(), '.nonlinearrc')

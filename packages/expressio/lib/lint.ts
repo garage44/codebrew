@@ -4,10 +4,22 @@ import {Glob} from 'bun'
 import fs from 'fs-extra'
 import path from 'node:path'
 
+import type {TargetLanguage} from './enola/types.ts'
+
 import {enola} from '../service.ts'
 import {translate_tag} from './translate.ts'
 
-export async function lintWorkspace(workspace, lintMode: 'sync' | 'lint') {
+export async function lintWorkspace(
+    workspace: {
+        config: {languages: {target: Array<{id: string}>}; source_file: string; sync: {dir: string; suggestions?: boolean}}
+        i18n: Record<string, unknown>
+    },
+    lintMode: 'sync' | 'lint',
+): Promise<
+    | {create_tags: Array<{file: string; groups: unknown[]}>; delete_tags: Array<{group: string; tags: unknown[]}>}
+    | {create_tags: unknown[]; delete_tags: unknown[]; modify_tags: unknown[]}
+    | false
+> {
     // oxlint-disable-next-line no-template-curly-in-string
     const scan_target = workspace.config.sync.dir.replace('${workspaceFolder}', path.dirname(workspace.config.source_file))
 
@@ -25,8 +37,9 @@ export async function lintWorkspace(workspace, lintMode: 'sync' | 'lint') {
     const createTags = []
     const modifyTags = []
 
-    const redundantTags = new Set()
-    keyMod(workspace.i18n, (ref, _id, refPath) => {
+    const redundantTags = new Set<string>()
+    keyMod(workspace.i18n, (ref: Record<string, unknown>, key: string | null, refPath: string[]): void => {
+        if (!key) return
         if (ref && 'source' in ref) {
             // First add everything to the set.
             redundantTags.add(refPath.join('.'))
@@ -41,9 +54,9 @@ export async function lintWorkspace(workspace, lintMode: 'sync' | 'lint') {
             const lastKey = tagPath.at(-1)
             const parentRef = keyPath(workspace.i18n, tagPath.slice(0, -1))
 
-            const ref = parentRef && lastKey in parentRef ? parentRef[lastKey] : undefined
+            const ref = parentRef && lastKey && lastKey in parentRef ? parentRef[lastKey] : undefined
 
-            if (ref) {
+            if (ref && typeof ref === 'object') {
                 // Remove all found tags from the set.
                 if ('_redundant' in ref) {
                     delete ref._redundant
@@ -67,11 +80,41 @@ export async function lintWorkspace(workspace, lintMode: 'sync' | 'lint') {
                         source: sourceText,
                         target: {},
                     } as {cache?: string; source: string; target: Record<string, string>},
-                    workspace.config.languages.target,
+                    (
+                        workspace.config.languages.target as Array<{
+                            engine: 'anthropic' | 'deepl'
+                            formality?: 'default' | 'more' | 'less'
+                            id: string
+                            name: string
+                        }>
+                    )
+                        .map((lang) => ({
+                            engine: lang.engine,
+                            formality: lang.formality ?? 'default',
+                            id: lang.id,
+                            name: lang.name,
+                        }))
+                        .map((lang) => ({
+                            engine: lang.engine,
+                            formality: lang.formality ?? 'default',
+                            id: lang.id,
+                            name: lang.name,
+                        })),
                 )
 
-                ;({id, ref} = await translate_tag(workspace, tagPath, sourceText, false))
-                createTags.push({path: tagPath, value: ref[id]})
+                ;({id, ref} = await translate_tag(
+                    workspace as unknown as {
+                        broadcastI18nState: () => void
+                        config: {languages: {target: Array<{engine: string; id: string}>}}
+                        i18n: Record<string, unknown>
+                    },
+                    tagPath,
+                    sourceText,
+                    false,
+                ))
+                if (id) {
+                    createTags.push({path: tagPath, value: ref[id]})
+                }
             } else if (lintMode === 'lint') {
                 const file = path.relative(path.dirname(workspace.config.source_file), files[i])
                 const beforeMatch = content.slice(0, match.index)
@@ -110,16 +153,18 @@ export async function lintWorkspace(workspace, lintMode: 'sync' | 'lint') {
     }
 
     if (createTags.length || deleteTags.length || modifyTags.length) {
-        const fileGroups = new Map()
+        const fileGroups = new Map<string, unknown[]>()
         for (const tag of createTags) {
-            if (!fileGroups.has(tag.file)) {
-                fileGroups.set(tag.file, [])
+            if ('file' in tag && typeof tag.file === 'string') {
+                if (!fileGroups.has(tag.file)) {
+                    fileGroups.set(tag.file, [])
+                }
+                fileGroups.get(tag.file)!.push(tag)
             }
-            fileGroups.get(tag.file).push(tag)
         }
 
         // Group delete tags by common paths
-        const groupedDeleteTags = deleteTags.reduce((acc, tag) => {
+        const groupedDeleteTags = deleteTags.reduce((acc: Record<string, unknown[]>, tag) => {
             // Find the most specific common path that already exists
             const pathParts = tag.path
             let commonPath = ''
@@ -146,19 +191,19 @@ export async function lintWorkspace(workspace, lintMode: 'sync' | 'lint') {
 
         if (lintMode === 'lint') {
             return {
-                create_tags: [...fileGroups.entries()].map(([file, groups]) => ({file, groups})),
+                create_tags: [...fileGroups.entries()].map(([file, groups]) => ({file, groups: groups as unknown[]})),
                 delete_tags: Object.entries(groupedDeleteTags)
                     .toSorted(([first], [second]) => first.split('.').length - second.split('.').length)
-                    .map(([group, tags]) => ({group, tags})),
-            }
+                    .map(([group, tags]) => ({group, tags: tags as unknown[]})),
+            } as {create_tags: Array<{file: string; groups: unknown[]}>; delete_tags: Array<{group: string; tags: unknown[]}>}
         }
 
         return {
             create_tags: createTags,
             delete_tags: deleteTags,
             modify_tags: modifyTags,
-        }
+        } as {create_tags: unknown[]; delete_tags: unknown[]; modify_tags: unknown[]}
     }
 
-    return false
+    return false as const
 }

@@ -8,10 +8,17 @@ import {$s} from '@/app'
 export const Login = () => {
     const handleLogin = async (username: string, password: string): Promise<string | null> => {
         try {
-            const result = await api.post('/api/login', {
+            const result = (await api.post('/api/login', {
                 password,
                 username,
-            })
+            })) as {
+                admin?: boolean
+                authenticated?: boolean
+                id?: string
+                password?: string
+                profile?: {avatar?: string; displayName?: string}
+                username?: string
+            }
 
             /*
              * Check if user was authenticated - the response should have authenticated: true
@@ -21,7 +28,10 @@ export const Login = () => {
             const isAuthenticated = result.authenticated || (result.id && result.username)
 
             if (isAuthenticated) {
-                const config = await api.get('/api/config')
+                const config = (await api.get('/api/config')) as {
+                    enola?: unknown
+                    workspaces?: Array<{workspace_id: string}>
+                }
 
                 /*
                  * Set profile data from result (but NOT authenticated yet)
@@ -37,10 +47,17 @@ export const Login = () => {
                 }
 
                 // Load workspaces config
-                mergeDeep($s, {
-                    enola: config.enola,
-                    workspaces: config.workspaces,
-                })
+                const configTyped = config as {
+                    enola?: unknown
+                    workspaces?: Array<{workspace_id: string}>
+                }
+                mergeDeep(
+                    $s as Record<string, unknown>,
+                    {
+                        enola: configTyped.enola,
+                        workspaces: configTyped.workspaces,
+                    } as Record<string, unknown>,
+                )
 
                 // Connect WebSocket first so we can load workspace
                 ws.connect()
@@ -63,9 +80,15 @@ export const Login = () => {
                 }
 
                 // Now that workspace is loaded, we can safely access workspace.i18n
-                const loggedInMessage = $s.workspace?.i18n?.notifications?.logged_in
-                    ? $t($s.workspace.i18n.notifications.logged_in)
-                    : 'Login successful'
+                const i18nNotifications =
+                    $s.workspace?.i18n &&
+                    typeof $s.workspace.i18n === 'object' &&
+                    (($s.workspace.i18n as Record<string, unknown>).notifications as Record<string, unknown> | undefined)
+                const loggedInKey =
+                    i18nNotifications && typeof i18nNotifications === 'object'
+                        ? (i18nNotifications as Record<string, unknown>).logged_in
+                        : undefined
+                const loggedInMessage = loggedInKey ? $t(loggedInKey as Parameters<typeof $t>[0]) : 'Login successful'
                 notifier.notify({
                     icon: 'check_circle',
                     link: {text: '', url: ''},

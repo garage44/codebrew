@@ -4,7 +4,7 @@
  * The indexing service processes these jobs
  */
 
-import {db} from '../database.ts'
+import {getDb} from '../database.ts'
 import {loggerTransports} from '@garage44/common/service'
 import type {LoggerConfig} from '@garage44/common/types'
 import {config} from '../config.ts'
@@ -28,7 +28,7 @@ export async function queueIndexingJob(job: IndexingJobInput): Promise<string> {
     const jobId = crypto.randomUUID()
 
     try {
-        db.prepare(`
+        getDb().prepare(`
             INSERT INTO indexing_jobs (
                 id, type, repository_id, file_path, doc_id, ticket_id,
                 status, created_at
@@ -78,7 +78,7 @@ export function getIndexingStatus(repositoryId: string): {
     processing: number
     total: number
 } {
-    const jobs = db.prepare(`
+    const jobs = getDb().prepare(`
         SELECT status FROM indexing_jobs
         WHERE repository_id = ?
     `).all(repositoryId) as {status: string}[]

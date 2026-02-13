@@ -35,17 +35,17 @@ export default class Deepl implements EnolaEngine {
         },
     }
 
-    logger: EnolaLogger
+    logger!: EnolaLogger
 
-    async init(engine_config, logger) {
+    async init(engine_config: {api_key: string; base_url: string}, logger: EnolaLogger): Promise<void> {
         this.logger = logger
 
         if (engine_config.api_key) {
-            this.activate(engine_config)
+            await this.activate(engine_config)
         }
     }
 
-    async activate(engine_config) {
+    async activate(engine_config: {api_key: string; base_url: string}): Promise<void> {
         this.config.base_url = engine_config.base_url
         this.config.api_key = engine_config.api_key
         try {
@@ -71,7 +71,7 @@ export default class Deepl implements EnolaEngine {
     async fetch(endpoint: string, options: FetchOptions = {}) {
         const url = new URL(`${this.config.base_url}${endpoint}`)
         if (options && options.params) {
-            Object.keys(options.params).forEach((key) => url.searchParams.append(key, options.params[key]))
+            Object.keys(options.params).forEach((key) => url.searchParams.append(key, options.params![key]))
         }
 
         const headers = {
@@ -107,25 +107,33 @@ export default class Deepl implements EnolaEngine {
     async translate(tag:EnolaTag, targetLanguage:TargetLanguage) {
         const sourceString = this.prepareSource(tag)
         try {
+            const isoCode = toIso6391(targetLanguage.id)
+            if (!isoCode) {
+                throw new Error(`Unable to convert language ${targetLanguage.id} to ISO 639-1`)
+            }
             const response = await this.fetch('/translate', {
                 data: {
                     formality: targetLanguage.formality ? targetLanguage.formality : 'default',
                     ignore_tags: ['i', 'x'],
                     source_lang: 'en',
                     tag_handling: 'xml',
-                    target_lang: toIso6391(targetLanguage.id),
+                    target_lang: isoCode,
                     text: [sourceString],
                 },
                 method: 'POST',
-            })
+            }) as {translations: Array<{text: string}>}
 
-            const translation = response.translations[0].text
+            const translation = response.translations[0]?.text
+            if (!translation) {
+                throw new Error('No translation received from DeepL')
+            }
             let preppedTarget = translation
                 .replaceAll(ignoreXTagRegex, (res) => res.replace('<x>', '{{').replace('</x>', '}}'))
                 .replaceAll(ignoreITagRegex, (res) => res.replace('<i>', '').replace('</i>', ''))
 
             preppedTarget = decode(preppedTarget)
-            this.logger.info(`[enola-deepl] ${toIso6391(targetLanguage.id)}: ${preppedTarget}`)
+            const isoCodeForLog = toIso6391(targetLanguage.id) || targetLanguage.id
+            this.logger.info(`[enola-deepl] ${isoCodeForLog}: ${preppedTarget}`)
             return preppedTarget
         } catch (error) {
             this.logger.error(`[enola-deepl] ${error}`)
@@ -137,22 +145,26 @@ export default class Deepl implements EnolaEngine {
         const sourceStrings = batch.map((tag) => this.prepareSource(tag))
         this.logger.info(`[enola-deepl] Converting ${targetLanguage.id} to ISO 639-1`)
         try {
+            const batchIsoCode = toIso6391(targetLanguage.id)
+            if (!batchIsoCode) {
+                throw new Error(`Unable to convert language ${targetLanguage.id} to ISO 639-1`)
+            }
             const response = await this.fetch('/translate', {
                 data: {
                     formality: targetLanguage.formality ? targetLanguage.formality : 'default',
                     ignore_tags: ['i', 'x'],
                     source_lang: 'en',
                     tag_handling: 'xml',
-                    target_lang: toIso6391(targetLanguage.id),
+                    target_lang: batchIsoCode,
                     text: sourceStrings,
                 },
                 method: 'POST',
-            })
+            }) as {translations: Array<{text: string}>}
 
-            const translations = response.translations.map((translation) => {
+            const translations = response.translations.map((translation: {text: string}) => {
                 const translatedText = decode(translation.text
-                    .replaceAll(ignoreXTagRegex, (res) => res.replace('<x>', '{{').replace('</x>', '}}'))
-                    .replaceAll(ignoreITagRegex, (res) => res.replace('<i>', '').replace('</i>', '')),
+                    .replaceAll(ignoreXTagRegex, (res: string) => res.replace('<x>', '{{').replace('</x>', '}}'))
+                    .replaceAll(ignoreITagRegex, (res: string) => res.replace('<i>', '').replace('</i>', '')),
                 )
                 this.logger.info(`[enola-deepl] ${targetLanguage.id}: ${translatedText}`)
                 return translatedText

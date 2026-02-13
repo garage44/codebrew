@@ -40,13 +40,13 @@ export function updateUsageFromHeaders(headers: {
 }): void {
     logger.debug(`[Token Usage] updateUsageFromHeaders called with: ${JSON.stringify(headers)}`)
 
-    if (headers.limit !== null && headers.remaining !== null) {
+    if (typeof headers.limit === 'number' && typeof headers.remaining === 'number') {
         const used = headers.limit - headers.remaining
         const oldCount = tokenUsage.count
         const oldLimit = tokenUsage.limit
 
         tokenUsage.count = used
-        tokenUsage.limit = headers.limit
+        tokenUsage.limit = headers.limit ?? 0
         tokenUsage.loading = false
 
         logger.info(

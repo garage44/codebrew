@@ -1,4 +1,4 @@
-import type {LanguageUI, TargetLanguage} from '@garage44/common/types'
+import type {LanguageUI} from '@garage44/common/types'
 import type {DeepSignal} from 'deepsignal'
 
 import workspace from '@/.expressio.json'
@@ -23,10 +23,17 @@ type I18nType = typeof workspace.i18n
 // Keep I18n as alias for backward compatibility
 type I18n = I18nType
 
+interface WorkspaceTargetLanguage {
+    engine: 'anthropic' | 'deepl'
+    formality: 'default' | 'less' | 'more'
+    id: string
+    name?: string
+}
+
 interface WorkspaceConfig {
     languages: {
         source: string
-        target: TargetLanguage[]
+        target: WorkspaceTargetLanguage[]
     }
     source_file: string | null
     sync: {

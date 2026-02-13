@@ -4,7 +4,7 @@
  */
 
 import {type AgentContext, type AgentResponse, BaseAgent} from './base.ts'
-import {type Repository, addTicketAssignee, db} from '../database.ts'
+import {type Repository, addTicketAssignee, getDb} from '../database.ts'
 import {logger} from '../../service.ts'
 import {createGitPlatform} from '../git/index.ts'
 import {addAgentComment} from './comments.ts'
@@ -46,7 +46,7 @@ export class DeveloperAgent extends BaseAgent {
              * 2. Is assigned to this DeveloperAgent
              * 3. Is in "todo" or "in_progress" status (allows resuming after crash)
              */
-            ticket = db.prepare(`
+            ticket = getDb().prepare(`
                 SELECT DISTINCT t.*, r.path, r.platform, r.remote_url, r.config
                 FROM tickets t
                 JOIN repositories r ON t.repository_id = r.id
@@ -71,7 +71,7 @@ export class DeveloperAgent extends BaseAgent {
             this.log(`Picking up ticket ${ticket.id}: ${ticket.title}`)
 
             // Update ticket status to in_progress
-            db.prepare(`
+            getDb().prepare(`
                 UPDATE tickets
                 SET status = 'in_progress',
                     updated_at = ?
@@ -103,7 +103,7 @@ export class DeveloperAgent extends BaseAgent {
             await gitPlatform.createBranch(repo, branchName)
 
             // Update ticket with branch name
-            db.prepare(`
+            getDb().prepare(`
                 UPDATE tickets
                 SET branch_name = ?,
                     updated_at = ?
@@ -119,7 +119,7 @@ export class DeveloperAgent extends BaseAgent {
             }
 
             // Check if solution plan already exists (resume scenario)
-            const existingTicket = db.prepare('SELECT solution_plan FROM tickets WHERE id = ?').get(ticket.id) as {
+            const existingTicket = getDb().prepare('SELECT solution_plan FROM tickets WHERE id = ?').get(ticket.id) as {
                 solution_plan: string | null
             } | undefined
 
@@ -257,7 +257,7 @@ Use the available tools to implement the solution plan. Make changes directly us
                         this.log('Applied ' + ciResult.fixesApplied.length + ' CI fixes');
                     } else {
                         // CI failed and couldn't be auto-fixed, mark ticket as needing attention
-                        db.prepare('UPDATE tickets SET status = ?, assignee_type = NULL, assignee_id = NULL, updated_at = ? WHERE id = ?').run('todo', Date.now(), ticket.id)
+                        getDb().prepare('UPDATE tickets SET status = ?, assignee_type = NULL, assignee_id = NULL, updated_at = ? WHERE id = ?').run('todo', Date.now(), ticket.id)
 
                         return {
                             error: ciResult.error,
@@ -276,7 +276,7 @@ Use the available tools to implement the solution plan. Make changes directly us
                 )
 
                 // Update ticket with MR ID
-                const updateStmt = db.prepare('UPDATE tickets SET merge_request_id = ?, status = \'review\', updated_at = ? WHERE id = ?')
+                const updateStmt = getDb().prepare('UPDATE tickets SET merge_request_id = ?, status = \'review\', updated_at = ? WHERE id = ?')
                 updateStmt.run(mrId, Date.now(), ticket.id)
 
                 this.log(
@@ -299,7 +299,7 @@ Use the available tools to implement the solution plan. Make changes directly us
             this.log('Error during development: ' + error, 'error')
             // Revert ticket status back to todo on error
             if (ticket) {
-                db.prepare('UPDATE tickets SET status = \'todo\', updated_at = ? WHERE id = ?').run(Date.now(), ticket.id)
+                getDb().prepare('UPDATE tickets SET status = \'todo\', updated_at = ? WHERE id = ?').run(Date.now(), ticket.id)
                 this.log('Reverted ticket ' + ticket.id + ' status to todo due to error')
             }
             return {

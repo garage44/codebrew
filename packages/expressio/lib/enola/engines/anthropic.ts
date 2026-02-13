@@ -41,25 +41,27 @@ export default class Anthropic implements EnolaEngine {
         },
     }
 
-    logger: EnolaLogger
+    logger!: EnolaLogger
 
-    async init(engine_config, logger) {
+    async init(engine_config: {api_key: string; base_url: string}, logger: EnolaLogger): Promise<void> {
         this.logger = logger
 
         if (engine_config.api_key) {
-            this.activate(engine_config)
+            await this.activate(engine_config)
         }
     }
 
-    async activate(engine_config) {
+    async activate(engine_config: {api_key: string; base_url: string}): Promise<void> {
         this.config.api_key = engine_config.api_key
         this.logger.info('[enola-anthropic] activating...')
         try {
             this.logger.info('[enola-anthropic] initializing...')
-            const response = await this.fetch('/messages', {method: 'GET'})
+            const response = await this.fetch('/messages', {method: 'GET'}) as AnthropicResponse
 
-            this.config.usage.limit = response.headers.limit
-            this.config.usage.count = response.headers.limit - response.headers.remaining
+            if (response.headers) {
+                this.config.usage.limit = response.headers.limit
+                this.config.usage.count = response.headers.limit - response.headers.remaining
+            }
 
             await this.usage() // This will log the initial usage stats
         } catch (error) {
@@ -181,7 +183,10 @@ SUGGESTED SOURCE TEXT:`
      * @returns The translated text
      */
     async translate(tag:EnolaTag, targetLanguage:TargetLanguage) {
-        const language = target.find((tag) => tag.id === targetLanguage.id)
+        const language = target.find((lang) => lang.id === targetLanguage.id)
+        if (!language) {
+            throw new Error(`Language ${targetLanguage.id} not found`)
+        }
         const prompt = `TRANSLATION TASK
 ===
 You are translating this sentence: "${tag.source}"
@@ -240,6 +245,9 @@ TRANSLATE THE SENTENCE HERE:`
 
     async translateBatch(batch: EnolaTag[], targetLanguage: TargetLanguage) {
         const language = target.find((lang) => lang.id === targetLanguage.id)
+        if (!language) {
+            throw new Error(`Language ${targetLanguage.id} not found`)
+        }
         const sourceStrings = batch.map((tag) => tag.source)
 
         const prompt = `BATCH TRANSLATION TASK

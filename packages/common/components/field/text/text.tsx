@@ -102,8 +102,8 @@ export function FieldText({
             />}
         </div>
         {(() => {
-            if (validation && validation.errors.length > 0 && validation.isTouched) {
-                return validation?.errors.map((error, index) => (
+            if (validation && validation.errors && validation.errors.length > 0 && validation.isTouched) {
+                return validation.errors.map((error, index) => (
                     <div key={index} class="validation">{error}</div>
                 ))
             }

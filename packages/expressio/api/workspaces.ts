@@ -132,7 +132,7 @@ export function registerWorkspacesWebSocketApiRoutes(wsManager: WebSocketServerM
         const resolvedRoot = path.resolve(browseRoot)
 
         // List directories
-        let entries = []
+        let entries: Array<{is_workspace: boolean; name: string; path: string}> = []
         try {
             const dirents = await fs.readdir(absPath, {withFileTypes: true})
             entries = await Promise.all(
@@ -148,7 +148,10 @@ export function registerWorkspacesWebSocketApiRoutes(wsManager: WebSocketServerM
                             return null
                         }
                         // Check if this directory is a workspace root
-                        const is_workspace = workspaces.workspaces.some((ws) => path.dirname(ws.config.source_file) === dirPath)
+                        const is_workspace = workspaces.workspaces.some((ws) => {
+                            const sourceFile = ws.config.source_file
+                            return sourceFile ? path.dirname(sourceFile) === dirPath : false
+                        })
                         return {
                             is_workspace,
                             name: dirent.name,
@@ -176,7 +179,11 @@ export function registerWorkspacesWebSocketApiRoutes(wsManager: WebSocketServerM
         }
 
         // Find current workspace if any
-        const currentWorkspace = workspaces.workspaces.find((ws) => path.dirname(ws.config.source_file) === absPath) || null
+        const currentWorkspace =
+            workspaces.workspaces.find((ws) => {
+                const sourceFile = ws.config.source_file
+                return sourceFile ? path.dirname(sourceFile) === absPath : false
+            }) || null
 
         const response = {
             current: {
@@ -196,7 +203,7 @@ export function registerWorkspacesWebSocketApiRoutes(wsManager: WebSocketServerM
         return response
     })
 
-    api.get('/api/workspaces/:workspace_id', async (context, req) => {
+    api.get('/api/workspaces/:workspace_id', async (_context: unknown, req: {params: Record<string, string>}) => {
         const {workspace_id: workspaceId} = validateRequest(WorkspaceIdParamsSchema, req.params)
         const ws = workspaces.get(workspaceId)
         if (!ws) {
@@ -232,9 +239,22 @@ export function registerWorkspacesWebSocketApiRoutes(wsManager: WebSocketServerM
 }
 
 // Default export for backward compatibility
-export default function apiWorkspaces(router) {
+export default function apiWorkspaces(router: {
+    delete: (
+        path: string,
+        handler: (req: Request, params: Record<string, string>, session?: Record<string, string>) => Promise<Response>,
+    ) => void
+    get: (
+        path: string,
+        handler: (req: Request, params: Record<string, string>, session?: Record<string, string>) => Promise<Response>,
+    ) => void
+    post: (
+        path: string,
+        handler: (req: Request, params: Record<string, string>, session?: Record<string, string>) => Promise<Response>,
+    ) => void
+}): void {
     // HTTP API endpoints using familiar Express-like pattern
-    router.get('/api/workspaces/:workspace_id/usage', async () => {
+    router.get('/api/workspaces/:workspace_id/usage', async (_req: Request, _params: Record<string, string>) => {
         // Get the first available engine for usage
         const engine = Object.keys(config.enola.engines)[0] || 'deepl'
         const usage = await enola.usage(engine)
@@ -245,12 +265,18 @@ export default function apiWorkspaces(router) {
         })
     })
 
-    router.post('/api/workspaces/:workspace_id', async (req, params) => {
+    router.post('/api/workspaces/:workspace_id', async (req: Request, params: Record<string, string>) => {
         try {
             const {param0: workspaceId} = validateRequest(WorkspaceIdPathSchema, params)
             const workspace_data = validateRequest(UpdateWorkspaceRequestSchema, await req.json())
 
             const workspace = workspaces.get(workspaceId)
+            if (!workspace) {
+                return new Response(JSON.stringify({error: `Workspace ${workspaceId} not found`}), {
+                    headers: {'Content-Type': 'application/json'},
+                    status: 404,
+                })
+            }
             const target_languages = workspace.config.languages.target
 
             // The languages we have selected in the new situation.
@@ -300,7 +326,7 @@ export default function apiWorkspaces(router) {
         }
     })
 
-    router.delete('/api/workspaces/:workspace_id', async (req, params) => {
+    router.delete('/api/workspaces/:workspace_id', async (req: Request, params: Record<string, string>) => {
         const {param0: workspaceId} = validateRequest(WorkspaceIdPathSchema, params)
         logger.info(`Deleting workspace: ${workspaceId}`)
         await workspaces.delete(workspaceId)
