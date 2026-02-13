@@ -26,19 +26,19 @@ export default function ContextGroups({groupId, path}: ContextGroupsProps) {
         })
     }, [])
 
-    const addGroup = async() => {
+    const addGroup = async () => {
         const group = await api.get('/api/groups/template')
         $s.admin.groups.push(group)
         toggleSelection(group._name)
     }
 
-    const deleteGroups = async() => {
+    const deleteGroups = async () => {
         notifier.notify({
             level: 'info',
             message:
-                deletionGroups.length === 1 ?
-                        $t('deleting one group') :
-                        $t('deleting {count} groups', {count: deletionGroups.length}),
+                deletionGroups.length === 1
+                    ? $t('deleting one group')
+                    : $t('deleting {count} groups', {count: deletionGroups.length}),
         })
         const deleteRequests = []
         for (const group of deletionGroups) {
@@ -66,7 +66,7 @@ export default function ContextGroups({groupId, path}: ContextGroupsProps) {
         return `/settings/groups/${groupId}/misc`
     }
 
-    const saveGroupAction = async() => {
+    const saveGroupAction = async () => {
         if (!$s.admin.group) return
         const groupId = $s.admin.group._name
         const group = await saveGroup(groupId, $s.admin.group)
@@ -90,7 +90,7 @@ export default function ContextGroups({groupId, path}: ContextGroupsProps) {
         }
     }
 
-    const toggleMarkDelete = async() => {
+    const toggleMarkDelete = async () => {
         if (!$s.admin.group) return
         $s.admin.group._delete = !$s.admin.group._delete
         for (let group of $s.admin.groups) {
@@ -174,11 +174,12 @@ export default function ContextGroups({groupId, path}: ContextGroupsProps) {
                 )
             })}
 
-            {!orderedGroups.length &&
+            {!orderedGroups.length && (
                 <div class='group item no-presence'>
                     <Icon className='item-icon icon-d' name='group' />
                     <div class='name'>{$t('group.no_groups')}</div>
-                </div>}
+                </div>
+            )}
         </section>
     )
 }

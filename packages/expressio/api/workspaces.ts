@@ -42,7 +42,7 @@ async function ensureBrowseRootExists(): Promise<void> {
         if (!stats.isDirectory()) {
             throw new Error(`Path exists but is not a directory: ${browseRoot}`)
         }
-    } catch(error: unknown) {
+    } catch (error: unknown) {
         // If error is because path doesn't exist, create it
         const nodeError = error as NodeJS.ErrnoException
         if (nodeError.code === 'ENOENT') {
@@ -55,7 +55,7 @@ async function ensureBrowseRootExists(): Promise<void> {
                         cause: error,
                     })
                 }
-            } catch(parentError: unknown) {
+            } catch (parentError: unknown) {
                 const parentNodeError = parentError as NodeJS.ErrnoException
                 if (parentNodeError.code === 'ENOENT') {
                     // Parent doesn't exist, recursive mkdir will create it
@@ -101,11 +101,11 @@ function validateBrowsePath(requestedPath: string | null | undefined): string {
 export function registerWorkspacesWebSocketApiRoutes(wsManager: WebSocketServerManager) {
     // WebSocket API routes (unchanged) - these are for real-time features
     const api = wsManager.api
-    api.get('/api/workspaces/browse', async(context, request) => {
+    api.get('/api/workspaces/browse', async (context, request) => {
         // Ensure browse root exists
         try {
             await ensureBrowseRootExists()
-        } catch(error: unknown) {
+        } catch (error: unknown) {
             const errorMessage = error instanceof Error ? error.message : String(error)
             logger.error(`[api] Failed to ensure browse root exists: ${errorMessage}`)
             throw new Error(
@@ -119,7 +119,7 @@ export function registerWorkspacesWebSocketApiRoutes(wsManager: WebSocketServerM
         try {
             const browseData = validateRequest(BrowseRequestSchema, request.data || {})
             absPath = validateBrowsePath(browseData.path)
-        } catch(error: unknown) {
+        } catch (error: unknown) {
             if (error instanceof z.ZodError) {
                 throw error
             }
@@ -157,7 +157,7 @@ export function registerWorkspacesWebSocketApiRoutes(wsManager: WebSocketServerM
                     })
                     .filter((entry) => entry !== null),
             )
-        } catch(error) {
+        } catch (error) {
             logger.error(`[api] Failed to list directory: ${absPath} - ${error}`)
         }
 
@@ -181,12 +181,12 @@ export function registerWorkspacesWebSocketApiRoutes(wsManager: WebSocketServerM
         const response = {
             current: {
                 path: absPath,
-                workspace: currentWorkspace ?
-                        {
-                            config: currentWorkspace.config,
-                            id: currentWorkspace.config.workspace_id,
-                        } :
-                    null,
+                workspace: currentWorkspace
+                    ? {
+                          config: currentWorkspace.config,
+                          id: currentWorkspace.config.workspace_id,
+                      }
+                    : null,
             },
             directories: entries,
             parent,
@@ -196,7 +196,7 @@ export function registerWorkspacesWebSocketApiRoutes(wsManager: WebSocketServerM
         return response
     })
 
-    api.get('/api/workspaces/:workspace_id', async(context, req) => {
+    api.get('/api/workspaces/:workspace_id', async (context, req) => {
         const {workspace_id: workspaceId} = validateRequest(WorkspaceIdParamsSchema, req.params)
         const ws = workspaces.get(workspaceId)
         if (!ws) {
@@ -234,7 +234,7 @@ export function registerWorkspacesWebSocketApiRoutes(wsManager: WebSocketServerM
 // Default export for backward compatibility
 export default function apiWorkspaces(router) {
     // HTTP API endpoints using familiar Express-like pattern
-    router.get('/api/workspaces/:workspace_id/usage', async() => {
+    router.get('/api/workspaces/:workspace_id/usage', async () => {
         // Get the first available engine for usage
         const engine = Object.keys(config.enola.engines)[0] || 'deepl'
         const usage = await enola.usage(engine)
@@ -245,7 +245,7 @@ export default function apiWorkspaces(router) {
         })
     })
 
-    router.post('/api/workspaces/:workspace_id', async(req, params) => {
+    router.post('/api/workspaces/:workspace_id', async (req, params) => {
         try {
             const {param0: workspaceId} = validateRequest(WorkspaceIdPathSchema, params)
             const workspace_data = validateRequest(UpdateWorkspaceRequestSchema, await req.json())
@@ -289,7 +289,7 @@ export default function apiWorkspaces(router) {
             return new Response(JSON.stringify(response), {
                 headers: {'Content-Type': 'application/json'},
             })
-        } catch(error) {
+        } catch (error) {
             if (error instanceof z.ZodError) {
                 return new Response(JSON.stringify({error: error.errors}), {
                     headers: {'Content-Type': 'application/json'},
@@ -300,7 +300,7 @@ export default function apiWorkspaces(router) {
         }
     })
 
-    router.delete('/api/workspaces/:workspace_id', async(req, params) => {
+    router.delete('/api/workspaces/:workspace_id', async (req, params) => {
         const {param0: workspaceId} = validateRequest(WorkspaceIdPathSchema, params)
         logger.info(`Deleting workspace: ${workspaceId}`)
         await workspaces.delete(workspaceId)
@@ -313,7 +313,7 @@ export default function apiWorkspaces(router) {
         })
     })
 
-    router.post('/api/workspaces', async(req) => {
+    router.post('/api/workspaces', async (req) => {
         try {
             const body = validateRequest(CreateWorkspaceRequestSchema, await req.json())
             const workspace = await workspaces.add({source_file: body.path})
@@ -324,7 +324,7 @@ export default function apiWorkspaces(router) {
             return new Response(JSON.stringify(response), {
                 headers: {'Content-Type': 'application/json'},
             })
-        } catch(error) {
+        } catch (error) {
             if (error instanceof z.ZodError) {
                 return new Response(JSON.stringify({error: error.errors}), {
                     headers: {'Content-Type': 'application/json'},

@@ -71,7 +71,7 @@ export const GroupControls = () => {
         }
     }
 
-    const toggleChat = async() => {
+    const toggleChat = async () => {
         /*
          * Don't do a collapse animation while emoji is active; this is
          * too heavy due to the 1800+ items grid layout.
@@ -121,7 +121,7 @@ export const GroupControls = () => {
         }
     }
 
-    const toggleScreenshare = async() => {
+    const toggleScreenshare = async () => {
         if ($s.upMedia.screenshare.length) {
             logger.debug('turn screenshare stream off')
             sfu.delUpMedia(media.screenStream)
@@ -167,7 +167,7 @@ export const GroupControls = () => {
                 variant='toggle'
             />
 
-            {$s.permissions.present &&
+            {$s.permissions.present && (
                 <>
                     <Button
                         active={$s.devices.mic.enabled ? $s.devices.mic.enabled : null}
@@ -216,16 +216,18 @@ export const GroupControls = () => {
                     >
                         <Icon name='upload' />
                     </Button>
-                </>}
+                </>
+            )}
 
-            {$s.sfu.channel.connected &&
+            {$s.sfu.channel.connected && (
                 <Button
                     active={$s.sfu.profile.raisehand}
                     icon='Hand'
                     onClick={toggleRaiseHand}
                     tip={$s.sfu.profile.raisehand ? $t('group.action.raisehand_active') : $t('group.action.raisehand')}
                     variant='toggle'
-                />}
+                />
+            )}
 
             <Button class='no-feedback' tip={`${volume.value}% ${$t('group.audio_volume')}`} variant='unset'>
                 <FieldSlider

@@ -17,17 +17,17 @@ export default function AdminControls({path}: AdminControlsProps) {
         // Use first channel from sfu.channels that has metadata
         const firstChannel = Object.entries($s.sfu.channels).find(([_, data]) => {
             const channel =
-                typeof data === 'object' && data !== null && 'audio' in data ?
-                        (data as {
-                            audio: boolean
-                            clientCount?: number
-                            comment?: string
-                            connected?: boolean
-                            description?: string
-                            locked?: boolean
-                            video: boolean
-                        }) :
-                    null
+                typeof data === 'object' && data !== null && 'audio' in data
+                    ? (data as {
+                          audio: boolean
+                          clientCount?: number
+                          comment?: string
+                          connected?: boolean
+                          description?: string
+                          locked?: boolean
+                          video: boolean
+                      })
+                    : null
             return channel && (channel.description || channel.comment || channel.clientCount !== undefined)
         })
         if (firstChannel) {
@@ -43,7 +43,7 @@ export default function AdminControls({path}: AdminControlsProps) {
         return '/settings/users'
     }, [])
 
-    const logout = async() => {
+    const logout = async () => {
         const context = await api.get('/api/logout')
         Object.assign($s.admin, context)
         // Clear stored credentials
@@ -77,8 +77,9 @@ export default function AdminControls({path}: AdminControlsProps) {
                     variant='menu'
                 />
 
-                {$s.admin.authenticated && $s.admin.permission &&
-                    <Button icon='Logout' onClick={logout} tip={$t('user.action.logout')} variant='menu' />}
+                {$s.admin.authenticated && $s.admin.permission && (
+                    <Button icon='Logout' onClick={logout} tip={$t('user.action.logout')} variant='menu' />
+                )}
             </div>
 
             <Button

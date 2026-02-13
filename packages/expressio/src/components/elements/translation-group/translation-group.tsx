@@ -55,7 +55,7 @@ function GroupIdField({group, path}: {group: TranslationGroupType; path: string[
         <FieldText
             className='group-field'
             model={idSignalRef.current}
-            onBlur={async() => {
+            onBlur={async () => {
                 const oldPath = path
                 const newPath = [...path.slice(0, -1), idSignalRef.current.value]
                 if (oldPath.join('.') !== newPath.join('.')) {
@@ -120,11 +120,12 @@ export function TranslationGroup({
                 'tag-updated': $s.tags.updated === path.join('.'),
             })}
         >
-            {level > 0 &&
+            {level > 0 && (
                 <div class='group-id'>
                     <GroupActions className='vertical' group={group} path={path} />
                     {path.length > 0 && <GroupIdField group={group} path={path} />}
-                </div>}
+                </div>
+            )}
             <div class='group-value'>
                 {entries.map(([id, subGroup]) => {
                     const typedSubGroup = subGroup as TranslationGroupType

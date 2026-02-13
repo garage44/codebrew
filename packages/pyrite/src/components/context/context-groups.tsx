@@ -24,7 +24,7 @@ export default function GroupsContext() {
         return `/groups/${groupId}`
     }
 
-    const pollGroups = async() => {
+    const pollGroups = async () => {
         const groups = await api.get('/api/groups/public')
 
         // Store groups in sfu.channels (channel slug = group name)
@@ -45,7 +45,7 @@ export default function GroupsContext() {
                             Object.assign(existing, channelEntry)
                         } else {
                             // Create new entry - TypeScript will infer the correct type
-                            ($s.sfu.channels as Record<string, typeof channelEntry>)[channelSlug] = channelEntry
+                            ;($s.sfu.channels as Record<string, typeof channelEntry>)[channelSlug] = channelEntry
                         }
                     }
                 }
@@ -123,26 +123,28 @@ export default function GroupsContext() {
                 >
                     <Icon className='icon item-icon icon-d' name='incognito' />
                     <div class='flex-column'>
-                        {isListedGroup || !$s.sfu.channel.name ?
-                            <div class='name'>...</div> :
-                            <div class='name'>{$s.sfu.channel.name}</div>}
+                        {isListedGroup || !$s.sfu.channel.name ? (
+                            <div class='name'>...</div>
+                        ) : (
+                            <div class='name'>{$s.sfu.channel.name}</div>
+                        )}
                     </div>
                 </div>
             </div>
             {Object.entries($s.sfu.channels).map(([channelSlug, channelData]) => {
                 // Extract channel data from DeepSignal - access properties directly
                 const channel =
-                    typeof channelData === 'object' && channelData !== null && 'audio' in channelData ?
-                            (channelData as {
-                                audio: boolean
-                                clientCount?: number
-                                comment?: string
-                                connected?: boolean
-                                description?: string
-                                locked?: boolean
-                                video: boolean
-                            }) :
-                            {audio: false, video: false}
+                    typeof channelData === 'object' && channelData !== null && 'audio' in channelData
+                        ? (channelData as {
+                              audio: boolean
+                              clientCount?: number
+                              comment?: string
+                              connected?: boolean
+                              description?: string
+                              locked?: boolean
+                              video: boolean
+                          })
+                        : {audio: false, video: false}
 
                 /*
                  * Only show channels that have group metadata (from public groups API)
@@ -179,11 +181,12 @@ export default function GroupsContext() {
                 )
             })}
 
-            {Object.keys($s.sfu.channels).length === 0 &&
+            {Object.keys($s.sfu.channels).length === 0 && (
                 <div class='group item no-presence'>
                     <Icon className='item-icon icon-d' name='group' />
                     <div class='name'>{$t('group.no_groups_public')}</div>
-                </div>}
+                </div>
+            )}
         </section>
     )
 }

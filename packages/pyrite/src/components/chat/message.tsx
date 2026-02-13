@@ -101,38 +101,46 @@ export default function Message({channelSlug, message}: MessageProps) {
 
     return (
         <div class={classnames('message', {command: !message.nick, [message.kind]: true})}>
-            {message.kind === 'me' &&
+            {message.kind === 'me' && (
                 <div>
                     <div class='text'>
                         {message.nick} {$t(message.message)}
                         ...
                     </div>
                     <div class='time'>{formatTime(message.time)}</div>
-                </div>}
+                </div>
+            )}
 
-            {message.kind !== 'me' &&
+            {message.kind !== 'me' && (
                 <>
-                    {message.nick &&
+                    {message.nick && (
                         <header>
                             <div class='author'>
-                                {avatarUrl ?
-                                    <img alt={message.nick} class='avatar' src={avatarUrl} /> :
-                                    <div class='avatar-initials'>{getInitials(message.nick)}</div>}
+                                {avatarUrl ? (
+                                    <img alt={message.nick} class='avatar' src={avatarUrl} />
+                                ) : (
+                                    <div class='avatar-initials'>{getInitials(message.nick)}</div>
+                                )}
                                 <span class='username'>{message.nick}</span>
                             </div>
                             <div class='time'>{formatTime(message.time)}</div>
-                        </header>}
+                        </header>
+                    )}
                     <section>
-                        {messageModel.map((msgModel, index) => <span key={index}>
+                        {messageModel.map((msgModel, index) => (
+                            <span key={index}>
                                 {msgModel.type === 'text' && <span class='text'>{msgModel.value}</span>}
                                 {msgModel.type === 'emoji' && <span class='emoji'>{msgModel.value}</span>}
-                                {msgModel.type === 'url' &&
+                                {msgModel.type === 'url' && (
                                     <a class='url' href={msgModel.value} rel='noopener noreferrer' target='_blank'>
                                         {msgModel.value}
-                                    </a>}
-                        </span>)}
+                                    </a>
+                                )}
+                            </span>
+                        ))}
                     </section>
-                </>}
+                </>
+            )}
         </div>
     )
 }

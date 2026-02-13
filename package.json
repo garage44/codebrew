@@ -76,8 +76,7 @@
   },
   "lint-staged": {
     "*.{ts,tsx}": [
-      "oxlint --fix",
-      "eslint --fix --no-color"
+      "oxlint --fix"
     ],
     "*.css": [
       "stylelint --fix --no-color"
