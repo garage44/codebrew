@@ -36,16 +36,20 @@ export async function applyFileModifications(
 
             // Ensure directory exists
             const dir = path.dirname(filePath)
+            // eslint-disable-next-line no-await-in-loop
             await fs.ensureDir(dir)
 
             // Create backup before modification
             const backupPath = `${filePath}.backup.${Date.now()}`
+            // eslint-disable-next-line no-await-in-loop
             if (await fs.pathExists(filePath)) {
+                // eslint-disable-next-line no-await-in-loop
                 await fs.copy(filePath, backupPath)
                 logger.debug(`[FileEditor] Created backup: ${backupPath}`)
             }
 
             // Apply modification (full file replacement for now)
+            // eslint-disable-next-line no-await-in-loop
             await fs.writeFile(filePath, mod.changes, 'utf8')
 
             logger.info(`[FileEditor] Modified file: ${mod.path}`)
@@ -55,6 +59,7 @@ export async function applyFileModifications(
             })
 
             // Clean up backup after successful modification
+            // eslint-disable-next-line no-await-in-loop
             if (await fs.pathExists(backupPath)) {
                 /*
                  * Keep backup for now, could delete after validation

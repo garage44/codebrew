@@ -13,7 +13,7 @@ interface ScreenshotConfig {
 
 const SCREENSHOTS: ScreenshotConfig[] = [
     {
-        actions: async(page: Page) => {
+        actions: async(page: Page): Promise<void> => {
             await page.goto('http://localhost:3030')
             await page.waitForSelector('.c-login')
             await page.fill('.c-field-text input[type="text"]', 'admin')
@@ -24,7 +24,7 @@ const SCREENSHOTS: ScreenshotConfig[] = [
         waitForSelector: '.c-login',
     },
     {
-        actions: async(page: Page) => {
+        actions: async(page: Page): Promise<void> => {
             // Login first
             await page.goto('http://localhost:3030')
             await page.waitForSelector('.c-login')
@@ -43,7 +43,7 @@ const SCREENSHOTS: ScreenshotConfig[] = [
         url: 'http://localhost:3030',
     },
     {
-        actions: async(page: Page) => {
+        actions: async(page: Page): Promise<void> => {
             // Login first
             await page.goto('http://localhost:3030')
             await page.waitForSelector('.c-login')
@@ -63,7 +63,7 @@ const SCREENSHOTS: ScreenshotConfig[] = [
         url: 'http://localhost:3030',
     },
     {
-        actions: async(page: Page) => {
+        actions: async(page: Page): Promise<void> => {
             // Login first
             await page.goto('http://localhost:3030')
             await page.waitForSelector('.c-login')
@@ -89,15 +89,23 @@ const SCREENSHOTS: ScreenshotConfig[] = [
 async function waitForServer(maxAttempts = 30): Promise<boolean> {
     for (let i = 0; i < maxAttempts; i += 1) {
         try {
+            // eslint-disable-next-line no-await-in-loop
             const response = await fetch('http://localhost:3030')
             if (response.ok || response.status === 404) {
                 return true
             }
-        } catch{}
+        } catch {
+            // Server not ready yet
+        }
 
         // eslint-disable-next-line no-console
         console.log(`Waiting for server... (${i + 1}/${maxAttempts})`)
-        await new Promise((resolve) => setTimeout(resolve, 2000))
+        // eslint-disable-next-line no-await-in-loop
+        await new Promise<void>((resolve): void => {
+            setTimeout((): void => {
+                resolve()
+            }, 2000)
+        })
     }
 
     return false
@@ -111,7 +119,7 @@ async function takeScreenshot(browser: Browser, config: ScreenshotConfig): Promi
         await page.setViewportSize({height: 800, width: 1200})
 
         // Enable console logging for debugging
-        page.on('console', (msg) => {
+        page.on('console', (msg): void => {
             if (msg.type() === 'error') {
                 // eslint-disable-next-line no-console
                 console.log(`Browser console error: ${msg.text()}`)
@@ -218,6 +226,7 @@ export async function takeScreenshots(): Promise<void> {
         for (const config of SCREENSHOTS) {
             // eslint-disable-next-line no-console
             console.log(`📸 Taking screenshot: ${config.name}`)
+            // eslint-disable-next-line no-await-in-loop
             await takeScreenshot(browser, config)
         }
 

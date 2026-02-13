@@ -46,7 +46,7 @@ if (BUN_ENV === 'development') {
     bunchyArgs(cli, bunchyConfig)
 }
 
-void cli.usage('Usage: $0 [task]')
+cli.usage('Usage: $0 [task]')
     .detectLocale(false)
     .command('start', 'Start the Nonlinear service', (yargs): typeof yargs => { // eslint-disable-line @typescript-eslint/no-floating-promises
         // oxlint-disable-next-line no-console
@@ -86,7 +86,8 @@ void cli.usage('Usage: $0 [task]')
         const {handleRequest, sessionMiddleware} = await initMiddleware(bunchyConfig)
 
         // Create WebSocket managers
-        const {bunchyManager, wsManager} = createWebSocketManagers(undefined, sessionMiddleware)
+        // eslint-disable-next-line unicorn/no-null
+        const {bunchyManager, wsManager} = createWebSocketManagers(null, sessionMiddleware)
 
         // Map of endpoint to manager for the handler
         const wsManagers = new Map([
@@ -145,8 +146,8 @@ void cli.usage('Usage: $0 [task]')
 
         // Autostart agents if configured (command-line option takes precedence)
         const {autostartAgents} = await import('./api/agents.ts')
-        let autostartValue: boolean | string[] | undefined
-        if (argv.autostart !== undefined) {
+        let autostartValue: boolean | string[] | null = null
+        if ('autostart' in argv && argv.autostart !== null) {
             // Parse command-line option
             if (argv.autostart === 'true' || argv.autostart === '1') {
                 autostartValue = true
@@ -154,7 +155,7 @@ void cli.usage('Usage: $0 [task]')
                 autostartValue = false
             } else {
                 // Comma-separated list of agent IDs
-                autostartValue = argv.autostart.split(',').map((id): string => id.trim()).filter((id): boolean => id.length > 0)
+                autostartValue = argv.autostart.split(',').map((id: string): string => id.trim()).filter((id: string): boolean => id.length > 0) as string[]
             }
         }
         await autostartAgents(wsManager, autostartValue)
@@ -184,7 +185,7 @@ void cli.usage('Usage: $0 [task]')
         const pr = {
             author: argv.author,
             head_ref: argv.branch,
-            head_sha: argv.sha || undefined,
+            head_sha: argv.sha || null,
             is_fork: false,
             number: argv.number,
             repo_full_name: 'garage44/garage44',
@@ -193,6 +194,7 @@ void cli.usage('Usage: $0 [task]')
         const result = await deployPR(pr)
 
         if (result.success && result.deployment) {
+            // eslint-disable-next-line no-console
             console.log('\n✅ PR Deployment Successful!\n')
 
             const {extractWorkspacePackages, isApplicationPackage} = await import('./lib/deploy/workspace')
@@ -394,10 +396,10 @@ void cli.usage('Usage: $0 [task]')
                     process.stdout.write(formatReasoningMessage(message))
                 },
                 onToolExecution: (toolName: string, params: unknown): void => {
-                    process.stdout.write(formatToolExecution(toolName, params))
+                    process.stdout.write(formatToolExecution(toolName, params as Record<string, unknown>))
                 },
                 onToolResult: (toolName: string, result: {success: boolean; error?: unknown}): void => {
-                    process.stdout.write(formatToolResult(toolName, result.success, result.error))
+                    process.stdout.write(formatToolResult(toolName, result.success, result.error as string | undefined))
                 },
             })
         } else {
@@ -418,7 +420,7 @@ void cli.usage('Usage: $0 [task]')
         demandOption: true,
         describe: 'Agent ID from database',
         type: 'string',
-    }), async(argv) => {
+    }), async(argv): Promise<void> => {
         await initConfig(config)
         initDatabase()
 
@@ -473,7 +475,7 @@ void cli.usage('Usage: $0 [task]')
             alias: 't',
             describe: 'Ticket ID to work on',
             type: 'string',
-        }), async(argv) => {
+        }), async(argv): Promise<void> => {
         await initConfig(config)
         initDatabase()
 
@@ -550,7 +552,7 @@ void cli.usage('Usage: $0 [task]')
             default: false,
             describe: 'Run in interactive mode with real-time reasoning (like Claude Code)',
             type: 'boolean',
-        }), async(argv) => {
+        }), async(argv): Promise<void> => {
         await initConfig(config)
         await initDatabase()
 
@@ -611,10 +613,10 @@ void cli.usage('Usage: $0 [task]')
                     process.stdout.write(formatReasoningMessage(message))
                 },
                 onToolExecution: (toolName: string, params: unknown): void => {
-                    process.stdout.write(formatToolExecution(toolName, params))
+                    process.stdout.write(formatToolExecution(toolName, params as Record<string, unknown>))
                 },
                 onToolResult: (toolName: string, result: {success: boolean; error?: unknown}): void => {
-                    process.stdout.write(formatToolResult(toolName, result.success, result.error))
+                    process.stdout.write(formatToolResult(toolName, result.success, result.error as string | undefined))
                 },
             })
         } else {

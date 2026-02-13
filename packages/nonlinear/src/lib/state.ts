@@ -9,7 +9,7 @@ const persistantState = mergeDeep({
     panels: {
         context: {
             collapsed: false,
-            width: 600,
+            width: 600 as number,
         },
     },
 }, commonPersistantState) as typeof commonPersistantState & {

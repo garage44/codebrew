@@ -19,7 +19,7 @@ export const DEFAULT_AVATARS: Record<'planner' | 'developer' | 'reviewer', strin
  * Initialize agent avatars
  * Assigns default avatars to agents that don't have one
  */
-export function initAgentAvatars() {
+export function initAgentAvatars(): void {
     const agents = db.prepare(`
         SELECT id, name, type, avatar, display_name
         FROM agents
@@ -73,7 +73,7 @@ export function getAgentAvatar(agentId: string): string | null {
 /**
  * Set avatar for an agent
  */
-export function setAgentAvatar(agentId: string, avatar: string) {
+export function setAgentAvatar(agentId: string, avatar: string): void {
     db.prepare(`
         UPDATE agents
         SET avatar = ?

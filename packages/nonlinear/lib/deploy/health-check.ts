@@ -170,7 +170,11 @@ export async function waitForService(
 
         // Wait before next check
         // eslint-disable-next-line no-await-in-loop
-        await new Promise((resolve: () => void): void => setTimeout(resolve, checkIntervalMs))
+        await new Promise<void>((resolve): void => {
+            setTimeout((): void => {
+                resolve()
+            }, checkIntervalMs)
+        })
     }
 
     // Final check
@@ -208,7 +212,11 @@ export async function waitForPort(
 
         // Wait before next check
         // eslint-disable-next-line no-await-in-loop
-        await new Promise((resolve: () => void): void => setTimeout(resolve, checkIntervalMs))
+        await new Promise<void>((resolve): void => {
+            setTimeout((): void => {
+                resolve()
+            }, checkIntervalMs)
+        })
     }
 
     // Final check
@@ -247,7 +255,11 @@ export async function waitForHttpEndpoint(
 
         // Wait before next check
         // eslint-disable-next-line no-await-in-loop
-        await new Promise((resolve: () => void): void => setTimeout(resolve, checkIntervalMs))
+        await new Promise<void>((resolve): void => {
+            setTimeout((): void => {
+                resolve()
+            }, checkIntervalMs)
+        })
     }
 
     // Final check
@@ -316,14 +328,14 @@ export async function checkPRDeploymentHealth(
         })
     }
 
-    const allHealthy = checks.every((check) => check.result.healthy)
-    const failedChecks = checks.filter((check) => !check.result.healthy)
+    const allHealthy = checks.every((check): boolean => check.result.healthy)
+    const failedChecks = checks.filter((check): boolean => !check.result.healthy)
 
     return {
         checks,
         healthy: allHealthy,
         message: allHealthy ?
             'All health checks passed' :
-            `${failedChecks.length} health check(s) failed: ${failedChecks.map((c) => c.name).join(', ')}`,
+            `${failedChecks.length} health check(s) failed: ${failedChecks.map((c): string => c.name).join(', ')}`,
     }
 }

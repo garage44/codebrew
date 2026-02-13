@@ -16,12 +16,14 @@ export async function rules(): Promise<void> {
         if (!stats.isDirectory()) {
             // eslint-disable-next-line no-console
             console.error(`❌ ${nonlinearRulesPath} is not a directory`)
+            // eslint-disable-next-line unicorn/no-process-exit
             process.exit(1)
         }
     } catch(error: unknown) {
-        // eslint-disable-next-line no-console
-        console.error(`❌ Nonlinear rules directory not found: ${nonlinearRulesPath}`, error)
-        process.exit(1)
+            // eslint-disable-next-line no-console
+            console.error(`❌ Nonlinear rules directory not found: ${nonlinearRulesPath}`, error)
+            // eslint-disable-next-line unicorn/no-process-exit
+            process.exit(1)
     }
 
     // Create .cursor directory if it doesn't exist
@@ -29,9 +31,10 @@ export async function rules(): Promise<void> {
     try {
         await mkdir(cursorDir, {recursive: true})
     } catch(error: unknown) {
-        // eslint-disable-next-line no-console
-        console.error('❌ Failed to create .cursor directory:', error)
-        process.exit(1)
+            // eslint-disable-next-line no-console
+            console.error('❌ Failed to create .cursor directory:', error)
+            // eslint-disable-next-line unicorn/no-process-exit
+            process.exit(1)
     }
 
     /*
@@ -56,6 +59,7 @@ export async function rules(): Promise<void> {
         } catch(error: unknown) {
             // eslint-disable-next-line no-console
             console.error('❌ Failed to remove existing file/directory/symlink:', error)
+            // eslint-disable-next-line unicorn/no-process-exit
             process.exit(1)
         }
     } catch{
@@ -77,6 +81,7 @@ export async function rules(): Promise<void> {
             if (!linkStats.isSymbolicLink()) {
                 // eslint-disable-next-line no-console
                 console.error('❌ Created symlink but verification failed: not a symlink')
+                // eslint-disable-next-line unicorn/no-process-exit
                 process.exit(1)
             }
             const target = await readlink(cursorRulesPath)
@@ -87,11 +92,13 @@ export async function rules(): Promise<void> {
         } catch(error: unknown) {
             // eslint-disable-next-line no-console
             console.error('❌ Failed to verify symlink:', error)
+            // eslint-disable-next-line unicorn/no-process-exit
             process.exit(1)
         }
     } catch(error: unknown) {
         // eslint-disable-next-line no-console
         console.error('❌ Failed to create symlink:', error)
+        // eslint-disable-next-line unicorn/no-process-exit
         process.exit(1)
     }
 }

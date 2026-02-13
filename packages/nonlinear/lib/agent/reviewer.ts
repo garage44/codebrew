@@ -4,7 +4,7 @@
  */
 
 import {type AgentContext, type AgentResponse, BaseAgent} from './base.ts'
-import {db} from '../database.ts'
+import {type Repository, db} from '../database.ts'
 import {logger} from '../../service.ts'
 import {createGitPlatform} from '../git/index.ts'
 import {addAgentComment} from './comments.ts'
@@ -48,14 +48,21 @@ export class ReviewerAgent extends BaseAgent {
 
             this.log(`Reviewing ticket ${ticket.id}: ${ticket.title}`)
 
+            // Get repository details
+            const repository = db
+                .prepare('SELECT * FROM repositories WHERE id = ?')
+                .get(ticket.repository_id) as Repository | undefined
+
+            if (!repository) {
+                this.log(`Repository ${ticket.repository_id} not found`, 'warn')
+                return {
+                    message: 'Repository not found',
+                    success: false,
+                }
+            }
+
             // Get git platform adapter
-            const repo = {
-                config: ticket.config,
-                id: ticket.repository_id,
-                path: ticket.path,
-                platform: ticket.platform,
-                remote_url: ticket.remote_url,
-            } as const
+            const repo: Repository = repository
 
             const gitPlatform = createGitPlatform(repo)
 
@@ -107,7 +114,7 @@ MR Status: ${mrStatus.state}
 MR URL: ${mrStatus.url}
 
 Previous Comments:
-${comments.map((c) => `- ${c.author_type} (${c.author_id}): ${c.content}`).join('\n')}
+${comments.map((c): string => `- ${c.author_type} (${c.author_id}): ${c.content}`).join('\n')}
 
 Please review the changes and provide feedback.`
 
@@ -119,6 +126,9 @@ Please review the changes and provide feedback.`
                 feedback: {message: string; type: string}[]
                 issues?: string[]
                 suggestions?: string[]
+            } = {
+                approved: false,
+                feedback: [],
             }
 
             try {
@@ -243,10 +253,10 @@ You have access to tools for:
 When given an instruction, interpret it and use the appropriate tools to complete the task.
 Provide constructive feedback and check for code quality, tests, and adherence to requirements.`
 
-        const agentContext = context || this.buildContext({})
+        const agentContext = context || this.buildToolContext({})
 
         try {
-            const response = await this.respondWithTools(systemPrompt, instruction, 4096, agentContext)
+            const response = await this.respondWithTools(systemPrompt, instruction, 4096, agentContext as AgentContext)
             return {
                 message: response,
                 success: true,

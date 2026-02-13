@@ -148,7 +148,7 @@ export async function searchCode(
             WHERE repository_id = ?
                 AND embedding MATCH ?
         `
-        const params: unknown[] = [repositoryId, embeddingJson]
+        const params: (string | number)[] = [repositoryId, embeddingJson]
 
         if (options?.fileType) {
             sql += ' AND file_path LIKE ?'
@@ -159,7 +159,7 @@ export async function searchCode(
         params.push(options?.limit || 10)
 
         // 3. Search against STORED embeddings
-        const results = db.prepare(sql).all(...(params as unknown[])) as CodeSearchResult[]
+        const results = db.prepare(sql).all(...params) as CodeSearchResult[]
 
         return results
     } catch(error: unknown) {

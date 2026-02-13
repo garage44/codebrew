@@ -50,7 +50,7 @@ async function generateVoyageEmbedding(text: string): Promise<Float32Array> {
     })
 
     if (!response.ok) {
-        const error = await response.json().catch(() => ({error: {message: response.statusText}}))
+        const error = await response.json().catch((): {error: {message: string}} => ({error: {message: response.statusText}}))
         throw new Error(`Voyage AI API error: ${error.error?.message || response.statusText}`)
     }
 
@@ -110,7 +110,7 @@ async function generateOpenAIEmbedding(text: string): Promise<Float32Array> {
     })
 
     if (!response.ok) {
-        const error = await response.json().catch(() => ({error: {message: response.statusText}}))
+        const error = await response.json().catch((): {error: {message: string}} => ({error: {message: response.statusText}}))
         throw new Error(`OpenAI API error: ${error.error?.message || response.statusText}`)
     }
 
@@ -134,7 +134,7 @@ export async function generateDocEmbeddings(docId: string, content: string): Pro
 
     // Generate embeddings for each chunk
     const chunksWithEmbeddings = await Promise.all(
-        chunks.map(async(chunk) => ({
+        chunks.map(async(chunk): Promise<Chunk & {embedding: Float32Array}> => ({
             ...chunk,
             embedding: await generateEmbedding(chunk.text),
         })),
@@ -224,11 +224,11 @@ export async function generateTicketEmbedding(ticketId: string, title: string, d
     const workspace = ticket ?
         db.prepare('SELECT name FROM repositories WHERE id = ?').get(ticket.repository_id) as
             {name: string} | undefined :
-        undefined
+        null
 
     // Get ticket labels
     const labels = db.prepare('SELECT label FROM ticket_labels WHERE ticket_id = ?').all(ticketId) as {label: string}[]
-    const ticketLabels = labels.map((l) => l.label)
+    const ticketLabels = labels.map((l): string => l.label)
 
     // Get ticket status
     const ticketStatus = db.prepare('SELECT status FROM tickets WHERE id = ?').get(ticketId) as {status: string} | undefined

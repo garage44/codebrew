@@ -203,14 +203,14 @@ server {
                 // Write the "removed" config
                 const tempFile = `/tmp/pr-${prNumber}-${packageName}-removed.nginx.conf`
                 // eslint-disable-next-line no-await-in-loop
-                await Bun.write(tempFile, removedContent) as Promise<number>
+                await Bun.write(tempFile, removedContent)
                 // eslint-disable-next-line no-await-in-loop
-                await $`sudo mv ${tempFile} ${configFile}`.quiet() as Promise<unknown>
+                await $`sudo mv ${tempFile} ${configFile}`.quiet()
 
                 // Ensure symlink exists
                 if (!existsSync(enabledLink)) {
                     // eslint-disable-next-line no-await-in-loop
-                    await $`sudo ln -s ${configFile} ${enabledLink}`.quiet() as Promise<unknown>
+                    await $`sudo ln -s ${configFile} ${enabledLink}`.quiet()
                 }
             }
 

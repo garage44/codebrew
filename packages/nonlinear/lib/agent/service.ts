@@ -146,7 +146,7 @@ class AgentService {
             task_data?: TaskData
             task_id?: string
             task_type?: string
-        }) => {
+        }): Promise<void> => {
             if (!this.logger) {return}
 
             const taskId = data.task_id as string
@@ -188,6 +188,7 @@ class AgentService {
                 const maxWait = 30_000
                 const startTime = Date.now()
                 while (this.processingTask && (Date.now() - startTime) < maxWait) {
+                    // eslint-disable-next-line no-await-in-loop
                     await new Promise<void>((resolve): void => {
                         setTimeout((): void => {
                             resolve()
@@ -316,7 +317,7 @@ class AgentService {
             markTaskCompleted(taskId)
 
             this.lastRun = Date.now()
-            this.lastError = undefined
+            this.lastError = null
             this.logger.info(`[AgentService] Completed task ${taskId}`)
         } catch(error: unknown) {
             const errorMsg = error instanceof Error ? error.message : String(error)

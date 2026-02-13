@@ -78,6 +78,7 @@ export async function validateSignature(payload: string, signature: string, secr
     for (let i = 0; i < calculatedHash.length; i += 1) {
         const calculatedCode = calculatedHash.codePointAt(i) ?? 0
         const sigCode = sigHash.codePointAt(i) ?? 0
+        // eslint-disable-next-line no-bitwise
         result |= calculatedCode ^ sigCode
     }
 
@@ -284,6 +285,7 @@ export async function deploy(): Promise<{message: string; success: boolean}> {
             try {
                 // eslint-disable-next-line no-console
                 console.log(`[deploy] Restarting ${packageName} service...`)
+                // eslint-disable-next-line no-await-in-loop
                 const restartResult = await $`sudo /usr/bin/systemctl restart ${packageName}.service`.nothrow()
                 if (restartResult.exitCode === 0) {
                     // eslint-disable-next-line no-console
@@ -340,7 +342,7 @@ export async function deploy(): Promise<{message: string; success: boolean}> {
         return {message: 'Deployment completed successfully', success: true}
     } catch(error: unknown) {
         const message = error instanceof Error ? error.message : String(error)
-        const stack = error instanceof Error ? error.stack : undefined
+        const stack = error instanceof Error ? error.stack || null : null
         // eslint-disable-next-line no-console
         console.error(`[deploy] Deployment failed: ${message}`)
         if (stack) {
@@ -480,12 +482,14 @@ async function handlePullRequestEvent(event: PullRequestWebhookEvent): Promise<R
 
                 // eslint-disable-next-line no-console
                 console.log(`[webhook] Waiting for ${serviceName} to become active...`)
+                // eslint-disable-next-line no-await-in-loop
                 const serviceCheck = await waitForService(serviceName, 60_000, 2000)
                 serviceChecks.push({name: serviceName, result: serviceCheck})
 
                 if (serviceCheck.healthy) {
                     // eslint-disable-next-line no-console
                     console.log(`[webhook] Waiting for port ${port} to become listening...`)
+                    // eslint-disable-next-line no-await-in-loop
                     const portCheck = await waitForPort(port, 60_000, 2000)
                     serviceChecks.push({name: `port-${port}`, result: portCheck})
                 }
@@ -503,30 +507,32 @@ async function handlePullRequestEvent(event: PullRequestWebhookEvent): Promise<R
 
                 // eslint-disable-next-line no-console
                 console.log(`[webhook] Checking HTTP endpoint: ${httpsUrl}`)
+                // eslint-disable-next-line no-await-in-loop
                 const httpCheck = await waitForHttpEndpoint(httpsUrl, 120_000, 3000, 10_000)
                 httpChecks.push({name: httpsUrl, result: httpCheck})
             }
 
             // Combine all checks
             const allChecks = [...serviceChecks, ...httpChecks]
-            const allHealthy = allChecks.every((check) => check.result.healthy)
-            const failedChecks = allChecks.filter((check) => !check.result.healthy)
+            const allHealthy = allChecks.every((check: {name: string; result: {healthy: boolean; message: string; details?: unknown}}): boolean => check.result.healthy)
+            const failedChecks = allChecks.filter((check: {name: string; result: {healthy: boolean; message: string; details?: unknown}}): boolean => !check.result.healthy)
 
             if (!allHealthy) {
                 // eslint-disable-next-line no-console
-                console.error(`[webhook] PR #${prNumber} health checks failed:`, failedChecks.map((c) => c.name))
-                await updatePRDeployment(prNumber, {status: 'failed'}).catch((error) => {
+                console.error(`[webhook] PR #${prNumber} health checks failed:`, failedChecks.map((c: {name: string}): string => c.name))
+                // eslint-disable-next-line no-await-in-loop
+                await updatePRDeployment(prNumber, {status: 'failed'}).catch((error: unknown): void => {
                     // eslint-disable-next-line no-console
                     console.error('[webhook] Failed to update deployment status:', error)
                 })
 
                 return new Response(JSON.stringify({
-                    allChecks: allChecks.map((c) => ({
+                    allChecks: allChecks.map((c: {name: string; result: {healthy: boolean; message: string}}): {healthy: boolean; message: string; name: string} => ({
                         healthy: c.result.healthy,
                         message: c.result.message,
                         name: c.name,
                     })),
-                    failedChecks: failedChecks.map((c) => ({
+                    failedChecks: failedChecks.map((c: {name: string; result: {details?: unknown; message: string}}): {details?: unknown; message: string; name: string} => ({
                         details: c.result.details,
                         message: c.result.message,
                         name: c.name,
@@ -549,7 +555,7 @@ async function handlePullRequestEvent(event: PullRequestWebhookEvent): Promise<R
                     ports: deployment.ports,
                     url: `https://pr-${prNumber}-nonlinear.${baseDomain}`,
                 },
-                healthChecks: allChecks.map((c) => ({
+                healthChecks: allChecks.map((c: {name: string; result: {healthy: boolean; message: string}}): {healthy: boolean; message: string; name: string} => ({
                     healthy: c.result.healthy,
                     message: c.result.message,
                     name: c.name,
@@ -564,7 +570,7 @@ async function handlePullRequestEvent(event: PullRequestWebhookEvent): Promise<R
             })
         } catch(error) {
             const errorMessage = error instanceof Error ? error.message : String(error)
-            const errorStack = error instanceof Error ? error.stack : undefined
+            const errorStack = error instanceof Error ? error.stack || null : null
             // eslint-disable-next-line no-console
             console.error(`[webhook] PR #${prNumber} deployment error:`, errorMessage)
             if (errorStack) {
@@ -573,7 +579,8 @@ async function handlePullRequestEvent(event: PullRequestWebhookEvent): Promise<R
             }
 
             // Update deployment status to failed
-            await updatePRDeployment(prNumber, {status: 'failed'}).catch((error) => {
+            // eslint-disable-next-line no-await-in-loop
+            await updatePRDeployment(prNumber, {status: 'failed'}).catch((error: unknown): void => {
                 // eslint-disable-next-line no-console
                 console.error('[webhook] Failed to update deployment status:', error)
             })
@@ -636,7 +643,7 @@ export async function handleWebhook(req: Request): Promise<Response> {
     }
 
     // Parse webhook payload
-    let event
+    let event: unknown = null
     try {
         event = JSON.parse(payload)
     } catch {
@@ -663,7 +670,8 @@ export async function handleWebhook(req: Request): Promise<Response> {
     }
 
     // Only process push events to main branch
-    if (event.ref !== 'refs/heads/main' && event.ref) {
+    const pushEvent = event as {ref?: string}
+    if (pushEvent.ref !== 'refs/heads/main' && pushEvent.ref) {
         return new Response(JSON.stringify({message: 'Ignored: not main branch'}), {
             headers: {'Content-Type': 'application/json'},
             status: 200,
@@ -692,10 +700,10 @@ export async function handleWebhook(req: Request): Promise<Response> {
      */
     // eslint-disable-next-line no-console
     console.log('[webhook] Updating active PR deployments with main branch changes...')
-    updateAllPRDeploymentsWithMain().then((result) => {
+    updateAllPRDeploymentsWithMain().then((result: {message: string}): void => {
         // eslint-disable-next-line no-console
         console.log(`[webhook] PR deployments update: ${result.message}`)
-    }).catch((error) => {
+    }).catch((error: unknown): void => {
         const errorMessage = error instanceof Error ? error.message : String(error)
         // eslint-disable-next-line no-console
         console.error(`[webhook] Error updating PR deployments: ${errorMessage}`)

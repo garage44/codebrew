@@ -9,8 +9,7 @@ import {config, initConfig} from '../config.ts'
 import {db, initDatabase} from '../database.ts'
 import {loggerTransports} from '@garage44/common/service'
 import {indexCodeFile} from '../docs/code-embeddings.ts'
-import {generateDocEmbeddings} from '../docs/embeddings.ts'
-import {generateTicketEmbedding} from '../docs/embeddings.ts'
+import {generateDocEmbeddings, generateTicketEmbedding} from '../docs/embeddings.ts'
 
 export interface IndexingJob {
     completed_at?: number
@@ -87,7 +86,7 @@ class IndexingService {
         this.running = false
         if (this.pollTimer) {
             clearInterval(this.pollTimer)
-            this.pollTimer = undefined
+            this.pollTimer = null
         }
 
         if (this.logger) {

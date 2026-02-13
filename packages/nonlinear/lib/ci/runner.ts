@@ -65,11 +65,13 @@ export class CIRunner {
 
                 // Run tests
                 logger.info(`[CI] Running tests (attempt ${attempt}/${this.maxAttempts})`)
+                // eslint-disable-next-line no-await-in-loop
                 const testResult = await $`bun test`.quiet().nothrow()
 
                 if (testResult.exitCode === 0) {
                     // Tests passed, run linting
                     logger.info('[CI] Tests passed, running linting')
+                    // eslint-disable-next-line no-await-in-loop
                     const lintResult = await $`bun run lint:ts`.quiet().nothrow()
 
                     if (lintResult.exitCode === 0) {
@@ -88,10 +90,12 @@ export class CIRunner {
 
                     if (attempt < this.maxAttempts) {
                         logger.info('[CI] Linting failed, attempting auto-fix')
+                        // eslint-disable-next-line no-await-in-loop
                         const fixResult = await this.attemptFix('linting', lintError, repoPath)
                         if (fixResult) {
                             fixesApplied.push(fixResult)
-                            // Retry after fix
+                            // Retry after fix - continue is necessary here for retry logic
+                            // eslint-disable-next-line no-continue
                             continue
                         }
                     }
@@ -102,10 +106,12 @@ export class CIRunner {
 
                     if (attempt < this.maxAttempts) {
                         logger.info('[CI] Tests failed, attempting auto-fix')
+                        // eslint-disable-next-line no-await-in-loop
                         const fixResult = await this.attemptFix('tests', testError, repoPath)
                         if (fixResult) {
                             fixesApplied.push(fixResult)
-                            // Retry after fix
+                            // Retry after fix - continue is necessary here for retry logic
+                            // eslint-disable-next-line no-continue
                             continue
                         }
                     }
@@ -187,7 +193,7 @@ Generate a command to fix this issue.`
             })
 
             if (!response.ok) {
-                const error = await response.json().catch(() => ({error: {message: 'Unknown error'}}))
+                const error = await response.json().catch((): {error: {message: string}} => ({error: {message: 'Unknown error'}}))
                 throw new Error(error.error?.message || `API error: ${response.status}`)
             }
 
@@ -214,7 +220,7 @@ Generate a command to fix this issue.`
                 updateUsageFromHeaders({
                     limit,
                     remaining,
-                    reset: resetHeader || undefined,
+                    reset: resetHeader || null,
                 })
             } else {
                 logger.warn('[CI Runner] Rate limit headers not found in response')
@@ -226,7 +232,7 @@ Generate a command to fix this issue.`
             }
 
             // Parse response
-            let fixPlan: {command: string; explanation: string}
+            let fixPlan: {command: string; explanation: string} = {command: '', explanation: ''}
             try {
                 const jsonMatch = content.text.match(/```json\n([\s\S]*?)\n```/) || content.text.match(/```\n([\s\S]*?)\n```/)
                 const jsonStr = jsonMatch ? jsonMatch[1] : content.text

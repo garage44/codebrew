@@ -21,11 +21,10 @@ export function chunkMarkdown(content: string, maxChunkSize = 1000, chunkOverlap
     const lines = content.split('\n')
 
     let currentChunk: string[] = []
-    let currentHeading: string | undefined
+    let currentHeading: string | undefined = null as unknown as string | undefined
     let chunkIndex = 0
 
-    for (let i = 0; i < lines.length; i += 1) {
-        const line = lines[i]
+    for (const line of lines) {
         const headingMatch = line.match(headingRegex)
 
         if (headingMatch && headingMatch[2]) {

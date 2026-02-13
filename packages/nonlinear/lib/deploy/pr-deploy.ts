@@ -375,6 +375,7 @@ export async function deployPR(pr: PRMetadata): Promise<{
         // eslint-disable-next-line no-console
         console.log('[pr-deploy] Starting services...')
         for (const packageName of packagesToDeploy) {
+            // eslint-disable-next-line no-await-in-loop
             const startResult = await $`sudo systemctl start pr-${pr.number}-${packageName}.service`.nothrow()
             if (startResult.exitCode === 0) {
                 // eslint-disable-next-line no-console
@@ -390,6 +391,7 @@ export async function deployPR(pr: PRMetadata): Promise<{
                 // eslint-disable-next-line no-console
                 console.error(`[pr-deploy] systemctl stdout: ${stdout}`)
                 // Check service status for more details
+                // eslint-disable-next-line no-await-in-loop
                 const statusResult = await $`sudo systemctl status pr-${pr.number}-${packageName}.service --no-pager -l`.nothrow()
                 if (statusResult.exitCode === 0) {
                     const statusOutput = statusResult.stdout?.toString() || ''
@@ -572,6 +574,7 @@ async function updateExistingPRDeployment(pr: PRMetadata): Promise<{
             const serviceName = `pr-${pr.number}-${packageName}.service`
 
             // Try to stop via systemctl first
+            // eslint-disable-next-line no-await-in-loop
             const stopResult = await $`sudo /usr/bin/systemctl stop ${serviceName}`.nothrow()
             if (stopResult.exitCode === 0) {
                 // eslint-disable-next-line no-console
@@ -590,6 +593,7 @@ async function updateExistingPRDeployment(pr: PRMetadata): Promise<{
                 // Try to kill any processes holding the port as fallback
                 // eslint-disable-next-line no-console
                 console.log(`[pr-deploy] Attempting to kill processes on port ${port}...`)
+                // eslint-disable-next-line no-await-in-loop
                 const killResult = await $`sudo fuser -k ${port}/tcp`.nothrow()
                 if (killResult.exitCode === 0) {
                     // eslint-disable-next-line no-console
@@ -614,6 +618,7 @@ async function updateExistingPRDeployment(pr: PRMetadata): Promise<{
         // eslint-disable-next-line no-console
         console.log('[pr-deploy] Starting services...')
         for (const packageName of packagesToDeploy) {
+            // eslint-disable-next-line no-await-in-loop
             const startResult = await $`sudo /usr/bin/systemctl start pr-${pr.number}-${packageName}.service`.nothrow()
             if (startResult.exitCode === 0) {
                 // eslint-disable-next-line no-console
@@ -622,6 +627,7 @@ async function updateExistingPRDeployment(pr: PRMetadata): Promise<{
                 const stderr = startResult.stderr?.toString() || ''
                 const stdout = startResult.stdout?.toString() || ''
                 // Check if service exists
+                // eslint-disable-next-line no-await-in-loop
                 const statusResult = await $`sudo systemctl status pr-${pr.number}-${packageName}.service --no-pager -l`.nothrow()
                 const statusOutput = statusResult.stdout?.toString() || ''
                 throw new Error(
@@ -832,9 +838,11 @@ async function updatePRDeploymentWithMain(deployment: PRDeployment): Promise<boo
             const port = deployment.ports[packageName as keyof typeof deployment.ports] || deployment.ports.nonlinear
             const serviceName = `pr-${deployment.number}-${packageName}.service`
 
+            // eslint-disable-next-line no-await-in-loop
             const stopResult = await $`sudo /usr/bin/systemctl stop ${serviceName}`.nothrow()
             if (stopResult.exitCode !== 0) {
                 // Try to kill processes on the port
+                // eslint-disable-next-line no-await-in-loop
                 await $`sudo fuser -k ${port}/tcp`.nothrow()
             }
         }
@@ -850,6 +858,7 @@ async function updatePRDeploymentWithMain(deployment: PRDeployment): Promise<boo
         // eslint-disable-next-line no-console
         console.log(`[pr-deploy] Starting services for PR #${deployment.number}...`)
         for (const packageName of packagesToDeploy) {
+            // eslint-disable-next-line no-await-in-loop
             const startResult = await $`sudo /usr/bin/systemctl start pr-${deployment.number}-${packageName}.service`.nothrow()
             if (startResult.exitCode !== 0) {
                 const stderr = startResult.stderr?.toString() || ''
@@ -920,6 +929,7 @@ export async function updateAllPRDeploymentsWithMain(): Promise<{
             // eslint-disable-next-line no-console
             console.log(`[pr-deploy] Updating PR #${deployment.number} (${deployment.head_ref})...`)
 
+            // eslint-disable-next-line no-await-in-loop
             const success = await updatePRDeploymentWithMain(deployment)
 
             if (success) {
@@ -989,6 +999,7 @@ async function generateSystemdServices(deployment: PRDeployment, packagesToDeplo
         if (!existsSync(workdir)) {
             // eslint-disable-next-line no-console
             console.warn(`[pr-deploy] Package directory not found: ${workdir}, skipping ${packageName}`)
+            // eslint-disable-next-line no-continue
             continue
         }
 
@@ -1034,16 +1045,20 @@ WantedBy=multi-user.target
          * Use a temporary file and then move it with sudo to avoid shell escaping issues
          */
         const tempFile = `/tmp/pr-${deployment.number}-${packageName}.service`
+        // eslint-disable-next-line no-await-in-loop
         await Bun.write(tempFile, content)
+        // eslint-disable-next-line no-await-in-loop
         const writeResult = await $`sudo mv ${tempFile} ${serviceFile}`.nothrow()
         if (writeResult.exitCode !== 0) {
             const stderr = writeResult.stderr?.toString() || ''
             const stdout = writeResult.stdout?.toString() || ''
             // Clean up temp file if move failed
             try {
-                if (await Bun.file(tempFile).exists()) {
-                    await Bun.file(tempFile).unlink()
-                }
+                    // eslint-disable-next-line no-await-in-loop
+                    if (await Bun.file(tempFile).exists()) {
+                        // eslint-disable-next-line no-await-in-loop
+                        await Bun.file(tempFile).unlink()
+                    }
             } catch {
                 // Ignore cleanup errors
             }
@@ -1221,14 +1236,18 @@ server {
          * Use a temporary file and then move it with sudo to avoid shell escaping issues
          */
         const tempNginxFile = `/tmp/pr-${prNumber}-${packageName}.nginx.conf`
+        // eslint-disable-next-line no-await-in-loop
         await Bun.write(tempNginxFile, content)
+        // eslint-disable-next-line no-await-in-loop
         const nginxWriteResult = await $`sudo mv ${tempNginxFile} ${configFile}`.nothrow()
         if (nginxWriteResult.exitCode !== 0) {
             const stderr = nginxWriteResult.stderr?.toString() || ''
             const stdout = nginxWriteResult.stdout?.toString() || ''
             // Clean up temp file if move failed
             try {
+                // eslint-disable-next-line no-await-in-loop
                 if (await Bun.file(tempNginxFile).exists()) {
+                    // eslint-disable-next-line no-await-in-loop
                     await Bun.file(tempNginxFile).unlink()
                 }
             } catch {
@@ -1239,6 +1258,7 @@ server {
 
         // Create symlink if it doesn't exist
         if (!existsSync(enabledLink)) {
+            // eslint-disable-next-line no-await-in-loop
             await $`sudo ln -s ${configFile} ${enabledLink}`.quiet()
         }
     }

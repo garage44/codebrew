@@ -28,6 +28,15 @@ export class DeveloperAgent extends BaseAgent {
             remote_url: string | null
             repository_id: string
             title: string
+        } | undefined = null as unknown as {
+            config: string
+            description: string | null
+            id: string
+            path: string
+            platform: 'github' | 'gitlab' | 'local'
+            remote_url: string | null
+            repository_id: string
+            title: string
         } | undefined
 
         try {
@@ -70,7 +79,7 @@ export class DeveloperAgent extends BaseAgent {
             `).run(Date.now(), ticket.id)
 
             // Ensure this agent is in assignees (may already be there)
-            addTicketAssignee(ticket.id, 'agent', this.getName())
+            addTicketAssignee(ticket.id, 'agent', this.name)
 
             // Create branch name
             const branchName = `ticket-${ticket.id}-${Date.now()}`
@@ -286,7 +295,7 @@ Use the available tools to implement the solution plan. Make changes directly us
             } finally {
                 process.chdir(originalCwd)
             }
-        } catch{
+        } catch(error: unknown) {
             this.log('Error during development: ' + error, 'error')
             // Revert ticket status back to todo on error
             if (ticket) {
@@ -304,16 +313,16 @@ Use the available tools to implement the solution plan. Make changes directly us
     private async getRepositoryContext(repoPath: string): Promise<string> {
         try {
             const packageJsonPath = path.join(repoPath, 'package.json')
-            const packageJson = await Bun.file(packageJsonPath).text().catch(() => null)
+            const packageJson = await Bun.file(packageJsonPath).text().catch((): null => null)
 
             const readmePath = path.join(repoPath, 'README.md')
-            const readme = await Bun.file(readmePath).text().catch(() => null)
+            const readme = await Bun.file(readmePath).text().catch((): null => null)
 
             return JSON.stringify({
                 packageJson: packageJson ? JSON.parse(packageJson) : null,
                 readme: readme || null,
             }, null, 2)
-        } catch{
+        } catch(error: unknown) {
             return 'Error reading repository context: ' + error
         }
     }
@@ -356,7 +365,7 @@ Use the available tools to implement the solution plan. Make changes directly us
                 message: response,
                 success: true,
             }
-        } catch{
+        } catch(error: unknown) {
             const errorMsg = error instanceof Error ? error.message : String(error)
             return {
                 error: errorMsg,

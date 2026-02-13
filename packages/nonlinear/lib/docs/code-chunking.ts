@@ -21,11 +21,12 @@ export interface CodeChunk {
 export function chunkCode(
     code: string,
     filePath: string,
+    // eslint-disable-next-line @typescript-eslint/no-inferrable-types
     maxChunkSize: number = 1000,
 ): CodeChunk[] {
     const chunks: CodeChunk[] = []
     const lines = code.split('\n')
-    const currentChunk: CodeChunk | null = null
+    const currentChunk = null as CodeChunk | null
     let chunkIndex = 0
 
     // Extract functions

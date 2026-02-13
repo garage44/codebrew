@@ -112,7 +112,7 @@ export async function publish(): Promise<void> {
         console.log(`📦 Discovered packages: ${packages.join(', ')}\n`)
 
         // Build packages list with paths
-        const packageList = packages.map((pkg) => ({
+        const packageList = packages.map((pkg): {name: string; path: string} => ({
             name: `@garage44/${pkg}`,
             path: `packages/${pkg}`,
         }))
@@ -132,6 +132,7 @@ export async function publish(): Promise<void> {
         } catch(error) {
             // eslint-disable-next-line no-console
             console.warn('⚠️ Screenshot generation failed:', error.message)
+            // eslint-disable-next-line unicorn/no-process-exit
             process.exit(1)
         }
 
@@ -151,7 +152,7 @@ export async function publish(): Promise<void> {
         // 4. Collect current versions and bump them
         const packageVersions: Record<string, string> = {}
         for (const packageName of publishOrder) {
-            const packageInfo = packageList.find((pkg) => pkg.name === packageName)
+            const packageInfo = packageList.find((pkg): boolean => pkg.name === packageName)
             if (packageInfo) {
                 const packagePath = join(workspaceRoot, packageInfo.path)
                 // eslint-disable-next-line no-await-in-loop
@@ -168,7 +169,7 @@ export async function publish(): Promise<void> {
 
         // 5. Update versions and publish
         for (const packageName of publishOrder) {
-            const packageInfo = packageList.find((pkg) => pkg.name === packageName)
+            const packageInfo = packageList.find((pkg): boolean => pkg.name === packageName)
             if (packageInfo) {
                 // eslint-disable-next-line no-console
                 console.log(`🚀 Publishing ${packageName}...`)
@@ -192,9 +193,11 @@ export async function publish(): Promise<void> {
 
                 try {
                     // Update version
+                    // eslint-disable-next-line no-await-in-loop
                     await updateVersion(packagePath, packageVersions[packageName])
 
                     // Publish
+                    // eslint-disable-next-line no-await-in-loop
                     await $`cd ${packagePath} && bun publish`
                     // eslint-disable-next-line no-console
                     console.log(`✅ ${packageName} published successfully`)
@@ -206,6 +209,7 @@ export async function publish(): Promise<void> {
                     // Clean up copied README for expressio package
                     if (readmeCopied) {
                         try {
+                            // eslint-disable-next-line no-await-in-loop
                             await unlink(join(packagePath, 'README.md'))
                             // eslint-disable-next-line no-console
                             console.log('🧹 Removed copied README.md from expressio package')
@@ -230,6 +234,7 @@ export async function publish(): Promise<void> {
         try {
             // Add all modified package.json files
             for (const packageInfo of packageList) {
+                // eslint-disable-next-line no-await-in-loop
                 await $`git add ${packageInfo.path}/package.json`
             }
 
@@ -238,7 +243,7 @@ export async function publish(): Promise<void> {
 
             // Create commit message with all version changes
             const versionChanges = publishOrder
-                .map((name) => `${name}@${packageVersions[name]}`)
+                .map((name): string => `${name}@${packageVersions[name]}`)
                 .join(', ')
 
             await $`git commit -m "chore: bump versions and update screenshots - ${versionChanges}"`
@@ -260,6 +265,7 @@ export async function publish(): Promise<void> {
     } catch(error) {
         // eslint-disable-next-line no-console
         console.error('❌ Publish failed:', error.message)
+        // eslint-disable-next-line unicorn/no-process-exit
         process.exit(1)
     }
 }

@@ -60,7 +60,7 @@ export async function unifiedVectorSearch(
         WHERE embedding MATCH ?
     `
 
-    const params: unknown[] = [embeddingJson]
+    const params: (string | number)[] = [embeddingJson]
 
     // Filter by content type
     if (contentType !== 'both') {
@@ -124,20 +124,20 @@ export async function unifiedVectorSearch(
                     `).all(doc.id) as {label: string}[]
                     const docTags = new Set(docLabels.map((l): string => l.label))
                     const hasMatchingTag = filters.tags.some((tag): boolean => docTags.has(tag))
-                    if (hasMatchingTag) {
+                    if (hasMatchingTag && result.chunk_index !== null) {
                         docResults.push({
                             chunk: {
-                                index: result.chunk_index!,
+                                index: result.chunk_index,
                                 score,
                                 text: result.chunk_text,
                             },
                             doc,
                         })
                     }
-                } else {
+                } else if (result.chunk_index !== null) {
                     docResults.push({
                         chunk: {
-                            index: result.chunk_index!,
+                            index: result.chunk_index,
                             score,
                             text: result.chunk_text,
                         },

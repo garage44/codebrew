@@ -103,14 +103,25 @@ export class PlannerAgent extends BaseAgent {
             }
 
             // Build context for LLM
-            const ticketsContext = backlogTickets.map((ticket) => {
+            const ticketsContext = backlogTickets.map((ticket): {
+                created_at: string
+                current_priority: number | null
+                description: string
+                id: string
+                priority: number
+                repository: string
+                repository_name: string
+                title: string
+            } => {
                 const repo = repositories.get(ticket.repository_id)
                 return {
                     created_at: new Date(ticket.created_at).toISOString(),
                     current_priority: ticket.priority,
                     description: ticket.description || '',
                     id: ticket.id,
+                    priority: ticket.priority ?? 0,
                     repository: repo?.name || 'Unknown',
+                    repository_name: repo?.name || 'Unknown',
                     title: ticket.title,
                 }
             })
@@ -157,7 +168,7 @@ ${JSON.stringify(ticketsContext, null, 2)}`
                 reasoning: string
                 should_move_to_todo: boolean
                 ticket_id: string
-            }[]
+            }[] = []
 
             try {
                 // Try to extract JSON from response (might have markdown code blocks)
@@ -181,7 +192,7 @@ ${JSON.stringify(ticketsContext, null, 2)}`
                 WHERE id = ?
             `)
 
-            const updateTransaction = db.transaction((prioritizations) => {
+            const updateTransaction = db.transaction((prioritizations): void => {
                 for (const p of prioritizations) {
                     const newStatus = p.should_move_to_todo ? 'todo' : 'backlog'
                     updateStmt.run(p.priority, newStatus, Date.now(), p.ticket_id)
@@ -253,7 +264,7 @@ ${JSON.stringify(ticketsContext, null, 2)}`
 
             // Get relevant documentation for this ticket
             const searchQuery = `${ticket.title} ${ticket.description || ''}`
-            const relevantDocs = await this.getRelevantDocs(searchQuery, undefined, 3)
+            const relevantDocs = await this.getRelevantDocs(searchQuery, null, 3)
 
             const systemPrompt = `You are a project management AI agent that refines and clarifies software development tickets.
 
@@ -314,6 +325,9 @@ Provide a refined description and analysis.`
                 clarifying_questions?: string[]
                 refined_description: string
                 should_update_description?: boolean
+            } = {
+                analysis: '',
+                refined_description: '',
             }
 
             try {
@@ -333,14 +347,14 @@ Provide a refined description and analysis.`
             }
 
             // Ensure clarifying_questions is an array
-            if (!refinement.clarifying_questions) {
+            if (!('clarifying_questions' in refinement) || refinement.clarifying_questions === null) {
                 refinement.clarifying_questions = []
             }
 
             // Ask clarifying questions first if needed
             if (refinement.clarifying_questions && refinement.clarifying_questions.length > 0) {
                 const questionsText = refinement.clarifying_questions
-                    .map((q, i) => `${i + 1}. ${q}`)
+                    .map((q: string, i: number): string => `${i + 1}. ${q}`)
                     .join('\n')
                 const commentContent = `## Clarifying Questions\n\nBefore I can refine this ticket, I need some additional information:\n\n${questionsText}\n\nPlease provide answers to these questions so I can create a clear, actionable ticket description.`
                 await addAgentComment(ticket.id, this.name, commentContent)
@@ -536,7 +550,7 @@ ${mention.commentContent}
 **Repository:** ${ticket.repository_name || 'Unknown'}${repositoryContext}
 
 **Recent comments on this ticket:**
-${recentComments.map((c) => `- ${c.author_type} (${c.author_id}): ${c.content}`).join('\n')}
+${recentComments.map((c: {author_id: string; author_type: string; content: string}): string => `- ${c.author_type} (${c.author_id}): ${c.content}`).join('\n')}
 
 Please respond to the user's request and refine the ticket as requested.`
 
@@ -551,7 +565,7 @@ Please respond to the user's request and refine the ticket as requested.`
             const response = await this.respondStreaming(
                 systemPrompt,
                 userMessage,
-                async(chunk: string) => {
+                async(chunk: string): Promise<void> => {
                     accumulatedResponse += chunk
 
                     /*
@@ -559,6 +573,7 @@ Please respond to the user's request and refine the ticket as requested.`
                      * Find the start of the field value
                      */
                     const startIdx = accumulatedResponse.indexOf('"response_comment"')
+                    // eslint-disable-next-line no-negated-condition
                     if (startIdx !== -1) {
                         // Find the colon and opening quote after "response_comment"
                         const afterField = accumulatedResponse.slice(startIdx + '"response_comment"'.length)
@@ -573,13 +588,9 @@ Please respond to the user's request and refine the ticket as requested.`
                             for (let i = 0; i < valueText.length; i += 1) {
                                 if (escaped) {
                                     escaped = false
-                                    continue
-                                }
-                                if (valueText[i] === '\\') {
+                                } else if (valueText[i] === '\\') {
                                     escaped = true
-                                    continue
-                                }
-                                if (valueText[i] === '"') {
+                                } else if (valueText[i] === '"') {
                                     // Check if followed by comma or closing brace
                                     const nextChar = valueText[i + 1]
                                     if (nextChar === ',' || nextChar === '}' || !nextChar) {
@@ -638,6 +649,9 @@ Please respond to the user's request and refine the ticket as requested.`
                 response_comment: string
                 should_close_ticket?: boolean
                 should_update_description?: boolean
+            } = {
+                refined_description: '',
+                response_comment: '',
             }
 
             try {
@@ -724,7 +738,7 @@ Please respond to the user's request and refine the ticket as requested.`
                 ticket.id,
                 this.name,
                 `I encountered an error while processing your request: ${errorMessage}`,
-            ).catch(() => {
+            ).catch((): void => {
                 // Ignore errors adding error comment
             })
         }
@@ -770,10 +784,10 @@ When closing tickets:
 When given an instruction, interpret it and use the appropriate tools to complete the task.
 Be helpful and provide clear feedback about what you're doing.`
 
-        const agentContext = context || this.buildContext({})
+        const agentContext = context || this.buildToolContext({})
 
         try {
-            const response = await this.respondWithTools(systemPrompt, instruction, 4096, agentContext)
+            const response = await this.respondWithTools(systemPrompt, instruction, 4096, agentContext as AgentContext)
             return {
                 message: response,
                 success: true,

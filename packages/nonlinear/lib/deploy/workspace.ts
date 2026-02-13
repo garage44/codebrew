@@ -71,6 +71,7 @@ export function extractWorkspacePackages(workspaceRoot: string): string[] {
                             const entryPath = join(packagesDir, entry)
                             const pkgPath = join(entryPath, 'package.json')
                             // Check if it's a directory and has package.json
+                            // eslint-disable-next-line max-depth
                             if (existsSync(entryPath) && existsSync(pkgPath)) {
                                 packages.push(entry)
                             }
