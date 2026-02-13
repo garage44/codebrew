@@ -8,7 +8,7 @@ import * as media from '@/models/media'
 import * as sfu from '@/models/sfu/sfu'
 
 export const GroupControls = () => {
-    const [volume, setVolume] = useState({locked: null, value: 100})
+    const [volume, setVolume] = useState<{locked: boolean | null; value: number}>({locked: null, value: 100})
 
     const fileMediaAccept = useMemo(() => {
         if ($s.env.isFirefox) {
@@ -79,7 +79,7 @@ export const GroupControls = () => {
         $s.chat.emoji.active = false
         // Wait a tick for state to update
         await new Promise((resolve) => setTimeout(resolve, 0))
-        $s.panels.chat.collapsed = !$s.panels.chat.collapsed
+        if ($s.panels.chat) $s.panels.chat.collapsed = !$s.panels.chat.collapsed
         store.save()
     }
 
@@ -159,18 +159,18 @@ export const GroupControls = () => {
     return (
         <div class='c-group-controls'>
             <Button
-                active={!$s.panels.chat.collapsed}
+                active={!$s.panels.chat?.collapsed}
                 icon='Chat'
                 icon-props={{unread: unreadCount}}
                 onClick={toggleChat}
-                tip={$s.panels.chat.collapsed ? $t('ui.panel_chat.expand') : $t('ui.panel_chat.collapse')}
+                tip={$s.panels.chat?.collapsed ? $t('ui.panel_chat.expand') : $t('ui.panel_chat.collapse')}
                 variant='toggle'
             />
 
             {$s.permissions.present && (
                 <>
                     <Button
-                        active={$s.devices.mic.enabled ? $s.devices.mic.enabled : null}
+                        active={$s.devices.mic.enabled ?? undefined}
                         icon={$s.devices.mic.enabled ? 'Mic' : 'MicMute'}
                         onClick={toggleMicrophone}
                         tip={$s.devices.mic.enabled ? $t('group.action.mic_off') : $t('group.action.mic_on')}

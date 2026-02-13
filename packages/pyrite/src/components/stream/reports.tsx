@@ -36,7 +36,7 @@ export const Reports = ({description, onClick}: ReportsProps) => {
         glnStream.pc.getReceivers().forEach((r: RTCRtpReceiver) => {
             let tid = r.track && r.track.id
 
-            const streamStats = tid && glnStream.stats[tid]
+            const streamStats = tid && glnStream.stats?.[tid]
             if (streamStats) {
                 const filtered: Record<string, Record<string, string>> = {}
                 for (const [categoryName, category] of Object.entries(streamStats)) {
@@ -62,7 +62,7 @@ export const Reports = ({description, onClick}: ReportsProps) => {
         if (!glnStream) return
         glnStream.pc.getSenders().forEach((s: RTCRtpSender) => {
             let tid = s.track && s.track.id
-            const streamStats = glnStream.stats[tid]
+            const streamStats = glnStream.stats?.[tid ?? '']
 
             if (streamStats) {
                 const filtered: Record<string, Record<string, string>> = {}
@@ -90,10 +90,10 @@ export const Reports = ({description, onClick}: ReportsProps) => {
         if (!connection) return
 
         let stream = null
-        if (connection.up[description.id]) {
+        if (description.id != null && connection.up[description.id]) {
             stream = connection.up[description.id]
             stream.onstats = onUpStats
-        } else {
+        } else if (description.id != null) {
             stream = connection.down[description.id]
             stream.onstats = onDownStats
         }
@@ -115,7 +115,7 @@ export const Reports = ({description, onClick}: ReportsProps) => {
             {hasVideoStats && (
                 <div class='category'>
                     <div class='title'>{$t('group.report.video')}</div>
-                    {Object.entries(description.settings.video).map(([statName, stat]) => (
+                    {Object.entries(description.settings?.video ?? {}).map(([statName, stat]) => (
                         <div class='stat' key={statName}>
                             <div class='key'>{statName}</div>
                             <div class='value'>{String(stat)}</div>
@@ -127,7 +127,7 @@ export const Reports = ({description, onClick}: ReportsProps) => {
             {hasAudioStats && (
                 <div class='category'>
                     <div class='title'>{$t('group.report.audio')}</div>
-                    {Object.entries(description.settings.audio).map(([statName, stat]) => (
+                    {Object.entries(description.settings?.audio ?? {}).map(([statName, stat]) => (
                         <div class='stat' key={statName}>
                             <div class='key'>{statName}</div>
                             <div class='value'>{String(stat)}</div>

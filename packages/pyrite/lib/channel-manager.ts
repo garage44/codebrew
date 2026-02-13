@@ -3,7 +3,7 @@ import fs from 'fs-extra'
 import path from 'node:path'
 
 import {logger} from '../service.ts'
-import {config} from './config.ts'
+import {config, getSfuPath} from './config.ts'
 import {groupTemplate, loadGroup} from './group.ts'
 
 /**
@@ -320,13 +320,14 @@ export class ChannelManager {
             const groupName = channel.slug
 
             // Check if SFU path is configured
-            if (!config.sfu.path) {
+            const sfuPath = config.sfu.path
+            if (!sfuPath) {
                 logger.warn(`[ChannelManager] SFU path not configured, skipping sync for channel "${channel.name}"`)
                 return false
             }
 
             // Ensure groups directory exists
-            const groupsPath = path.join(config.sfu.path, 'groups')
+            const groupsPath = path.join(sfuPath, 'groups')
             await fs.ensureDir(groupsPath)
 
             const existingGroup = await loadGroup(groupName)
@@ -441,7 +442,7 @@ export class ChannelManager {
          */
 
         // Write the native Galene format file
-        const groupsPath = path.join(config.sfu.path, 'groups')
+        const groupsPath = path.join(getSfuPath(), 'groups')
         const groupFile = path.join(groupsPath, `${groupName}.json`)
         await fs.writeFile(groupFile, JSON.stringify(nativeData, null, 2))
     }
@@ -488,7 +489,7 @@ export class ChannelManager {
      */
     async deleteGaleneGroup(slug: string): Promise<boolean> {
         try {
-            const groupFile = path.join(config.sfu.path, 'groups', `${slug}.json`)
+            const groupFile = path.join(getSfuPath(), 'groups', `${slug}.json`)
             if (await fs.pathExists(groupFile)) {
                 await fs.remove(groupFile)
                 logger.info(`[ChannelManager] Deleted Galene group file: ${groupFile}`)

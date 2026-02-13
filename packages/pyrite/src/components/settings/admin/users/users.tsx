@@ -28,13 +28,13 @@ export const Users = ({children, userId}: UsersProps) => {
         ) {
             Object.assign($s.admin.user || {}, user)
             if (!$s.admin.user) {
-                $s.admin.user = user as typeof $s.admin.user
+                $s.admin.user = user as NonNullable<typeof $s.admin.user>
             }
         } else {
             const apiUser = (await api.get(`/api/users/${encodeURIComponent(userId)}`)) as Record<string, unknown>
             Object.assign($s.admin.user || {}, apiUser)
             if (!$s.admin.user) {
-                $s.admin.user = apiUser as typeof $s.admin.user
+                $s.admin.user = apiUser as NonNullable<typeof $s.admin.user>
             }
         }
     }

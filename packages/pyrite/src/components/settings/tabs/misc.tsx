@@ -37,7 +37,7 @@ export default function TabMisc() {
             <FieldSelect
                 help={$t('ui.settings.misc.language_help')}
                 label={$t('ui.settings.misc.language_label')}
-                model={$s.language.$id}
+                model={$s.language.$id as import('@preact/signals').Signal<string>}
                 options={languages}
             />
         </section>

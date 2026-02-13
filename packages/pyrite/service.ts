@@ -4,6 +4,7 @@ import {createBunWebSocketHandler} from '@garage44/common/lib/ws-server'
 import {bunchyArgs, bunchyService} from '@garage44/bunchy'
 import {config, initConfig} from './lib/config.ts'
 import {devContext} from '@garage44/common/lib/dev-context'
+import type {LoggerConfig} from '@garage44/common/types.ts'
 import {
     createRuntime,
     createWebSocketManagers,
@@ -31,9 +32,9 @@ function welcomeBanner(): string {
 }
 
 // In case we start in development mode.
-let bunchyConfig = null
+let bunchyConfig: Awaited<ReturnType<typeof setupBunchyConfig>> | null = null
 
-const logger = loggerTransports(config.logger, 'service')
+const logger = loggerTransports(config.logger as LoggerConfig, 'service')
 
 const BUN_ENV = process.env.BUN_ENV || 'production'
 
@@ -49,42 +50,47 @@ if (BUN_ENV === 'development') {
         version: runtime.version,
     })
 
-    bunchyArgs(cli, bunchyConfig)
+    bunchyArgs(cli as Parameters<typeof bunchyArgs>[0], bunchyConfig)
 }
 
 // eslint-disable-next-line no-unused-expressions
 cli.usage('Usage: $0 [task]')
     .detectLocale(false)
-    .command('start', 'Start the Pyrite service', (yargs): yargs.Argv => {
-        // oxlint-disable-next-line no-console
-        console.log(welcomeBanner())
-        return yargs
-            .option('host', {
-                alias: 'h',
-                default: 'localhost',
-                describe: 'hostname to listen on',
-                type: 'string',
-            })
-            .option('port', {
-                alias: 'p',
-                default: 3030,
-                describe: 'port to run the Pyrite service on',
-                type: 'number',
-            })
-            .option('cert', {
-                describe: 'Path to TLS certificate file (.pem or .crt)',
-                type: 'string',
-            })
-            .option('key', {
-                describe: 'Path to TLS private key file (.pem or .key)',
-                type: 'string',
-            })
-            .option('tls', {
-                default: false,
-                describe: 'Enable TLS/HTTPS',
-                type: 'boolean',
-            })
-    }, async(argv): Promise<void> => {
+    .command(
+        'start',
+        'Start the Pyrite service',
+        // @ts-expect-error yargs command builder overload doesn't accept function type
+        (yargs: ReturnType<typeof cli.option>): ReturnType<typeof cli.option> => {
+            // oxlint-disable-next-line no-console
+            console.log(welcomeBanner())
+            return yargs
+                .option('host', {
+                    alias: 'h',
+                    default: 'localhost',
+                    describe: 'hostname to listen on',
+                    type: 'string',
+                })
+                .option('port', {
+                    alias: 'p',
+                    default: 3030,
+                    describe: 'port to run the Pyrite service on',
+                    type: 'number',
+                })
+                .option('cert', {
+                    describe: 'Path to TLS certificate file (.pem or .crt)',
+                    type: 'string',
+                })
+                .option('key', {
+                    describe: 'Path to TLS private key file (.pem or .key)',
+                    type: 'string',
+                })
+                .option('tls', {
+                    default: false,
+                    describe: 'Enable TLS/HTTPS',
+                    type: 'boolean',
+                })
+        },
+        async (argv: {cert?: string; host?: string; key?: string; port?: number}): Promise<void> => {
         await initConfig(config)
 
         // Initialize database
@@ -154,19 +160,20 @@ cli.usage('Usage: $0 [task]')
                         workspace: 'pyrite',
                     })), {headers: {'Content-Type': 'application/json'}})
                 }
-                return await handleRequest(req, server)
+                const response = await handleRequest(req, server)
+                return response ?? new Response('Not Found', {status: 404})
             },
-            hostname: argv.host,
-            port: argv.port,
+            hostname: (argv.host as string) ?? 'localhost',
+            port: (argv.port as number) ?? 3030,
             websocket: enhancedWebSocketHandler,
             ...tlsOptions ? {tls: tlsOptions} : {},
         })
 
-        if (BUN_ENV === 'development') {
-            await bunchyService(server, bunchyConfig, bunchyManager)
+        if (BUN_ENV === 'development' && bunchyConfig) {
+            await bunchyService(server, bunchyConfig, bunchyManager as Parameters<typeof bunchyService>[2])
         }
 
-        logger.info(`service: ${tlsOptions ? 'https' : 'http'}://${argv.host}:${argv.port}`)
+        logger.info(`service: ${tlsOptions ? 'https' : 'http'}://${argv.host ?? 'localhost'}:${argv.port ?? 3030}`)
     })
     .demandCommand()
     .help('help')

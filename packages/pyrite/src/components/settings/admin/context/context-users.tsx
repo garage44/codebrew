@@ -18,20 +18,17 @@ export default function ContextUsers({path: _path, userId}: ContextUsersProps) {
     const orderedUsers = useMemo(() => {
         const users = $s.admin.users.filter((g) => g.admin).concat($s.admin.users.filter((g) => !g.admin))
         return users.toSorted((a, b) => {
-            if (a.name < b.name) {
-                return -1
-            }
-            if (a.name > b.name) {
-                return 1
-            }
-            return 0
+            const aName = String((a as {name?: unknown}).name ?? '')
+            const bName = String((b as {name?: unknown}).name ?? '')
+            return aName.localeCompare(bName)
         })
     }, [])
 
     const addUser = async () => {
-        const user = await api.get('/api/users/template')
+        const user = (await api.get('/api/users/template')) as Record<string, unknown>
         $s.admin.users.push(user)
-        toggleSelection(user.id)
+        const userId = typeof user.id === 'number' ? user.id : Number.parseInt(String(user.id ?? '0'), 10)
+        toggleSelection(userId)
     }
 
     const deleteUsers = async () => {
@@ -50,8 +47,8 @@ export default function ContextUsers({path: _path, userId}: ContextUsersProps) {
         await Promise.all(deleteRequests)
 
         if (orderedUsers.length) {
-            const userId = orderedUsers[0].id
-            route(`/settings/users/${userId}/misc`)
+            const userId = orderedUsers[0].id ?? orderedUsers[0].username
+            route(`/settings/users/${String(userId)}/misc`)
         }
     }
 

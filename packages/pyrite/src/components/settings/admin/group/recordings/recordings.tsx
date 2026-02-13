@@ -21,7 +21,7 @@ export default function Recordings({groupId}: RecordingsProps) {
     const loadRecordings = async (group: string) => {
         if (!group) return
         const data = await api.get(`/api/recordings/${group}`)
-        setRecordings(data || [])
+        setRecordings(Array.isArray(data) ? (data as Recording[]) : [])
     }
 
     const deleteRecording = async (rec: Recording) => {
@@ -61,7 +61,7 @@ export default function Recordings({groupId}: RecordingsProps) {
                         <a
                             class='btn btn-menu btn-small'
                             download={`${rec.filename}.${rec.extension}`}
-                            href={`/api/recordings/${$s.admin.group._name}/${rec.filename}.${rec.extension}`}
+                            href={`/api/recordings/${$s.admin.group?._name ?? ''}/${rec.filename}.${rec.extension}`}
                         >
                             <Icon className='icon-s' name='download' tip={$t('group.recording.download')} />
                         </a>

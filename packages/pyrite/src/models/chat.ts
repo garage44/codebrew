@@ -100,7 +100,7 @@ export async function onMessage(messageData: {
     // We don't want to show those messages while entering the group.
     if (
         $s.chat.channels[$s.chat.channel] &&
-        ((channelId !== $s.chat.channel) || $s.panels.chat.collapsed)
+        ((channelId !== $s.chat.channel) || $s.panels.chat?.collapsed)
     ) {
         $s.chat.channels[channelId].unread += 1
     }
@@ -209,21 +209,23 @@ export async function loadGlobalUsers(): Promise<void> {
                         if (member.user_id) {
                             // Normalize user ID to string to prevent duplicates
                             const userId = String(member.user_id)
-                            if ($s.chat.users[userId]) {
+                            const users = $s.chat.users
+                            if (users?.[userId]) {
                                 // Update avatar/username if changed
                                 if (member.avatar) {
-                                    $s.chat.users[userId].avatar = member.avatar
+                                    users[userId].avatar = member.avatar
                                 }
                                 if (member.username) {
-                                    $s.chat.users[userId].username = member.username
+                                    users[userId].username = member.username
                                 }
                                 // Mark as online if in channel
-                                if ($s.chat.users[userId].status) {
+                                if (users[userId].status) {
                                     // Already has status
                                 } else {
-                                    $s.chat.users[userId].status = 'online'
+                                    users[userId].status = 'online'
                                 }
                             } else {
+                                if (!$s.chat.users) {$s.chat.users = {}}
                                 $s.chat.users[userId] = {
                                     avatar: member.avatar,
                                     status: 'online', // Users in channels are online
@@ -403,7 +405,7 @@ export async function sendMessage(message: string): Promise<void> {
             message,
         })
 
-        if (!response.success) {
+        if (response && !response.success) {
             const errorMessage = (response as {error?: string}).error || 'Failed to send message'
             notifier.notify({
                 level: 'error',

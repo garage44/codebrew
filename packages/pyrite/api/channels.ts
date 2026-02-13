@@ -59,7 +59,7 @@ export default async function apiChannels(router: Router) {
             logger.error('[Channels API] Error listing channels:', error)
             return new Response(
                 JSON.stringify({
-                    error: error.message,
+                    error: error instanceof Error ? error.message : String(error),
                     success: false,
                 }),
                 {
@@ -128,7 +128,7 @@ export default async function apiChannels(router: Router) {
             logger.error('[Channels API] Error getting channel:', error)
             return new Response(
                 JSON.stringify({
-                    error: error.message,
+                    error: error instanceof Error ? error.message : String(error),
                     success: false,
                 }),
                 {
@@ -483,7 +483,7 @@ export default async function apiChannels(router: Router) {
             logger.error('[Channels API] Error getting default channel:', error)
             return new Response(
                 JSON.stringify({
-                    error: error.message,
+                    error: error instanceof Error ? error.message : String(error),
                     success: false,
                 }),
                 {

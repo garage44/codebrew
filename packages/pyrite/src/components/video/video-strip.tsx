@@ -64,7 +64,11 @@ export const VideoStrip = ({className, streams}: VideoStripProps) => {
                       })
                       return (
                           <div class={itemClass} key={description.id || index}>
-                              <Stream key={description.id} modelValue={sortedStreams[index]} onUpdate={handleStreamUpdate} />
+                              <Stream
+                                  key={description.id}
+                                  modelValue={sortedStreams[index]}
+                                  onUpdate={handleStreamUpdate as (value: unknown) => void}
+                              />
                           </div>
                       )
                   })

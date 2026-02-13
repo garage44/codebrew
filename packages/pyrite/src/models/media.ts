@@ -2,8 +2,8 @@ import {$s} from '@/app'
 import {$t, logger, notifier} from '@garage44/common/app'
 import * as sfu from './sfu/sfu.ts'
 
-export let localStream: MediaStream | null = null
-export let screenStream: MediaStream | null = null
+export let localStream: MediaStream | null | undefined = null
+export let screenStream: MediaStream | null | undefined = null
 
 // Fake stream resources (cleaned up when stream stops)
 let fakeVideoCanvas: HTMLCanvasElement | null = null
@@ -64,7 +64,13 @@ async function createFakeStreamFallback(selectedVideoDevice: unknown, selectedAu
  * @param options.height - Video height (default: 480)
  * @param options.microphoneStream - Optional real microphone stream to use for pattern oscillation
  */
-function createFakeStream(options: {video?: boolean; audio?: boolean; width?: number; height?: number; microphoneStream?: MediaStream}): MediaStream {
+function createFakeStream(options: {
+    video?: boolean
+    audio?: boolean
+    width?: number
+    height?: number
+    microphoneStream?: MediaStream | null
+}): MediaStream {
     // Force 4:3 aspect ratio for fake stream (consistent across all browsers)
     const {video = false, audio = false, microphoneStream = null} = options
     const width = 640  // Always use 4:3 aspect ratio
@@ -421,7 +427,7 @@ export async function getUserMedia(presence: unknown): Promise<MediaStream | nul
     if (!$s.devices.cam.enabled && !$s.devices.mic.enabled) {
         logger.debug(`[media] both camera and mic disabled, cannot create stream`)
         $s.mediaReady = true
-        return
+        return null
     }
 
     // Handle fake stream selection
@@ -498,7 +504,7 @@ export async function getUserMedia(presence: unknown): Promise<MediaStream | nul
             logger.error(`[media] Failed to create fake stream: ${error}`)
             notifier.notify({level: 'error', message: `Failed to create fake stream: ${error}`})
             $s.mediaReady = true
-            return
+            return null
         }
     }
 
@@ -518,9 +524,9 @@ export async function getUserMedia(presence: unknown): Promise<MediaStream | nul
         }
     }
 
-    const constraints = {
-        audio: selectedAudioDevice,
-        video: selectedVideoDevice,
+    const constraints: MediaStreamConstraints = {
+        audio: selectedAudioDevice ?? false,
+        video: selectedVideoDevice ?? false,
     }
 
     // Validate constraints before calling getUserMedia
@@ -537,7 +543,7 @@ export async function getUserMedia(presence: unknown): Promise<MediaStream | nul
             logger.debug(`[media] automatic call with both disabled, skipping silently`)
         }
         $s.mediaReady = true
-        return
+        return null
     }
 
     logger.debug(`[media] requesting getUserMedia with constraints:`, constraints)
@@ -576,9 +582,13 @@ export async function getUserMedia(presence: unknown): Promise<MediaStream | nul
             }
 
             if (fallbackConstraints.audio || fallbackConstraints.video) {
-                logger.debug(`[media] retrying getUserMedia with browser default:`, fallbackConstraints)
+                const validConstraints: MediaStreamConstraints = {
+                    audio: fallbackConstraints.audio ?? false,
+                    video: fallbackConstraints.video ?? false,
+                }
+                logger.debug(`[media] retrying getUserMedia with browser default:`, validConstraints)
                 try {
-                    localStream = await navigator.mediaDevices.getUserMedia(fallbackConstraints)
+                    localStream = await navigator.mediaDevices.getUserMedia(validConstraints)
                     logger.debug(`[media] getUserMedia with browser default successful`)
 
                     // Clear invalid device selection - browser will use default
@@ -606,18 +616,18 @@ export async function getUserMedia(presence: unknown): Promise<MediaStream | nul
                         await createFakeStreamFallback(selectedVideoDevice, selectedAudioDevice)
                         notifier.notify({level: 'error', message: `Failed to access media: ${error}`})
                         $s.mediaReady = true
-                        return
+                        return null
                     }
                     notifier.notify({level: 'error', message: `Failed to access media: ${error}`})
                     $s.mediaReady = true
-                    return
+                    return null
                 }
             } else {
                 // Both disabled, can't fallback
                 logger.error(`[media] both devices disabled, cannot fallback`)
                 notifier.notify({level: 'error', message: String(error)})
                 $s.mediaReady = true
-                return
+                return null
             }
         } else {
             // Other errors (permission denied, etc.) - check if we should use fake stream
@@ -660,12 +670,12 @@ export async function getUserMedia(presence: unknown): Promise<MediaStream | nul
                     logger.error(`[media] Failed to create fake stream: ${error}`)
                     notifier.notify({level: 'error', message: String(error)})
                     $s.mediaReady = true
-                    return
+                    return null
                 }
             } else {
                 notifier.notify({level: 'error', message: String(error)})
                 $s.mediaReady = true
-                return
+                return null
             }
         }
     }
@@ -857,7 +867,8 @@ export function removeLocalStream(): void {
 export function setDefaultDevice(useFirstAvailable = true): void {
     const invalidDevices = validateDevices()
     const emptyOption = {id: null, name: ''}
-    for (const key of Object.keys($s.devices)) {
+    const deviceKeys = ['audio', 'cam', 'mic'] as const
+    for (const key of deviceKeys) {
         if ((key !== 'audio' || !$s.env.isFirefox) && (invalidDevices[key] || $s.devices[key].selected.id === null)) {
             if (useFirstAvailable && $s.devices[key].options.length) {
                 $s.devices[key].selected = $s.devices[key].options[0]
@@ -874,11 +885,19 @@ export function setScreenStream(stream: MediaStream | null): void {
 
 export function validateDevices(): {audio: boolean; cam: boolean; mic: boolean} {
     const {devices} = $s
-    return {
-        audio: !$s.env.isFirefox && (!devices.audio.options.length || !devices.audio.options.some((i): boolean => i.id === devices.audio.selected.id)),
-        cam: !devices.cam.options.length || !devices.cam.options.some((i): boolean => i.id === devices.cam.selected.id),
-        mic: !devices.mic.options.length || !devices.mic.options.some((i): boolean => i.id === devices.mic.selected.id),
+    const result: {audio: boolean; cam: boolean; mic: boolean} = {
+        audio: false,
+        cam: false,
+        mic: false,
     }
+    result.audio =
+        !$s.env.isFirefox &&
+        (!devices.audio.options.length || !devices.audio.options.some((i): boolean => i.id === devices.audio.selected.id))
+    result.cam =
+        !devices.cam.options.length || !devices.cam.options.some((i): boolean => i.id === devices.cam.selected.id)
+    result.mic =
+        !devices.mic.options.length || !devices.mic.options.some((i): boolean => i.id === devices.mic.selected.id)
+    return result
 }
 
 navigator.mediaDevices.ondevicechange = async(): Promise<void> => {

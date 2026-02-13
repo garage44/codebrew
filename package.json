@@ -61,6 +61,7 @@
       "dev": {
         "@types/fs-extra": "^11.0.4",
         "@types/node": "^22.13.14",
+        "@types/rc": "^1.2.4",
         "@types/yargs": "^17.0.32",
         "bun-types": "^1.3.9",
         "oxfmt": "^0.32.0",

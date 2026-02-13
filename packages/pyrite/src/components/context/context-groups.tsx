@@ -51,12 +51,15 @@ export default function GroupsContext() {
                 }
 
                 // Update group metadata in channel entry
-                Object.assign($s.sfu.channels[channelSlug], {
-                    clientCount: group.clientCount,
-                    comment: group.comment,
-                    description: group.description,
-                    locked: group.locked,
-                })
+                const channelEntry = $s.sfu.channels[channelSlug]
+                if (channelEntry) {
+                    Object.assign(channelEntry, {
+                        clientCount: group.clientCount,
+                        comment: group.comment,
+                        description: group.description,
+                        locked: group.locked,
+                    })
+                }
 
                 // Update current group data if this is the active group
                 if (group.name === $s.sfu.channel.name && currentGroupData) {

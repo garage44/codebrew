@@ -11,7 +11,8 @@ import {Users} from './users/users'
 
 export const AdminApp = () => {
     useEffect(() => {
-        const themeColor = getComputedStyle(document.querySelector('.app')).getPropertyValue('--grey-4')
+        const appEl = document.querySelector('.app')
+        const themeColor = appEl ? getComputedStyle(appEl).getPropertyValue('--grey-4') : ''
         const metaTheme = document.querySelector('meta[name="theme-color"]')
         if (metaTheme && metaTheme instanceof HTMLMetaElement) {
             metaTheme.content = themeColor
@@ -31,7 +32,7 @@ export const AdminApp = () => {
                 <Route component={Users} path='/settings/users/:userId' />
                 <Route component={Groups} default />
             </Router>
-            <Notifications notifications={$s.notifications} />
+            <Notifications notifications={$s.notifications as Array<{id?: number; message: string}>} />
         </div>
     )
 }

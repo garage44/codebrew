@@ -10,7 +10,11 @@ export function registerChatWebSocketApiRoutes(wsManager: WebSocketServerManager
 
     // WebSocket API for real-time chat messages
     apiWs.post('/api/chat/send', async (context, request) => {
-        const {groupId, message, user} = request.data
+        const data = request.data as {groupId: string; message: string; user: Record<string, unknown>} | undefined
+        if (!data?.groupId || !data?.message || !data?.user) {
+            return {error: 'Missing required fields: groupId, message, user'}
+        }
+        const {groupId, message, user} = data
 
         // Broadcast message to all clients in the group
         wsManager.broadcast(`/chat/${groupId}`, {

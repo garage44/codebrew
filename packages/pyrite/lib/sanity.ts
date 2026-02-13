@@ -1,6 +1,5 @@
+// @ts-nocheck - Legacy file - not currently used in the codebase
 /*
- * @ts-nocheck
- * Legacy file - not currently used in the codebase
  * This file contains old configuration verification logic that has been replaced
  * Keeping for reference but marking as legacy to avoid type errors
  */
@@ -24,14 +23,18 @@ import {userTemplate} from './user.js'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
-export async function verifyConfig(app) {
+export async function verifyConfig(app: {
+    config?: {sfu?: {path?: string}}
+    logger: {info: (msg: string) => void}
+    settings: Record<string, unknown>
+}) {
     const pkg = JSON.parse(await fs.readFile(path.join(__dirname, '..', '..', 'package.json'), 'utf-8'))
     app.logger.info(`starting pyrite v${pkg.version}`)
     let configFile
     if (app.settings.config) {
-        configFile = path.join(app.settings.config)
+        configFile = path.join(String(app.settings.config))
     } else {
-        configFile = path.join(process.env.HOME, '.pyriterc')
+        configFile = path.join(process.env.HOME ?? '', '.pyriterc')
     }
     // Always keep a reference to the config file itself in the config.
     app.settings.config = configFile

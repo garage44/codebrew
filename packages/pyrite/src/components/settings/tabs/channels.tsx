@@ -45,12 +45,12 @@ export default function TabChannels() {
         }
 
         try {
-            const newChannel = await api.post('/api/channels', {
+            const newChannel = (await api.post('/api/channels', {
                 description: state.formData.description,
                 is_default: state.formData.is_default,
                 name: state.formData.name,
                 slug: state.formData.slug,
-            })
+            })) as Channel
             state.channels = [...state.channels, newChannel]
             state.formData = {description: '', is_default: false, name: '', slug: ''}
             notifier.notify({level: 'success', message: 'Channel created and synced with Galene'})
@@ -62,15 +62,13 @@ export default function TabChannels() {
 
     const handleUpdate = async (channelId: number) => {
         try {
-            const updated = await api.put(`/api/channels/${channelId}`, {
+            const updated = (await api.put(`/api/channels/${channelId}`, {
                 description: state.formData.description,
                 is_default: state.formData.is_default,
                 name: state.formData.name,
                 slug: state.formData.slug,
-            })
-            state.channels = state.channels.map((c) => {
-                return c.id === channelId ? updated : c
-            })
+            })) as Channel
+            state.channels = state.channels.map((c) => (c.id === channelId ? updated : c))
             state.editing = null
             state.formData = {description: '', is_default: false, name: '', slug: ''}
             notifier.notify({level: 'success', message: 'Channel updated and synced with Galene'})

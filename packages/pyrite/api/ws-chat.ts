@@ -120,7 +120,7 @@ export const registerChatWebSocket = (wsManager: WebSocketServerManager) => {
         } catch (error) {
             logger.error('[Chat API] Error sending message:', error)
             return {
-                error: error.message,
+                error: error instanceof Error ? error.message : String(error),
                 success: false,
             }
         }
@@ -170,7 +170,7 @@ export const registerChatWebSocket = (wsManager: WebSocketServerManager) => {
         } catch (error) {
             logger.error('[Chat API] Error sending typing indicator:', error)
             return {
-                error: error.message,
+                error: error instanceof Error ? error.message : String(error),
                 success: false,
             }
         }
@@ -240,7 +240,7 @@ export const registerChatWebSocket = (wsManager: WebSocketServerManager) => {
         } catch (error) {
             logger.error('[Chat API] Error getting message history:', error)
             return {
-                error: error.message,
+                error: error instanceof Error ? error.message : String(error),
                 success: false,
             }
         }

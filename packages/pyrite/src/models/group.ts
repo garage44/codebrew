@@ -24,8 +24,14 @@ export function currentGroup(): typeof $s.sfu.channel & {clientCount?: number} {
     return $s.sfu.channel
 }
 
+interface GroupApiResponse {
+    _name: string
+    _newName: string
+}
+
 export async function saveGroup(groupId: string, data: Record<string, unknown>): Promise<typeof $s.admin.groups[number]> {
-    const group = await api.post(`/api/groups/${encodeURIComponent(groupId)}`, data)
+    const group = (await api.post(`/api/groups/${encodeURIComponent(groupId)}`, data)) as GroupApiResponse &
+        typeof $s.admin.groups[number]
 
     if (group._name === group._newName) {
         notifier.notify({level: 'info', message: $t('group.action.saved', {group: group._name})})

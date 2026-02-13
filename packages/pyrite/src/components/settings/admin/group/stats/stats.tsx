@@ -55,7 +55,12 @@ export default function Stats({groupId}: StatsProps) {
         }
 
         let initClient = false
-        const apiStats = await api.get(`/api/dashboard/${groupId}`)
+        interface ApiStream {
+            tracks: Array<{bitrate: number; jitter: number; loss: number; maxBitrate: number}>
+        }
+        const apiStats = (await api.get(`/api/dashboard/${groupId}`)) as {
+            clients?: Array<{id: string; up?: ApiStream[]}>
+        }
 
         if (!apiStats || !apiStats.clients) {
             setStats({clients: {}})
@@ -83,20 +88,22 @@ export default function Stats({groupId}: StatsProps) {
                 continue
             }
 
+            const clientUp = client.up ?? []
             if (!newStats.clients[client.id]) {
                 newStats.clients[client.id] = {
                     ...client,
                     collapsed: true,
+                    up: clientUp as unknown as StreamStats[],
                 }
                 initClient = true
             }
 
-            if (!newStats.clients[client.id].up || newStats.clients[client.id].up.length !== client.up.length) {
-                newStats.clients[client.id].up = JSON.parse(JSON.stringify(client.up))
+            if (!newStats.clients[client.id].up || newStats.clients[client.id].up.length !== clientUp.length) {
+                newStats.clients[client.id].up = JSON.parse(JSON.stringify(clientUp)) as unknown as StreamStats[]
                 initClient = true
             }
 
-            for (const [streamIndex, stream] of client.up.entries()) {
+            for (const [streamIndex, stream] of clientUp.entries()) {
                 if (stream.tracks.length !== newStats.clients[client.id].up[streamIndex].tracks.length) {
                     newStats.clients[client.id].up[streamIndex].tracks = JSON.parse(JSON.stringify(stream.tracks))
                     initClient = true

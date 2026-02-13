@@ -7,7 +7,7 @@ import fs from 'fs-extra'
 import path from 'node:path'
 
 import {logger} from '../service.ts'
-import {config} from './config.ts'
+import {config, getSfuPath} from './config.ts'
 import {getDatabase} from './database.ts'
 
 /*
@@ -29,7 +29,8 @@ export async function syncUsersToGalene() {
         logger.info('Starting user sync to Galene...')
 
         // Check if SFU path is configured
-        if (!config.sfu.path) {
+        const sfuPath = config.sfu.path
+        if (!sfuPath) {
             logger.warn('[Sync] SFU path not configured (config.sfu.path is null). Skipping user sync to Galene.')
             logger.warn('[Sync] Please set config.sfu.path in your .pyriterc file or environment variables.')
             return
@@ -39,12 +40,12 @@ export async function syncUsersToGalene() {
         const db = getDatabase()
 
         // 1. Sync ALL users to global config.json
-        await syncUsersToGlobalConfig(users, db)
+        await syncUsersToGlobalConfig(users, db, sfuPath)
 
         // 2. Sync channel members to group files
-        const groups = await loadGroupsFromDisk()
+        const groups = await loadGroupsFromDisk(sfuPath)
         for (const group of groups) {
-            await updateGroupWithChannelMembers(group.name, db)
+            await updateGroupWithChannelMembers(group.name, db, sfuPath)
         }
 
         logger.info(`Synced ${users.length} users to global config and ${groups.length} groups`)
@@ -57,8 +58,8 @@ export async function syncUsersToGalene() {
 /**
  * Load all groups from the Galene groups directory
  */
-async function loadGroupsFromDisk() {
-    const groupsPath = path.join(config.sfu.path, 'groups')
+async function loadGroupsFromDisk(sfuPath: string) {
+    const groupsPath = path.join(sfuPath, 'groups')
     const files = await fs.readdir(groupsPath)
     const groups: Array<{[key: string]: unknown; name: string}> = []
 
@@ -82,11 +83,11 @@ async function loadGroupsFromDisk() {
  * Path: config.sfu.path/data/config.json
  * Format: {"users": {"username": {"password": "...", "permissions": "admin"}}}
  */
-async function syncUsersToGlobalConfig(users: User[], _db: Database) {
-    const configFile = path.join(config.sfu.path, 'data', 'config.json')
+async function syncUsersToGlobalConfig(users: User[], _db: Database, sfuPath: string) {
+    const configFile = path.join(sfuPath, 'data', 'config.json')
 
     // Ensure data directory exists
-    const dataDir = path.join(config.sfu.path, 'data')
+    const dataDir = path.join(sfuPath, 'data')
     await fs.ensureDir(dataDir)
 
     // Load existing config or create new
@@ -96,9 +97,11 @@ async function syncUsersToGlobalConfig(users: User[], _db: Database) {
     }
 
     // Initialize users dictionary
-    if (!galeneConfig.users) {
-        galeneConfig.users = {}
-    }
+    const usersDict = (galeneConfig.users ?? {}) as Record<
+        string,
+        {password: string | {key: string; type: string}; permissions: string}
+    >
+    galeneConfig.users = usersDict
 
     // Sync ALL users
     for (const user of users) {
@@ -114,7 +117,7 @@ async function syncUsersToGlobalConfig(users: User[], _db: Database) {
         }
 
         // All users in global config get admin permission (for server administration)
-        galeneConfig.users[user.username] = {
+        usersDict[user.username] = {
             password: password,
             permissions: 'admin',
         }
@@ -122,9 +125,9 @@ async function syncUsersToGlobalConfig(users: User[], _db: Database) {
 
     // Remove users that no longer exist
     const existingUsernames = new Set(users.map((u) => u.username))
-    for (const username of Object.keys(galeneConfig.users)) {
+    for (const username of Object.keys(usersDict)) {
         if (!existingUsernames.has(username)) {
-            delete galeneConfig.users[username]
+            delete usersDict[username]
         }
     }
 
@@ -144,8 +147,8 @@ async function syncUsersToGlobalConfig(users: User[], _db: Database) {
  * Channel slug -> Group name (1:1 mapping)
  * Channel role: admin -> Galene permission 'op', member -> Galene permission 'present'
  */
-async function updateGroupWithChannelMembers(groupName: string, db: Database) {
-    const groupFile = path.join(config.sfu.path, 'groups', `${groupName}.json`)
+async function updateGroupWithChannelMembers(groupName: string, db: Database, sfuPath: string) {
+    const groupFile = path.join(sfuPath, 'groups', `${groupName}.json`)
 
     // Skip if group file doesn't exist (should be created by channel sync)
     if (!(await fs.pathExists(groupFile))) {
@@ -165,7 +168,8 @@ async function updateGroupWithChannelMembers(groupName: string, db: Database) {
     const _otherArray = Array.isArray(groupData.other) ? (groupData.other as string[]) : []
 
     // Initialize users dictionary for native Galene format
-    groupData.users = {}
+    const groupUsers = {} as Record<string, {password: string | {key: string; type: string}; permissions: string}>
+    groupData.users = groupUsers
 
     // Find channel by slug (groupName is the channel slug)
     const channelStmt = db.prepare('SELECT id FROM channels WHERE slug = ?')
@@ -233,22 +237,22 @@ async function updateGroupWithChannelMembers(groupName: string, db: Database) {
         }
 
         // Add to native Galene format
-        groupData.users[user.username] = {
+        groupUsers[user.username] = {
             password: password,
             permissions: galenePermission,
         }
     }
 
     // Save the group file in native Galene format (without op/other/presenter arrays)
-    await saveGroupNativeGalene(groupName, groupData)
-    logger.debug(`Updated group ${groupName} with ${Object.keys(groupData.users).length} users from channel members`)
+    await saveGroupNativeGalene(groupName, groupData, sfuPath)
+    logger.debug(`Updated group ${groupName} with ${Object.keys(groupUsers).length} users from channel members`)
 }
 
 /**
  * Save group file in native Galene format (without Pyrite-specific op/other/presenter arrays)
  * Galene only understands the native format with users dictionary
  */
-async function saveGroupNativeGalene(groupName: string, groupData: Record<string, unknown>): Promise<void> {
+async function saveGroupNativeGalene(groupName: string, groupData: Record<string, unknown>, sfuPath: string): Promise<void> {
     // Create a clean copy without Pyrite-specific fields
     const nativeData: Record<string, unknown> = {
         // Copy all native Galene fields
@@ -289,7 +293,7 @@ async function saveGroupNativeGalene(groupName: string, groupData: Record<string
      */
 
     // Write the native Galene format file
-    const groupFile = path.join(config.sfu.path, 'groups', `${groupName}.json`)
+    const groupFile = path.join(sfuPath, 'groups', `${groupName}.json`)
     await fs.writeFile(groupFile, JSON.stringify(nativeData, null, 2))
 }
 

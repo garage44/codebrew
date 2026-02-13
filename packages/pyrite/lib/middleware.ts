@@ -60,7 +60,7 @@ export class Router {
         })
     }
 
-    async route(req: Request, session?: Session): Promise<Response | null> {
+    async route(req: Request, session?: unknown): Promise<Response | null> {
         const url = new URL(req.url)
         const pathname = url.pathname
         for (const {handler, method, path} of this.routes) {
@@ -71,7 +71,7 @@ export class Router {
                 paramValues.forEach((val, idx) => {
                     params[`param${idx}`] = val
                 })
-                return await handler(req, params, session)
+                return await handler(req, params, session as Session | undefined)
             }
         }
         return null
@@ -82,8 +82,9 @@ export class Router {
  * SFU Proxy - proxies WebSocket connections to Galène
  * This is a pass-through proxy that doesn't require WebSocket server management
  */
-async function proxySFUWebSocket(request: Request, server: Server) {
+async function proxySFUWebSocket(request: Request, server: unknown) {
     const sfuUrl = config.sfu.url.replace('http://', 'ws://').replace('https://', 'wss://')
+    const srv = server as Server
     const url = new URL(request.url)
 
     /*
@@ -187,7 +188,7 @@ async function proxySFUWebSocket(request: Request, server: Server) {
         })
 
         // Upgrade client connection with special marker to skip manager lookup
-        const upgraded = server.upgrade(request, {
+        const upgraded = srv.upgrade(request, {
             data: {
                 endpoint: '/sfu',
                 // Mark as proxy to skip manager lookup
@@ -229,7 +230,7 @@ const requireAdmin = async (ctx: {session?: Session}, next: (ctx: {session?: Ses
     return next(ctx)
 }
 
-async function initMiddleware(_bunchyConfig) {
+async function initMiddleware(_bunchyConfig: unknown) {
     const router = new Router()
 
     // Register HTTP API endpoints using familiar Express-like pattern

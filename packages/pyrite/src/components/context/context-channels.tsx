@@ -25,8 +25,8 @@ export default function ChannelsContext() {
     const loadChannels = async () => {
         try {
             const response = await ws.get('/channels')
-            if (response.success) {
-                $s.channels = response.channels as Channel[]
+            if (response?.success) {
+                $s.channels = response!.channels as Channel[]
                 // Load all users globally after channels are loaded
                 await loadGlobalUsers()
             }

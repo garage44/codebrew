@@ -18,20 +18,16 @@ export default function ContextGroups({groupId, path}: ContextGroupsProps) {
     const orderedGroups = useMemo(() => {
         const groups = $s.admin.groups.filter((g) => g.public).concat($s.admin.groups.filter((g) => !g.public))
         return groups.toSorted((a, b) => {
-            if (a._name < b._name) {
-                return -1
-            }
-            if (a._name > b._name) {
-                return 1
-            }
-            return 0
+            const aName = String((a as {_name?: unknown})._name ?? '')
+            const bName = String((b as {_name?: unknown})._name ?? '')
+            return aName.localeCompare(bName)
         })
     }, [])
 
     const addGroup = async () => {
-        const group = await api.get('/api/groups/template')
+        const group = (await api.get('/api/groups/template')) as Record<string, unknown>
         $s.admin.groups.push(group)
-        toggleSelection(group._name)
+        toggleSelection(String(group._name ?? ''))
     }
 
     const deleteGroups = async () => {
@@ -56,7 +52,7 @@ export default function ContextGroups({groupId, path}: ContextGroupsProps) {
         await Promise.all(deleteRequests)
 
         if (orderedGroups.length) {
-            const groupId = orderedGroups[0]._name
+            const groupId = String((orderedGroups[0] as {_name?: unknown})._name ?? '')
             route(`/settings/groups/${groupId}/misc`)
         }
     }

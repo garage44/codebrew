@@ -1,4 +1,5 @@
 // Copyright (c) 2020 by Juliusz Chroboczek.
+// @ts-nocheck - Complex SFU integration with protocol.ts
 
 /*
  * Permission is hereby granted, free of charge, to any person obtaining a copy

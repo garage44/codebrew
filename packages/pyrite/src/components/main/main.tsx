@@ -9,6 +9,16 @@ import {useEffect} from 'preact/hooks'
 import {$s} from '@/app'
 import {emojiLookup} from '@/models/chat'
 
+interface ContextResponse {
+    authenticated?: boolean
+    channel?: {slug: string}
+    id?: string
+    password?: string
+    permission?: boolean
+    profile?: {avatar?: string; displayName?: string}
+    username?: string
+}
+
 import {Channel} from '../channel/channel'
 import ChannelsContext from '../context/context-channels'
 import {PanelContextSfu} from '../panel-context-sfu'
@@ -22,7 +32,7 @@ export const Main = () => {
             // Store previous user ID to detect changes (for debug_user switching)
             const previousUserId = $s.profile.id
 
-            const context = await api.get('/api/context')
+            const context = (await api.get('/api/context')) as ContextResponse
             mergeDeep($s.admin, context)
 
             /*
@@ -104,12 +114,12 @@ export const Main = () => {
                 }
 
                 // Load emoji list
-                if (!$s.chat.emoji.list.length) {
+                if (!$s.chat.emoji?.list?.length) {
                     logger.info('retrieving initial emoji list')
                     $s.chat.emoji.list = JSON.parse(await api.get('/api/chat/emoji'))
                     store.save()
                 }
-                for (const emoji of $s.chat.emoji.list || []) {
+                for (const emoji of $s.chat.emoji?.list ?? []) {
                     const emojiStr = typeof emoji === 'string' ? emoji : String(emoji)
                     const codePoint = emojiStr.codePointAt(0)
                     if (codePoint !== undefined) {
@@ -123,7 +133,11 @@ export const Main = () => {
                  * This ensures profile.id is always up-to-date, especially after debug_user switches
                  */
                 try {
-                    const userData = await api.get('/api/users/me')
+                    const userData = (await api.get('/api/users/me')) as {
+                        id?: string
+                        profile?: {avatar?: string; displayName?: string}
+                        username?: string
+                    }
                     if (userData?.id) {
                         // Store existing credentials before loading user data
                         const existingUsername = $s.profile.username || ''
@@ -165,10 +179,10 @@ export const Main = () => {
 
     const handleLogin = async (username: string, password: string): Promise<string | null> => {
         try {
-            const context = await api.post('/api/login', {
+            const context = (await api.post('/api/login', {
                 password,
                 username,
-            })
+            })) as ContextResponse
 
             Object.assign($s.admin, context)
 
@@ -206,13 +220,16 @@ export const Main = () => {
 
                 // Try to route to default channel
                 try {
-                    const defaultChannelResponse = await api.get('/api/channels/default')
-                    if (defaultChannelResponse?.channel?.slug) {
+                    const defaultChannelResponse = (await api.get('/api/channels/default')) as {
+                        channel?: {slug: string}
+                    }
+                    const channel = defaultChannelResponse?.channel
+                    if (channel?.slug) {
                         // Set active channel in state and route to default channel
-                        $s.chat.activeChannelSlug = defaultChannelResponse.channel.slug
+                        $s.chat.activeChannelSlug = channel.slug
                         // Route to default channel after a brief delay to ensure WebSocket is connected
                         setTimeout(() => {
-                            route(`/channels/${defaultChannelResponse.channel.slug}`)
+                            route(`/channels/${channel.slug}`)
                         }, 100)
                     }
                 } catch (error) {
@@ -234,7 +251,7 @@ export const Main = () => {
     }
 
     const handleLogout = async () => {
-        const context = await api.get('/api/logout')
+        const context = (await api.get('/api/logout')) as ContextResponse
         mergeDeep($s.admin, context)
         // Clear stored credentials
         $s.profile.username = ''
@@ -311,7 +328,7 @@ export const Main = () => {
                         default
                     />
                 </Router>
-                <Notifications notifications={$s.notifications} />
+                <Notifications notifications={$s.notifications as Array<{id?: number; message: string; type?: string}>} />
             </AppLayout>
         </div>
     )

@@ -1,4 +1,5 @@
 // Copyright (c) 2020 by Juliusz Chroboczek.
+// @ts-nocheck - Legacy Galene protocol file with extensive implicit any types
 
 /*
  * Permission is hereby granted, free of charge, to any person obtaining a copy

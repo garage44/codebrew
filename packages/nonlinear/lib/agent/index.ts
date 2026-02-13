@@ -57,24 +57,28 @@ export function getAgentById(agentId: string): BaseAgent | null {
     // Create agent instance based on type
     let agent: BaseAgent = null as unknown as BaseAgent
     switch (agentRecord.type) {
-        case 'planner': 
+        case 'planner': { 
             agent = new PlannerAgent(agentConfig)
             break
-        
+        }
 
-        case 'developer': 
+
+        case 'developer': { 
             agent = new DeveloperAgent(agentConfig)
             break
-        
+        }
 
-        case 'reviewer': 
+
+        case 'reviewer': { 
             agent = new ReviewerAgent(agentConfig)
             break
-        
+        }
 
-        default: 
+
+        default: { 
             return null
-        
+        }
+
     }
 
     // Cache instance

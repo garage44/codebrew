@@ -93,7 +93,7 @@ export const registerChannelsWebSocket = (wsManager: WebSocketServerManager) => 
         } catch (error) {
             logger.error('[Channels API] Error listing channels:', error)
             return {
-                error: error.message,
+                error: error instanceof Error ? error.message : String(error),
                 success: false,
             }
         }
@@ -140,7 +140,7 @@ export const registerChannelsWebSocket = (wsManager: WebSocketServerManager) => 
         } catch (error) {
             logger.error('[Channels API] Error creating channel:', error)
             return {
-                error: error.message,
+                error: error instanceof Error ? error.message : String(error),
                 success: false,
             }
         }
@@ -187,7 +187,7 @@ export const registerChannelsWebSocket = (wsManager: WebSocketServerManager) => 
         } catch (error) {
             logger.error('[Channels API] Error getting channel:', error)
             return {
-                error: error.message,
+                error: error instanceof Error ? error.message : String(error),
                 success: false,
             }
         }
@@ -258,7 +258,7 @@ export const registerChannelsWebSocket = (wsManager: WebSocketServerManager) => 
         } catch (error) {
             logger.error('[Channels API] Error updating channel:', error)
             return {
-                error: error.message,
+                error: error instanceof Error ? error.message : String(error),
                 success: false,
             }
         }
@@ -317,7 +317,7 @@ export const registerChannelsWebSocket = (wsManager: WebSocketServerManager) => 
         } catch (error) {
             logger.error('[Channels API] Error deleting channel:', error)
             return {
-                error: error.message,
+                error: error instanceof Error ? error.message : String(error),
                 success: false,
             }
         }
@@ -380,7 +380,7 @@ export const registerChannelsWebSocket = (wsManager: WebSocketServerManager) => 
         } catch (error) {
             logger.error('[Channels API] Error adding member:', error)
             return {
-                error: error.message,
+                error: error instanceof Error ? error.message : String(error),
                 success: false,
             }
         }
@@ -442,7 +442,7 @@ export const registerChannelsWebSocket = (wsManager: WebSocketServerManager) => 
         } catch (error) {
             logger.error('[Channels API] Error removing member:', error)
             return {
-                error: error.message,
+                error: error instanceof Error ? error.message : String(error),
                 success: false,
             }
         }
@@ -499,7 +499,7 @@ export const registerChannelsWebSocket = (wsManager: WebSocketServerManager) => 
         } catch (error) {
             logger.error('[Channels API] Error getting members:', error)
             return {
-                error: error.message,
+                error: error instanceof Error ? error.message : String(error),
                 success: false,
             }
         }

@@ -15,7 +15,7 @@ import {logger, runtime} from '../service.ts'
 // Helper functions using UserManager
 const loadUser = (userId: string) => userManager.getUser(userId)
 const loadUsers = () => userManager.listUsers()
-const saveUser = (userId: string, data: unknown) => userManager.updateUser(userId, data)
+const saveUser = (userId: string, data: Partial<User>) => userManager.updateUser(userId, data)
 const saveUsers = async (users: User[]) => {
     for (const user of users) {
         const userId = user.id || user.username
@@ -70,14 +70,14 @@ export default function (router: Router) {
     avatarRoutes.registerPlaceholderRoute(router)
     avatarRoutes.registerAvatarRoute(router)
 
-    router.get('/api/users', async (_req: Request, _params: Record<string, string>, _session: Session) => {
+    router.get('/api/users', async (_req: Request, _params: Record<string, string>, _session?: Session) => {
         const users = await loadUsers()
         return new Response(JSON.stringify(users), {
             headers: {'Content-Type': 'application/json'},
         })
     })
 
-    router.get('/api/users/template', async (_req: Request, _params: Record<string, string>, _session: Session) => {
+    router.get('/api/users/template', async (_req: Request, _params: Record<string, string>, _session?: Session) => {
         return new Response(JSON.stringify(userTemplate()), {
             headers: {'Content-Type': 'application/json'},
         })
@@ -88,7 +88,7 @@ export default function (router: Router) {
      * GET /api/users/me
      * IMPORTANT: This must be registered BEFORE /api/users/:userid to avoid route matching issues
      */
-    router.get('/api/users/me', async (_req: Request, _params: Record<string, string>, session: Session) => {
+    router.get('/api/users/me', async (_req: Request, _params: Record<string, string>, session?: Session) => {
         logger.info('[Users API] /api/users/me - HANDLER CALLED')
         logger.info(`[Users API] /api/users/me - session exists: ${!!session}, type: ${typeof session}`)
         logger.info(`[Users API] /api/users/me - session.userid: ${session?.userid || 'undefined/null'}`)
@@ -144,7 +144,7 @@ export default function (router: Router) {
         }
     })
 
-    router.get('/api/users/:userid', async (_req: Request, params: Record<string, string>, _session: Session) => {
+    router.get('/api/users/:userid', async (_req: Request, params: Record<string, string>, _session?: Session) => {
         const {param0: userId} = validateRequest(UserIdPathSchema, params)
         // Basic path traversal protection
         if (userId.match(/\.\.\//g) !== null) {
@@ -168,7 +168,7 @@ export default function (router: Router) {
         })
     })
 
-    router.post('/api/users/:userid', async (req: Request, params: Record<string, string>, _session: Session) => {
+    router.post('/api/users/:userid', async (req: Request, params: Record<string, string>, _session?: Session) => {
         const {param0: userId} = validateRequest(UserIdPathSchema, params)
         const userData = validateRequest(UserDataSchema, await req.json())
 
@@ -182,11 +182,11 @@ export default function (router: Router) {
         let user: User | null
         if (existingUser) {
             // User exists - update it
-            await saveUser(existingUser.id, userData)
+            await saveUser(existingUser.id, userData as Partial<User>)
             user = await loadUser(existingUser.id)
         } else {
             // User doesn't exist - create new user
-            user = await userManager.createUser(userData)
+            user = await userManager.createUser(userData as Partial<User>)
         }
 
         await syncUsers()
@@ -203,7 +203,7 @@ export default function (router: Router) {
         })
     })
 
-    router.get('/api/users/:userid/delete', async (_req: Request, params: Record<string, string>, _session: Session) => {
+    router.get('/api/users/:userid/delete', async (_req: Request, params: Record<string, string>, _session?: Session) => {
         const {param0: userId} = validateRequest(UserIdPathSchema, params)
         const users = await loadUsers()
         for (let [index, user] of users.entries()) {
@@ -220,7 +220,7 @@ export default function (router: Router) {
         })
     })
 
-    router.post('/api/users/:userid/avatar', async (req: Request, params: Record<string, string>, _session: Session) => {
+    router.post('/api/users/:userid/avatar', async (req: Request, params: Record<string, string>, _session?: Session) => {
         const {param0: userId} = validateRequest(UserIdPathSchema, params)
 
         logger.info(`[Users API] POST /api/users/:userid/avatar - userId from params: ${userId}`)

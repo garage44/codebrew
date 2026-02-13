@@ -810,7 +810,7 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
                                 </Button>
                             </div>
                         </div>
-                    ) : ticket.description ? (
+                    ) : (ticket.description ? (
                         <div
                             class='description-content'
                             dangerouslySetInnerHTML={{
@@ -819,7 +819,7 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
                         />
                     ) : (
                         <p class='no-description'>No description provided</p>
-                    )}
+                    ))}
                 </div>
 
                 {ticket.status === 'closed' && (
@@ -904,7 +904,7 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
                                                     __html: renderMarkdown(comment.content),
                                                 }}
                                             />
-                                        ) : isGenerating ? (
+                                        ) : (isGenerating ? (
                                             <div class='comment-content comment-content--placeholder'>
                                                 <span class='typing-indicator'>
                                                     <span />
@@ -912,7 +912,7 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
                                                     <span />
                                                 </span>
                                             </div>
-                                        ) : null}
+                                        ) : null)}
                                     </div>
                                 )
                             })}

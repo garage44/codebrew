@@ -45,7 +45,7 @@ export const persistantState = mergeDeep({
             width: 350,
         },
     },
-}, commonPersistantState as Record<string, unknown>) as Partial<PyriteState>
+}, commonPersistantState as Record<string, unknown>) as unknown as Partial<PyriteState>
 
 // State is always overwritten by these properties
 export const volatileState = mergeDeep({
@@ -146,4 +146,4 @@ export const volatileState = mergeDeep({
         video: [],
     },
     users: [],
-}, commonVolatileState) as Partial<PyriteState>
+}, commonVolatileState) as unknown as Partial<PyriteState>

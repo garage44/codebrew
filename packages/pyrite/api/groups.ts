@@ -6,7 +6,7 @@ import path from 'path'
 import type {Router, Session} from '../lib/middleware.ts'
 
 import {validateRequest} from '../lib/api/validate.ts'
-import {config} from '../lib/config.ts'
+import {getSfuPath} from '../lib/config.ts'
 import {groupTemplate, loadGroup, loadGroups, saveGroup, syncGroup} from '../lib/group.ts'
 import {GroupIdPathSchema, GroupSyncRequestSchema, GroupDataSchema} from '../lib/schemas/groups.ts'
 import {syncUsers} from '../lib/sync.ts'
@@ -30,27 +30,27 @@ export function registerGroupsWebSocketApiRoutes(wsManager: WebSocketServerManag
 }
 
 export default function (router: Router) {
-    router.get('/api/groups', async (_req: Request, _params: Record<string, string>, _session: Session) => {
+    router.get('/api/groups', async (_req: Request, _params: Record<string, string>, _session?: Session) => {
         const {groupsData} = await loadGroups()
         return new Response(JSON.stringify(groupsData), {
             headers: {'Content-Type': 'application/json'},
         })
     })
 
-    router.get('/api/groups/public', async (_req: Request, _params: Record<string, string>, _session: Session) => {
+    router.get('/api/groups/public', async (_req: Request, _params: Record<string, string>, _session?: Session) => {
         const {groupsData} = await loadGroups(true)
         return new Response(JSON.stringify(groupsData), {
             headers: {'Content-Type': 'application/json'},
         })
     })
 
-    router.get('/api/groups/template', async (_req: Request, _params: Record<string, string>, _session: Session) => {
+    router.get('/api/groups/template', async (_req: Request, _params: Record<string, string>, _session?: Session) => {
         return new Response(JSON.stringify(groupTemplate()), {
             headers: {'Content-Type': 'application/json'},
         })
     })
 
-    router.get('/api/groups/:groupid', async (_req: Request, params: Record<string, string>, _session: Session) => {
+    router.get('/api/groups/:groupid', async (_req: Request, params: Record<string, string>, _session?: Session) => {
         const {param0: groupId} = validateRequest(GroupIdPathSchema, params)
         // Basic path traversal protection
         if (groupId.match(/\.\.\//g) !== null) {
@@ -72,7 +72,7 @@ export default function (router: Router) {
         })
     })
 
-    router.post('/api/groups/:groupid', async (req: Request, params: Record<string, string>, _session: Session) => {
+    router.post('/api/groups/:groupid', async (req: Request, params: Record<string, string>, _session?: Session) => {
         const {param0: groupIdParam} = validateRequest(GroupIdPathSchema, params)
         const body = validateRequest(GroupDataSchema, await req.json())
         const {data, groupId} = await saveGroup(groupIdParam, body as Parameters<typeof saveGroup>[1])
@@ -89,9 +89,9 @@ export default function (router: Router) {
         })
     })
 
-    router.get('/api/groups/:groupid/delete', async (_req: Request, params: Record<string, string>, _session: Session) => {
+    router.get('/api/groups/:groupid/delete', async (_req: Request, params: Record<string, string>, _session?: Session) => {
         const {param0: groupId} = validateRequest(GroupIdPathSchema, params)
-        const groupFile = path.join(config.sfu.path, 'groups', `${groupId}.json`)
+        const groupFile = path.join(getSfuPath(), 'groups', `${groupId}.json`)
         await fs.remove(groupFile)
         const {groupNames} = await loadGroups()
         await syncUsers()

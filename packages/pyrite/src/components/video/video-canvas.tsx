@@ -126,7 +126,11 @@ export const VideoCanvas = ({className, streams}: VideoCanvasProps) => {
                         class={classnames('video-canvas-item', {'is-screenshare': isScreenShareStream})}
                         key={description.id || index}
                     >
-                        <Stream key={description.id} modelValue={sortedStreams[index]} onUpdate={handleStreamUpdate} />
+                        <Stream
+                            key={description.id}
+                            modelValue={sortedStreams[index]}
+                            onUpdate={handleStreamUpdate as (value: unknown) => void}
+                        />
                     </div>
                 )
             })}

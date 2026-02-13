@@ -25,10 +25,12 @@ export default class Sound {
         if (!this.played) {this.audio.addEventListener('ended', this.playEnd.bind(this))}
         this.played = true
 
-        if (!sink) {sink = $s.devices.audio.selected.id}
+        if (!sink) {
+            sink = $s.devices.audio.selected.id ?? ''
+        }
 
         logger.debug(`play sound on sink ${sink}`)
-        if (this.audio.setSinkId) {
+        if (this.audio.setSinkId && sink) {
             this.audio.setSinkId(sink)
         }
         // Loop the sound.

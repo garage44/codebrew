@@ -8,8 +8,13 @@ export function _events(): void {
     })
 }
 
+interface UserApiResponse {
+    id: number
+    username: string
+}
+
 export async function saveUser(userId: string, data: Record<string, unknown>): Promise<typeof $s.admin.users[number]> {
-    const user = await api.post(`/api/users/${userId}`, data)
+    const user = (await api.post(`/api/users/${userId}`, data)) as UserApiResponse & typeof $s.admin.users[number]
     $s.admin.users[$s.admin.users.findIndex((i): boolean => i.id === user.id)] = user
     notifier.notify({level: 'info', message: $t('user.action.saved', {username: user.username})})
     return user

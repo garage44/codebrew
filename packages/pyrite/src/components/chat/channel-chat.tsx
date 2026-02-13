@@ -228,15 +228,20 @@ export default function ChannelChat({channel, channelSlug}: ChannelChatProps) {
                      * Filter out current user's typing indicator and stale indicators (older than 5 seconds)
                      * Also enrich with username from global users if missing
                      */
-                    const otherTypingUsers = typingUsers
-                        .map((t: {timestamp: number; userId: string | number; username: string}) => {
+                    const typingArray = typingUsers as Array<{
+                        timestamp: number
+                        userId: string | number
+                        username: string
+                    }>
+                    const otherTypingUsers = typingArray
+                        .map((t) => {
                             // Use username from global users if not provided
                             if (!t.username && $s.chat.users?.[String(t.userId)]) {
                                 t.username = $s.chat.users[String(t.userId)].username
                             }
                             return t
                         })
-                        .filter((t: {timestamp: number; userId: string | number; username: string}) => {
+                        .filter((t) => {
                             const isStale = Date.now() - t.timestamp > 5000
                             const isCurrentUser = $s.profile.id && String(t.userId) === String($s.profile.id)
                             return !isStale && !isCurrentUser

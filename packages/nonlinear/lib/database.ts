@@ -488,7 +488,7 @@ function createNonlinearTables() {
         // Get embedding dimension from config (defaults based on provider)
         const embeddingDim =
             config.embeddings.dimension ||
-            (config.embeddings.provider === 'local' ? 384 : config.embeddings.provider === 'openai' ? 1536 : 1024)
+            (config.embeddings.provider === 'local' ? 384 : (config.embeddings.provider === 'openai' ? 1536 : 1024))
 
         // Check if vec0 table exists with different dimension
         const existingTable = db
@@ -530,7 +530,7 @@ function createNonlinearTables() {
     try {
         const embeddingDim =
             config.embeddings.dimension ||
-            (config.embeddings.provider === 'local' ? 384 : config.embeddings.provider === 'openai' ? 1536 : 1024)
+            (config.embeddings.provider === 'local' ? 384 : (config.embeddings.provider === 'openai' ? 1536 : 1024))
 
         // Check if code_embeddings table exists
         const existingCodeTable = db

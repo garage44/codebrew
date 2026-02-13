@@ -126,7 +126,7 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
 
                 // For Firefox canvas streams, ensure tracks are active
                 const tracks = glnStream.stream.getTracks()
-                tracks.forEach((track) => {
+                tracks.forEach((track: MediaStreamTrack) => {
                     if (track.readyState === 'live') {
                         logger.debug(`[Stream] Track ${track.kind} is live for stream ${modelValue.id}`)
                     } else {
@@ -386,7 +386,9 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
                     if (receivers.length > 0) {
                         logger.debug(`[Stream] Found ${receivers.length} existing receivers for stream ${modelValue.id}`)
                         // Check if we need to create a stream from existing tracks
-                        const tracks = receivers.map((r) => r.track).filter((t) => t && t.readyState === 'live')
+                        const tracks = receivers
+                            .map((r: RTCRtpReceiver) => r.track)
+                            .filter((t: MediaStreamTrack | null): t is MediaStreamTrack => t != null && t.readyState === 'live')
                         if (tracks.length > 0) {
                             // If stream doesn't exist yet, create it from tracks (Firefox canvas streams)
                             if (!glnStream.stream) {
@@ -400,11 +402,11 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
                             } else {
                                 // Stream exists but might not have all tracks - check and update
                                 const existingTracks = glnStream.stream.getTracks()
-                                const missingTracks = tracks.filter((t) => !existingTracks.includes(t))
+                                const missingTracks = tracks.filter((t: MediaStreamTrack) => !existingTracks.includes(t))
                                 if (missingTracks.length > 0) {
                                     const missingCount = missingTracks.length
                                     logger.debug(`[Stream] Adding ${missingCount} missing tracks to stream ${modelValue.id}`)
-                                    missingTracks.forEach((track) => glnStream.stream!.addTrack(track))
+                                    missingTracks.forEach((track: MediaStreamTrack) => glnStream.stream!.addTrack(track))
                                 }
                             }
                             setupMedia()
@@ -473,7 +475,7 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
 
             logger.debug(`[Stream] upstream stream ${modelValue.id} - mounting MediaStream`)
             const tracks = glnStream.stream.getTracks()
-            logger.debug(`[Stream] Stream tracks: ${tracks.map((t) => `${t.kind}:${t.readyState}`).join(', ')}`)
+            logger.debug(`[Stream] Stream tracks: ${tracks.map((t: MediaStreamTrack) => `${t.kind}:${t.readyState}`).join(', ')}`)
             glnStreamRef.current = glnStream
             state.stream = glnStream.stream
 
@@ -555,7 +557,7 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
         // A local stream that's not networked (e.g. cam preview in settings)
         if (!glnStreamRef.current) return
 
-        glnStreamRef.current.stream = state.stream
+        glnStreamRef.current.stream = state.stream ?? undefined
     }
 
     const playStream = async () => {

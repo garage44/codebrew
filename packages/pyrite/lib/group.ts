@@ -7,7 +7,7 @@ import path from 'node:path'
 import {uniqueNamesGenerator} from 'unique-names-generator'
 
 import {logger} from '../service.ts'
-import {config} from './config.ts'
+import {config, getSfuPath} from './config.ts'
 import {dictionary} from './utils.ts'
 
 const ROLES = ['op', 'other', 'presenter'] as const
@@ -167,7 +167,7 @@ export async function saveGroupPermissions(groupName: string, groupPermissions: 
 
 export async function loadGroup(groupName: string): Promise<GroupData | null> {
     logger.debug(`load group ${groupName}`)
-    const groupFile = path.join(config.sfu.path, 'groups', `${groupName}.json`)
+    const groupFile = path.join(getSfuPath(), 'groups', `${groupName}.json`)
     const exists = await fs.pathExists(groupFile)
     if (!exists) return null
     const groupData = JSON.parse(await fs.promises.readFile(groupFile, 'utf8')) as GroupData
@@ -258,21 +258,21 @@ export async function loadGroups(publicEndpoint = false) {
         galeneGroups = []
     }
 
-    const groupsPath = path.join(config.sfu.path, 'groups')
+    const groupsPath = path.join(getSfuPath(), 'groups')
 
     const glob = new Glob('**/*.json')
     const files = Array.from(glob.scanSync(groupsPath)).map((f) => path.join(groupsPath, f))
     const groupNames = files.map((i) => {
         return i.slice(groupsPath.length + 1, i.length - 5)
     })
-    const fileData = await Promise.all(groupNames.map((i) => loadGroup(i)))
+    const fileData = await Promise.all(groupNames.map((i: string) => loadGroup(i)))
 
-    const groupsData = []
+    const groupsData: Array<Record<string, unknown>> = []
     for (const [index, groupName] of groupNames.entries()) {
         const groupData = fileData[index]
-        let data = {}
+        let data: Record<string, unknown> = {}
 
-        if (publicEndpoint) {
+        if (publicEndpoint && groupData) {
             // name, description, clientCount
             for (const [key, value] of Object.entries(groupData)) {
                 if (key === 'public' && value === false) {
@@ -283,11 +283,11 @@ export async function loadGroups(publicEndpoint = false) {
                     data[key] = value
                 }
             }
-        } else {
+        } else if (groupData) {
             data = groupData
         }
 
-        const galeneGroup = galeneGroups.find((i) => i.name === groupName)
+        const galeneGroup = galeneGroups.find((i: {name: string}) => i.name === groupName)
         if (galeneGroup) {
             Object.assign(data, {
                 clientCount: galeneGroup.clientCount,
@@ -302,7 +302,7 @@ export async function loadGroups(publicEndpoint = false) {
     return {groupNames, groupsData}
 }
 
-export async function pingGroups(groupNames) {
+export async function pingGroups(groupNames: string[]) {
     logger.debug(`ping groups: ${groupNames}`)
     await Promise.all(groupNames.map((i) => fetch(`${config.sfu.url}/group/${i}`)))
 }
@@ -312,7 +312,7 @@ export async function renameGroup(oldGroupName: string, newGroupName: string) {
     for (const user of users) {
         // Use user.permissions.groups instead of user.groups
         const userGroups = user.permissions?.groups || {}
-        for (const role of Object.values(userGroups)) {
+        for (const role of Object.values(userGroups) as string[][]) {
             for (const [roleIndex, groupName] of role.entries()) {
                 if (groupName === oldGroupName) {
                     role[roleIndex] = newGroupName
@@ -336,7 +336,11 @@ export async function saveGroup(groupName: string, data: GroupData): Promise<{da
         saveData.other.push({})
     } else {
         const public_access_idx = saveData.other.findIndex(
-            (obj) => obj && Object.keys(obj).length === 0 && Object.getPrototypeOf(obj) === Object.prototype,
+            (obj: unknown) =>
+                obj &&
+                typeof obj === 'object' &&
+                Object.keys(obj as object).length === 0 &&
+                Object.getPrototypeOf(obj) === Object.prototype,
         )
         if (public_access_idx !== -1) {
             saveData.other.splice(public_access_idx, 1)
@@ -354,21 +358,23 @@ export async function saveGroup(groupName: string, data: GroupData): Promise<{da
         if (key.startsWith('_')) delete saveData[key]
     }
 
-    const groupsPath = path.join(config.sfu.path, 'groups')
-    const currentGroupFile = path.join(groupsPath, `${data._name}.json`)
-    if (data._name !== data._newName) {
+    const groupsPath = path.join(getSfuPath(), 'groups')
+    const groupNameVal = data._name ?? groupName
+    const newNameVal = data._newName ?? groupNameVal
+    const currentGroupFile = path.join(groupsPath, `${groupNameVal}.json`)
+    if (groupNameVal !== newNameVal) {
         logger.debug(`save and rename group ${groupName}`)
-        const newGroupFile = path.join(groupsPath, `${data._newName}.json`)
+        const newGroupFile = path.join(groupsPath, `${newNameVal}.json`)
         // Sync current group file in group definitions and settings.users
-        await renameGroup(data._name, data._newName)
+        await renameGroup(groupNameVal, newNameVal)
         await fs.remove(currentGroupFile)
 
         await fs.promises.writeFile(newGroupFile, JSON.stringify(saveData, null, '  '))
-        return {data, groupId: data._newName}
+        return {data, groupId: newNameVal}
     }
     logger.debug(`save group ${groupName}`)
     await fs.promises.writeFile(currentGroupFile, JSON.stringify(saveData, null, '  '))
-    return {data, groupId: data._name}
+    return {data, groupId: groupNameVal}
 }
 
 /**

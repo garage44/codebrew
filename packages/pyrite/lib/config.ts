@@ -35,7 +35,7 @@ const config = rc('pyrite', {
     ],
 })
 
-async function initConfig(config) {
+async function initConfig(config: Record<string, unknown>) {
     // Check for environment variable first (for PR deployments and isolated instances)
     const envConfigPath = process.env.CONFIG_PATH
     const configPath = envConfigPath || path.join(homedir(), '.pyriterc')
@@ -50,13 +50,19 @@ async function saveConfig() {
     // Check for environment variable first (for PR deployments and isolated instances)
     const envConfigPath = process.env.CONFIG_PATH
     const configPath = envConfigPath || path.join(homedir(), '.pyriterc')
-    const data = copyObject(config)
+    const data = copyObject(config) as Record<string, unknown> & {configs?: unknown; config?: unknown; _?: unknown}
     delete data.configs
     delete data.config
     delete data._
 
     await fs.writeFile(configPath, JSON.stringify(data, null, 4))
     logger.info(`[config] saved config to ${configPath}`)
+}
+
+export function getSfuPath(): string {
+    const p = (config as {sfu?: {path?: string | null}}).sfu?.path
+    if (!p) throw new Error('config.sfu.path is not configured')
+    return p
 }
 
 export {config, initConfig, saveConfig}

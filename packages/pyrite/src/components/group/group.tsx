@@ -82,7 +82,7 @@ export const Group = () => {
 
             try {
                 // Check if group allows anonymous access
-                if (group['allow-anonymous'] && group['public-access']) {
+                if (group['allow-anonymous'] && (group as Record<string, unknown>)['public-access']) {
                     // Connect anonymously
                     await connect('', '')
                 } else if ($s.profile.username && $s.profile.password) {
@@ -145,7 +145,11 @@ export const Group = () => {
     return (
         <div class='c-group' ref={viewRef}>
             {sortedStreams.map((description, index) => (
-                <Stream key={description.id || index} modelValue={sortedStreams[index]} onUpdate={handleStreamUpdate} />
+                <Stream
+                    key={description.id || index}
+                    modelValue={sortedStreams[index]}
+                    onUpdate={handleStreamUpdate as (value: unknown) => void}
+                />
             ))}
 
             {!$s.streams.length && (

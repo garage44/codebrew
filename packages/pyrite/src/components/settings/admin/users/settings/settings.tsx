@@ -14,16 +14,17 @@ interface SettingsProps {
 }
 
 export default function Settings({tabId = 'misc', userId}: SettingsProps) {
-    const routeSettings = (tab: string) => `/settings/users/${$s.admin.user.id}?tab=${tab}`
-
-    const saveUserAction = async (): Promise<void> => {
-        if (userId) {
-            await saveUser(String(userId), $s.admin.user)
-        }
-    }
-
     if (!$s.admin.user) {
         return null
+    }
+
+    const user = $s.admin.user
+    const routeSettings = (tab: string) => `/settings/users/${user.id}?tab=${tab}`
+
+    const saveUserAction = async (): Promise<void> => {
+        if (userId && user) {
+            await saveUser(String(userId), user)
+        }
     }
 
     return (
@@ -31,11 +32,7 @@ export default function Settings({tabId = 'misc', userId}: SettingsProps) {
             <header>
                 <div class='notice' />
                 <div class='title'>
-                    <span>
-                        {typeof $s.admin.user === 'object' && $s.admin.user !== null && 'name' in $s.admin.user
-                            ? String($s.admin.user.name)
-                            : ''}
-                    </span>
+                    <span>{typeof user === 'object' && user !== null && 'name' in user ? String(user.name) : ''}</span>
                     <Icon className='icon icon-regular' name='user' />
                 </div>
             </header>

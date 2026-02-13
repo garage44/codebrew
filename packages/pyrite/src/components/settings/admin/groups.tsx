@@ -23,9 +23,9 @@ export const Groups = ({children, groupId}: GroupsProps) => {
             return groupName === groupId
         })
         if (group && typeof group._unsaved !== 'undefined' && group._unsaved) {
-            Object.assign($s.admin.group || {}, group)
+            Object.assign($s.admin.group ?? {}, group)
             if (!$s.admin.group) {
-                $s.admin.group = group as typeof $s.admin.group
+                $s.admin.group = group as NonNullable<typeof $s.admin.group>
             }
         } else {
             const apiGroup = (await api.get(`/api/groups/${encodeURIComponent(groupId)}`)) as Record<string, unknown>
@@ -36,13 +36,13 @@ export const Groups = ({children, groupId}: GroupsProps) => {
                 }
                 Object.assign($s.admin.group || {}, group)
                 if (!$s.admin.group) {
-                    $s.admin.group = group as typeof $s.admin.group
+                    $s.admin.group = group as NonNullable<typeof $s.admin.group>
                 }
             } else {
                 group = apiGroup
                 Object.assign($s.admin.group || {}, group)
                 if (!$s.admin.group) {
-                    $s.admin.group = group as typeof $s.admin.group
+                    $s.admin.group = group as NonNullable<typeof $s.admin.group>
                 }
             }
         }

@@ -23,7 +23,7 @@ export default function Settings({groupId, path, tabId = 'misc'}: SettingsProps)
     }
 
     const saveGroupAction = async () => {
-        if (groupId) {
+        if (groupId && $s.admin.group) {
             const group = await saveGroup(groupId, $s.admin.group)
             route(`/settings/groups/${group._name}?tab=${tabId}`)
         }

@@ -149,15 +149,18 @@ const initChatSubscriptions = (): void => {
                     const channel = channels[channelKey]
                     const memberAvatar = channel?.members?.[userId]?.avatar
 
-                    const users = $s.chat.users as PyriteState['chat']['users']
-                    if (users[userId]) {
+                    const users = $s.chat.users
+                    const existingUser = users?.[userId] as
+                        | {avatar?: string; username: string; status?: string}
+                        | undefined
+                    if (existingUser) {
                         // Update username/avatar if they changed
-                        users[userId].username = username
+                        existingUser.username = username
                         if (memberAvatar) {
-                            users[userId].avatar = memberAvatar
+                            existingUser.avatar = memberAvatar
                         }
-                    } else {
-                        users[userId] = {
+                    } else if (users) {
+                        ;(users as Record<string, {avatar?: string; username: string; status?: string}>)[userId] = {
                             avatar: memberAvatar || 'placeholder-1.png',
                             username,
                         }
@@ -280,7 +283,9 @@ const initPresenceSubscriptions = (): void => {
                     return
                 }
 
-                const userIndex = $s.users.findIndex((u): boolean => u && u.id && String(u.id).trim() === normalizedUserId)
+                const userIndex = $s.users.findIndex(
+                    (u): boolean => Boolean(u && u.id && String(u.id).trim() === normalizedUserId),
+                )
                 if (userIndex === -1) {
                     // User doesn't exist, add it
                     $s.users.push({
@@ -332,7 +337,9 @@ const initPresenceSubscriptions = (): void => {
             if ($s.sfu.channel.name === groupId) {
                 // Normalize userId to string for consistent comparison
                 const normalizedUserId = String(userId).trim()
-                const userIndex = $s.users.findIndex((u): boolean => u && u.id && String(u.id).trim() === normalizedUserId)
+                const userIndex = $s.users.findIndex(
+                    (u): boolean => Boolean(u && u.id && String(u.id).trim() === normalizedUserId),
+                )
                 if (userIndex !== -1) {
                     $s.users.splice(userIndex, 1)
                 }
@@ -356,9 +363,11 @@ const initPresenceSubscriptions = (): void => {
 
             // Normalize userId to string for consistent comparison
             const normalizedUserId = String(userId).trim()
-            const user = $s.users.find((u): boolean => u && u.id && String(u.id).trim() === normalizedUserId)
-            if (user) {
-                Object.assign(user.data, status)
+            const user = $s.users.find(
+                (u): boolean => Boolean(u && u.id && String(u.id).trim() === normalizedUserId),
+            )
+            if (user && status !== null && typeof status === 'object') {
+                Object.assign(user.data as Record<string, unknown>, status as Record<string, unknown>)
             }
             // Always deduplicate after any modification (safety net)
             deduplicateUsers()
@@ -481,12 +490,14 @@ const initGroupSubscriptions = (): void => {
 
             // Normalize targetUserId to string for consistent comparison
             const normalizedTargetUserId = String(targetUserId).trim()
-            const targetUser = $s.users.find((u): boolean => u && u.id && String(u.id).trim() === normalizedTargetUserId)
+            const targetUser = $s.users.find(
+                (u): boolean => Boolean(u && u.id && String(u.id).trim() === normalizedTargetUserId),
+            )
 
             switch (action) {
                 case 'kick': 
                     // Remove kicked user
-                    if (targetUserId === $s.profile.id) {
+                    if (String(targetUserId) === String($s.profile.id)) {
                         // Current user was kicked, disconnect
                         const channelSlug = $s.sfu.channel.name || $s.chat.activeChannelSlug
                         $s.sfu.channel.connected = false
@@ -500,7 +511,8 @@ const initGroupSubscriptions = (): void => {
                     } else if (targetUser) {
                         // Another user was kicked
                         const userIndex = $s.users.findIndex(
-                            (u): boolean => u && u.id && String(u.id).trim() === normalizedTargetUserId,
+                            (u): boolean =>
+                                Boolean(u && u.id && String(u.id).trim() === normalizedTargetUserId),
                         )
                         if (userIndex !== -1) {
                             $s.users.splice(userIndex, 1)
@@ -511,7 +523,7 @@ const initGroupSubscriptions = (): void => {
 
                 case 'mute': 
                     // Mute user's microphone
-                    if (targetUserId === $s.profile.id) {
+                    if (String(targetUserId) === String($s.profile.id)) {
                         $s.devices.mic.enabled = false
                     } else if (targetUser && 'data' in targetUser && targetUser.data && typeof targetUser.data === 'object') {
                         ;(targetUser.data as {mic?: boolean}).mic = false
@@ -530,7 +542,7 @@ const initGroupSubscriptions = (): void => {
                     ) {
                         ;(targetUser.permissions as {op?: boolean}).op = action === 'op'
                     }
-                    if (targetUserId === $s.profile.id) {
+                    if (String(targetUserId) === String($s.profile.id)) {
                         $s.permissions.op = action === 'op'
                     }
                     break
@@ -547,7 +559,7 @@ const initGroupSubscriptions = (): void => {
                     ) {
                         ;(targetUser.permissions as {present?: boolean}).present = action === 'present'
                     }
-                    if (targetUserId === $s.profile.id) {
+                    if (String(targetUserId) === String($s.profile.id)) {
                         $s.permissions.present = action === 'present'
                     }
                     break
@@ -633,7 +645,9 @@ export const joinGroup = async (groupId: string): Promise<void> => {
                 // Normalize member.id to string for consistent comparison
                 if (member && member.id) {
                     const normalizedMemberId = String(member.id).trim()
-                    const userIndex = $s.users.findIndex((u): boolean => u && u.id && String(u.id).trim() === normalizedMemberId)
+                    const userIndex = $s.users.findIndex(
+                        (u): boolean => Boolean(u && u.id && String(u.id).trim() === normalizedMemberId),
+                    )
                     if (userIndex === -1) {
                         // User doesn't exist, add it
                         $s.users.push({
