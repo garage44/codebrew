@@ -204,15 +204,15 @@ ${JSON.stringify(ticketsContext, null, 2)}`
             `)
 
             const updateTransaction = getDb().transaction((prioritizations): void => {
-                for (const p of prioritizations) {
-                    const newStatus = p.should_move_to_todo ? 'todo' : 'backlog'
-                    updateStmt.run(p.priority, newStatus, Date.now(), p.ticket_id)
+                for (const prioritization of prioritizations) {
+                    const newStatus = prioritization.should_move_to_todo ? 'todo' : 'backlog'
+                    updateStmt.run(prioritization.priority, newStatus, Date.now(), prioritization.ticket_id)
 
-                    if (p.should_move_to_todo) {
+                    if (prioritization.should_move_to_todo) {
                         movedCount += 1
-                        this.log(`Moved ticket ${p.ticket_id} to todo (priority: ${p.priority})`)
+                        this.log(`Moved ticket ${prioritization.ticket_id} to todo (priority: ${prioritization.priority})`)
                     } else {
-                        this.log(`Updated priority for ticket ${p.ticket_id}: ${p.priority}`)
+                        this.log(`Updated priority for ticket ${prioritization.ticket_id}: ${prioritization.priority}`)
                     }
                 }
             })
@@ -538,7 +538,7 @@ ${mention.commentContent}
 **Repository:** ${ticket.repository_name || 'Unknown'}${repositoryContext}
 
 **Recent comments on this ticket:**
-${recentComments.map((c): string => `- ${c.author_type} (${c.author_id}): ${c.content}`).join('\n')}
+${recentComments.map((comment): string => `- ${comment.author_type} (${comment.author_id}): ${comment.content}`).join('\n')}
 
 Please respond to the user's request and refine the ticket as requested.`
 
@@ -570,16 +570,16 @@ Please respond to the user's request and refine the ticket as requested.`
                         // Find the end of the string (unescaped quote followed by comma/brace)
                         let endIdx = -1
                         let escaped = false
-                        for (let i = 0; i < valueText.length; i += 1) {
+                        for (let idx = 0; idx < valueText.length; idx += 1) {
                             if (escaped) {
                                 escaped = false
-                            } else if (valueText[i] === '\\') {
+                            } else if (valueText[idx] === '\\') {
                                 escaped = true
-                            } else if (valueText[i] === '"') {
+                            } else if (valueText[idx] === '"') {
                                 // Check if followed by comma or closing brace
-                                const nextChar = valueText[i + 1]
+                                const nextChar = valueText[idx + 1]
                                 if (nextChar === ',' || nextChar === '}' || !nextChar) {
-                                    endIdx = i
+                                    endIdx = idx
                                     break
                                 }
                             }

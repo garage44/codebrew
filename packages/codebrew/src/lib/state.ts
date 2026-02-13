@@ -8,7 +8,7 @@ const persistantState = mergeDeep({...commonPersistantState} as Record<string, u
 const volatileState = mergeDeep(
     {
         agents: [],
-        anthropic: {usage: {count: 0, limit: 1000000, loading: false}},
+        anthropic: {usage: {count: 0, limit: 1_000_000, loading: false}},
         docs: [],
         labelDefinitions: [],
         repositories: [],

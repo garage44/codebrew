@@ -217,7 +217,7 @@ export const registerChatWebSocket = (wsManager: WebSocketServerManager) => {
                 LIMIT ?
             `)
 
-            const messages = stmt.all(channel.id, messageLimit) as Array<{
+            const messages = stmt.all(channel.id, messageLimit) as {
                 channel_id: number
                 id: number
                 kind: string
@@ -226,7 +226,7 @@ export const registerChatWebSocket = (wsManager: WebSocketServerManager) => {
                 // TEXT/UUID, not number
                 user_id: string
                 username: string
-            }>
+            }[]
 
             // Reverse to get chronological order
             messages.reverse()

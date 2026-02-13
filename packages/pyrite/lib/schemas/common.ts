@@ -42,7 +42,7 @@ export const GroupIdParamsSchema = z.object({
  * HTTP router uses param0, param1, etc.
  */
 export const GroupIdPathSchema = z.object({
-    /** groupid */
+    /** Groupid */
     param0: IdSchema,
 })
 
@@ -50,7 +50,7 @@ export const GroupIdPathSchema = z.object({
  * Channel ID path parameters schema (HTTP)
  */
 export const ChannelIdPathSchema = z.object({
-    /** channelId */
+    /** ChannelId */
     param0: ChannelIdSchema,
 })
 
@@ -58,7 +58,7 @@ export const ChannelIdPathSchema = z.object({
  * User ID path parameters schema (HTTP)
  */
 export const UserIdPathSchema = z.object({
-    /** userid */
+    /** Userid */
     param0: IdSchema,
 })
 

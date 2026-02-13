@@ -57,17 +57,28 @@ interface TargetLanguage {
 }
 
 type TranscriptionSystem =
-    | 'ala_lc'    // Arabic, Persian, etc
-    | 'din'       // Arabic DIN 31635
-    | 'pinyin'    // Chinese
-    | 'wade_giles' // Chinese
-    | 'hepburn'   // Japanese
-    | 'kunrei'    // Japanese
-    | 'revised'   // Korean
-    | 'mcr'       // Korean (McCune-Reischauer)
-    | 'scientific' // Russian/Cyrillic
-    | 'iast'      // Sanskrit/Hindi
-    | 'dmg'       // Persian
+    // Arabic, Persian, etc
+    | 'ala_lc'
+    // Arabic DIN 31635
+    | 'din'
+    // Chinese
+    | 'pinyin'
+    // Chinese
+    | 'wade_giles'
+    // Japanese
+    | 'hepburn'
+    // Japanese
+    | 'kunrei'
+    // Korean
+    | 'revised'
+    // Korean (McCune-Reischauer)
+    | 'mcr'
+    // Russian/Cyrillic
+    | 'scientific'
+    // Sanskrit/Hindi
+    | 'iast'
+    // Persian
+    | 'dmg'
     | null
 
 interface Language {

@@ -55,7 +55,7 @@ export async function validateSignature(payload: string, signature: string, secr
     const key = await crypto.subtle.importKey('raw', keyData, {hash: 'SHA-256', name: 'HMAC'}, false, ['sign'])
 
     const hmacSignature = await crypto.subtle.sign('HMAC', key, payloadData)
-    const calculatedHash = [...new Uint8Array(hmacSignature)].map((b): string => b.toString(16).padStart(2, '0')).join('')
+    const calculatedHash = [...new Uint8Array(hmacSignature)].map((byte): string => byte.toString(16).padStart(2, '0')).join('')
 
     // Use constant-time comparison to prevent timing attacks
     if (calculatedHash.length !== sigHash.length) {
@@ -63,9 +63,9 @@ export async function validateSignature(payload: string, signature: string, secr
     }
 
     let result = 0
-    for (let i = 0; i < calculatedHash.length; i += 1) {
-        const calculatedCode = calculatedHash.codePointAt(i) ?? 0
-        const sigCode = sigHash.codePointAt(i) ?? 0
+    for (let idx = 0; idx < calculatedHash.length; idx += 1) {
+        const calculatedCode = calculatedHash.codePointAt(idx) ?? 0
+        const sigCode = sigHash.codePointAt(idx) ?? 0
         // eslint-disable-next-line no-bitwise
         result |= calculatedCode ^ sigCode
     }
@@ -348,7 +348,7 @@ async function handlePullRequestEvent(event: PullRequestWebhookEvent): Promise<R
     const prNumber = pullRequest?.number
 
     if (!prNumber) {
-        return new Response(JSON.stringify({error: 'Missing PR number'}), {
+        return Response.json({error: 'Missing PR number'}, {
             headers: {'Content-Type': 'application/json'},
             status: 400,
         })
@@ -360,7 +360,7 @@ async function handlePullRequestEvent(event: PullRequestWebhookEvent): Promise<R
     // Handle PR close/merge - cleanup
     if (action === 'closed') {
         const result = await cleanupPRDeployment(prNumber)
-        return new Response(JSON.stringify(result), {
+        return Response.json(result, {
             headers: {'Content-Type': 'application/json'},
             status: result.success ? 200 : 500,
         })
@@ -375,7 +375,7 @@ async function handlePullRequestEvent(event: PullRequestWebhookEvent): Promise<R
             typeof pullRequest.head.repo.fork !== 'boolean' ||
             !pullRequest.user?.login
         ) {
-            return new Response(JSON.stringify({error: 'Incomplete pull request payload'}), {
+            return Response.json({error: 'Incomplete pull request payload'}, {
                 headers: {'Content-Type': 'application/json'},
                 status: 422,
             })
@@ -406,32 +406,26 @@ async function handlePullRequestEvent(event: PullRequestWebhookEvent): Promise<R
                     })
                 }
 
-                return new Response(
-                    JSON.stringify({
+                return Response.json(
+                    {
                         message: `Deployment failed: ${deployResult.message}`,
                         prNumber,
                         success: false,
                         timestamp: new Date().toISOString(),
-                    }),
-                    {
-                        headers: {'Content-Type': 'application/json'},
-                        status: 500,
                     },
+                    {status: 500},
                 )
             }
 
             if (!deployResult.deployment) {
-                return new Response(
-                    JSON.stringify({
+                return Response.json(
+                    {
                         message: 'Deployment completed but no deployment record was created',
                         prNumber,
                         success: false,
                         timestamp: new Date().toISOString(),
-                    }),
-                    {
-                        headers: {'Content-Type': 'application/json'},
-                        status: 500,
                     },
+                    {status: 500},
                 )
             }
 
@@ -441,17 +435,14 @@ async function handlePullRequestEvent(event: PullRequestWebhookEvent): Promise<R
             // Get the deployment record to check packages
             const deployment = await getPRDeployment(prNumber)
             if (!deployment) {
-                return new Response(
-                    JSON.stringify({
+                return Response.json(
+                    {
                         message: 'Deployment completed but deployment record not found',
                         prNumber,
                         success: false,
                         timestamp: new Date().toISOString(),
-                    }),
-                    {
-                        headers: {'Content-Type': 'application/json'},
-                        status: 500,
                     },
+                    {status: 500},
                 )
             }
 
@@ -522,7 +513,7 @@ async function handlePullRequestEvent(event: PullRequestWebhookEvent): Promise<R
                 // eslint-disable-next-line no-console
                 console.error(
                     `[webhook] PR #${prNumber} health checks failed:`,
-                    failedChecks.map((c: {name: string}): string => c.name),
+                    failedChecks.map((check: {name: string}): string => check.name),
                 )
                 // eslint-disable-next-line no-await-in-loop
                 await updatePRDeployment(prNumber, {status: 'failed'}).catch((error: unknown): void => {
@@ -530,68 +521,62 @@ async function handlePullRequestEvent(event: PullRequestWebhookEvent): Promise<R
                     console.error('[webhook] Failed to update deployment status:', error)
                 })
 
-                return new Response(
-                    JSON.stringify({
+                return Response.json(
+                    {
                         allChecks: allChecks.map(
-                            (c: {
+                            (check: {
                                 name: string
                                 result: {healthy: boolean; message: string}
                             }): {healthy: boolean; message: string; name: string} => ({
-                                healthy: c.result.healthy,
-                                message: c.result.message,
-                                name: c.name,
+                                healthy: check.result.healthy,
+                                message: check.result.message,
+                                name: check.name,
                             }),
                         ),
                         failedChecks: failedChecks.map(
-                            (c: {
+                            (check: {
                                 name: string
                                 result: {details?: unknown; message: string}
                             }): {details?: unknown; message: string; name: string} => ({
-                                details: c.result.details,
-                                message: c.result.message,
-                                name: c.name,
+                                details: check.result.details,
+                                message: check.result.message,
+                                name: check.name,
                             }),
                         ),
                         message: 'Deployment completed but health checks failed',
                         prNumber,
                         success: false,
                         timestamp: new Date().toISOString(),
-                    }),
-                    {
-                        headers: {'Content-Type': 'application/json'},
-                        status: 500,
                     },
+                    {status: 500},
                 )
             }
 
             // eslint-disable-next-line no-console
             console.log(`[webhook] PR #${prNumber} deployment successful and healthy`)
-            return new Response(
-                JSON.stringify({
+            return Response.json(
+                {
                     deployment: {
                         packages: packagesToDeploy,
                         ports: deployment.ports,
                         url: `https://pr-${prNumber}-nonlinear.${baseDomain}`,
                     },
                     healthChecks: allChecks.map(
-                        (c: {
+                        (check: {
                             name: string
                             result: {healthy: boolean; message: string}
                         }): {healthy: boolean; message: string; name: string} => ({
-                            healthy: c.result.healthy,
-                            message: c.result.message,
-                            name: c.name,
+                            healthy: check.result.healthy,
+                            message: check.result.message,
+                            name: check.name,
                         }),
                     ),
                     message: `PR #${prNumber} deployed successfully and verified`,
                     prNumber,
                     success: true,
                     timestamp: new Date().toISOString(),
-                }),
-                {
-                    headers: {'Content-Type': 'application/json'},
-                    status: 200,
                 },
+                {status: 200},
             )
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error)
@@ -610,31 +595,25 @@ async function handlePullRequestEvent(event: PullRequestWebhookEvent): Promise<R
                 console.error('[webhook] Failed to update deployment status:', error)
             })
 
-            return new Response(
-                JSON.stringify({
+            return Response.json(
+                {
                     error: errorMessage,
                     message: `Deployment error: ${errorMessage}`,
                     prNumber,
                     success: false,
                     timestamp: new Date().toISOString(),
-                }),
-                {
-                    headers: {'Content-Type': 'application/json'},
-                    status: 500,
                 },
+                {status: 500},
             )
         }
     }
 
     // Ignore other actions
-    return new Response(
-        JSON.stringify({
-            message: `Ignored PR action: ${action}`,
-        }),
+    return Response.json(
         {
-            headers: {'Content-Type': 'application/json'},
-            status: 200,
+            message: `Ignored PR action: ${action}`,
         },
+        {status: 200},
     )
 }
 
@@ -644,8 +623,7 @@ async function handlePullRequestEvent(event: PullRequestWebhookEvent): Promise<R
 export async function handleWebhook(req: Request): Promise<Response> {
     // Only accept POST requests
     if (req.method !== 'POST') {
-        return new Response(JSON.stringify({error: 'Method not allowed'}), {
-            headers: {'Content-Type': 'application/json'},
+        return Response.json({error: 'Method not allowed'}, {
             status: 405,
         })
     }
@@ -653,8 +631,7 @@ export async function handleWebhook(req: Request): Promise<Response> {
     // Get signature from headers
     const signature = req.headers.get('x-hub-signature-256')
     if (!signature) {
-        return new Response(JSON.stringify({error: 'Missing signature'}), {
-            headers: {'Content-Type': 'application/json'},
+        return Response.json({error: 'Missing signature'}, {
             status: 401,
         })
     }
@@ -667,8 +644,7 @@ export async function handleWebhook(req: Request): Promise<Response> {
     if (!isValid) {
         // eslint-disable-next-line no-console
         console.error('[webhook] Invalid signature')
-        return new Response(JSON.stringify({error: 'Invalid signature'}), {
-            headers: {'Content-Type': 'application/json'},
+        return Response.json({error: 'Invalid signature'}, {
             status: 401,
         })
     }
@@ -678,8 +654,7 @@ export async function handleWebhook(req: Request): Promise<Response> {
     try {
         event = JSON.parse(payload)
     } catch {
-        return new Response(JSON.stringify({error: 'Invalid JSON payload'}), {
-            headers: {'Content-Type': 'application/json'},
+        return Response.json({error: 'Invalid JSON payload'}, {
             status: 400,
         })
     }
@@ -694,8 +669,7 @@ export async function handleWebhook(req: Request): Promise<Response> {
 
     // Handle push events (main branch deployment)
     if (eventType !== 'push') {
-        return new Response(JSON.stringify({message: `Ignored: event type ${eventType}`}), {
-            headers: {'Content-Type': 'application/json'},
+        return Response.json({message: `Ignored: event type ${eventType}`}, {
             status: 200,
         })
     }
@@ -703,8 +677,7 @@ export async function handleWebhook(req: Request): Promise<Response> {
     // Only process push events to main branch
     const pushEvent = event as {ref?: string}
     if (pushEvent.ref !== 'refs/heads/main' && pushEvent.ref) {
-        return new Response(JSON.stringify({message: 'Ignored: not main branch'}), {
-            headers: {'Content-Type': 'application/json'},
+        return Response.json({message: 'Ignored: not main branch'}, {
             status: 200,
         })
     }
@@ -743,15 +716,12 @@ export async function handleWebhook(req: Request): Promise<Response> {
         })
 
     // Return deployment result immediately (before nonlinear restart)
-    return new Response(
-        JSON.stringify({
+    return Response.json(
+        {
             message: deploymentResult.message,
             success: deploymentResult.success,
             timestamp: new Date().toISOString(),
-        }),
-        {
-            headers: {'Content-Type': 'application/json'},
-            status: deploymentResult.success ? 200 : 500,
         },
+        {status: deploymentResult.success ? 200 : 500},
     )
 }

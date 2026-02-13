@@ -4,16 +4,16 @@
  * Keeping for reference but marking as legacy to avoid type errors
  */
 
-import crypto from 'crypto'
 import fs from 'fs-extra'
 // @ts-expect-error - Legacy import
 import inquirer from 'inquirer'
 // @ts-expect-error - Legacy import
 import fetch from 'node-fetch'
-import os from 'os'
-import {dirname} from 'path'
-import path from 'path'
-import {fileURLToPath} from 'url'
+import crypto from 'node:crypto'
+import os from 'node:os'
+import {dirname} from 'node:path'
+import path from 'node:path'
+import {fileURLToPath} from 'node:url'
 
 // @ts-expect-error - Legacy imports
 import app from '../app.js'
@@ -28,7 +28,7 @@ export async function verifyConfig(app: {
     logger: {info: (msg: string) => void}
     settings: Record<string, unknown>
 }) {
-    const pkg = JSON.parse(await fs.readFile(path.join(__dirname, '..', '..', 'package.json'), 'utf-8'))
+    const pkg = JSON.parse(await fs.readFile(path.join(__dirname, '..', '..', 'package.json'), 'utf8'))
     app.logger.info(`starting pyrite v${pkg.version}`)
     let configFile
     if (app.settings.config) {
@@ -43,7 +43,7 @@ export async function verifyConfig(app: {
         app.logger.info('generating config...')
         let sfuPath
 
-        // sfuPath & sfuUrl are passed as commandline argument
+        // SfuPath & sfuUrl are passed as commandline argument
         if (app.settings.sfuPath) {
             sfuPath = app.settings.sfuPath
             delete app.settings.sfuPath
@@ -125,17 +125,16 @@ export async function verifySFU() {
         )
     }
 
-    const config = JSON.parse(await fs.readFile(sfuConfigFile, 'utf-8'))
+    const config = JSON.parse(await fs.readFile(sfuConfigFile, 'utf8'))
     app.config.sfu.admin = {
         password: config.admin[0].password,
         username: config.admin[0].username,
     }
 
     // Test sfu endpoint
-    const authHeader = `Basic ${Buffer.from(
-        `${app.config.sfu.admin.username}:${app.config.sfu.admin.password}`,
-        'utf-8',
-    ).toString('base64')}`
+    const authHeader = `Basic ${Buffer.from(`${app.config.sfu.admin.username}:${app.config.sfu.admin.password}`, 'utf8').toString(
+        'base64',
+    )}`
     const headers = new fetch.Headers()
     headers.append('Authorization', authHeader)
 

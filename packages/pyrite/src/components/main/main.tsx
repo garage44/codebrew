@@ -110,7 +110,9 @@ export const Main = () => {
                 if (appElement) {
                     const themeColor = getComputedStyle(appElement).getPropertyValue('--grey-4')
                     const metaTheme = document.querySelector('meta[name="theme-color"]')
-                    if (metaTheme) (metaTheme as HTMLMetaElement).content = themeColor
+                    if (metaTheme) {
+                        ;(metaTheme as HTMLMetaElement).content = themeColor
+                    }
                 }
 
                 // Load emoji list
@@ -167,7 +169,7 @@ export const Main = () => {
                         }
                         logger.info(
                             `[Main] Loaded user: ${userData.id}, avatar: ${$s.profile.avatar}, ` +
-                                `username preserved: ${!!existingUsername}, password preserved: ${!!existingPassword}`,
+                                `username preserved: ${Boolean(existingUsername)}, password preserved: ${Boolean(existingPassword)}`,
                         )
                     }
                 } catch (error) {
@@ -270,7 +272,7 @@ export const Main = () => {
     }
 
     if (!$s.admin.authenticated) {
-        return <Login animated={true} LogoIcon={IconLogo} onLogin={handleLogin} title='Pyrite' />
+        return <Login animated LogoIcon={IconLogo} onLogin={handleLogin} title='Pyrite' />
     }
 
     return (
@@ -328,7 +330,7 @@ export const Main = () => {
                         default
                     />
                 </Router>
-                <Notifications notifications={$s.notifications as Array<{id?: number; message: string; type?: string}>} />
+                <Notifications notifications={$s.notifications as {id?: number; message: string; type?: string}[]} />
             </AppLayout>
         </div>
     )

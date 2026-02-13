@@ -336,6 +336,6 @@ export async function checkPRDeploymentHealth(
         healthy: allHealthy,
         message: allHealthy ?
             'All health checks passed' :
-            `${failedChecks.length} health check(s) failed: ${failedChecks.map((c): string => c.name).join(', ')}`,
+            `${failedChecks.length} health check(s) failed: ${failedChecks.map((check): string => check.name).join(', ')}`,
     }
 }

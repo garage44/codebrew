@@ -18,17 +18,17 @@ function showConfig(settings: Settings): void {
         nodes: [
             {
                 label: pc.bold(pc.blue('Directories')),
-                nodes: Object.entries(settings.dir).map(([k, dir]): {label: string; nodes?: string[]} => {
+                nodes: Object.entries(settings.dir).map(([key, dir]): {label: string; nodes?: string[]} => {
                     if (typeof dir === 'string') {
-                        return {label: `${k.padEnd(10, ' ')} ${tildify(dir)}`}
+                        return {label: `${key.padEnd(10, ' ')} ${tildify(dir)}`}
                     }
                     if (Array.isArray(dir)) {
                         return {
                             label: 'extra',
-                            nodes: dir.map((i: string): string => tildify(i)),
+                            nodes: dir.map((item: string): string => tildify(item)),
                         }
                     }
-                    return {label: `${k.padEnd(10, ' ')} ${tildify(String(dir))}`}
+                    return {label: `${key.padEnd(10, ' ')} ${tildify(String(dir))}`}
                 }),
             },
             {

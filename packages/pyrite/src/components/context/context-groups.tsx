@@ -10,11 +10,11 @@ import {currentGroup} from '@/models/group'
 export default function GroupsContext() {
     const intervalRef = useRef<number | null>(null)
 
-    const currentGroupData = useMemo(() => currentGroup(), [$s.sfu.channel.name])
+    const currentGroupData = useMemo(() => currentGroup(), [])
 
     const isListedGroup = useMemo(() => {
         const groupName = $s.sfu.channel.name
-        return groupName ? !!$s.sfu.channels[groupName] : false
+        return groupName ? Boolean($s.sfu.channels[groupName]) : false
     }, [])
 
     const groupLink = (groupId: string) => {

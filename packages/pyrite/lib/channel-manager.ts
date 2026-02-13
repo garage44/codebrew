@@ -1,4 +1,5 @@
-import {Database} from 'bun:sqlite'
+import type {Database} from 'bun:sqlite'
+
 import fs from 'fs-extra'
 import path from 'node:path'
 
@@ -157,7 +158,9 @@ export class ChannelManager {
         updates: Partial<Pick<Channel, 'name' | 'slug' | 'description' | 'is_default'>>,
     ): Promise<Channel | null> {
         const channel = this.getChannel(id)
-        if (!channel) return null
+        if (!channel) {
+            return null
+        }
 
         // If setting as default, unset all other defaults first
         if (updates.is_default !== undefined && updates.is_default === 1) {
@@ -184,7 +187,9 @@ export class ChannelManager {
             values.push(updates.is_default)
         }
 
-        if (fields.length === 0) return channel
+        if (fields.length === 0) {
+            return channel
+        }
 
         const stmt = this.db.prepare(`
             UPDATE channels
@@ -203,7 +208,9 @@ export class ChannelManager {
      */
     async deleteChannel(id: number): Promise<boolean> {
         const channel = this.getChannel(id)
-        if (!channel) return false
+        if (!channel) {
+            return false
+        }
 
         // Delete channel (cascade will handle members and messages)
         const stmt = this.db.prepare('DELETE FROM channels WHERE id = ?')
@@ -273,7 +280,7 @@ export class ChannelManager {
             WHERE channel_id = ? AND user_id = ?
         `)
 
-        return !!stmt.get(channelId, userId)
+        return Boolean(stmt.get(channelId, userId))
     }
 
     /**
@@ -299,7 +306,9 @@ export class ChannelManager {
          * All authenticated users can access channels (public by default)
          * Membership is still tracked for roles/permissions within channels
          */
-        if (!userId) return false
+        if (!userId) {
+            return false
+        }
         return true
     }
 
@@ -416,7 +425,7 @@ export class ChannelManager {
             description: groupData.description ?? '',
             displayName: groupData.displayName ?? groupName,
             'max-clients': groupData['max-clients'] ?? 10,
-            'max-history-age': groupData['max-history-age'] ?? 14400,
+            'max-history-age': groupData['max-history-age'] ?? 14_400,
             public: groupData.public ?? false,
         }
 

@@ -32,9 +32,11 @@ export const Reports = ({description, onClick}: ReportsProps) => {
     }, [description.settings])
 
     const onDownStats = () => {
-        if (!glnStream) return
+        if (!glnStream) {
+            return
+        }
         glnStream.pc.getReceivers().forEach((r: RTCRtpReceiver) => {
-            let tid = r.track && r.track.id
+            const tid = r.track && r.track.id
 
             const streamStats = tid && glnStream.stats?.[tid]
             if (streamStats) {
@@ -59,9 +61,11 @@ export const Reports = ({description, onClick}: ReportsProps) => {
     }
 
     const onUpStats = () => {
-        if (!glnStream) return
+        if (!glnStream) {
+            return
+        }
         glnStream.pc.getSenders().forEach((s: RTCRtpSender) => {
-            let tid = s.track && s.track.id
+            const tid = s.track && s.track.id
             const streamStats = glnStream.stats?.[tid ?? '']
 
             if (streamStats) {
@@ -87,7 +91,9 @@ export const Reports = ({description, onClick}: ReportsProps) => {
     }
 
     useEffect(() => {
-        if (!connection) return
+        if (!connection) {
+            return
+        }
 
         let stream = null
         if (description.id != null && connection.up[description.id]) {

@@ -33,7 +33,7 @@ export const WorkspaceIdParamsSchema = z.object({
  * HTTP router uses param0, param1, etc.
  */
 export const WorkspaceIdPathSchema = z.object({
-    /** workspace_id */
+    /** Workspace_id */
     param0: IdSchema,
 })
 
@@ -41,6 +41,6 @@ export const WorkspaceIdPathSchema = z.object({
  * User ID path parameters schema (HTTP)
  */
 export const UserIdPathSchema = z.object({
-    /** userid */
+    /** Userid */
     param0: IdSchema,
 })

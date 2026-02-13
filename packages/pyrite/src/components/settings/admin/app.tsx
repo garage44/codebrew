@@ -32,7 +32,7 @@ export const AdminApp = () => {
                 <Route component={Users} path='/settings/users/:userId' />
                 <Route component={Groups} default />
             </Router>
-            <Notifications notifications={$s.notifications as Array<{id?: number; message: string}>} />
+            <Notifications notifications={$s.notifications as {id?: number; message: string}[]} />
         </div>
     )
 }

@@ -126,7 +126,7 @@ export async function unifiedVectorSearch(
                         SELECT label FROM documentation_labels WHERE doc_id = ?
                     `)
                         .all(doc.id) as {label: string}[]
-                    const docTags = new Set(docLabels.map((l): string => l.label))
+                    const docTags = new Set(docLabels.map((label): string => label.label))
                     const hasMatchingTag = filters.tags.some((tag): boolean => docTags.has(tag))
                     if (hasMatchingTag && result.chunk_index !== null) {
                         docResults.push({
@@ -159,7 +159,7 @@ export async function unifiedVectorSearch(
                         SELECT label FROM ticket_labels WHERE ticket_id = ?
                     `)
                         .all(ticket.id) as {label: string}[]
-                    const ticketTags = new Set(ticketLabels.map((l): string => l.label))
+                    const ticketTags = new Set(ticketLabels.map((label): string => label.label))
                     const hasMatchingTag = filters.tags.some((tag): boolean => ticketTags.has(tag))
                     if (hasMatchingTag) {
                         ticketResults.push({

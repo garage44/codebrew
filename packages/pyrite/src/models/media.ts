@@ -73,12 +73,14 @@ function createFakeStream(options: {
 }): MediaStream {
     // Force 4:3 aspect ratio for fake stream (consistent across all browsers)
     const {video = false, audio = false, microphoneStream = null} = options
-    const width = 640  // Always use 4:3 aspect ratio
-    const height = 480 // Always use 4:3 aspect ratio
+    // Always use 4:3 aspect ratio
+    const width = 640
+    const height = 480
     const stream = new MediaStream()
 
     // Set up audio analysis if microphone stream is provided
-    let audioLevel = 0.1 // Default audio level (0-1)
+    // Default audio level (0-1)
+    let audioLevel = 0.1
     if (microphoneStream && microphoneStream.getAudioTracks().length > 0) {
         try {
             fakeAudioContext = new AudioContext()
@@ -122,43 +124,47 @@ function createFakeStream(options: {
             }
 
             const ctx = fakeVideoContext
-            const w = fakeVideoCanvas.width
-            const h = fakeVideoCanvas.height
+            const canvasWidth = fakeVideoCanvas.width
+            const canvasHeight = fakeVideoCanvas.height
 
             // Clear canvas with theme-matching dark blue background
             // Matches --surface-1: oklch(0.16 0.020 230) ≈ #1e2332
-            ctx.fillStyle = '#1e2332' // Dark blue-grey matching theme surface-1
-            ctx.fillRect(0, 0, w, h)
+            // Dark blue-grey matching theme surface-1
+            ctx.fillStyle = '#1e2332'
+            ctx.fillRect(0, 0, canvasWidth, canvasHeight)
 
             // Draw animated pattern with audio-driven oscillation
             const time = frame * 0.05
-            const centerX = w / 2
-            const centerY = h / 2
+            const centerX = canvasWidth / 2
+            const centerY = canvasHeight / 2
 
             // Scale circles based on canvas size to fit any aspect ratio
             // Use the smaller dimension as reference to ensure circles fit
-            const minDimension = Math.min(w, h)
-            const scaleFactor = minDimension / 480 // Normalize to 480px reference
+            const minDimension = Math.min(canvasWidth, canvasHeight)
+            // Normalize to 480px reference
+            const scaleFactor = minDimension / 480
 
             // Maximum radius ensuring circles fit with padding
             // Account for: stroke line width (max ~6px), gradient extension (10%), and padding
-            const maxLineWidth = 2.5 + 3.5 // Maximum line width (base + audio max)
+            // Maximum line width (base + audio max)
+            const maxLineWidth = 2.5 + 3.5
             // Use 35% of min dimension, leaving room for stroke (lineWidth/2) and gradient extension
-            const maxRadius = Math.min(w, h) * 0.35 - maxLineWidth / 2
+            const maxRadius = Math.min(canvasWidth, canvasHeight) * 0.35 - maxLineWidth / 2
 
             // Audio-driven amplitude multiplier (0.5x to 3x based on audio level)
             const audioAmplitude = 0.5 + audioLevel * 2.5
 
             // Draw concentric circles with blue-tinted gradients
-            for (let i = 0; i < 5; i += 1) {
+            for (let idx = 0; idx < 5; idx += 1) {
                 // Base radius scaled to canvas size, ensuring circles fit
-                const baseRadius = (50 + i * 40) * scaleFactor
-                const audioPulse = audioLevel * 30 * scaleFactor * (1 + Math.sin(time * 2 + i))
-                const timeOscillation = Math.sin(time + i) * 20 * scaleFactor
+                const baseRadius = (50 + idx * 40) * scaleFactor
+                const audioPulse = audioLevel * 30 * scaleFactor * (1 + Math.sin(time * 2 + idx))
+                const timeOscillation = Math.sin(time + idx) * 20 * scaleFactor
                 const radius = baseRadius + audioPulse + timeOscillation
 
                 // Calculate line width first (needed for proper clamping)
-                const lineWidth = 2.5 + audioLevel * 3.5 // Thicker lines with more audio
+                // Thicker lines with more audio
+                const lineWidth = 2.5 + audioLevel * 3.5
 
                 // Clamp radius accounting for stroke width (stroke extends lineWidth/2 beyond radius)
                 // Also account for gradient extension (10% beyond radius)
@@ -167,22 +173,27 @@ function createFakeStream(options: {
 
                 // Theme-matching blue color scheme (hue 230 matches --h-primary)
                 // Shift hue slightly per circle for subtle variation
-                const baseHue = 230 + i * 5 // Start at theme primary blue (230), subtle shift per circle
-                const hueVariation = Math.sin(time * 0.5 + i) * 10 // Subtle hue animation
+                // Start at theme primary blue (230), subtle shift per circle
+                const baseHue = 230 + idx * 5
+                // Subtle hue animation
+                const hueVariation = Math.sin(time * 0.5 + idx) * 10
                 const hue = (baseHue + hueVariation + audioLevel * 15) % 360
 
                 // Saturation and lightness matching theme primary colors
                 // Theme uses chroma 0.06-0.08 and lightness 0.4-0.6 for primary colors
-                const saturation = 55 + audioLevel * 30 // 55-85% saturation (matches theme chroma)
-                const lightness = 50 + audioLevel * 20 // 50-70% lightness (matches theme lightness)
+                // 55-85% saturation (matches theme chroma)
+                const saturation = 55 + audioLevel * 30
+                // 50-70% lightness (matches theme lightness)
+                const lightness = 50 + audioLevel * 20
 
                 // Create radial gradient for each circle
                 // Gradient goes from brighter center to darker edges
                 // Ensure gradient outer edge doesn't exceed maxEffectiveRadius
                 const gradientOuterRadius = Math.min(clampedRadius * 1.1, maxEffectiveRadius)
+                // Inner circle (gradient start), outer circle (gradient end, clamped)
                 const gradient = ctx.createRadialGradient(
-                    centerX, centerY, clampedRadius * 0.7, // Inner circle (gradient start)
-                    centerX, centerY, gradientOuterRadius    // Outer circle (gradient end, clamped)
+                    centerX, centerY, clampedRadius * 0.7,
+                    centerX, centerY, gradientOuterRadius
                 )
 
                 // Inner color (brighter, more saturated)
@@ -206,23 +217,24 @@ function createFakeStream(options: {
             // Draw audio visualization bars with blue-tinted gradients
             if (fakeAudioAnalyser && fakeAudioDataArray) {
                 const barCount = 20
-                const barWidth = w / (barCount + 1)
-                const maxBarHeight = h * 0.3
+                const barWidth = canvasWidth / (barCount + 1)
+                const maxBarHeight = canvasHeight * 0.3
 
-                for (let i = 0; i < barCount; i += 1) {
-                    const dataIndex = Math.floor((i / barCount) * fakeAudioDataArray.length)
+                for (let barIdx = 0; barIdx < barCount; barIdx += 1) {
+                    const dataIndex = Math.floor((barIdx / barCount) * fakeAudioDataArray.length)
                     const barHeight = (fakeAudioDataArray[dataIndex] / 255) * maxBarHeight
-                    const x = (i + 1) * barWidth
-                    const y = h - barHeight
+                    const barX = (barIdx + 1) * barWidth
+                    const barY = canvasHeight - barHeight
 
                     // Theme-matching blue gradient for each bar
-                    const barGradient = ctx.createLinearGradient(x - barWidth / 2, y, x - barWidth / 2, h)
-                    const barHue = (230 + (i / barCount) * 20 + time * 5) % 360 // Theme primary blue range (230-250)
-                    barGradient.addColorStop(0, `hsl(${barHue}, 70%, 55%)`) // Top: brighter
-                    barGradient.addColorStop(1, `hsl(${barHue}, 55%, 40%)`) // Bottom: darker
+                    const barGradient = ctx.createLinearGradient(barX - barWidth / 2, barY, barX - barWidth / 2, canvasHeight)
+                    // Theme primary blue range (230-250)
+                    const barHue = (230 + (barIdx / barCount) * 20 + time * 5) % 360
+                    barGradient.addColorStop(0, `hsl(${barHue}, 70%, 55%)`)
+                    barGradient.addColorStop(1, `hsl(${barHue}, 55%, 40%)`)
 
                     ctx.fillStyle = barGradient
-                    ctx.fillRect(x - barWidth / 2, y, barWidth * 0.8, barHeight)
+                    ctx.fillRect(barX - barWidth / 2, barY, barWidth * 0.8, barHeight)
                 }
             }
 
@@ -324,6 +336,7 @@ function createFakeStream(options: {
     return stream
 }
 
+// eslint-disable-next-line complexity, max-statements
 export async function getUserMedia(presence: unknown): Promise<MediaStream | null> {
     logger.info(`[media] getUserMedia called, channel.connected=${$s.sfu.channel.connected}`)
     $s.mediaReady = false
@@ -342,7 +355,8 @@ export async function getUserMedia(presence: unknown): Promise<MediaStream | nul
 
     let selectedAudioDevice: boolean | {deviceId: string} = false
     let selectedVideoDevice: boolean | {deviceId: string; width?: {ideal: number; min: number}; height?: {ideal: number; min: number}} = false
-    let userAction = false // Track if this was triggered by user action
+    // Track if this was triggered by user action
+    let userAction = false
 
     // Validate and check if devices are selected
     const FAKE_STREAM_ID = '__fake_stream__'
@@ -356,7 +370,7 @@ export async function getUserMedia(presence: unknown): Promise<MediaStream | nul
             logger.warn(`[media] ${deviceType} device options not initialized yet, skipping validation`)
             return false
         }
-        const exists = availableDevices.some((d): boolean => d.id === deviceId)
+        const exists = availableDevices.some((device): boolean => device.id === deviceId)
         if (!exists) {
             logger.warn(`[media] selected ${deviceType} device ${deviceId} not found in available devices, clearing selection`)
             $s.devices[deviceType].selected = {id: null, name: ''}
@@ -550,7 +564,7 @@ export async function getUserMedia(presence: unknown): Promise<MediaStream | nul
 
     try {
         localStream = await navigator.mediaDevices.getUserMedia(constraints)
-        logger.debug(`[media] getUserMedia successful, tracks: ${localStream.getTracks().map((t): string => `${t.kind}:${t.id}`).join(', ')}`)
+        logger.debug(`[media] getUserMedia successful, tracks: ${localStream.getTracks().map((track): string => `${track.kind}:${track.id}`).join(', ')}`)
     } catch (error: unknown) {
         logger.error(`[media] getUserMedia failed: ${error}`)
 
@@ -810,10 +824,10 @@ export async function queryDevices(): Promise<void> {
 
     // Warn if no microphone devices found (likely permissions issue)
     if (micCount === 0 && devices.length > 0) {
-        const audioInputDevices = devices.filter((d): boolean => d.kind === 'audioinput')
+        const audioInputDevices = devices.filter((device): boolean => device.kind === 'audioinput')
         if (audioInputDevices.length > 0) {
             logger.warn(`[media] Found ${audioInputDevices.length} audio input device(s) but none were added. This may indicate missing deviceIds or permission issues.`)
-            logger.debug(`[media] Audio input devices found:`, audioInputDevices.map((d): {deviceId: string | null; kind: string; label: string} => ({deviceId: d.deviceId, kind: d.kind, label: d.label})))
+            logger.debug(`[media] Audio input devices found:`, audioInputDevices.map((device): {deviceId: string | null; kind: string; label: string} => ({deviceId: device.deviceId, kind: device.kind, label: device.label})))
         }
     }
 
@@ -885,19 +899,15 @@ export function setScreenStream(stream: MediaStream | null): void {
 
 export function validateDevices(): {audio: boolean; cam: boolean; mic: boolean} {
     const {devices} = $s
-    const result: {audio: boolean; cam: boolean; mic: boolean} = {
-        audio: false,
-        cam: false,
-        mic: false,
+    return {
+        audio:
+            !$s.env.isFirefox &&
+            (!devices.audio.options.length || !devices.audio.options.some((opt): boolean => opt.id === devices.audio.selected.id)),
+        cam:
+            !devices.cam.options.length || !devices.cam.options.some((opt): boolean => opt.id === devices.cam.selected.id),
+        mic:
+            !devices.mic.options.length || !devices.mic.options.some((opt): boolean => opt.id === devices.mic.selected.id),
     }
-    result.audio =
-        !$s.env.isFirefox &&
-        (!devices.audio.options.length || !devices.audio.options.some((i): boolean => i.id === devices.audio.selected.id))
-    result.cam =
-        !devices.cam.options.length || !devices.cam.options.some((i): boolean => i.id === devices.cam.selected.id)
-    result.mic =
-        !devices.mic.options.length || !devices.mic.options.some((i): boolean => i.id === devices.mic.selected.id)
-    return result
 }
 
 navigator.mediaDevices.ondevicechange = async(): Promise<void> => {
@@ -911,8 +921,8 @@ navigator.mediaDevices.ondevicechange = async(): Promise<void> => {
         const deviceOptions = Array.isArray(currentDevice.options) ? currentDevice.options as {id: string | null; name: string}[] : []
         const oldDevice = oldDevices[deviceKey]
         const oldDeviceOptions = Array.isArray(oldDevice?.options) ? oldDevice.options as {id: string | null; name: string}[] : []
-        const _added = deviceOptions.filter((i): boolean => !oldDeviceOptions.some((j): boolean => i.id === j.id))
-        const _removed = oldDeviceOptions.filter((i): boolean => !deviceOptions.some((j): boolean => i.id === j.id))
+        const _added = deviceOptions.filter((current): boolean => !oldDeviceOptions.some((existing): boolean => current.id === existing.id))
+        const _removed = oldDeviceOptions.filter((current): boolean => !deviceOptions.some((existing): boolean => current.id === existing.id))
         if (_added.length) {added = [...added, ..._added]}
         if (_removed.length) {removed = [...removed, ..._removed]}
     }
@@ -921,7 +931,7 @@ navigator.mediaDevices.ondevicechange = async(): Promise<void> => {
         notifier.notify({
             icon: 'Headset',
             level: 'info',
-            list: added.map((i): string => i.name),
+            list: added.map((item): string => item.name),
             message: $t('device.added', {count: added.length}),
         })
     }
@@ -929,7 +939,7 @@ navigator.mediaDevices.ondevicechange = async(): Promise<void> => {
         notifier.notify({
             icon: 'Headset',
             level: 'warning',
-            list: removed.map((i): string => i.name),
+            list: removed.map((item): string => item.name),
             message: $t('device.removed', {count: removed.length}),
         })
     }
@@ -941,7 +951,7 @@ navigator.mediaDevices.ondevicechange = async(): Promise<void> => {
             icon: 'Headset',
             level: 'warning',
             list: Object.entries(invalidDevices)
-                .filter(([_, value]): boolean => value)
+                .filter(([, value]): boolean => value)
                 .map(([key]): string => $t(`device.select_${key}_label`)),
             message: $t('device.action_required', {count: removed.length}),
         })

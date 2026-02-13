@@ -145,7 +145,7 @@ export class DeveloperAgent extends BaseAgent {
             } else {
                 this.log(`Generating solution plan for ticket ${ticket.id}`)
 
-                const repoContext = await this.getRepositoryContext(ticket.path)
+                const repoContext = await DeveloperAgent.getRepositoryContext(ticket.path)
 
                 const planningPrompt = `You are a Developer agent working on a Bun/TypeScript project.
 
@@ -236,7 +236,7 @@ Use the available tools to implement the solution plan. Make changes directly us
                 await gitStatusProc.exited
                 if (gitStatus.trim()) {
                     await Bun.spawn(['git', 'add', '-A'], {cwd: ticket.path}).exited
-                    await Bun.spawn(['git', 'commit', '-m', 'Implement: ' + ticket.title], {cwd: ticket.path}).exited
+                    await Bun.spawn(['git', 'commit', '-m', `Implement: ${ticket.title}`], {cwd: ticket.path}).exited
                     this.log('Committed changes')
                 }
 
@@ -250,21 +250,21 @@ Use the available tools to implement the solution plan. Make changes directly us
                     this.log('CI checks passed')
                     const ciMessage =
                         ciResult.fixesApplied.length > 0
-                            ? 'CI checks passed (' + ciResult.fixesApplied.length + ' fixes applied)'
+                            ? `CI checks passed (${ciResult.fixesApplied.length} fixes applied)`
                             : 'CI checks passed'
                     await addAgentComment(ticket.id, this.name, ciMessage)
                 } else {
-                    this.log('CI failed: ' + ciResult.error, 'warn')
+                    this.log(`CI failed: ${ciResult.error}`, 'warn')
                     // Add comment about CI failure
                     const failureMessage =
-                        'CI checks failed:\n\n' + ciResult.output + '\n\nFixes applied: ' + ciResult.fixesApplied.length
+                        `CI checks failed:\n\n${ciResult.output}\n\nFixes applied: ${ciResult.fixesApplied.length}`
                     await addAgentComment(ticket.id, this.name, failureMessage)
 
                     // If CI fixed some issues, commit the fixes
                     if (ciResult.fixesApplied.length > 0) {
                         await Bun.spawn(['git', 'add', '-A'], {cwd: ticket.path}).exited
                         await Bun.spawn(['git', 'commit', '-m', 'Fix: Apply CI auto-fixes'], {cwd: ticket.path}).exited
-                        this.log('Applied ' + ciResult.fixesApplied.length + ' CI fixes')
+                        this.log(`Applied ${ciResult.fixesApplied.length} CI fixes`)
                     } else {
                         // CI failed and couldn't be auto-fixed, mark ticket as needing attention
                         getDb()
@@ -290,7 +290,7 @@ Use the available tools to implement the solution plan. Make changes directly us
                 )
                 updateStmt.run(mrId, Date.now(), ticket.id)
 
-                this.log('Ticket ' + ticket.id + ' implementation complete, MR created: ' + mrId)
+                this.log(`Ticket ${ticket.id} implementation complete, MR created: ${mrId}`)
 
                 return {
                     data: {
@@ -298,18 +298,18 @@ Use the available tools to implement the solution plan. Make changes directly us
                         mergeRequestId: mrId,
                         ticketId: ticket.id,
                     },
-                    message: 'Implementation complete, MR #' + mrId + ' created',
+                    message: `Implementation complete, MR #${mrId} created`,
                     success: true,
                 }
             } finally {
                 process.chdir(originalCwd)
             }
         } catch (error: unknown) {
-            this.log('Error during development: ' + error, 'error')
+            this.log(`Error during development: ${error}`, 'error')
             // Revert ticket status back to todo on error
             if (ticket) {
                 getDb().prepare("UPDATE tickets SET status = 'todo', updated_at = ? WHERE id = ?").run(Date.now(), ticket.id)
-                this.log('Reverted ticket ' + ticket.id + ' status to todo due to error')
+                this.log(`Reverted ticket ${ticket.id} status to todo due to error`)
             }
             return {
                 error: error instanceof Error ? error.message : String(error),
@@ -319,7 +319,7 @@ Use the available tools to implement the solution plan. Make changes directly us
         }
     }
 
-    private async getRepositoryContext(repoPath: string): Promise<string> {
+    private static async getRepositoryContext(repoPath: string): Promise<string> {
         try {
             const packageJsonPath = path.join(repoPath, 'package.json')
             const packageJson = await Bun.file(packageJsonPath)
@@ -340,7 +340,7 @@ Use the available tools to implement the solution plan. Make changes directly us
                 2,
             )
         } catch (error: unknown) {
-            return 'Error reading repository context: ' + error
+            return `Error reading repository context: ${error}`
         }
     }
 

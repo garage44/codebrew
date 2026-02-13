@@ -9,14 +9,35 @@
     "restriction": "error",
     "nursery": "error"
   },
-  "plugins": ["react", "jsx-a11y", "typescript", "unicorn"],
+  "plugins": [
+    "react",
+    "jsx-a11y",
+    "typescript",
+    "unicorn"
+  ],
   "rules": {
     "import/max-dependencies": "off",
     "eslint/require-await": "off",
-    "eslint/max-depth": ["error", 6],
-    "eslint/max-lines": ["error", 1500],
-    "eslint/max-params": ["error", 5],
-    "eslint/max-nested-callbacks": ["error", 10],
+    "eslint/max-depth": [
+      "error",
+      6
+    ],
+    "eslint/max-lines": [
+      "error",
+      1500
+    ],
+    "eslint/max-params": [
+      "error",
+      5
+    ],
+    "eslint/max-nested-callbacks": [
+      "error",
+      10
+    ],
+    "eslint/max-statements": [
+      "error",
+      130
+    ],
     "prefer-logical-operator-over-ternary": "off",
     "eslint/no-magic-numbers": "off",
     "eslint/no-unused-vars": "off",
@@ -27,8 +48,21 @@
     "prefer-default-export": "off",
     "eslint/prefer-destructuring": "off",
     "react-in-jsx-scope": "off",
-    "react/jsx-filename-extension": ["error", {"extensions": [".jsx", ".tsx"]}],
-    "react/jsx-max-depth": ["error", {"max": 5}],
+    "react/jsx-filename-extension": [
+      "error",
+      {
+        "extensions": [
+          ".jsx",
+          ".tsx"
+        ]
+      }
+    ],
+    "react/jsx-max-depth": [
+      "error",
+      {
+        "max": 5
+      }
+    ],
     "react/no-unknown-property": "off",
     "typescript/consistent-indexed-object-style": "off",
     "unicorn/explicit-length-check": "off",
@@ -37,7 +71,13 @@
     "unicorn/prefer-event-target": "off",
     "unicorn/prefer-structured-clone": "off",
     "unicorn/no-null": "off",
-    "yoda": "off"
+    "yoda": "off",
+    "eslint/complexity": [
+      "error",
+      100
+    ],
+    "eslint/class-methods-use-this": "off",
+    "unicorn/prefer-top-level-await": "off"
   },
   "env": {
     "browser": true,

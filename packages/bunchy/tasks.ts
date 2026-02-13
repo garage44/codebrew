@@ -35,7 +35,7 @@ function normalizeSourceMap(map: Uint8Array, sourceFileDir: string, publicDir: s
                 absolutePath = source
             } else if (source.startsWith('home/')) {
                 // Missing leading slash
-                absolutePath = '/' + source
+                absolutePath = `/${source}`
             } else {
                 // Relative path - resolve from the source file location
                 absolutePath = path.resolve(sourceFileDir, source)
@@ -211,57 +211,57 @@ interface Tasks {
 }
 
 // Update the tasks declaration
-const tasks: Tasks = {} as Tasks
+const tasks: Tasks = {
+    assets: new Task('assets', async function taskAssets(): Promise<void> {
+        await fs.ensureDir(path.join(settings.dir.public, 'fonts'))
+        await fs.ensureDir(path.join(settings.dir.public, 'img'))
 
-tasks.assets = new Task('assets', async function taskAssets(): Promise<void> {
-    await fs.ensureDir(path.join(settings.dir.public, 'fonts'))
-    await fs.ensureDir(path.join(settings.dir.public, 'img'))
+        const copyOperations = [
+            // Copy fonts from common package (shared across all projects)
+            {
+                from: path.join(settings.dir.common, 'fonts'),
+                to: path.join(settings.dir.public, 'fonts'),
+            },
+            // Copy images from common package (shared placeholder avatars)
+            {
+                from: path.join(settings.dir.common, 'assets', 'img'),
+                to: path.join(settings.dir.public, 'img'),
+            },
+            // Copy local assets if they exist (app-specific images)
+            {
+                from: path.join(settings.dir.assets, 'img'),
+                to: path.join(settings.dir.public, 'img'),
+            },
+        ]
 
-    const copyOperations = [
-        // Copy fonts from common package (shared across all projects)
-        {
-            from: path.join(settings.dir.common, 'fonts'),
-            to: path.join(settings.dir.public, 'fonts'),
-        },
-        // Copy images from common package (shared placeholder avatars)
-        {
-            from: path.join(settings.dir.common, 'assets', 'img'),
-            to: path.join(settings.dir.public, 'img'),
-        },
-        // Copy local assets if they exist (app-specific images)
-        {
-            from: path.join(settings.dir.assets, 'img'),
-            to: path.join(settings.dir.public, 'img'),
-        },
-    ]
-
-    // Handle separate assets config if provided (e.g., service worker files)
-    if (settings.separateAssets) {
-        for (const assetFile of settings.separateAssets) {
-            copyOperations.push({
-                from: path.join(settings.dir.assets, assetFile),
-                to: path.join(settings.dir.public, assetFile),
-            })
-        }
-    }
-
-    // Execute copy operations, skipping if source doesn't exist
-    await Promise.all(
-        copyOperations.map(async (operation): Promise<void> => {
-            try {
-                await fs.copy(operation.from, operation.to)
-            } catch (error) {
-                // Skip if source directory doesn't exist
-                const errorCode = (error as {code?: string}).code
-                // eslint-disable-next-line no-console
-                console.log('ERROR', error)
-                if (errorCode !== 'ENOENT') {
-                    throw error
-                }
+        // Handle separate assets config if provided (e.g., service worker files)
+        if (settings.separateAssets) {
+            for (const assetFile of settings.separateAssets) {
+                copyOperations.push({
+                    from: path.join(settings.dir.assets, assetFile),
+                    to: path.join(settings.dir.public, assetFile),
+                })
             }
-        }),
-    )
-})
+        }
+
+        // Execute copy operations, skipping if source doesn't exist
+        await Promise.all(
+            copyOperations.map(async (operation): Promise<void> => {
+                try {
+                    await fs.copy(operation.from, operation.to)
+                } catch (error) {
+                    // Skip if source directory doesn't exist
+                    const errorCode = (error as {code?: string}).code
+                    // eslint-disable-next-line no-console
+                    console.log('ERROR', error)
+                    if (errorCode !== 'ENOENT') {
+                        throw error
+                    }
+                }
+            }),
+        )
+    }),
+} as Tasks
 
 tasks.build = new Task('build', async function taskBuild(...args: unknown[]): Promise<void> {
     const {minify = false, sourcemap = false} = (args[0] as {minify?: boolean; sourcemap?: boolean} | undefined) ?? {}
@@ -460,7 +460,6 @@ tasks.code_bunchy = new Task('code:bunchy', async function taskCodeBunchy(...arg
             },
             'POST',
         )
-        return
     }
 })
 
@@ -598,7 +597,6 @@ tasks.stylesApp = new Task('styles:app', async function taskStylesApp(...args: u
             },
             'POST',
         )
-        return
     }
 })
 
@@ -613,9 +611,9 @@ tasks.stylesComponents = new Task('styles:components', async function taskStyles
     const glob1 = new Glob('**/*.css')
     const glob2 = new Glob('**/*.css')
 
-    const imports1 = [...glob1.scanSync(settings.dir.common)].map((f: string): string => path.join(settings.dir.common, f))
-    const imports2 = [...glob2.scanSync(settings.dir.components)].map((f: string): string =>
-        path.join(settings.dir.components, f),
+    const imports1 = [...glob1.scanSync(settings.dir.common)].map((file: string): string => path.join(settings.dir.common, file))
+    const imports2 = [...glob2.scanSync(settings.dir.components)].map((file: string): string =>
+        path.join(settings.dir.components, file),
     )
 
     const allImports = [...imports1, ...imports2]
@@ -679,7 +677,6 @@ tasks.stylesComponents = new Task('styles:components', async function taskStyles
         )
         // Clean up temporary entry file on error
         await fs.rm(entryFile, {force: true})
-        return
     }
 })
 

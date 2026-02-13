@@ -78,7 +78,7 @@ export class REPL {
             const limitedHistory = historyToSave.slice(-1000)
 
             // Write to file
-            await fs.writeFile(this.historyFilePath, limitedHistory.join('\n') + '\n', 'utf8')
+            await fs.writeFile(this.historyFilePath, `${limitedHistory.join('\n')}\n`, 'utf8')
         } catch{
             // Ignore errors saving history (permissions, etc.)
         }
@@ -188,7 +188,7 @@ export class REPL {
             try {
                 const currentHistory = (this.rl as {history?: string[]}).history || []
                 const limitedHistory = currentHistory.slice(-1000)
-                fs.writeFileSync(this.historyFilePath, limitedHistory.join('\n') + '\n', 'utf8')
+                fs.writeFileSync(this.historyFilePath, `${limitedHistory.join('\n')}\n`, 'utf8')
             } catch {
                 // Ignore errors
             }
@@ -215,6 +215,7 @@ export class REPL {
     /**
      * Write output (for agent reasoning)
      */
+    /* eslint-disable class-methods-use-this -- part of REPL interface, must be instance method */
     write(message: string): void {
         // Write without newline to allow streaming
         process.stdout.write(message)
@@ -227,4 +228,5 @@ export class REPL {
         // eslint-disable-next-line no-console
         console.log(message)
     }
+    /* eslint-enable class-methods-use-this */
 }

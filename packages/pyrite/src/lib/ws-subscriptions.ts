@@ -168,12 +168,13 @@ const initChatSubscriptions = (): void => {
                 }
 
                 // Add message to channel - DeepSignal will trigger reactivity
+                // Include user_id for avatar lookup
                 const newMessage = {
                     kind: kind || 'message',
                     message: messageText,
                     nick: username,
                     time: timestamp || Date.now(),
-                    user_id: userId, // Include user_id for avatar lookup
+                    user_id: userId,
                 }
 
                 // Push to array - DeepSignal tracks array mutations
@@ -284,7 +285,7 @@ const initPresenceSubscriptions = (): void => {
                 }
 
                 const userIndex = $s.users.findIndex(
-                    (u): boolean => Boolean(u && u.id && String(u.id).trim() === normalizedUserId),
+                    (usr): boolean => Boolean(usr && usr.id && String(usr.id).trim() === normalizedUserId),
                 )
                 if (userIndex === -1) {
                     // User doesn't exist, add it
@@ -338,7 +339,7 @@ const initPresenceSubscriptions = (): void => {
                 // Normalize userId to string for consistent comparison
                 const normalizedUserId = String(userId).trim()
                 const userIndex = $s.users.findIndex(
-                    (u): boolean => Boolean(u && u.id && String(u.id).trim() === normalizedUserId),
+                    (usr): boolean => Boolean(usr && usr.id && String(usr.id).trim() === normalizedUserId),
                 )
                 if (userIndex !== -1) {
                     $s.users.splice(userIndex, 1)
@@ -364,7 +365,7 @@ const initPresenceSubscriptions = (): void => {
             // Normalize userId to string for consistent comparison
             const normalizedUserId = String(userId).trim()
             const user = $s.users.find(
-                (u): boolean => Boolean(u && u.id && String(u.id).trim() === normalizedUserId),
+                (usr): boolean => Boolean(usr && usr.id && String(usr.id).trim() === normalizedUserId),
             )
             if (user && status !== null && typeof status === 'object') {
                 Object.assign(user.data as Record<string, unknown>, status as Record<string, unknown>)
@@ -396,7 +397,8 @@ const initGroupSubscriptions = (): void => {
         // Group lock status changed (broadcast from backend)
         ws.on('/groups/:groupId/lock', (data): void => {
             const {locked, reason, timestamp} = data
-            const {groupId} = data // Extracted from broadcast
+            // Extracted from broadcast
+            const {groupId} = data
 
             logger.debug(`Group ${groupId} lock status: ${locked}`)
 
@@ -491,11 +493,11 @@ const initGroupSubscriptions = (): void => {
             // Normalize targetUserId to string for consistent comparison
             const normalizedTargetUserId = String(targetUserId).trim()
             const targetUser = $s.users.find(
-                (u): boolean => Boolean(u && u.id && String(u.id).trim() === normalizedTargetUserId),
+                (usr): boolean => Boolean(usr && usr.id && String(usr.id).trim() === normalizedTargetUserId),
             )
 
             switch (action) {
-                case 'kick': 
+                case 'kick': {
                     // Remove kicked user
                     if (String(targetUserId) === String($s.profile.id)) {
                         // Current user was kicked, disconnect
@@ -511,17 +513,18 @@ const initGroupSubscriptions = (): void => {
                     } else if (targetUser) {
                         // Another user was kicked
                         const userIndex = $s.users.findIndex(
-                            (u): boolean =>
-                                Boolean(u && u.id && String(u.id).trim() === normalizedTargetUserId),
+                            (usr): boolean =>
+                                Boolean(usr && usr.id && String(usr.id).trim() === normalizedTargetUserId),
                         )
                         if (userIndex !== -1) {
                             $s.users.splice(userIndex, 1)
                         }
                     }
                     break
-                
+                }
 
-                case 'mute': 
+
+                case 'mute': {
                     // Mute user's microphone
                     if (String(targetUserId) === String($s.profile.id)) {
                         $s.devices.mic.enabled = false
@@ -529,10 +532,11 @@ const initGroupSubscriptions = (): void => {
                         ;(targetUser.data as {mic?: boolean}).mic = false
                     }
                     break
-                
+                }
+
 
                 case 'op':
-                case 'unop': 
+                case 'unop': {
                     // Update operator permissions
                     if (
                         targetUser &&
@@ -546,10 +550,11 @@ const initGroupSubscriptions = (): void => {
                         $s.permissions.op = action === 'op'
                     }
                     break
-                
+                }
+
 
                 case 'present':
-                case 'unpresent': 
+                case 'unpresent': {
                     // Update presenter permissions
                     if (
                         targetUser &&
@@ -563,12 +568,14 @@ const initGroupSubscriptions = (): void => {
                         $s.permissions.present = action === 'present'
                     }
                     break
-                
+                }
 
-                default: 
+
+                default: {
                     logger.warn(`[handleGroupAction] Unknown action: ${action}`)
                     break
-                
+                }
+
             }
         })
     })
@@ -627,16 +634,16 @@ export const joinGroup = async (groupId: string): Promise<void> => {
             // Remove users that are no longer in the group (keep only current members)
             const memberIds = new Set(
                 response.members
-                    .filter((m): boolean => m && typeof m === 'object' && 'id' in m && m.id)
-                    .map((m): string => String((m as {id: unknown}).id).trim()),
+                    .filter((mem): boolean => mem && typeof mem === 'object' && 'id' in mem && mem.id)
+                    .map((mem): string => String((mem as {id: unknown}).id).trim()),
             )
 
             // Filter out users not in current members list
-            $s.users = $s.users.filter((u): boolean => {
-                if (!u || !u.id) {
+            $s.users = $s.users.filter((usr): boolean => {
+                if (!usr || !usr.id) {
                     return false
                 }
-                const normalizedId = String(u.id).trim()
+                const normalizedId = String(usr.id).trim()
                 return memberIds.has(normalizedId)
             })
 
@@ -646,7 +653,7 @@ export const joinGroup = async (groupId: string): Promise<void> => {
                 if (member && member.id) {
                     const normalizedMemberId = String(member.id).trim()
                     const userIndex = $s.users.findIndex(
-                        (u): boolean => Boolean(u && u.id && String(u.id).trim() === normalizedMemberId),
+                        (usr): boolean => Boolean(usr && usr.id && String(usr.id).trim() === normalizedMemberId),
                     )
                     if (userIndex === -1) {
                         // User doesn't exist, add it

@@ -19,8 +19,12 @@ export const Group = () => {
     // Inline (no useMemo) - ensures we always read latest $s.streams when it changes (channel switch)
     const streamsCount = $s.streams.length
     const sortedStreams = [...$s.streams].toSorted((a, b) => {
-        if (a.username < b.username) return -1
-        if (a.username > b.username) return 1
+        if (a.username < b.username) {
+            return -1
+        }
+        if (a.username > b.username) {
+            return 1
+        }
         return 0
     })
     const streamsPlayingCount = $s.streams.filter((s) => s.playing).length
@@ -32,7 +36,9 @@ export const Group = () => {
      * https://github.com/Alicunde/Videoconference-Dish-CSS-JS
      */
     const calcLayout = useCallback(() => {
-        if (!viewRef.current) return
+        if (!viewRef.current) {
+            return
+        }
         const containerWidth = viewRef.current.offsetWidth
         const containerHeight = viewRef.current.offsetHeight
         let layout = {area: 0, cols: 0, height: 0, rows: 0, width: 0}
@@ -95,12 +101,12 @@ export const Group = () => {
                         message: 'This group requires authentication. Please log in first.',
                     })
                 }
-            } catch (err) {
+            } catch (error) {
                 // Connection failed - could be auth error or network error
                 notifier.notify({
                     level: 'error',
                     message:
-                        err === 'not authorised'
+                        error === 'not authorised'
                             ? 'Authentication failed. Please check your credentials.'
                             : 'Failed to connect to group. Please try again.',
                 })
@@ -120,7 +126,9 @@ export const Group = () => {
 
     // Setup and cleanup
     useEffect(() => {
-        if (!viewRef.current) return
+        if (!viewRef.current) {
+            return
+        }
 
         viewRef.current.style.setProperty('--stream-margin', `${margin}px`)
 

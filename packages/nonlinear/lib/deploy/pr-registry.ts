@@ -87,5 +87,5 @@ export async function getPRDeployment(prNumber: number): Promise<PRDeployment | 
 
 export async function listActivePRDeployments(): Promise<PRDeployment[]> {
     const registry = await loadPRRegistry()
-    return Object.values(registry).filter((d): boolean => d.status === 'running')
+    return Object.values(registry).filter((deployment): boolean => deployment.status === 'running')
 }

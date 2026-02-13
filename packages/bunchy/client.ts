@@ -21,7 +21,8 @@ function updateStylesheet(filename: string, publicPath: string): void {
         .map((link: Element): HTMLLinkElement => link as HTMLLinkElement)
 
     // Find matching stylesheet by base name (without hash)
-    const baseFileName = filename.split('.')[0] // Extract 'app' from 'app.axuasllor.css'
+    // Extract 'app' from 'app.axuasllor.css'
+    const baseFileName = filename.split('.')[0]
     const linkElements = allLinks.filter((link: HTMLLinkElement): boolean => {
         const {href} = link
         // Match /public/app.*.css or /public/components.*.css pattern
@@ -231,7 +232,7 @@ function hideExceptionPage(): void {
 }
 
 async function handleHMRUpdate(_filePath: string, timestamp: number): Promise<void> {
-    const g = globalThis as unknown as {
+    const globalObj = globalThis as unknown as {
         __HMR_STATE__?: unknown
         __HMR_COMPONENT_STATES__?: Record<string, unknown>
         __HMR_REGISTRY__?: Record<string, unknown>
@@ -242,15 +243,15 @@ async function handleHMRUpdate(_filePath: string, timestamp: number): Promise<vo
         hideExceptionPage()
 
         // Initialize HMR state storage if not exists
-        if (!g.__HMR_STATE__) {g.__HMR_STATE__ = null}
-        if (!g.__HMR_COMPONENT_STATES__) {g.__HMR_COMPONENT_STATES__ = {}}
-        if (!g.__HMR_REGISTRY__) {g.__HMR_REGISTRY__ = {}}
+        if (!globalObj.__HMR_STATE__) {globalObj.__HMR_STATE__ = null}
+        if (!globalObj.__HMR_COMPONENT_STATES__) {globalObj.__HMR_COMPONENT_STATES__ = {}}
+        if (!globalObj.__HMR_REGISTRY__) {globalObj.__HMR_REGISTRY__ = {}}
 
         // Save global store state
         try {
             const {store} = await import('@garage44/common/app')
             if (store?.state) {
-                g.__HMR_STATE__ = JSON.parse(JSON.stringify(store.state))
+                globalObj.__HMR_STATE__ = JSON.parse(JSON.stringify(store.state))
             }
         } catch(error) {
             // eslint-disable-next-line no-console
@@ -258,7 +259,7 @@ async function handleHMRUpdate(_filePath: string, timestamp: number): Promise<vo
         }
 
         // Save component-level states from registry
-        const registry = g.__HMR_REGISTRY__ || {}
+        const registry = globalObj.__HMR_REGISTRY__ || {}
         const componentStates: Record<string, unknown> = {}
         for (const [key, state] of Object.entries(registry)) {
             try {
@@ -268,7 +269,7 @@ async function handleHMRUpdate(_filePath: string, timestamp: number): Promise<vo
                 console.warn(`[Bunchy HMR] Could not serialize state for ${key}`)
             }
         }
-        g.__HMR_COMPONENT_STATES__ = componentStates
+        globalObj.__HMR_COMPONENT_STATES__ = componentStates
 
         // Find and reload the app script
         const scriptTags = [...document.querySelectorAll('script[type="module"]')] as HTMLScriptElement[]
@@ -291,7 +292,7 @@ async function handleHMRUpdate(_filePath: string, timestamp: number): Promise<vo
          * Set HMR update flag BEFORE creating/loading the script
          * This is critical - ES modules execute immediately when appended
          */
-        g.__HMR_UPDATING__ = true
+        globalObj.__HMR_UPDATING__ = true
 
         // Set data attribute on html and body BEFORE script loads to disable CSS animations
         document.documentElement.dataset.hmrUpdating = 'true'
@@ -319,11 +320,10 @@ async function handleHMRUpdate(_filePath: string, timestamp: number): Promise<vo
             })
 
             // Verify the Main component was updated
-            if (!g.__HMR_MAIN_COMPONENT__) {
+            if (!globalObj.__HMR_MAIN_COMPONENT__) {
                 // eslint-disable-next-line no-console
                 console.error('[Bunchy HMR] Main component not found after script load')
                 globalThis.location.reload()
-                return
             }
         }
 
@@ -347,11 +347,11 @@ async function handleHMRUpdate(_filePath: string, timestamp: number): Promise<vo
  * Only initialize once to prevent multiple connections
  */
 function initializeBunchy(): BunchyClient | undefined {
-    const g = globalThis as unknown as {__BUNCHY_INITIALIZED__?: boolean}
-    if (g.__BUNCHY_INITIALIZED__) {
+    const globalObj = globalThis as unknown as {__BUNCHY_INITIALIZED__?: boolean}
+    if (globalObj.__BUNCHY_INITIALIZED__) {
         return
     }
-    g.__BUNCHY_INITIALIZED__ = true
+    globalObj.__BUNCHY_INITIALIZED__ = true
     return new BunchyClient()
 }
 

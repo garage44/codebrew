@@ -93,10 +93,10 @@ export function getIndexingStatus(repositoryId: string): {
         .all(repositoryId) as {status: string}[]
 
     return {
-        completed: jobs.filter((j): boolean => j.status === 'completed').length,
-        failed: jobs.filter((j): boolean => j.status === 'failed').length,
-        pending: jobs.filter((j): boolean => j.status === 'pending').length,
-        processing: jobs.filter((j): boolean => j.status === 'processing').length,
+        completed: jobs.filter((job): boolean => job.status === 'completed').length,
+        failed: jobs.filter((job): boolean => job.status === 'failed').length,
+        pending: jobs.filter((job): boolean => job.status === 'pending').length,
+        processing: jobs.filter((job): boolean => job.status === 'processing').length,
         total: jobs.length,
     }
 }

@@ -18,9 +18,7 @@ interface SettingsProps {
 }
 
 export default function Settings({groupId, path, tabId = 'misc'}: SettingsProps) {
-    const routeSettings = (tab: string) => {
-        return `/settings/groups/${groupId}?tab=${tab}`
-    }
+    const routeSettings = (tab: string) => `/settings/groups/${groupId}?tab=${tab}`
 
     const saveGroupAction = async () => {
         if (groupId && $s.admin.group) {

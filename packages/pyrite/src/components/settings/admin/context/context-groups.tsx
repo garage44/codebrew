@@ -76,7 +76,7 @@ export default function ContextGroups({groupId, path}: ContextGroupsProps) {
         if (adminGroup && adminGroup._unsaved) {
             const nextGroupIndex = orderedGroups.findIndex((g) => {
                 const _groupName = typeof g._name === 'string' ? g._name : String(g._name || '')
-                return typeof g._unsaved !== 'undefined' && g._unsaved
+                return g._unsaved !== undefined && g._unsaved
             })
             if (nextGroupIndex !== -1) {
                 const nextGroup = orderedGroups[nextGroupIndex]
@@ -103,8 +103,8 @@ export default function ContextGroups({groupId, path}: ContextGroupsProps) {
 
         const adminGroup = $s.admin.group as {_delete?: boolean} | null
         const similarStateGroups = orderedGroups.filter((i) => {
-            const groupDelete = typeof i._delete !== 'undefined' ? Boolean(i._delete) : false
-            const adminDelete = adminGroup && typeof adminGroup._delete !== 'undefined' ? Boolean(adminGroup._delete) : false
+            const groupDelete = i._delete !== undefined ? Boolean(i._delete) : false
+            const adminDelete = adminGroup && adminGroup._delete !== undefined ? Boolean(adminGroup._delete) : false
             return groupDelete !== adminDelete
         })
         if (similarStateGroups.length) {

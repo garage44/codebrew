@@ -146,7 +146,7 @@ export async function generatePRToken(prNumber: number): Promise<string> {
         const cryptoKey = await crypto.subtle.importKey('raw', key, {hash: 'SHA-256', name: 'HMAC'}, false, ['sign'])
         const signature = await crypto.subtle.sign('HMAC', cryptoKey, message)
         return [...new Uint8Array(signature)]
-            .map((b): string => b.toString(16).padStart(2, '0'))
+            .map((byte): string => byte.toString(16).padStart(2, '0'))
             .join('')
             .slice(0, 32)
     } catch {
@@ -172,41 +172,42 @@ export async function deployPR(pr: PRMetadata): Promise<{
         await fetchMainRepository()
 
         // Resolve SHA if not provided
-        let {head_sha} = pr
+        let prData = pr
+        let {head_sha} = prData
         if (!head_sha) {
-            const sha = await getBranchSHA(pr.head_ref)
+            const sha = await getBranchSHA(prData.head_ref)
             if (!sha) {
                 return {
                     deployment: null,
-                    message: `Failed to resolve SHA for branch ${pr.head_ref}. Make sure the branch exists on remote.`,
+                    message: `Failed to resolve SHA for branch ${prData.head_ref}. Make sure the branch exists on remote.`,
                     success: false,
                 }
             }
             head_sha = sha
-            pr = {...pr, head_sha: sha}
+            prData = {...prData, head_sha: sha}
         }
 
         // Validate PR source - block forks completely
-        const trustLevel = validatePRSource(pr)
+        const trustLevel = validatePRSource(prData)
         if (trustLevel !== 'trusted') {
             return {
                 deployment: null,
-                message: `PR #${pr.number} blocked - only contributor PRs allowed (no forks)`,
+                message: `PR #${prData.number} blocked - only contributor PRs allowed (no forks)`,
                 success: false,
             }
         }
 
         // Check if already deployed
-        const existing = await getPRDeployment(pr.number)
+        const existing = await getPRDeployment(prData.number)
         if (existing && existing.status === 'running') {
             // eslint-disable-next-line no-console
             // eslint-disable-next-line no-console
-            console.log(`[pr-deploy] PR #${pr.number} already deployed, updating...`)
-            return await updateExistingPRDeployment(pr)
+            console.log(`[pr-deploy] PR #${prData.number} already deployed, updating...`)
+            return await updateExistingPRDeployment(prData)
         }
 
         // Create deployment directory
-        const prDir = path.join(PR_DEPLOYMENTS_DIR, `pr-${pr.number}`)
+        const prDir = path.join(PR_DEPLOYMENTS_DIR, `pr-${prData.number}`)
         const repoDir = path.join(prDir, 'repo')
         const logsDir = path.join(prDir, 'logs')
         const dataDir = path.join(prDir, 'data')
@@ -222,19 +223,19 @@ export async function deployPR(pr: PRMetadata): Promise<{
         }
 
         // Allocate ports
-        const ports = allocatePRPorts(pr.number)
+        const ports = allocatePRPorts(prData.number)
 
         // Generate access token
-        const token = await generatePRToken(pr.number)
+        const token = await generatePRToken(prData.number)
 
         // Create deployment record
         const deployment: PRDeployment = {
-            author: pr.author,
+            author: prData.author,
             created: Date.now(),
             directory: prDir,
-            head_ref: pr.head_ref,
+            head_ref: prData.head_ref,
             head_sha: head_sha,
-            number: pr.number,
+            number: prData.number,
             ports,
             status: 'deploying',
             token,
@@ -255,7 +256,7 @@ export async function deployPR(pr: PRMetadata): Promise<{
              * Use GitHub URL instead of local path for cloning
              * Construct URL from repo_full_name (e.g., "owner/repo" -> "https://github.com/owner/repo.git")
              */
-            const githubUrl = `https://github.com/${pr.repo_full_name}.git`
+            const githubUrl = `https://github.com/${prData.repo_full_name}.git`
             // eslint-disable-next-line no-console
             console.log(`[pr-deploy] Source: ${githubUrl}`)
             // eslint-disable-next-line no-console
@@ -280,7 +281,7 @@ export async function deployPR(pr: PRMetadata): Promise<{
 
         // Fetch and checkout PR branch
         // eslint-disable-next-line no-console
-        console.log(`[pr-deploy] Checking out PR branch ${pr.head_ref}...`)
+        console.log(`[pr-deploy] Checking out PR branch ${prData.head_ref}...`)
         process.chdir(repoDir)
         // eslint-disable-next-line no-console
         console.log(`[pr-deploy] Working directory: ${process.cwd()}`)
@@ -490,6 +491,7 @@ async function updateExistingPRDeployment(pr: PRMetadata): Promise<{
                 throw new Error(`Failed to resolve SHA for branch ${pr.head_ref}. Make sure the branch exists on remote.`)
             }
             head_sha = sha
+            // eslint-disable-next-line no-param-reassign -- pr needs head_sha for rest of function
             pr = {...pr, head_sha: sha}
         }
 

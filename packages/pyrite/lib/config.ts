@@ -61,7 +61,9 @@ async function saveConfig() {
 
 export function getSfuPath(): string {
     const p = (config as {sfu?: {path?: string | null}}).sfu?.path
-    if (!p) throw new Error('config.sfu.path is not configured')
+    if (!p) {
+        throw new Error('config.sfu.path is not configured')
+    }
     return p
 }
 

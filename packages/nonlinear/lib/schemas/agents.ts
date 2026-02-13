@@ -16,10 +16,12 @@ export const AgentTaskTypeSchema = z.enum(['mention', 'assignment', 'manual', 'r
 // Base agent schema from database
 export const AgentDbSchema = z.object({
     avatar: z.string().nullable(),
-    config: z.string(), // JSON string
+    /* JSON string */
+    config: z.string(),
     created_at: TimestampSchema,
     display_name: z.string().nullable(),
-    enabled: z.number(), // SQLite boolean (0 or 1)
+    /* SQLite boolean (0 or 1) */
+    enabled: z.number(),
     id: IdSchema,
     name: z.string(),
     status: AgentStatusSchema,
@@ -36,7 +38,8 @@ export const AgentTaskSchema = z.object({
     priority: z.number().int(),
     started_at: TimestampSchema.nullable(),
     status: AgentTaskStatusSchema,
-    task_data: z.string(), // JSON string
+    /* JSON string */
+    task_data: z.string(),
     task_type: AgentTaskTypeSchema,
 })
 
@@ -71,7 +74,9 @@ export const UpdateAgentRequestSchema = z.object({
 
 export const TriggerAgentRequestSchema = z.object({
     stream: z.boolean().optional(),
-}).catchall(z.unknown()) // Allow additional context fields
+})
+    /* Allow additional context fields */
+    .catchall(z.unknown())
 
 export const AgentResponseSchema = z.object({
     agent: AgentDbSchema,

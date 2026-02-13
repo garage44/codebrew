@@ -1,9 +1,10 @@
 import {userManager} from '@garage44/common/service'
 
+import type {Router} from '../lib/middleware.ts'
+
 import {validateRequest} from '../lib/api/validate.ts'
 import {ChannelManager} from '../lib/channel-manager.ts'
 import {getDatabase} from '../lib/database.ts'
-import {Router} from '../lib/middleware.ts'
 import {ChannelIdPathSchema, CreateChannelHttpRequestSchema, UpdateChannelRequestSchema} from '../lib/schemas/channels.ts'
 import {logger} from '../service.ts'
 

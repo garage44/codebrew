@@ -1,8 +1,8 @@
 import type {User} from '@garage44/common/lib/user-manager'
+import type {Database} from 'bun:sqlite'
 
 import {GroupManager} from '@garage44/common/lib/group-manager'
 import {userManager} from '@garage44/common/service'
-import {Database} from 'bun:sqlite'
 import fs from 'fs-extra'
 import path from 'node:path'
 
@@ -61,7 +61,7 @@ export async function syncUsersToGalene() {
 async function loadGroupsFromDisk(sfuPath: string) {
     const groupsPath = path.join(sfuPath, 'groups')
     const files = await fs.readdir(groupsPath)
-    const groups: Array<{[key: string]: unknown; name: string}> = []
+    const groups: {[key: string]: unknown; name: string}[] = []
 
     for (const file of files) {
         if (file.endsWith('.json')) {
@@ -156,12 +156,18 @@ async function updateGroupWithChannelMembers(groupName: string, db: Database, sf
         return
     }
 
-    let groupData: Record<string, unknown> = JSON.parse(await fs.readFile(groupFile, 'utf8'))
+    const groupData: Record<string, unknown> = JSON.parse(await fs.readFile(groupFile, 'utf8'))
 
     // Initialize arrays for Pyrite format
-    if (!groupData.op) groupData.op = []
-    if (!groupData.other) groupData.other = []
-    if (!groupData.presenter) groupData.presenter = []
+    if (!groupData.op) {
+        groupData.op = []
+    }
+    if (!groupData.other) {
+        groupData.other = []
+    }
+    if (!groupData.presenter) {
+        groupData.presenter = []
+    }
 
     // Ensure arrays are typed correctly
     const _opArray = Array.isArray(groupData.op) ? (groupData.op as string[]) : []
@@ -193,7 +199,7 @@ async function updateGroupWithChannelMembers(groupName: string, db: Database, sf
     INNER JOIN users u ON cm.user_id = u.id
     WHERE cm.channel_id = ?
   `)
-    const members = membersStmt.all(channel.id) as Array<{id: string; role: string; username: string}>
+    const members = membersStmt.all(channel.id) as {id: string; role: string; username: string}[]
 
     // Get user details (password) from UserManager
     const allUsers = await userManager.listUsers()
@@ -267,7 +273,7 @@ async function saveGroupNativeGalene(groupName: string, groupData: Record<string
         description: groupData.description ?? '',
         displayName: groupData.displayName ?? groupName,
         'max-clients': groupData['max-clients'] ?? 10,
-        'max-history-age': groupData['max-history-age'] ?? 14400,
+        'max-history-age': groupData['max-history-age'] ?? 14_400,
         public: groupData.public ?? false,
     }
 

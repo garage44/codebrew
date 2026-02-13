@@ -47,7 +47,7 @@ export class TestServer {
                     fetch: (
                         req: Request,
                         server: {upgrade: (req: Request, opts: {data: {endpoint: string}}) => boolean},
-                    ): Response | void => {
+                    ): Response | undefined => {
                         // Handle WebSocket upgrade
                         if (server.upgrade(req, {data: {endpoint: this.endpoint}})) {
                             return

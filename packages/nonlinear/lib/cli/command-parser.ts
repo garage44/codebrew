@@ -12,10 +12,10 @@ import type {Tool, ToolContext, ToolResult} from '../fixtures/tools/types.ts'
  */
 function parseArgs(args: string[]): Record<string, unknown> {
     const params: Record<string, unknown> = {}
-    let i = 0
+    let idx = 0
 
-    while (i < args.length) {
-        const arg = args[i]
+    while (idx < args.length) {
+        const arg = args[idx]
 
         if (arg.startsWith('--')) {
             const key = arg.slice(2)
@@ -26,13 +26,13 @@ function parseArgs(args: string[]): Record<string, unknown> {
                 const paramKey = key.slice(0, equalsIndex)
                 const value = key.slice(equalsIndex + 1)
                 params[paramKey] = parseValue(value)
-            } else if (i + 1 < args.length && !args[i + 1].startsWith('--')) {
+            } else if (idx + 1 < args.length && !args[idx + 1].startsWith('--')) {
                 const paramKey = key
-                const value = args[i + 1]
+                const value = args[idx + 1]
                 // --key value format
                 params[paramKey] = parseValue(value)
                 // Skip next arg as it's the value
-                i += 1
+                idx += 1
             } else {
                 // --flag (boolean)
                 params[key] = true
@@ -42,7 +42,7 @@ function parseArgs(args: string[]): Record<string, unknown> {
             params.value = arg
         }
 
-        i += 1
+        idx += 1
     }
 
     return params
@@ -96,7 +96,7 @@ function validateParams(params: Record<string, unknown>, tool: Tool): {errors: s
 
     // Check parameter types
     for (const [key, value] of Object.entries(params)) {
-        const paramDef = tool.parameters.find((p): boolean => p.name === key)
+        const paramDef = tool.parameters.find((param): boolean => param.name === key)
         if (paramDef) {
             const expectedType = paramDef.type
             const actualType = typeof value
@@ -178,9 +178,7 @@ export async function executeToolCommand(
  */
 export function getToolsList(tools: Record<string, Tool>): string {
     const toolNames = Object.keys(tools).toSorted()
-    const lines: string[] = []
-
-    lines.push(pc.cyan('\nAvailable Tools:\n'))
+    const lines: string[] = [pc.cyan('\nAvailable Tools:\n')]
 
     // Group tools by category (prefix before underscore)
     const categories: Record<string, {name: string; tool: Tool}[]> = {}
@@ -216,9 +214,7 @@ export function getToolsList(tools: Record<string, Tool>): string {
  */
 export function getToolsHelp(tools: Record<string, Tool>): string {
     const toolNames = Object.keys(tools).toSorted()
-    const helpLines: string[] = []
-
-    helpLines.push(pc.cyan('\nAvailable Tools:\n'))
+    const helpLines: string[] = [pc.cyan('\nAvailable Tools:\n')]
 
     for (const toolName of toolNames) {
         const tool = tools[toolName]

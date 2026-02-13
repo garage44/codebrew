@@ -9,7 +9,8 @@ export const CIRunStatusSchema = z.enum(['running', 'success', 'failed', 'fixed'
 
 export const CIRunSchema = z.object({
     completed_at: TimestampSchema.nullable(),
-    fixes_applied: z.string().nullable(), // JSON array string
+    /* JSON array string */
+    fixes_applied: z.string().nullable(),
     id: IdSchema,
     output: z.string().nullable(),
     started_at: TimestampSchema,

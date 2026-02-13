@@ -1,6 +1,7 @@
+import type {ComponentChildren} from 'preact'
+
 import {$t, api, logger} from '@garage44/common/app'
 import {Splash} from '@garage44/common/components'
-import {ComponentChildren} from 'preact'
 import {useEffect} from 'preact/hooks'
 
 import {$s} from '@/app'
@@ -22,7 +23,7 @@ export const Groups = ({children, groupId}: GroupsProps) => {
             const groupName = typeof i._name === 'string' ? i._name : String(i._name || '')
             return groupName === groupId
         })
-        if (group && typeof group._unsaved !== 'undefined' && group._unsaved) {
+        if (group && group._unsaved !== undefined && group._unsaved) {
             Object.assign($s.admin.group ?? {}, group)
             if (!$s.admin.group) {
                 $s.admin.group = group as NonNullable<typeof $s.admin.group>
@@ -32,7 +33,9 @@ export const Groups = ({children, groupId}: GroupsProps) => {
             if (group) {
                 // Don't update internal state properties.
                 for (const key of Object.keys(group)) {
-                    if (!key.startsWith('_')) (group as Record<string, unknown>)[key] = apiGroup[key]
+                    if (!key.startsWith('_')) {
+                        ;(group as Record<string, unknown>)[key] = apiGroup[key]
+                    }
                 }
                 Object.assign($s.admin.group || {}, group)
                 if (!$s.admin.group) {

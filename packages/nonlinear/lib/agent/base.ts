@@ -408,7 +408,7 @@ ${result.doc.content}
             // Handle tool_use content blocks
             const toolUses = (
                 data.content as {id?: string; input?: Record<string, unknown>; name?: string; type: string}[]
-            ).filter((c): boolean => c.type === 'tool_use') as {
+            ).filter((content): boolean => content.type === 'tool_use') as {
                 id: string
                 input: Record<string, unknown>
                 name: string
@@ -417,7 +417,7 @@ ${result.doc.content}
             if (toolUses.length === 0) {
                 // Final text response
                 const textContent = (data.content as {type: string; text?: string}[]).find(
-                    (c: {type: string; text?: string}): boolean => c.type === 'text',
+                    (content: {type: string; text?: string}): boolean => content.type === 'text',
                 )
                 if (textContent) {
                     // eslint-disable-next-line no-await-in-loop
@@ -730,32 +730,36 @@ ${result.doc.content}
     protected log(message: string, level: 'info' | 'warn' | 'error' = 'info'): void {
         const logMessage = `[Agent ${this.name}] ${message}`
         switch (level) {
-            case 'info': {
+            case 'info': { 
                 logger.info(logMessage)
                 break
             }
+            
 
-            case 'warn': {
+            case 'warn': { 
                 logger.warn(logMessage)
                 break
             }
+            
 
-            case 'error': {
+            case 'error': { 
                 logger.error(logMessage)
                 break
             }
+            
 
-            default: {
+            default: { 
                 logger.info(logMessage)
                 break
             }
+            
         }
     }
 
     /**
      * Retry a function with exponential backoff
      */
-    protected async retry<T>(fn: () => Promise<T>, maxAttempts = 3, delay = 1000): Promise<T> {
+    protected async retry<TResult>(fn: () => Promise<TResult>, maxAttempts = 3, delay = 1000): Promise<TResult> {
         let lastError: Error | null = null
 
         for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {

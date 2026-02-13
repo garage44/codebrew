@@ -9,7 +9,7 @@ import {Stream} from '../stream/stream'
 
 interface VideoStripProps {
     className?: string
-    streams?: Array<{[key: string]: unknown; id: string; username: string}>
+    streams?: {[key: string]: unknown; id: string; username: string}[]
 }
 
 /**
@@ -22,9 +22,13 @@ export const VideoStrip = ({className, streams}: VideoStripProps) => {
     // Helper to check if stream is a screen share
     const isScreenShare = useCallback((streamId: string) => {
         // Check if it's in upMedia.screenshare (upstream)
-        if ($s.upMedia.screenshare.includes(streamId)) return true
+        if ($s.upMedia.screenshare.includes(streamId)) {
+            return true
+        }
         // Check downstream streams via connection
-        if (connection?.down?.[streamId]?.label === 'screenshare') return true
+        if (connection?.down?.[streamId]?.label === 'screenshare') {
+            return true
+        }
         return false
     }, [])
 
@@ -33,16 +37,24 @@ export const VideoStrip = ({className, streams}: VideoStripProps) => {
     const sortedStreams = [...streamList].toSorted((a, b) => {
         const aIsScreenShare = isScreenShare(a.id)
         const bIsScreenShare = isScreenShare(b.id)
-        if (aIsScreenShare && !bIsScreenShare) return -1
-        if (!aIsScreenShare && bIsScreenShare) return 1
-        if (a.username < b.username) return -1
-        if (a.username > b.username) return 1
+        if (aIsScreenShare && !bIsScreenShare) {
+            return -1
+        }
+        if (!aIsScreenShare && bIsScreenShare) {
+            return 1
+        }
+        if (a.username < b.username) {
+            return -1
+        }
+        if (a.username > b.username) {
+            return 1
+        }
         return 0
     })
 
     const handleStreamUpdate = useCallback((updatedStream: {[key: string]: unknown; id: string}) => {
         const streamIndex = $s.streams.findIndex((s) => s.id === updatedStream.id)
-        if (streamIndex >= 0) {
+        if (streamIndex !== -1) {
             Object.assign($s.streams[streamIndex], updatedStream)
             $s.streams = [...$s.streams]
         }

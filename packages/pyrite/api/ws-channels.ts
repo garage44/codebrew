@@ -410,7 +410,7 @@ export const registerChannelsWebSocket = (wsManager: WebSocketServerManager) => 
                 }
             }
 
-            // removeMember expects userId as string, not number
+            // RemoveMember expects userId as string, not number
             const success = await channelManager!.removeMember(channelIdNum, userId)
 
             if (!success) {

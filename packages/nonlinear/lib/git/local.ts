@@ -51,7 +51,7 @@ export class LocalGitAdapter implements GitPlatform {
          * Return a placeholder ID
          */
         logger.info('[LocalGit] Merge request creation not supported for local repositories')
-        return 'local-' + Date.now()
+        return `local-${Date.now()}`
     }
 
     async addComment(_repo: Repository, _mrId: string, comment: string): Promise<void> {

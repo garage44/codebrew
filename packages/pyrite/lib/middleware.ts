@@ -16,19 +16,21 @@ import {logger, runtime} from '../service.ts'
 import {loadGroups} from './group.js'
 
 // Type definitions
-export type Session = {userid?: string}
+export interface Session {
+    userid?: string
+}
 
-export type Server = {
+export interface Server {
     upgrade: (request: Request, options: {data: unknown}) => boolean
 }
 
 // Simple HTTP router for Bun.serve that mimics Express pattern
 export class Router {
-    routes: Array<{
+    routes: {
         handler: (req: Request, params: Record<string, string>, session?: Session) => Promise<Response>
         method: string
         path: RegExp
-    }> = []
+    }[] = []
 
     get(path: string, handler: (req: Request, params: Record<string, string>, session?: Session) => Promise<Response>) {
         this.add('GET', path, handler)

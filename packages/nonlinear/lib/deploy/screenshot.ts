@@ -87,7 +87,7 @@ const SCREENSHOTS: ScreenshotConfig[] = [
 ]
 
 async function waitForServer(maxAttempts = 30): Promise<boolean> {
-    for (let i = 0; i < maxAttempts; i += 1) {
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
         try {
             // eslint-disable-next-line no-await-in-loop
             const response = await fetch('http://localhost:3030')
@@ -99,7 +99,7 @@ async function waitForServer(maxAttempts = 30): Promise<boolean> {
         }
 
         // eslint-disable-next-line no-console
-        console.log(`Waiting for server... (${i + 1}/${maxAttempts})`)
+        console.log(`Waiting for server... (${attempt + 1}/${maxAttempts})`)
         // eslint-disable-next-line no-await-in-loop
         await new Promise<void>((resolve): void => {
             setTimeout((): void => {

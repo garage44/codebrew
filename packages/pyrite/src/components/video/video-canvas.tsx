@@ -9,7 +9,7 @@ import {Stream} from '../stream/stream'
 
 interface VideoCanvasProps {
     className?: string
-    streams?: Array<{[key: string]: unknown; id: string; username: string}>
+    streams?: {[key: string]: unknown; id: string; username: string}[]
 }
 
 /**
@@ -29,9 +29,13 @@ export const VideoCanvas = ({className, streams}: VideoCanvasProps) => {
     // Helper to check if stream is a screen share
     const isScreenShare = useCallback((streamId: string) => {
         // Check if it's in upMedia.screenshare (upstream)
-        if ($s.upMedia.screenshare.includes(streamId)) return true
+        if ($s.upMedia.screenshare.includes(streamId)) {
+            return true
+        }
         // Check downstream streams via connection
-        if (connection?.down?.[streamId]?.label === 'screenshare') return true
+        if (connection?.down?.[streamId]?.label === 'screenshare') {
+            return true
+        }
         return false
     }, [])
 
@@ -41,10 +45,18 @@ export const VideoCanvas = ({className, streams}: VideoCanvasProps) => {
     const sortedStreams = [...streamList].toSorted((a, b) => {
         const aIsScreenShare = isScreenShare(a.id)
         const bIsScreenShare = isScreenShare(b.id)
-        if (aIsScreenShare && !bIsScreenShare) return -1
-        if (!aIsScreenShare && bIsScreenShare) return 1
-        if (a.username < b.username) return -1
-        if (a.username > b.username) return 1
+        if (aIsScreenShare && !bIsScreenShare) {
+            return -1
+        }
+        if (!aIsScreenShare && bIsScreenShare) {
+            return 1
+        }
+        if (a.username < b.username) {
+            return -1
+        }
+        if (a.username > b.username) {
+            return 1
+        }
         return 0
     })
     const streamsPlayingCount = $s.streams.filter((s) => s.playing).length
@@ -54,7 +66,9 @@ export const VideoCanvas = ({className, streams}: VideoCanvasProps) => {
      * https://dev.to/antondosov/building-a-video-gallery-just-like-in-zoom-4mam
      */
     const calcLayout = useCallback(() => {
-        if (!viewRef.current) return
+        if (!viewRef.current) {
+            return
+        }
         const containerWidth = viewRef.current.offsetWidth
         const containerHeight = viewRef.current.offsetHeight
         let layout = {area: 0, cols: 0, height: 0, rows: 0, width: 0}
@@ -98,7 +112,9 @@ export const VideoCanvas = ({className, streams}: VideoCanvasProps) => {
 
     // Setup and cleanup
     useEffect(() => {
-        if (!viewRef.current) return
+        if (!viewRef.current) {
+            return
+        }
 
         viewRef.current.style.setProperty('--stream-margin', `${margin}px`)
 

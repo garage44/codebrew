@@ -4,9 +4,9 @@ import type {z} from 'zod'
  * Validate request data against a Zod schema
  * Throws ZodError if validation fails
  */
-export function validateRequest<T extends z.ZodType>(
-    schema: T,
+export function validateRequest<TSchema extends z.ZodType>(
+    schema: TSchema,
     data: unknown,
-): z.infer<T> {
+): z.infer<TSchema> {
     return schema.parse(data)
 }

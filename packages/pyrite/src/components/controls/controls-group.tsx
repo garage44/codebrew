@@ -22,7 +22,7 @@ export const GroupControls = () => {
         if ($s.files.playing.length) {
             return $t('file.streaming')
         }
-        let formats = []
+        const formats = []
         if ($s.env.isFirefox) {
             formats.push('.mp4')
         } else {
@@ -79,7 +79,9 @@ export const GroupControls = () => {
         $s.chat.emoji.active = false
         // Wait a tick for state to update
         await new Promise((resolve) => setTimeout(resolve, 0))
-        if ($s.panels.chat) $s.panels.chat.collapsed = !$s.panels.chat.collapsed
+        if ($s.panels.chat) {
+            $s.panels.chat.collapsed = !$s.panels.chat.collapsed
+        }
         store.save()
     }
 
@@ -190,7 +192,7 @@ export const GroupControls = () => {
                     />
 
                     <Button
-                        active={!!$s.upMedia.screenshare.length}
+                        active={Boolean($s.upMedia.screenshare.length)}
                         icon='ScreenShare'
                         onClick={toggleScreenshare}
                         tip={
@@ -200,7 +202,7 @@ export const GroupControls = () => {
                     />
 
                     <Button
-                        active={!!$s.upMedia.video.length}
+                        active={Boolean($s.upMedia.video.length)}
                         onClick={() => {
                             const input = document.createElement('input')
                             input.type = 'file'

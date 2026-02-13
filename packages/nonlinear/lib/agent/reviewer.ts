@@ -120,7 +120,7 @@ MR Status: ${mrStatus.state}
 MR URL: ${mrStatus.url}
 
 Previous Comments:
-${comments.map((c): string => `- ${c.author_type} (${c.author_id}): ${c.content}`).join('\n')}
+${comments.map((comment): string => `- ${comment.author_type} (${comment.author_id}): ${comment.content}`).join('\n')}
 
 Please review the changes and provide feedback.`
 
@@ -151,7 +151,7 @@ Please review the changes and provide feedback.`
             }
 
             // Add review comment to MR
-            const reviewComment = this.formatReviewComment(review)
+            const reviewComment = ReviewerAgent.formatReviewComment(review)
             await gitPlatform.addComment(repo, ticket.merge_request_id, reviewComment)
 
             // Add comment to ticket
@@ -204,7 +204,7 @@ Please review the changes and provide feedback.`
         }
     }
 
-    private formatReviewComment(review: {
+    private static formatReviewComment(review: {
         approved: boolean
         feedback: {message: string; type: string}[]
         issues?: string[]

@@ -28,14 +28,14 @@ export class Task {
         }
     }
 
-    log(...args: unknown[]): void {
+    static log(...args: unknown[]): void {
         logger.info(...(args.map(String) as [string, ...string[]]))
     }
 
     async start(...args: unknown[]): Promise<unknown> {
         this.startTime = performance.now()
         const logStart = `${this.prefix.ok}${pc.gray('task started')}`
-        this.log(logStart)
+        Task.log(logStart)
         let result: unknown = null
 
         try {

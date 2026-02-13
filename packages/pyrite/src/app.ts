@@ -1,8 +1,8 @@
 import type {CommonState} from '@garage44/common/types'
+import type {DeepSignal} from 'deepsignal'
 
 import {App, store, api, notifier, logger, $t} from '@garage44/common/app'
 import {createTypedI18n, i18nFormat} from '@garage44/expressio'
-import {type DeepSignal} from 'deepsignal'
 import {h, render} from 'preact'
 
 import workspace from '@/.expressio.json'

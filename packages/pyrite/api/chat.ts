@@ -1,7 +1,7 @@
 import type {WebSocketServerManager} from '@garage44/common/lib/ws-server'
 
 import fs from 'fs-extra'
-import path from 'path'
+import path from 'node:path'
 
 import {runtime} from '../service.ts'
 
@@ -36,9 +36,11 @@ export default async function (router: unknown) {
             handler: (req: Request, params: Record<string, string>, session: unknown) => Promise<Response>,
         ) => void
     }
-    routerTyped.get('/api/chat/emoji', async (_req: Request, _params: Record<string, string>, _session: unknown) => {
-        return new Response(JSON.stringify(emoji), {
-            headers: {'Content-Type': 'application/json'},
-        })
-    })
+    routerTyped.get(
+        '/api/chat/emoji',
+        async (_req: Request, _params: Record<string, string>, _session: unknown) =>
+            new Response(JSON.stringify(emoji), {
+                headers: {'Content-Type': 'application/json'},
+            }),
+    )
 }

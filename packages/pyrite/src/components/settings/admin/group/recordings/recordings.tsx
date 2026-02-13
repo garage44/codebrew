@@ -19,13 +19,17 @@ export default function Recordings({groupId}: RecordingsProps) {
     const [recordings, setRecordings] = useState<Recording[]>([])
 
     const loadRecordings = async (group: string) => {
-        if (!group) return
+        if (!group) {
+            return
+        }
         const data = await api.get(`/api/recordings/${group}`)
         setRecordings(Array.isArray(data) ? (data as Recording[]) : [])
     }
 
     const deleteRecording = async (rec: Recording) => {
-        if (!groupId) return
+        if (!groupId) {
+            return
+        }
         await api.get(`/api/recordings/${groupId}/${rec.filename}.${rec.extension}/delete`)
         notifier.notify({
             level: 'info',

@@ -114,7 +114,7 @@ export function selectChannel(channelSlug: string | number): void {
     // For non-channel chat (e.g., 'main', user IDs), treat as string
     if (typeof channelSlug === 'string') {
         // Check if it's a Pyrite channel slug (by checking if it exists in channels)
-        const channel = $s.channels.find((c): boolean => c.slug === channelSlug)
+        const channel = $s.channels.find((ch): boolean => ch.slug === channelSlug)
         if (channel) {
             $s.chat.activeChannelSlug = channelSlug
             $s.chat.channel = channelSlug
@@ -226,9 +226,10 @@ export async function loadGlobalUsers(): Promise<void> {
                                 }
                             } else {
                                 if (!$s.chat.users) {$s.chat.users = {}}
+                                // Users in channels are online
                                 $s.chat.users[userId] = {
                                     avatar: member.avatar,
-                                    status: 'online', // Users in channels are online
+                                    status: 'online',
                                     username: member.username,
                                 }
                             }
@@ -369,10 +370,11 @@ export async function sendMessage(message: string): Promise<void> {
 
     const isCommand = message[0] === '/'
     let kind = 'message'
+    let messageToSend = message
 
     if (isCommand) {
         if (message.length > 1 && message[1] === '/') {
-            message = message.slice(1)
+            messageToSend = message.slice(1)
             kind = 'message'
         } else {
             let cmd = ''
@@ -387,7 +389,7 @@ export async function sendMessage(message: string): Promise<void> {
             }
 
             if (cmd === 'me') {
-                message = rest
+                messageToSend = rest
                 kind = 'me'
             } else {
                 notifier.notify({
@@ -402,7 +404,7 @@ export async function sendMessage(message: string): Promise<void> {
     try {
         const response = await ws.post(`/channels/${$s.chat.activeChannelSlug}/messages`, {
             kind,
-            message,
+            message: messageToSend,
         })
 
         if (response && !response.success) {

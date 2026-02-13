@@ -274,7 +274,8 @@ export async function runAgentInteractive(options: InteractiveCLIOptions): Promi
                     }
                 }
                 // eslint-disable-next-line no-console
-                console.log('') // Blank line for readability
+                // eslint-disable-next-line no-console
+                console.log('')
             } catch (error: unknown) {
                 const errorMsg = error instanceof Error ? error.message : String(error)
                 // eslint-disable-next-line no-console

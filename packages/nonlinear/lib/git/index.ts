@@ -26,10 +26,12 @@ export function createGitPlatform(repo: Repository): GitPlatform {
             }
             return adapter
         }
-        case 'local':
+        case 'local': {
             return new LocalGitAdapter()
-        default:
+        }
+        default: {
             throw new Error(`Unknown git platform: ${repo.platform}`)
+        }
     }
 }
 

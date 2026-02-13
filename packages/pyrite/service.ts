@@ -155,10 +155,10 @@ cli.usage('Usage: $0 [task]')
             fetch: async(req, server): Promise<Response> => {
                 const url = new URL(req.url)
                 if (url.pathname === '/dev/snapshot') {
-                    return new Response(JSON.stringify(devContext.snapshot({
+                    return Response.json(devContext.snapshot({
                         version: runtime.version,
                         workspace: 'pyrite',
-                    })), {headers: {'Content-Type': 'application/json'}})
+                    }))
                 }
                 const response = await handleRequest(req, server)
                 return response ?? new Response('Not Found', {status: 404})

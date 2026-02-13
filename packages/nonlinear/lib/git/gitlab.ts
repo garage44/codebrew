@@ -41,7 +41,7 @@ export class GitLabAdapter implements GitPlatform {
         return response
     }
 
-    private parseRepoUrl(repo: Repository): {projectId: string} | null {
+    private static parseRepoUrl(repo: Repository): {projectId: string} | null {
         if (!repo.remote_url) {
             return null
         }
@@ -66,7 +66,7 @@ export class GitLabAdapter implements GitPlatform {
     }
 
     async createBranch(repo: Repository, branchName: string): Promise<string> {
-        const repoInfo = this.parseRepoUrl(repo)
+        const repoInfo = GitLabAdapter.parseRepoUrl(repo)
         if (!repoInfo) {
             throw new Error('Invalid GitLab repository URL')
         }
@@ -100,7 +100,7 @@ export class GitLabAdapter implements GitPlatform {
         title: string,
         description: string,
     ): Promise<string> {
-        const repoInfo = this.parseRepoUrl(repo)
+        const repoInfo = GitLabAdapter.parseRepoUrl(repo)
         if (!repoInfo) {
             throw new Error('Invalid GitLab repository URL')
         }
@@ -127,7 +127,7 @@ export class GitLabAdapter implements GitPlatform {
     }
 
     async addComment(repo: Repository, mrId: string, comment: string): Promise<void> {
-        const repoInfo = this.parseRepoUrl(repo)
+        const repoInfo = GitLabAdapter.parseRepoUrl(repo)
         if (!repoInfo) {
             throw new Error('Invalid GitLab repository URL')
         }
@@ -143,7 +143,7 @@ export class GitLabAdapter implements GitPlatform {
     }
 
     async getStatus(repo: Repository, branch: string): Promise<MRStatus | null> {
-        const repoInfo = this.parseRepoUrl(repo)
+        const repoInfo = GitLabAdapter.parseRepoUrl(repo)
         if (!repoInfo) {
             return null
         }

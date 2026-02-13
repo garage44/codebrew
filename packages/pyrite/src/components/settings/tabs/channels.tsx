@@ -79,7 +79,9 @@ export default function TabChannels() {
     }
 
     const handleDelete = async (channelId: number) => {
-        if (!confirm('Are you sure you want to delete this channel? This will also delete the associated Galene group.')) return
+        if (!confirm('Are you sure you want to delete this channel? This will also delete the associated Galene group.')) {
+            return
+        }
 
         try {
             await api.delete(`/api/channels/${channelId}`, {})

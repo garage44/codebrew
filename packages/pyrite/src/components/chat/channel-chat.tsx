@@ -60,7 +60,7 @@ export default function ChannelChat({channel, channelSlug}: ChannelChatProps) {
     const formattedMessage = $s.chat.message.trim()
 
     const addEmoji = (e: MouseEvent, emoji: string) => {
-        const message = $s.chat.message.split('')
+        const message = [...$s.chat.message]
         const caretPosition = chatInputRef.current?.selectionStart || 0
         if (caretPosition >= 0) {
             message.splice(caretPosition, 0, emoji)
@@ -74,7 +74,7 @@ export default function ChannelChat({channel, channelSlug}: ChannelChatProps) {
 
     const sendMessage = async (e: KeyboardEvent | MouseEvent) => {
         if (e instanceof KeyboardEvent && !(e.key === 'Enter' && !e.ctrlKey && !e.shiftKey && !e.metaKey)) {
-            // ctrl/shift/meta +enter is next line.
+            // Ctrl/shift/meta +enter is next line.
             $s.chat.message += '\r\n'
             return false
         }
@@ -109,14 +109,18 @@ export default function ChannelChat({channel, channelSlug}: ChannelChatProps) {
 
     // Check if user is near bottom of chat (within 100px)
     const isNearBottom = useCallback(() => {
-        if (!messagesRef.current) return false
+        if (!messagesRef.current) {
+            return false
+        }
         const {clientHeight, scrollHeight, scrollTop} = messagesRef.current
         return scrollHeight - scrollTop - clientHeight < 100
     }, [])
 
     // Scroll to bottom immediately
     const scrollToBottom = useCallback(() => {
-        if (!messagesRef.current) return
+        if (!messagesRef.current) {
+            return
+        }
         // Use scrollIntoView for smoother scrolling, or direct scrollTop for immediate
         const messagesContainer = messagesRef.current
         messagesContainer.scrollTop = messagesContainer.scrollHeight
@@ -128,7 +132,9 @@ export default function ChannelChat({channel, channelSlug}: ChannelChatProps) {
      */
     useEffect(() => {
         const channelData = $s.chat.channels[channelKey]
-        if (!channelData) return
+        if (!channelData) {
+            return
+        }
 
         // Use effect from @preact/signals to watch signal changes
         const unsubscribe = effect(() => {
@@ -172,15 +178,16 @@ export default function ChannelChat({channel, channelSlug}: ChannelChatProps) {
     }, [channelSlug])
 
     // Cleanup typing timeout on unmount
-    useEffect(() => {
-        return () => {
+    useEffect(
+        () => () => {
             if (typingTimeoutRef.current) {
                 clearTimeout(typingTimeoutRef.current)
             }
             // Stop typing indicator when leaving channel
             sendTypingIndicator(false, channelSlug)
-        }
-    }, [channelSlug])
+        },
+        [channelSlug],
+    )
 
     if (!currentChannel) {
         return (
@@ -228,11 +235,11 @@ export default function ChannelChat({channel, channelSlug}: ChannelChatProps) {
                      * Filter out current user's typing indicator and stale indicators (older than 5 seconds)
                      * Also enrich with username from global users if missing
                      */
-                    const typingArray = typingUsers as Array<{
+                    const typingArray = typingUsers as {
                         timestamp: number
                         userId: string | number
                         username: string
-                    }>
+                    }[]
                     const otherTypingUsers = typingArray
                         .map((t) => {
                             // Use username from global users if not provided
@@ -288,7 +295,7 @@ export default function ChannelChat({channel, channelSlug}: ChannelChatProps) {
             <div class='send'>
                 <div class='send-input'>
                     <textarea
-                        autofocus={true}
+                        autofocus
                         onInput={(e) => {
                             $s.chat.message = (e.target as HTMLTextAreaElement).value
                             // Send typing indicator (debounced)

@@ -212,7 +212,7 @@ export async function generateTicketEmbedding(ticketId: string, title: string, d
 
     // Get ticket labels
     const labels = getDb().prepare('SELECT label FROM ticket_labels WHERE ticket_id = ?').all(ticketId) as {label: string}[]
-    const ticketLabels = labels.map((l): string => l.label)
+    const ticketLabels = labels.map((label): string => label.label)
 
     // Get ticket status
     const ticketStatus = getDb().prepare('SELECT status FROM tickets WHERE id = ?').get(ticketId) as {status: string} | undefined

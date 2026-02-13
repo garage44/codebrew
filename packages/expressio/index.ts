@@ -20,7 +20,7 @@ const $t = create$t(store)
  * @param workspace - Workspace object with i18n property
  * @returns Typed i18n object with path symbols attached
  */
-function createTypedI18n<T extends {i18n: Record<string, unknown>}>(workspace: T): T['i18n'] {
+function createTypedI18n<Workspace extends {i18n: Record<string, unknown>}>(workspace: Workspace): Workspace['i18n'] {
     // Create a shallow copy to avoid mutating the original
     const i18n = {...workspace.i18n}
 

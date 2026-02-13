@@ -92,7 +92,8 @@ export const CommentSchema = z.object({
     content: z.string(),
     created_at: TimestampSchema,
     id: IdSchema,
-    mentions: z.string().nullable(), // JSON array string
+    /* JSON array string */
+    mentions: z.string().nullable(),
     responding_to: z.string().nullable(),
     status: CommentStatusSchema,
     ticket_id: IdSchema,

@@ -203,39 +203,46 @@ function setupLogForwarding(wsManager: WsManager): void {
             // Ignore errors in dev context logging
         }
         switch (level) {
-            case 'error': 
+            case 'error': {
                 logger.remote(formattedMessage, ...formattedArgs)
                 break
-            
+            }
 
-            case 'warn': 
+
+            case 'warn': {
                 logger.remote(formattedMessage, ...formattedArgs)
                 break
-            
+            }
 
-            case 'info': 
+
+            case 'info': {
                 logger.remote(formattedMessage, ...formattedArgs)
                 break
-            
+            }
 
-            case 'success': 
+
+            case 'success': {
                 logger.remote(formattedMessage, ...formattedArgs)
                 break
-            
+            }
 
-            case 'verbose': 
+
+            case 'verbose': {
                 logger.remote(formattedMessage, ...formattedArgs)
                 break
-            
+            }
 
-            case 'debug': 
+
+            case 'debug': {
                 logger.remote(formattedMessage, ...formattedArgs)
                 break
-            
+            }
 
-            default: 
+
+            default: {
                 logger.remote(formattedMessage, ...formattedArgs)
-            
+            }
+
         }
 
         return {status: 'ok'}
@@ -266,7 +273,8 @@ function wrapFetchHandler(
                         },
                     })
                     if (success) {
-                        return new Response(null, {status: 101}) // Return 101 Switching Protocols to indicate upgrade success
+                        // Return 101 Switching Protocols to indicate upgrade success
+                        return new Response(null, {status: 101})
                     }
                     return new Response('WebSocket upgrade failed', {status: 400})
                 }

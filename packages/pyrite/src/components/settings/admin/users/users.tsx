@@ -1,6 +1,7 @@
+import type {ComponentChildren} from 'preact'
+
 import {logger, $t, api} from '@garage44/common/app'
 import {Splash} from '@garage44/common/components'
-import {ComponentChildren} from 'preact'
 import {useEffect} from 'preact/hooks'
 
 import {$s} from '@/app'
@@ -19,13 +20,10 @@ export const Users = ({children, userId}: UsersProps) => {
     const loadUser = async (userId: string) => {
         logger.debug(`load user ${userId}`)
         const user = $s.admin.users.find((i) => {
-            const userIdNum = typeof i.id === 'number' ? i.id : parseInt(String(i.id || '0'), 10)
-            return userIdNum === parseInt(userId, 10)
+            const userIdNum = typeof i.id === 'number' ? i.id : Number.parseInt(String(i.id || '0'), 10)
+            return userIdNum === Number.parseInt(userId, 10)
         })
-        if (
-            user &&
-            ((typeof user._unsaved !== 'undefined' && user._unsaved) || (typeof user._delete !== 'undefined' && user._delete))
-        ) {
+        if (user && ((user._unsaved !== undefined && user._unsaved) || (user._delete !== undefined && user._delete))) {
             Object.assign($s.admin.user || {}, user)
             if (!$s.admin.user) {
                 $s.admin.user = user as NonNullable<typeof $s.admin.user>

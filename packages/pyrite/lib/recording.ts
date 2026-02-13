@@ -10,11 +10,9 @@ export async function loadRecordings(groupId: string) {
     const recordingsPath = path.join(getSfuPath(), 'recordings')
     const glob = new Glob('*.webm')
     const scanPath = path.join(recordingsPath, groupId)
-    const files = Array.from(glob.scanSync(scanPath)).map((f: string) => path.join(scanPath, f))
+    const files = [...glob.scanSync(scanPath)].map((f: string) => path.join(scanPath, f))
     const fileStats = await Promise.all(files.map((i: string) => fs.stat(i)))
-    const fileNames = files.map((i) => {
-        return i.replace(path.join(recordingsPath, groupId), '').replace('.webm', '').replace('/', '')
-    })
+    const fileNames = files.map((i) => i.replace(path.join(recordingsPath, groupId), '').replace('.webm', '').replace('/', ''))
 
     const filesData = []
     for (const [index, filename] of fileNames.entries()) {

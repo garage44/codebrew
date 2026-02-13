@@ -11,9 +11,7 @@ import {loadGlobalUsers} from '@/models/chat'
 import type {Channel} from '../../types.ts'
 
 // Helper function outside component to avoid recreation
-const channelLink = (channelSlug: string) => {
-    return `/channels/${channelSlug}`
-}
+const channelLink = (channelSlug: string) => `/channels/${channelSlug}`
 
 export default function ChannelsContext() {
     /*
@@ -149,7 +147,9 @@ export default function ChannelsContext() {
                         const uniqueUsers = chatUsers.filter(([userId, userInfo]) => {
                             // Normalize ID
                             const idStr = String(userId).trim()
-                            if (!idStr) return false
+                            if (!idStr) {
+                                return false
+                            }
 
                             // Extract username for fallback deduplication
                             const user =

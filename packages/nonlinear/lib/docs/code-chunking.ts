@@ -42,15 +42,15 @@ export function chunkCode(
         let inFunction = false
         let endPos = startPos
 
-        for (let i = startPos; i < code.length; i += 1) {
-            const char = code[i]
+        for (let idx = startPos; idx < code.length; idx += 1) {
+            const char = code[idx]
             if (char === '{') {
                 braceCount += 1
                 inFunction = true
             } else if (char === '}') {
                 braceCount -= 1
                 if (inFunction && braceCount === 0) {
-                    endPos = i + 1
+                    endPos = idx + 1
                     break
                 }
             }
@@ -81,15 +81,15 @@ export function chunkCode(
         let inClass = false
         let endPos = startPos
 
-        for (let i = startPos; i < code.length; i += 1) {
-            const char = code[i]
+        for (let idx = startPos; idx < code.length; idx += 1) {
+            const char = code[idx]
             if (char === '{') {
                 braceCount += 1
                 inClass = true
             } else if (char === '}') {
                 braceCount -= 1
                 if (inClass && braceCount === 0) {
-                    endPos = i + 1
+                    endPos = idx + 1
                     break
                 }
             }
@@ -120,15 +120,15 @@ export function chunkCode(
         let inInterface = false
         let endPos = startPos
 
-        for (let i = startPos; i < code.length; i += 1) {
-            const char = code[i]
+        for (let idx = startPos; idx < code.length; idx += 1) {
+            const char = code[idx]
             if (char === '{') {
                 braceCount += 1
                 inInterface = true
             } else if (char === '}') {
                 braceCount -= 1
                 if (inInterface && braceCount === 0) {
-                    endPos = i + 1
+                    endPos = idx + 1
                     break
                 }
             }
@@ -151,8 +151,8 @@ export function chunkCode(
     // If no semantic units found, chunk by lines
     if (chunks.length === 0) {
         const lineChunks = Math.ceil(lines.length / maxChunkSize)
-        for (let i = 0; i < lineChunks; i += 1) {
-            const start = i * maxChunkSize
+        for (let idx = 0; idx < lineChunks; idx += 1) {
+            const start = idx * maxChunkSize
             const end = Math.min(start + maxChunkSize, lines.length)
             chunks.push({
                 endLine: end,

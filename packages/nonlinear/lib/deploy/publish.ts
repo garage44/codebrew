@@ -54,7 +54,7 @@ async function updateVersion(packagePath: string, newVersion: string): Promise<s
     const packageJsonPath = join(packagePath, 'package.json')
     const packageJson = JSON.parse(await readFile(packageJsonPath, 'utf8'))
     packageJson.version = newVersion
-    await writeFile(packageJsonPath, JSON.stringify(packageJson, null, 2) + '\n')
+    await writeFile(packageJsonPath, `${JSON.stringify(packageJson, null, 2)}\n`)
     return newVersion
 }
 
@@ -96,8 +96,9 @@ async function buildDependencyGraph(workspaceRoot: string, packages: string[]): 
     return graph
 }
 
-// Main publish function
-export async function publish(): Promise<void> {
+    // Main publish function
+    /* eslint-disable complexity -- publish orchestrates many steps */
+    export async function publish(): Promise<void> {
     // eslint-disable-next-line no-console
     console.log('🚀 Starting monorepo publish...\n')
 

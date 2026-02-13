@@ -1,7 +1,7 @@
 import type {WebSocketServerManager} from '@garage44/common/lib/ws-server'
 
 import fs from 'fs-extra'
-import path from 'path'
+import path from 'node:path'
 
 import type {Router, Session} from '../lib/middleware.ts'
 
@@ -44,11 +44,13 @@ export default function (router: Router) {
         })
     })
 
-    router.get('/api/groups/template', async (_req: Request, _params: Record<string, string>, _session?: Session) => {
-        return new Response(JSON.stringify(groupTemplate()), {
-            headers: {'Content-Type': 'application/json'},
-        })
-    })
+    router.get(
+        '/api/groups/template',
+        async (_req: Request, _params: Record<string, string>, _session?: Session) =>
+            new Response(JSON.stringify(groupTemplate()), {
+                headers: {'Content-Type': 'application/json'},
+            }),
+    )
 
     router.get('/api/groups/:groupid', async (_req: Request, params: Record<string, string>, _session?: Session) => {
         const {param0: groupId} = validateRequest(GroupIdPathSchema, params)

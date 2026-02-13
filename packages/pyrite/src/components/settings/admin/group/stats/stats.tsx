@@ -56,10 +56,10 @@ export default function Stats({groupId}: StatsProps) {
 
         let initClient = false
         interface ApiStream {
-            tracks: Array<{bitrate: number; jitter: number; loss: number; maxBitrate: number}>
+            tracks: {bitrate: number; jitter: number; loss: number; maxBitrate: number}[]
         }
         const apiStats = (await api.get(`/api/dashboard/${groupId}`)) as {
-            clients?: Array<{id: string; up?: ApiStream[]}>
+            clients?: {id: string; up?: ApiStream[]}[]
         }
 
         if (!apiStats || !apiStats.clients) {

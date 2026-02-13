@@ -269,8 +269,9 @@ class IndexingService {
 if (import.meta.main) {
     const service = new IndexingService()
 
-    // Initialize and start
-    ;(async (): Promise<void> => {
+        // Initialize and start
+        // eslint-disable-next-line unicorn/prefer-top-level-await -- IIFE needed for conditional service startup
+        ;(async (): Promise<void> => {
         await initConfig(config)
         initDatabase()
 

@@ -8,7 +8,8 @@ import {IdSchema, SuccessResponseSchema, TimestampSchema} from './common.ts'
 export const RepositoryPlatformSchema = z.enum(['github', 'gitlab', 'local'])
 
 export const RepositorySchema = z.object({
-    config: z.string(), // JSON string
+    /* JSON string */
+    config: z.string(),
     created_at: TimestampSchema,
     id: IdSchema,
     name: z.string(),

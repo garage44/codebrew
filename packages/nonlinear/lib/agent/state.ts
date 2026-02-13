@@ -50,7 +50,7 @@ class AgentStateTracker {
     /**
      * Create a deep proxy that watches for changes
      */
-    private createDeepProxy<T extends Record<string, unknown>>(obj: T, onChange: () => void): T {
+    private createDeepProxy<TObj extends Record<string, unknown>>(obj: TObj, onChange: () => void): TObj {
         return new Proxy(obj, {
             deleteProperty: (target, prop): boolean => {
                 if (typeof prop === 'string' && prop in target && !this.batchUpdateInProgress) {
@@ -67,7 +67,7 @@ class AgentStateTracker {
                 const value = target[prop]
                 // Only proxy objects, not primitive values
                 if (value && typeof value === 'object' && !this.batchUpdateInProgress) {
-                    return this.createDeepProxy(value as Record<string, unknown>, onChange) as T[Extract<keyof T, string>]
+                    return this.createDeepProxy(value as Record<string, unknown>, onChange) as TObj[Extract<keyof TObj, string>]
                 }
                 return value
             },
@@ -191,7 +191,7 @@ class AgentStateTracker {
     /**
      * Set a specific state property (proxy will automatically trigger broadcast)
      */
-    setState<K extends keyof AgentState>(agentId: string, key: K, value: AgentState[K]): void {
+    setState<TKey extends keyof AgentState>(agentId: string, key: TKey, value: AgentState[TKey]): void {
         // Ensure agent state exists (this will be proxied automatically)
         if (!this._state[agentId]) {
             // Create new state object - proxy will wrap it when accessed

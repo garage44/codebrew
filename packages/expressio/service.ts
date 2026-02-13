@@ -163,7 +163,7 @@ void cli
                 },
             }
 
-            await fs.writeFile(outputPath, JSON.stringify(template, null, 2) + '\n', 'utf8')
+            await fs.writeFile(outputPath, `${JSON.stringify(template, null, 2)}\n`, 'utf8')
             logger.info(`Created workspace file: ${outputPath}`)
             logger.info(`Workspace ID: ${argv.workspaceId}`)
             logger.info(`Source language: ${argv.sourceLanguage}`)
@@ -738,14 +738,11 @@ void cli
                 fetch: async (req: Request, server: unknown): Promise<Response> => {
                     const url = new URL(req.url)
                     if (url.pathname === '/dev/snapshot') {
-                        return new Response(
-                            JSON.stringify(
-                                devContext.snapshot({
-                                    version: runtime.version,
-                                    workspace: 'expressio',
-                                }),
-                            ),
-                            {headers: {'Content-Type': 'application/json'}},
+                        return Response.json(
+                            devContext.snapshot({
+                                version: runtime.version,
+                                workspace: 'expressio',
+                            }),
                         )
                     }
                     const response = await handleRequest(req, server)

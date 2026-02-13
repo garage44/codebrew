@@ -40,7 +40,7 @@ export class GitHubAdapter implements GitPlatform {
         return response
     }
 
-    private parseRepoUrl(repo: Repository): {owner: string; repo: string} | null {
+    private static parseRepoUrl(repo: Repository): {owner: string; repo: string} | null {
         if (!repo.remote_url) {
             return null
         }
@@ -58,7 +58,7 @@ export class GitHubAdapter implements GitPlatform {
     }
 
     async createBranch(repo: Repository, branchName: string): Promise<string> {
-        const repoInfo = this.parseRepoUrl(repo)
+        const repoInfo = GitHubAdapter.parseRepoUrl(repo)
         if (!repoInfo) {
             throw new Error('Invalid GitHub repository URL')
         }
@@ -92,7 +92,7 @@ export class GitHubAdapter implements GitPlatform {
         title: string,
         description: string,
     ): Promise<string> {
-        const repoInfo = this.parseRepoUrl(repo)
+        const repoInfo = GitHubAdapter.parseRepoUrl(repo)
         if (!repoInfo) {
             throw new Error('Invalid GitHub repository URL')
         }
@@ -119,7 +119,7 @@ export class GitHubAdapter implements GitPlatform {
     }
 
     async addComment(repo: Repository, mrId: string, comment: string): Promise<void> {
-        const repoInfo = this.parseRepoUrl(repo)
+        const repoInfo = GitHubAdapter.parseRepoUrl(repo)
         if (!repoInfo) {
             throw new Error('Invalid GitHub repository URL')
         }
@@ -135,7 +135,7 @@ export class GitHubAdapter implements GitPlatform {
     }
 
     async getStatus(repo: Repository, branch: string): Promise<MRStatus | null> {
-        const repoInfo = this.parseRepoUrl(repo)
+        const repoInfo = GitHubAdapter.parseRepoUrl(repo)
         if (!repoInfo) {
             return null
         }
