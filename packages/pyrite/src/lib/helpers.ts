@@ -10,6 +10,9 @@ declare global {
     return Number(Math.round(Number(this + 'e' + decimals)) + 'e-' + decimals)
 }
 
+// Export empty object to make this a module
+
+
 
 
 

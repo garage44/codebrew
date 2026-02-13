@@ -470,7 +470,7 @@ const initGroupSubscriptions = (): void => {
             const targetUser = $s.users.find((u): boolean => u && u.id && String(u.id).trim() === normalizedTargetUserId)
 
             switch (action) {
-                case 'kick': {     
+                case 'kick': {      
                     // Remove kicked user
                     if (targetUserId === $s.profile.id) {
                         // Current user was kicked, disconnect
@@ -497,8 +497,9 @@ const initGroupSubscriptions = (): void => {
                 
                 
                 
+                
 
-                case 'mute': {     
+                case 'mute': {      
                     // Mute user's microphone
                     if (targetUserId === $s.profile.id) {
                         $s.devices.mic.enabled = false
@@ -512,9 +513,10 @@ const initGroupSubscriptions = (): void => {
                 
                 
                 
+                
 
                 case 'op':
-                case 'unop': {     
+                case 'unop': {      
                     // Update operator permissions
                     if (targetUser && 'permissions' in targetUser && targetUser.permissions && typeof targetUser.permissions === 'object') {
                         (targetUser.permissions as {op?: boolean}).op = action === 'op'
@@ -529,9 +531,10 @@ const initGroupSubscriptions = (): void => {
                 
                 
                 
+                
 
                 case 'present':
-                case 'unpresent': {     
+                case 'unpresent': {      
                     // Update presenter permissions
                     if (targetUser && 'permissions' in targetUser && targetUser.permissions && typeof targetUser.permissions === 'object') {
                         (targetUser.permissions as {present?: boolean}).present = action === 'present'
@@ -546,10 +549,12 @@ const initGroupSubscriptions = (): void => {
                 
                 
                 
-                default: {    
+                
+                default: {     
                     logger.warn(`[handleGroupAction] Unknown action: ${action}`)
                     break
                 }
+                
                 
                 
                 
