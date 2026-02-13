@@ -15,30 +15,30 @@ interface ContextGroupsProps {
 export default function ContextGroups({groupId, path}: ContextGroupsProps) {
     const deletionGroups = useMemo(() => {
         return $s.admin.groups.filter((i) => i._delete)
-    }, [$s.admin.groups])
+    }, [])
 
     const orderedGroups = useMemo(() => {
         const groups = $s.admin.groups.filter((g) => g.public).concat($s.admin.groups.filter((g) => !g.public))
-        return groups.sort((a, b) => {
+        return groups.toSorted((a, b) => {
             if (a._name < b._name) return -1
             if (a._name > b._name) return 1
             return 0
         })
-    }, [$s.admin.groups])
+    }, [])
 
-    const addGroup = async () => {
+    const addGroup = async() => {
         const group = await api.get('/api/groups/template')
         $s.admin.groups.push(group)
         toggleSelection(group._name)
     }
 
-    const deleteGroups = async () => {
+    const deleteGroups = async() => {
         notifier.notify({
             level: 'info',
             message:
-                deletionGroups.length === 1
-                    ? $t('deleting one group')
-                    : $t('deleting {count} groups', {count: deletionGroups.length}),
+                deletionGroups.length === 1 ?
+                        $t('deleting one group') :
+                        $t('deleting {count} groups', {count: deletionGroups.length}),
         })
         const deleteRequests = []
         for (const group of deletionGroups) {
@@ -62,12 +62,11 @@ export default function ContextGroups({groupId, path}: ContextGroupsProps) {
     const groupLink = (groupId: string) => {
         if ($s.admin.group && $s.admin.group._name == groupId) {
             return path || `/settings/groups/${groupId}/misc`
-        } else {
-            return `/settings/groups/${groupId}/misc`
         }
+        return `/settings/groups/${groupId}/misc`
     }
 
-    const saveGroupAction = async () => {
+    const saveGroupAction = async() => {
         if (!$s.admin.group) return
         const groupId = $s.admin.group._name
         const group = await saveGroup(groupId, $s.admin.group)
@@ -91,7 +90,7 @@ export default function ContextGroups({groupId, path}: ContextGroupsProps) {
         }
     }
 
-    const toggleMarkDelete = async () => {
+    const toggleMarkDelete = async() => {
         if (!$s.admin.group) return
         $s.admin.group._delete = !$s.admin.group._delete
         for (let group of $s.admin.groups) {
@@ -175,12 +174,11 @@ export default function ContextGroups({groupId, path}: ContextGroupsProps) {
                 )
             })}
 
-            {!orderedGroups.length && (
+            {!orderedGroups.length &&
                 <div class='group item no-presence'>
                     <Icon className='item-icon icon-d' name='group' />
                     <div class='name'>{$t('group.no_groups')}</div>
-                </div>
-            )}
+                </div>}
         </section>
     )
 }

@@ -55,7 +55,7 @@ function GroupIdField({group, path}: {group: TranslationGroupType; path: string[
         <FieldText
             className='group-field'
             model={idSignalRef.current}
-            onBlur={async () => {
+            onBlur={async() => {
                 const oldPath = path
                 const newPath = [...path.slice(0, -1), idSignalRef.current.value]
                 if (oldPath.join('.') !== newPath.join('.')) {
@@ -85,7 +85,7 @@ export function TranslationGroup({
     sort?: 'asc' | 'desc'
 }) {
     // Determine if this group matches the filter
-    const groupItselfMatches = filter ? groupMatchesFilter(group, group._id || path[path.length - 1] || '', filter) : true
+    const groupItselfMatches = filter ? groupMatchesFilter(group, group._id || path.at(-1) || '', filter) : true
 
     // At each level, only show entries that match or have matching descendants
     let entries: [string, unknown][] = Object.entries(group)
@@ -120,12 +120,11 @@ export function TranslationGroup({
                 'tag-updated': $s.tags.updated === path.join('.'),
             })}
         >
-            {level > 0 && (
+            {level > 0 &&
                 <div class='group-id'>
                     <GroupActions className='vertical' group={group} path={path} />
                     {path.length > 0 && <GroupIdField group={group} path={path} />}
-                </div>
-            )}
+                </div>}
             <div class='group-value'>
                 {entries.map(([id, subGroup]) => {
                     const typedSubGroup = subGroup as TranslationGroupType

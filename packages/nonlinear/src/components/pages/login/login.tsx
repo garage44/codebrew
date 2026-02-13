@@ -5,7 +5,7 @@ import {route} from 'preact-router'
 import {$s} from '@/app'
 
 export const Login = () => {
-    const handleLogin = async (username: string, password: string) => {
+    const handleLogin = async(username: string, password: string) => {
         try {
             const result = await api.post('/api/login', {
                 password,
@@ -34,10 +34,9 @@ export const Login = () => {
                 route('/board')
                 // Success
                 return null
-            } else {
-                return result.error || 'Invalid credentials'
             }
-        } catch (err) {
+            return result.error || 'Invalid credentials'
+        } catch(err) {
             return err instanceof Error ? err.message : 'Login failed'
         }
     }

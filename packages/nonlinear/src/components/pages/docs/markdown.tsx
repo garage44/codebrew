@@ -41,7 +41,7 @@ function parseFrontmatter(content: string): {body: string; frontmatter: Frontmat
             const arrayValue = trimmed
                 .slice(1)
                 .trim()
-                .replace(/^["']|["']$/g, '')
+                .replaceAll(/^["']|["']$/g, '')
             if (currentKey && currentArray) {
                 currentArray.push(arrayValue)
             } else if (currentKey) {
@@ -103,20 +103,17 @@ export const Markdown = ({content}: MarkdownProps) => {
 
     return (
         <div class='markdown-content'>
-            {frontmatter && (
+            {frontmatter &&
                 <div class='doc-metadata'>
                     <table>
                         <tbody>
-                            {Object.entries(frontmatter).map(([key, value]) => (
-                                <tr key={key}>
+                            {Object.entries(frontmatter).map(([key, value]) => <tr key={key}>
                                     <td class='metadata-key'>{key}:</td>
                                     <td class='metadata-value'>{formatFrontmatterValue(value)}</td>
-                                </tr>
-                            ))}
+                            </tr>)}
                         </tbody>
                     </table>
-                </div>
-            )}
+                </div>}
             <div dangerouslySetInnerHTML={{__html: html}} />
         </div>
     )

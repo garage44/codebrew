@@ -13,11 +13,10 @@ export const GroupControls = () => {
     const fileMediaAccept = useMemo(() => {
         if ($s.env.isFirefox) {
             return '.mp4'
-        } else {
-            // Chromium supports at least these 3 formats:
-            return '.mp4,.mkv,.webm'
         }
-    }, [$s.env.isFirefox])
+        // Chromium supports at least these 3 formats:
+        return '.mp4,.mkv,.webm'
+    }, [])
 
     const filePlayTooltip = useMemo(() => {
         if ($s.files.playing.length) {
@@ -30,9 +29,9 @@ export const GroupControls = () => {
             formats.push('.mp4', 'webm', 'mkv')
         }
         return $t('file.stream', {formats: formats.join(',')})
-    }, [$s.files.playing.length, $s.env.isFirefox])
+    }, [])
 
-    const unreadCount = useMemo(() => unreadMessages(), [$s.chat.channels])
+    const unreadCount = useMemo(() => unreadMessages(), [])
 
     const toggleCam = (event?: MouseEvent) => {
         console.log('[GroupControls] toggleCam CLICKED', event)
@@ -72,7 +71,7 @@ export const GroupControls = () => {
         }
     }
 
-    const toggleChat = async () => {
+    const toggleChat = async() => {
         /*
          * Don't do a collapse animation while emoji is active; this is
          * too heavy due to the 1800+ items grid layout.
@@ -122,7 +121,7 @@ export const GroupControls = () => {
         }
     }
 
-    const toggleScreenshare = async () => {
+    const toggleScreenshare = async() => {
         if ($s.upMedia.screenshare.length) {
             logger.debug('turn screenshare stream off')
             sfu.delUpMedia(media.screenStream)
@@ -138,7 +137,7 @@ export const GroupControls = () => {
         if (sfu.connection) {
             sfu.connection.userAction('setdata', sfu.connection.id, {mic: $s.devices.mic.enabled})
         }
-    }, [$s.devices.mic.enabled])
+    }, [])
 
     /*
      * Note: Removed automatic getUserMedia call on permissions.present
@@ -168,7 +167,7 @@ export const GroupControls = () => {
                 variant='toggle'
             />
 
-            {$s.permissions.present && (
+            {$s.permissions.present &&
                 <>
                     <Button
                         active={$s.devices.mic.enabled ? $s.devices.mic.enabled : null}
@@ -217,18 +216,16 @@ export const GroupControls = () => {
                     >
                         <Icon name='upload' />
                     </Button>
-                </>
-            )}
+                </>}
 
-            {$s.sfu.channel.connected && (
+            {$s.sfu.channel.connected &&
                 <Button
                     active={$s.sfu.profile.raisehand}
                     icon='Hand'
                     onClick={toggleRaiseHand}
                     tip={$s.sfu.profile.raisehand ? $t('group.action.raisehand_active') : $t('group.action.raisehand')}
                     variant='toggle'
-                />
-            )}
+                />}
 
             <Button class='no-feedback' tip={`${volume.value}% ${$t('group.audio_volume')}`} variant='unset'>
                 <FieldSlider

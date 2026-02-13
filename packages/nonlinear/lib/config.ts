@@ -104,7 +104,7 @@ const defaultConfig = {
 let config: typeof defaultConfig
 try {
     config = rc('nonlinear', defaultConfig)
-} catch (error) {
+} catch(error) {
     logger.error(`[config] Failed to load config file: ${error}`)
     logger.warn('[config] Using default config. Fix the config file and restart.')
     // Use defaults if config file is invalid
@@ -135,7 +135,7 @@ async function initConfig(config) {
     const envConfigPath = process.env.CONFIG_PATH
     const configPath = envConfigPath || path.join(homedir(), '.nonlinearrc')
     // Check if the config file exists
-    if (!(await fs.pathExists(configPath))) {
+    if (!await fs.pathExists(configPath)) {
         await saveConfig()
     }
     return config
@@ -156,9 +156,9 @@ async function saveConfig() {
         jsonString = JSON.stringify(data, null, 4)
         // Validate by parsing it back
         JSON.parse(jsonString)
-    } catch (error) {
+    } catch(error) {
         logger.error(`[config] Failed to serialize config: ${error}`)
-        throw new Error(`Config serialization failed: ${error instanceof Error ? error.message : String(error)}`)
+        throw new Error(`Config serialization failed: ${error instanceof Error ? error.message : String(error)}`, {cause: error})
     }
 
     await fs.writeFile(configPath, jsonString)

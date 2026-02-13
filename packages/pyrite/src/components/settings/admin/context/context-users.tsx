@@ -15,24 +15,24 @@ interface ContextUsersProps {
 export default function ContextUsers({path: _path, userId}: ContextUsersProps) {
     const deletionUsers = useMemo(() => {
         return $s.admin.users.filter((i) => i._delete)
-    }, [$s.admin.users])
+    }, [])
 
     const orderedUsers = useMemo(() => {
         const users = $s.admin.users.filter((g) => g.admin).concat($s.admin.users.filter((g) => !g.admin))
-        return users.sort((a, b) => {
+        return users.toSorted((a, b) => {
             if (a.name < b.name) return -1
             if (a.name > b.name) return 1
             return 0
         })
-    }, [$s.admin.users])
+    }, [])
 
-    const addUser = async () => {
+    const addUser = async() => {
         const user = await api.get('/api/users/template')
         $s.admin.users.push(user)
         toggleSelection(user.id)
     }
 
-    const deleteUsers = async () => {
+    const deleteUsers = async() => {
         notifier.notify({level: 'info', message: `deleting ${deletionUsers.length} users`})
         const deleteRequests = []
         for (const user of deletionUsers) {
@@ -53,11 +53,11 @@ export default function ContextUsers({path: _path, userId}: ContextUsersProps) {
         }
     }
 
-    const loadUsers = async () => {
+    const loadUsers = async() => {
         $s.admin.users = await api.get('/api/users')
     }
 
-    const saveUserAction = async () => {
+    const saveUserAction = async() => {
         if (!$s.admin.user) return
         await saveUser($s.admin.user.id, $s.admin.user)
         // Select the next unsaved user, when this user was unsaved to allow rapid user creation.
@@ -71,7 +71,7 @@ export default function ContextUsers({path: _path, userId}: ContextUsersProps) {
         }
     }
 
-    const toggleMarkDelete = async () => {
+    const toggleMarkDelete = async() => {
         if (!$s.admin.user) return
         $s.admin.user._delete = !$s.admin.user._delete
         for (let user of $s.admin.users) {
@@ -95,9 +95,8 @@ export default function ContextUsers({path: _path, userId}: ContextUsersProps) {
     const userLink = (userId: number) => {
         if ($s.admin.user && $s.admin.user.id == userId) {
             return '/settings/users'
-        } else {
-            return `/settings/users/${userId}/misc`
         }
+        return `/settings/users/${userId}/misc`
     }
 
     useEffect(() => {
@@ -111,7 +110,7 @@ export default function ContextUsers({path: _path, userId}: ContextUsersProps) {
         if ($s.admin.authenticated && $s.admin.permission) {
             loadUsers()
         }
-    }, [$s.admin.authenticated])
+    }, [])
 
     return (
         <section

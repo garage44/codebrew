@@ -77,7 +77,7 @@ export default function TabDevices() {
         }
     }, [])
 
-    const remountStream = async () => {
+    const remountStream = async() => {
         const newStream = await getUserMedia($s.devices)
         if (newStream) {
             setStream(newStream)
@@ -111,7 +111,7 @@ export default function TabDevices() {
 
     // Initial mount
     useEffect(() => {
-        const init = async () => {
+        const init = async() => {
             await queryDevices()
             // After queryDevices completes, ensure signals are synced with restored state
             const micSelected = $s.devices.mic.selected
@@ -159,7 +159,7 @@ export default function TabDevices() {
     // Watch for device changes
     useEffect(() => {
         remountStream()
-    }, [$s.devices.cam.resolution, $s.devices.cam.selected, $s.devices.mic.selected])
+    }, [$s.devices.cam.selected])
 
     return (
         <section class='c-tab-devices tab-content active'>
@@ -169,9 +169,9 @@ export default function TabDevices() {
                     label={$t('device.select_cam_label')}
                     model={camIdSignalRef.current as Signal<string>}
                     onChange={(value) => {
-                        const selectedOption = Array.isArray($s.devices.cam.options)
-                            ? $s.devices.cam.options.find((opt: {id: string; name: string}) => opt.id === value)
-                            : undefined
+                        const selectedOption = Array.isArray($s.devices.cam.options) ?
+                                $s.devices.cam.options.find((opt: {id: string; name: string}) => opt.id === value) :
+                            undefined
                         if (selectedOption) {
                             $s.devices.cam.selected = selectedOption
                             store.save()
@@ -182,7 +182,7 @@ export default function TabDevices() {
                     }
                 />
 
-                {description && (
+                {description &&
                     <Stream
                         controls={false}
                         modelValue={{
@@ -191,13 +191,11 @@ export default function TabDevices() {
                             id: description.id,
                             src: description.src,
                         }}
-                    />
-                )}
-                {!description && (
+                    />}
+                {!description &&
                     <div class='webcam-placeholder'>
                         <Icon name='webcam' />
-                    </div>
-                )}
+                    </div>}
             </div>
 
             <FieldSelect
@@ -205,9 +203,9 @@ export default function TabDevices() {
                 label={$t('device.select_mic_label')}
                 model={micIdSignalRef.current as Signal<string>}
                 onChange={(value) => {
-                    const selectedOption = Array.isArray($s.devices.mic.options)
-                        ? $s.devices.mic.options.find((opt: {id: string; name: string}) => opt.id === value)
-                        : undefined
+                    const selectedOption = Array.isArray($s.devices.mic.options) ?
+                            $s.devices.mic.options.find((opt: {id: string; name: string}) => opt.id === value) :
+                        undefined
                     if (selectedOption) {
                         $s.devices.mic.selected = selectedOption
                         store.save()
@@ -223,29 +221,28 @@ export default function TabDevices() {
             <div class='output-config'>
                 {/* https://bugzilla.mozilla.org/show_bug.cgi?id=1498512 */}
                 {/* https://bugzilla.mozilla.org/show_bug.cgi?id=1152401 */}
-                {$s.devices.audio.options.length && !$s.env.isFirefox && (
+                {$s.devices.audio.options.length && !$s.env.isFirefox &&
                     <FieldSelect
                         help={$t('device.select_audio_verify_help')}
                         label={$t('device.select_audio_label')}
                         model={audioIdSignalRef.current as Signal<string>}
                         onChange={(value) => {
-                            const selectedOption = Array.isArray($s.devices.audio.options)
-                                ? $s.devices.audio.options.find((opt: {id: string; name: string}) => opt.id === value)
-                                : undefined
+                            const selectedOption = Array.isArray($s.devices.audio.options) ?
+                                    $s.devices.audio.options.find((opt: {id: string; name: string}) => opt.id === value) :
+                                undefined
                             if (selectedOption) {
                                 $s.devices.audio.selected = selectedOption
                                 store.save()
                             }
                         }}
                         options={
-                            Array.isArray($s.devices.audio.options)
-                                ? ($s.devices.audio.options as Array<{id: string; name: string}>)
-                                : []
+                            Array.isArray($s.devices.audio.options) ?
+                                    ($s.devices.audio.options as Array<{id: string; name: string}>) :
+                                    []
                         }
-                    />
-                )}
+                    />}
 
-                {($s.env.isFirefox || !$s.devices.audio.options.length) && (
+                {($s.env.isFirefox || !$s.devices.audio.options.length) &&
                     <div class='field'>
                         <div class='label-container'>
                             <label class='field-label'>{$t('device.select_audio_label')}</label>
@@ -255,8 +252,7 @@ export default function TabDevices() {
                         </div>
 
                         <div class='help'>{$t('device.select_audio_verify_help')}</div>
-                    </div>
-                )}
+                    </div>}
             </div>
         </section>
     )

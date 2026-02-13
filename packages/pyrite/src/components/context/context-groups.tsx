@@ -10,22 +10,21 @@ import {currentGroup} from '@/models/group'
 export default function GroupsContext() {
     const intervalRef = useRef<number | null>(null)
 
-    const currentGroupData = useMemo(() => currentGroup(), [$s.sfu.channel.name, $s.chat.activeChannelSlug, $s.sfu.channels])
+    const currentGroupData = useMemo(() => currentGroup(), [$s.sfu.channel.name])
 
     const isListedGroup = useMemo(() => {
         const groupName = $s.sfu.channel.name
         return groupName ? !!$s.sfu.channels[groupName] : false
-    }, [$s.sfu.channel.name, $s.sfu.channels])
+    }, [])
 
     const groupLink = (groupId: string) => {
         if ($s.sfu.channel && $s.sfu.channel.name === groupId) {
             return '/'
-        } else {
-            return `/groups/${groupId}`
         }
+        return `/groups/${groupId}`
     }
 
-    const pollGroups = async () => {
+    const pollGroups = async() => {
         const groups = await api.get('/api/groups/public')
 
         // Store groups in sfu.channels (channel slug = group name)
@@ -46,7 +45,7 @@ export default function GroupsContext() {
                             Object.assign(existing, channelEntry)
                         } else {
                             // Create new entry - TypeScript will infer the correct type
-                            ;($s.sfu.channels as Record<string, typeof channelEntry>)[channelSlug] = channelEntry
+                            ($s.sfu.channels as Record<string, typeof channelEntry>)[channelSlug] = channelEntry
                         }
                     }
                 }
@@ -99,7 +98,7 @@ export default function GroupsContext() {
     useEffect(() => {
         logger.debug(`updating group route: ${$s.sfu.channel.name}`)
         updateRoute()
-    }, [$s.sfu.channel.name])
+    }, [])
 
     // Setup polling
     useEffect(() => {
@@ -124,28 +123,26 @@ export default function GroupsContext() {
                 >
                     <Icon className='icon item-icon icon-d' name='incognito' />
                     <div class='flex-column'>
-                        {isListedGroup || !$s.sfu.channel.name ? (
-                            <div class='name'>...</div>
-                        ) : (
-                            <div class='name'>{$s.sfu.channel.name}</div>
-                        )}
+                        {isListedGroup || !$s.sfu.channel.name ?
+                            <div class='name'>...</div> :
+                            <div class='name'>{$s.sfu.channel.name}</div>}
                     </div>
                 </div>
             </div>
             {Object.entries($s.sfu.channels).map(([channelSlug, channelData]) => {
                 // Extract channel data from DeepSignal - access properties directly
                 const channel =
-                    typeof channelData === 'object' && channelData !== null && 'audio' in channelData
-                        ? (channelData as {
-                              audio: boolean
-                              clientCount?: number
-                              comment?: string
-                              connected?: boolean
-                              description?: string
-                              locked?: boolean
-                              video: boolean
-                          })
-                        : {audio: false, video: false}
+                    typeof channelData === 'object' && channelData !== null && 'audio' in channelData ?
+                            (channelData as {
+                                audio: boolean
+                                clientCount?: number
+                                comment?: string
+                                connected?: boolean
+                                description?: string
+                                locked?: boolean
+                                video: boolean
+                            }) :
+                            {audio: false, video: false}
 
                 /*
                  * Only show channels that have group metadata (from public groups API)
@@ -182,12 +179,11 @@ export default function GroupsContext() {
                 )
             })}
 
-            {Object.keys($s.sfu.channels).length === 0 && (
+            {Object.keys($s.sfu.channels).length === 0 &&
                 <div class='group item no-presence'>
                     <Icon className='item-icon icon-d' name='group' />
                     <div class='name'>{$t('group.no_groups_public')}</div>
-                </div>
-            )}
+                </div>}
         </section>
     )
 }
