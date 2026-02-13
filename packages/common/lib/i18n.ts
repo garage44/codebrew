@@ -1,8 +1,9 @@
-import {logger} from './logger'
+import {effect} from '@preact/signals'
+
 // This is a workaround to avoid i18next import errors on succesive builds.
 import i18next from './i18next'
+import {logger} from './logger'
 import {copyObject, keyMod, keyPath} from './utils'
-import {effect} from '@preact/signals'
 
 /**
  * Symbol used to store the i18n path string on translation objects.
@@ -34,7 +35,6 @@ function i18nFormat(i18n, targetLanguages) {
     return i18nextFormatted
 }
 
-
 async function init(translations = null, api = null, store = null) {
     let resources = null
 
@@ -57,7 +57,6 @@ async function init(translations = null, api = null, store = null) {
 
         fallbackLng: 'eng-gbr',
         interpolation: {
-
             escapeValue: false,
         },
         lng: store?.state.language_ui.selection || 'eng-gbr',
@@ -119,8 +118,4 @@ function create$t(store) {
     }
 }
 
-export {
-    create$t,
-    i18nFormat,
-    init,
-}
+export {create$t, i18nFormat, init}

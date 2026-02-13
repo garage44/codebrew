@@ -4,8 +4,9 @@
  * Placeholder images are served from /img/ directory
  */
 
-import path from 'node:path'
 import {homedir} from 'node:os'
+import path from 'node:path'
+
 import type {Logger} from './logger.node'
 
 interface AvatarRoutesOptions {
@@ -28,7 +29,7 @@ export function createAvatarRoutes(options: AvatarRoutesOptions) {
          * Register route for serving uploaded avatars from ~/.{appName}/avatars/
          */
         registerAvatarRoute: (router: {get: (path: string, handler: unknown) => void}) => {
-            router.get('/avatars/:filename', async(_req: Request, params: Record<string, string>, _session: unknown) => {
+            router.get('/avatars/:filename', async (_req: Request, params: Record<string, string>, _session: unknown) => {
                 const filename = params.param0
 
                 // Basic path traversal protection
@@ -64,7 +65,7 @@ export function createAvatarRoutes(options: AvatarRoutesOptions) {
                         headers: {'Content-Type': 'application/json'},
                         status: 404,
                     })
-                } catch(error) {
+                } catch (error) {
                     logger?.error(`[Avatar Routes] Error serving avatar ${filename}:`, error)
                     return new Response(JSON.stringify({error: 'failed to serve avatar'}), {
                         headers: {'Content-Type': 'application/json'},
@@ -78,7 +79,7 @@ export function createAvatarRoutes(options: AvatarRoutesOptions) {
          * Register route for serving placeholder images from /img/
          */
         registerPlaceholderRoute: (router: {get: (path: string, handler: unknown) => void}) => {
-            router.get('/img/:filename', async(_req: Request, params: Record<string, string>, _session: unknown) => {
+            router.get('/img/:filename', async (_req: Request, params: Record<string, string>, _session: unknown) => {
                 const filename = params.param0
 
                 // Basic path traversal protection
@@ -114,7 +115,7 @@ export function createAvatarRoutes(options: AvatarRoutesOptions) {
                         headers: {'Content-Type': 'application/json'},
                         status: 404,
                     })
-                } catch(error) {
+                } catch (error) {
                     logger?.error(`[Avatar Routes] Error serving image ${filename}:`, error)
                     return new Response(JSON.stringify({error: 'failed to serve image'}), {
                         headers: {'Content-Type': 'application/json'},

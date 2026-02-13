@@ -5,9 +5,11 @@
  */
 
 import {describe, expect, test, afterEach} from 'bun:test'
-import {TestServer} from './helpers/test-server.ts'
-import {TestClient} from './helpers/test-client.ts'
+
 import type {MessageData} from '../lib/ws-client.ts'
+
+import {TestClient} from './helpers/test-client.ts'
+import {TestServer} from './helpers/test-server.ts'
 
 describe('WebSocket Integration - Full Request/Response Cycle', () => {
     let server: TestServer
@@ -18,11 +20,11 @@ describe('WebSocket Integration - Full Request/Response Cycle', () => {
         }
     })
 
-    test('should complete full request/response cycle', async() => {
+    test('should complete full request/response cycle', async () => {
         server = new TestServer()
         await server.start()
 
-        server.wsManager.api.post('/api/users', async(_ctx, req) => {
+        server.wsManager.api.post('/api/users', async (_ctx, req) => {
             return {
                 id: '123',
                 name: req.data?.name || 'Unknown',
@@ -41,11 +43,11 @@ describe('WebSocket Integration - Full Request/Response Cycle', () => {
         client.disconnect()
     })
 
-    test('should handle multiple concurrent requests', async() => {
+    test('should handle multiple concurrent requests', async () => {
         server = new TestServer()
         await server.start()
 
-        server.wsManager.api.get('/api/test/:id', async(_ctx, req) => {
+        server.wsManager.api.get('/api/test/:id', async (_ctx, req) => {
             return {id: req.params.id}
         })
 
@@ -53,11 +55,7 @@ describe('WebSocket Integration - Full Request/Response Cycle', () => {
         await client.connect()
 
         // Send multiple requests concurrently
-        const promises = [
-            client.client.get('/api/test/1'),
-            client.client.get('/api/test/2'),
-            client.client.get('/api/test/3'),
-        ]
+        const promises = [client.client.get('/api/test/1'), client.client.get('/api/test/2'), client.client.get('/api/test/3')]
 
         const responses = await Promise.all(promises)
 
@@ -79,7 +77,7 @@ describe('WebSocket Integration - Broadcasting', () => {
         }
     })
 
-    test('should broadcast to all connected clients', async() => {
+    test('should broadcast to all connected clients', async () => {
         server = new TestServer()
         await server.start()
 
@@ -109,7 +107,7 @@ describe('WebSocket Integration - Broadcasting', () => {
         client2.disconnect()
     })
 
-    test('should handle broadcast with dead connections', async() => {
+    test('should handle broadcast with dead connections', async () => {
         server = new TestServer()
         await server.start()
 
@@ -149,11 +147,11 @@ describe('WebSocket Integration - Error Propagation', () => {
         }
     })
 
-    test('should propagate errors from handler to client', async() => {
+    test('should propagate errors from handler to client', async () => {
         server = new TestServer()
         await server.start()
 
-        server.wsManager.api.get('/api/error', async() => {
+        server.wsManager.api.get('/api/error', async () => {
             throw new Error('Test error')
         })
 
@@ -168,7 +166,7 @@ describe('WebSocket Integration - Error Propagation', () => {
         client.disconnect()
     })
 
-    test('should handle multiple error scenarios', async() => {
+    test('should handle multiple error scenarios', async () => {
         server = new TestServer()
         await server.start()
 

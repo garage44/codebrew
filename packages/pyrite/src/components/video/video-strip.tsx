@@ -1,9 +1,11 @@
-import {Stream} from '../stream/stream'
-import {useCallback} from 'preact/hooks'
-import {$s} from '@/app'
 import {Icon} from '@garage44/common/components'
 import classnames from 'classnames'
+import {useCallback} from 'preact/hooks'
+
+import {$s} from '@/app'
 import {connection} from '@/models/sfu/sfu'
+
+import {Stream} from '../stream/stream'
 
 interface VideoStripProps {
     className?: string
@@ -46,7 +48,6 @@ export const VideoStrip = ({className, streams}: VideoStripProps) => {
         }
     }, [])
 
-
     /*
      * Show placeholder slots when no streams
      * Show 3 placeholder slots
@@ -55,34 +56,26 @@ export const VideoStrip = ({className, streams}: VideoStripProps) => {
 
     return (
         <div class={classnames('c-video-strip', className)}>
-            {sortedStreams.length > 0 ?
-                    sortedStreams.map((description, index) => {
-                        const isScreenShareStream = isScreenShare(description.id)
-                        const itemClass = classnames('video-strip-item', {
-                            'is-screenshare': isScreenShareStream,
-                        })
-                        return (
-                            <div
-                                class={itemClass}
-                                key={description.id || index}
-                            >
-                            <Stream
-                                key={description.id}
-                                modelValue={sortedStreams[index]}
-                                onUpdate={handleStreamUpdate}
-                            />
-                            </div>
-                        )
-                    }) :
-                    Array.from({length: placeholderCount}).map((_, index) => <div
-                        class='video-strip-placeholder'
-                        key={`placeholder-${index}`}
-                    >
-                            <div class='placeholder-content'>
-                                <Icon className='icon icon-l' name='webcam' />
-                                <p>Waiting for video</p>
-                            </div>
-                    </div>)}
+            {sortedStreams.length > 0
+                ? sortedStreams.map((description, index) => {
+                      const isScreenShareStream = isScreenShare(description.id)
+                      const itemClass = classnames('video-strip-item', {
+                          'is-screenshare': isScreenShareStream,
+                      })
+                      return (
+                          <div class={itemClass} key={description.id || index}>
+                              <Stream key={description.id} modelValue={sortedStreams[index]} onUpdate={handleStreamUpdate} />
+                          </div>
+                      )
+                  })
+                : Array.from({length: placeholderCount}).map((_, index) => (
+                      <div class='video-strip-placeholder' key={`placeholder-${index}`}>
+                          <div class='placeholder-content'>
+                              <Icon className='icon icon-l' name='webcam' />
+                              <p>Waiting for video</p>
+                          </div>
+                      </div>
+                  ))}
         </div>
     )
 }

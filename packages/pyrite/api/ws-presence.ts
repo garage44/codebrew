@@ -5,22 +5,22 @@
  */
 
 import type {WebSocketServerManager} from '@garage44/common/lib/ws-server'
+
 import {validateRequest} from '../lib/api/validate.ts'
-import {
-    GroupIdParamsSchema,
-    JoinGroupRequestSchema,
-    UpdateStatusRequestSchema,
-} from '../lib/schemas/presence.ts'
+import {GroupIdParamsSchema, JoinGroupRequestSchema, UpdateStatusRequestSchema} from '../lib/schemas/presence.ts'
 
 // groupId -> Set of userIds
 interface PresenceState {
     groups: Map<string, Set<string>>
-    users: Map<string, {
-        connected: Date
-        groupId: string | null
-        id: string
-        username: string
-    }>
+    users: Map<
+        string,
+        {
+            connected: Date
+            groupId: string | null
+            id: string
+            username: string
+        }
+    >
 }
 
 const state: PresenceState = {
@@ -75,7 +75,7 @@ export const registerPresenceWebSocket = (wsManager: WebSocketServerManager) => 
      * User joins a group
      * POST /api/presence/:groupId/join
      */
-    api.post('/api/presence/:groupId/join', async(context, request) => {
+    api.post('/api/presence/:groupId/join', async (context, request) => {
         const {groupId} = validateRequest(GroupIdParamsSchema, request.params)
         const {userId, username} = validateRequest(JoinGroupRequestSchema, request.data)
 
@@ -116,7 +116,7 @@ export const registerPresenceWebSocket = (wsManager: WebSocketServerManager) => 
      * User leaves a group
      * POST /api/presence/:groupId/leave
      */
-    api.post('/api/presence/:groupId/leave', async(context, request) => {
+    api.post('/api/presence/:groupId/leave', async (context, request) => {
         const {groupId} = request.params
         const {userId} = request.data as {userId?: string}
 
@@ -153,7 +153,7 @@ export const registerPresenceWebSocket = (wsManager: WebSocketServerManager) => 
      * Get current presence for a group
      * GET /api/presence/:groupId/members
      */
-    api.get('/api/presence/:groupId/members', async(context, request) => {
+    api.get('/api/presence/:groupId/members', async (context, request) => {
         const {groupId} = validateRequest(GroupIdParamsSchema, request.params)
 
         const members = Array.from(state.groups.get(groupId) || [])
@@ -171,7 +171,7 @@ export const registerPresenceWebSocket = (wsManager: WebSocketServerManager) => 
      * GET /api/presence/users
      */
     // Return all users with their presence status
-    api.get('/api/presence/users', async(_context, _request) => {
+    api.get('/api/presence/users', async (_context, _request) => {
         const onlineUsers: Record<string, 'online' | 'offline' | 'busy'> = {}
 
         // All users in presence state are online
@@ -190,7 +190,7 @@ export const registerPresenceWebSocket = (wsManager: WebSocketServerManager) => 
      * Update user status (availability, mic state, etc.)
      * POST /api/presence/:groupId/status
      */
-    api.post('/api/presence/:groupId/status', async(context, request) => {
+    api.post('/api/presence/:groupId/status', async (context, request) => {
         const {groupId} = validateRequest(GroupIdParamsSchema, request.params)
         const {status, userId} = validateRequest(UpdateStatusRequestSchema, request.data)
 

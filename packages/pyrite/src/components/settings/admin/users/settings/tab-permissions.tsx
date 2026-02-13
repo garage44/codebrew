@@ -1,12 +1,13 @@
-import {useEffect} from 'preact/hooks'
-import {Icon} from '@garage44/common/components'
 import {api, $t} from '@garage44/common/app'
+import {Icon} from '@garage44/common/components'
+import {useEffect} from 'preact/hooks'
+
 import {$s} from '@/app'
 
 export default function TabPermissions() {
     const categories = ['op', 'presenter', 'other']
 
-    const loadGroups = async() => {
+    const loadGroups = async () => {
         $s.admin.groups = await api.get('/api/groups')
     }
 
@@ -121,31 +122,33 @@ export default function TabPermissions() {
 
             {$s.admin.groups.map((group) => {
                 const groupName = typeof group.name === 'string' ? group.name : String(group.name || '')
-                return <div class='permission-group item' key={groupName}>
-                    <div
-                        class='group-name'
-                        onClick={() => toggleGroup(groupName)}
-                        onKeyPress={(e) => e.key === 'Enter' && toggleGroup(groupName)}
-                        role='button'
-                        tabIndex={0}
-                    >
-                        {groupName}
-                    </div>
+                return (
+                    <div class='permission-group item' key={groupName}>
+                        <div
+                            class='group-name'
+                            onClick={() => toggleGroup(groupName)}
+                            onKeyPress={(e) => e.key === 'Enter' && toggleGroup(groupName)}
+                            role='button'
+                            tabIndex={0}
+                        >
+                            {groupName}
+                        </div>
 
-                    <div class='categories'>
-                        {categories.map((category) => <div class='category' key={category}>
-                                <input
-                                    checked={isChecked(category, groupName)}
-                                    onChange={(e) => handleCheckboxChange(
-                                        category,
-                                        groupName,
-                                        (e.target as HTMLInputElement).checked,
-                                    )}
-                                    type='checkbox'
-                                />
-                        </div>)}
+                        <div class='categories'>
+                            {categories.map((category) => (
+                                <div class='category' key={category}>
+                                    <input
+                                        checked={isChecked(category, groupName)}
+                                        onChange={(e) =>
+                                            handleCheckboxChange(category, groupName, (e.target as HTMLInputElement).checked)
+                                        }
+                                        type='checkbox'
+                                    />
+                                </div>
+                            ))}
+                        </div>
                     </div>
-                </div>
+                )
             })}
         </section>
     )

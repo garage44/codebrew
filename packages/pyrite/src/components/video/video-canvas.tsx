@@ -1,9 +1,11 @@
-import {Stream} from '../stream/stream'
-import {useCallback, useEffect, useRef} from 'preact/hooks'
-import {$s} from '@/app'
 import {IconLogo} from '@garage44/common/components'
 import classnames from 'classnames'
+import {useCallback, useEffect, useRef} from 'preact/hooks'
+
+import {$s} from '@/app'
 import {connection} from '@/models/sfu/sfu'
+
+import {Stream} from '../stream/stream'
 
 interface VideoCanvasProps {
     className?: string
@@ -56,8 +58,7 @@ export const VideoCanvas = ({className, streams}: VideoCanvasProps) => {
         const containerWidth = viewRef.current.offsetWidth
         const containerHeight = viewRef.current.offsetHeight
         let layout = {area: 0, cols: 0, height: 0, rows: 0, width: 0}
-        let height,
-            width
+        let height, width
 
         for (let cols = 1; cols <= $s.streams.length; cols++) {
             const rows = Math.ceil($s.streams.length / cols)
@@ -120,19 +121,17 @@ export const VideoCanvas = ({className, streams}: VideoCanvasProps) => {
         <div class={classnames('c-video-canvas', className)} ref={viewRef}>
             {sortedStreams.map((description, index) => {
                 const isScreenShareStream = isScreenShare(description.id)
-                return <div
-                    class={classnames('video-canvas-item', {'is-screenshare': isScreenShareStream})}
-                    key={description.id || index}
-                >
-                    <Stream
-                        key={description.id}
-                        modelValue={sortedStreams[index]}
-                        onUpdate={handleStreamUpdate}
-                    />
-                </div>
+                return (
+                    <div
+                        class={classnames('video-canvas-item', {'is-screenshare': isScreenShareStream})}
+                        key={description.id || index}
+                    >
+                        <Stream key={description.id} modelValue={sortedStreams[index]} onUpdate={handleStreamUpdate} />
+                    </div>
+                )
             })}
 
-            {!$s.streams.length &&
+            {!$s.streams.length && (
                 <div class='video-canvas-placeholder'>
                     <div class='placeholder-content'>
                         <svg class='icon logo-animated' height='48' viewBox='0 0 24 24' width='48'>
@@ -141,7 +140,8 @@ export const VideoCanvas = ({className, streams}: VideoCanvasProps) => {
                         <p>Waiting for video streams</p>
                         <span class='placeholder-hint'>Video streams will appear here when participants join</span>
                     </div>
-                </div>}
+                </div>
+            )}
         </div>
     )
 }

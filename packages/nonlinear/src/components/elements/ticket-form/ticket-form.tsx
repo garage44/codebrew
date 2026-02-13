@@ -1,9 +1,10 @@
-import {$s} from '@/app'
 import {ws, notifier} from '@garage44/common/app'
 import {Button, FieldSelect, FieldText, FieldTextarea} from '@garage44/common/components'
 import {createValidator, required} from '@garage44/common/lib/validation'
 import {deepSignal} from 'deepsignal'
 import {useRef} from 'preact/hooks'
+
+import {$s} from '@/app'
 
 interface TicketFormProps {
     initialStatus: 'backlog' | 'todo' | 'in_progress' | 'review' | 'closed'
@@ -12,12 +13,13 @@ interface TicketFormProps {
 }
 
 // State defined outside component for stability
-const createFormState = () => deepSignal({
-    description: '',
-    priority: '',
-    repository_id: '',
-    title: '',
-})
+const createFormState = () =>
+    deepSignal({
+        description: '',
+        priority: '',
+        repository_id: '',
+        title: '',
+    })
 
 export const TicketForm = ({initialStatus, onClose, onSuccess}: TicketFormProps) => {
     const stateRef = useRef(createFormState())
@@ -28,7 +30,7 @@ export const TicketForm = ({initialStatus, onClose, onSuccess}: TicketFormProps)
         title: [state.$title, required('Title is required')],
     })
 
-    const handleSubmit = async() => {
+    const handleSubmit = async () => {
         if (!isValid.value) {
             return
         }
@@ -65,7 +67,7 @@ export const TicketForm = ({initialStatus, onClose, onSuccess}: TicketFormProps)
             })
             onSuccess()
             onClose()
-        } catch(error) {
+        } catch (error) {
             notifier.notify({
                 message: `Failed to create ticket: ${error instanceof Error ? error.message : 'Unknown error'}`,
                 type: 'error',
@@ -73,19 +75,11 @@ export const TicketForm = ({initialStatus, onClose, onSuccess}: TicketFormProps)
         }
     }
 
-
     return (
         <div class='c-ticket-form'>
             <div class='header'>
                 <h2>Create New Ticket</h2>
-                <Button
-                    icon='close'
-                    onClick={onClose}
-                    size='s'
-                    tip='Close'
-                    type='info'
-                    variant='toggle'
-                />
+                <Button icon='close' onClick={onClose} size='s' tip='Close' type='info' variant='toggle' />
             </div>
             <div class='content'>
                 <FieldSelect
@@ -123,18 +117,10 @@ export const TicketForm = ({initialStatus, onClose, onSuccess}: TicketFormProps)
                 />
             </div>
             <div class='actions'>
-                <Button
-                    onClick={onClose}
-                    type='default'
-                    variant='default'
-                >
+                <Button onClick={onClose} type='default' variant='default'>
                     Cancel
                 </Button>
-                <Button
-                    disabled={!isValid.value}
-                    onClick={handleSubmit}
-                    type='success'
-                >
+                <Button disabled={!isValid.value} onClick={handleSubmit} type='success'>
                     Create Ticket
                 </Button>
             </div>

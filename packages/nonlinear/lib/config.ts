@@ -1,9 +1,10 @@
 import {copyObject, randomId} from '@garage44/common/lib/utils'
-import {logger} from '../service.ts'
 import fs from 'fs-extra'
 import {homedir} from 'node:os'
 import path from 'node:path'
 import rc from 'rc'
+
+import {logger} from '../service.ts'
 
 // Default config structure
 const defaultConfig = {
@@ -103,7 +104,7 @@ const defaultConfig = {
 let config: typeof defaultConfig
 try {
     config = rc('nonlinear', defaultConfig)
-} catch(error) {
+} catch (error) {
     logger.error(`[config] Failed to load config file: ${error}`)
     logger.warn('[config] Using default config. Fix the config file and restart.')
     // Use defaults if config file is invalid
@@ -111,19 +112,22 @@ try {
     // Try to backup the bad config file (async, non-blocking)
     const envConfigPath = process.env.CONFIG_PATH
     const configPath = envConfigPath || path.join(homedir(), '.nonlinearrc')
-    fs.pathExists(configPath).then((exists) => {
-        if (exists) {
-            return fs.copyFile(configPath, `${configPath}.backup.${Date.now()}`)
-                .then(() => {
-                    logger.info(`[config] Backed up invalid config to ${configPath}.backup.${Date.now()}`)
-                })
-                .catch(() => {
-                    // Backup failed, ignore
-                })
-        }
-    }).catch(() => {
-        // Ignore errors during backup attempt
-    })
+    fs.pathExists(configPath)
+        .then((exists) => {
+            if (exists) {
+                return fs
+                    .copyFile(configPath, `${configPath}.backup.${Date.now()}`)
+                    .then(() => {
+                        logger.info(`[config] Backed up invalid config to ${configPath}.backup.${Date.now()}`)
+                    })
+                    .catch(() => {
+                        // Backup failed, ignore
+                    })
+            }
+        })
+        .catch(() => {
+            // Ignore errors during backup attempt
+        })
 }
 
 async function initConfig(config) {
@@ -131,7 +135,7 @@ async function initConfig(config) {
     const envConfigPath = process.env.CONFIG_PATH
     const configPath = envConfigPath || path.join(homedir(), '.nonlinearrc')
     // Check if the config file exists
-    if (!await fs.pathExists(configPath)) {
+    if (!(await fs.pathExists(configPath))) {
         await saveConfig()
     }
     return config
@@ -152,7 +156,7 @@ async function saveConfig() {
         jsonString = JSON.stringify(data, null, 4)
         // Validate by parsing it back
         JSON.parse(jsonString)
-    } catch(error) {
+    } catch (error) {
         logger.error(`[config] Failed to serialize config: ${error}`)
         throw new Error(`Config serialization failed: ${error instanceof Error ? error.message : String(error)}`)
     }
@@ -161,8 +165,4 @@ async function saveConfig() {
     logger.info(`[config] saved config to ${configPath}`)
 }
 
-export {
-    config,
-    saveConfig,
-    initConfig,
-}
+export {config, saveConfig, initConfig}

@@ -1,5 +1,6 @@
-import {batch, computed, signal} from '@preact/signals'
 import type {Signal} from '@preact/signals'
+
+import {batch, computed, signal} from '@preact/signals'
 
 interface ValidationRule<Tpl = unknown> {
     message: string
@@ -98,7 +99,6 @@ function createValidator<TValidations extends Record<string, ValidationEntry>>(v
 
         return result
     })
-
 
     const isValid = computed(() => Object.values(validationState.value).every((validator) => validator.isValid))
     const errors = computed(() => {

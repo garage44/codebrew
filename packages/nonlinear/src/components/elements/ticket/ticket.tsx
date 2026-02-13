@@ -1,8 +1,10 @@
-import {$s} from '@/app'
-import {AgentBadge} from '../agent-badge/agent-badge'
 import {Icon} from '@garage44/common/components'
 import {route} from 'preact-router'
 import {useState} from 'preact/hooks'
+
+import {$s} from '@/app'
+
+import {AgentBadge} from '../agent-badge/agent-badge'
 
 export interface TicketCardProps {
     ticket: {
@@ -39,41 +41,41 @@ export const TicketCard = ({ticket}: TicketCardProps) => {
         <div class='c-ticket-card' onClick={handleClick}>
             <div class='header'>
                 <h3 class='title'>{ticket.title}</h3>
-                {ticket.priority !== null &&
-                    <div
-                        class='priority'
-                        style={{color: getPriorityColor(ticket.priority)}}
-                    >
+                {ticket.priority !== null && (
+                    <div class='priority' style={{color: getPriorityColor(ticket.priority)}}>
                         P{ticket.priority}
-                    </div>}
+                    </div>
+                )}
             </div>
-            {(ticket.repository_name || (ticket.labels && ticket.labels.length > 0)) &&
+            {(ticket.repository_name || (ticket.labels && ticket.labels.length > 0)) && (
                 <div class='labels'>
-                    {ticket.repository_name &&
+                    {ticket.repository_name && (
                         <span class='repo-badge'>
                             <Icon name='folder_plus_outline' size='s' type='info' />
                             <span>{ticket.repository_name}</span>
-                        </span>}
-                    {ticket.labels && ticket.labels.slice(0, 3).map((label) => {
-                        const labelDef = $s.labelDefinitions.find((def) => def.name === label)
-                        const labelColor = labelDef?.color || 'var(--info-6)'
-                        return (
-                            <span
-                                class='label-badge'
-                                key={label}
-                                style={{
-                                    backgroundColor: labelColor,
-                                    borderColor: labelColor,
-                                }}
-                            >
-                                {label}
-                            </span>
-                        )
-                    })}
-                    {ticket.labels && ticket.labels.length > 3 &&
-                        <span class='label-more'>+{ticket.labels.length - 3}</span>}
-                </div>}
-            {(ticket.assignees && ticket.assignees.length > 0) || ticket.assignee_id ?
+                        </span>
+                    )}
+                    {ticket.labels &&
+                        ticket.labels.slice(0, 3).map((label) => {
+                            const labelDef = $s.labelDefinitions.find((def) => def.name === label)
+                            const labelColor = labelDef?.color || 'var(--info-6)'
+                            return (
+                                <span
+                                    class='label-badge'
+                                    key={label}
+                                    style={{
+                                        backgroundColor: labelColor,
+                                        borderColor: labelColor,
+                                    }}
+                                >
+                                    {label}
+                                </span>
+                            )
+                        })}
+                    {ticket.labels && ticket.labels.length > 3 && <span class='label-more'>+{ticket.labels.length - 3}</span>}
+                </div>
+            )}
+            {(ticket.assignees && ticket.assignees.length > 0) || ticket.assignee_id ? (
                 <div class='assignees'>
                     {(ticket.assignees || []).slice(0, 2).map((assignee) => {
                         if (assignee.assignee_type === 'agent') {
@@ -88,11 +90,10 @@ export const TicketCard = ({ticket}: TicketCardProps) => {
                                                 id: agent.id,
                                                 name: agent.name,
                                                 status: (agent.status || 'idle') as 'idle' | 'working' | 'error' | 'offline',
-                                                type: (
-                                                    (agent.type as string) === 'prioritizer' ?
-                                                        'planner' :
-                                                        agent.type
-                                                ) as 'developer' | 'planner' | 'reviewer',
+                                                type: ((agent.type as string) === 'prioritizer' ? 'planner' : agent.type) as
+                                                    | 'developer'
+                                                    | 'planner'
+                                                    | 'reviewer',
                                             }}
                                             size='s'
                                         />
@@ -108,7 +109,8 @@ export const TicketCard = ({ticket}: TicketCardProps) => {
                         )
                     })}
                     {/* Backward compatibility: show single assignee if assignees array is empty */}
-                    {(!ticket.assignees || ticket.assignees.length === 0) && ticket.assignee_id &&
+                    {(!ticket.assignees || ticket.assignees.length === 0) &&
+                        ticket.assignee_id &&
                         (() => {
                             if (ticket.assignee_type === 'agent') {
                                 const agent = $s.agents.find((a) => a.id === ticket.assignee_id || a.name === ticket.assignee_id)
@@ -122,11 +124,10 @@ export const TicketCard = ({ticket}: TicketCardProps) => {
                                                     id: agent.id,
                                                     name: agent.name,
                                                     status: (agent.status || 'idle') as 'idle' | 'working' | 'error' | 'offline',
-                                                    type: (
-                                                        (agent.type as string) === 'prioritizer' ?
-                                                            'planner' :
-                                                            agent.type
-                                                    ) as 'developer' | 'planner' | 'reviewer',
+                                                    type: ((agent.type as string) === 'prioritizer' ? 'planner' : agent.type) as
+                                                        | 'developer'
+                                                        | 'planner'
+                                                        | 'reviewer',
                                                 }}
                                                 size='s'
                                             />
@@ -137,29 +138,31 @@ export const TicketCard = ({ticket}: TicketCardProps) => {
                             return (
                                 <div class='assignee'>
                                     <Icon name='person' size='d' type='info' />
-                                    <span>{ticket.assignee_type === 'agent' ? '🤖' : '👤'} {ticket.assignee_id}</span>
+                                    <span>
+                                        {ticket.assignee_type === 'agent' ? '🤖' : '👤'} {ticket.assignee_id}
+                                    </span>
                                 </div>
                             )
                         })()}
-                    {ticket.assignees && ticket.assignees.length > 2 &&
-                        <span class='assignee-more'>+{ticket.assignees.length - 2}</span>}
-                </div> :
-                null}
-            {ticket.branch_name &&
+                    {ticket.assignees && ticket.assignees.length > 2 && (
+                        <span class='assignee-more'>+{ticket.assignees.length - 2}</span>
+                    )}
+                </div>
+            ) : null}
+            {ticket.branch_name && (
                 <div class='branch'>
                     <Icon name='code' size='d' type='info' />
                     <span>{ticket.branch_name}</span>
-                </div>}
-            {expanded && ticket.description &&
-                <div class='description'>
-                    {ticket.description}
-                </div>}
-            {expanded && ticket.merge_request_id &&
+                </div>
+            )}
+            {expanded && ticket.description && <div class='description'>{ticket.description}</div>}
+            {expanded && ticket.merge_request_id && (
                 <div class='mr'>
                     <a href={`#mr-${ticket.merge_request_id}`} rel='noopener noreferrer' target='_blank'>
                         View MR #{ticket.merge_request_id}
                     </a>
-                </div>}
+                </div>
+            )}
         </div>
     )
 }

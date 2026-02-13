@@ -1,8 +1,9 @@
-import {config} from './config.ts'
-import {logger} from '../service.ts'
-import fs from 'fs-extra'
 import {Glob} from 'bun'
+import fs from 'fs-extra'
 import path from 'node:path'
+
+import {logger} from '../service.ts'
+import {config} from './config.ts'
 
 export async function loadRecordings(groupId) {
     logger.debug(`load recordings from group: ${groupId}`)

@@ -1,5 +1,5 @@
-import {deepSignal} from 'deepsignal'
 import {Icon} from '@garage44/common/components'
+import {deepSignal} from 'deepsignal'
 
 interface Doc {
     content: string
@@ -78,8 +78,8 @@ export const DocEditor = ({doc, onCancel, onSave}: DocEditorProps) => {
                                     e.preventDefault()
                                     const tag = (e.target as HTMLInputElement).value.trim()
                                     if (tag) {
-                                        handleTagAdd(tag);
-                                        (e.target as HTMLInputElement).value = ''
+                                        handleTagAdd(tag)
+                                        ;(e.target as HTMLInputElement).value = ''
                                     }
                                 }
                             }}
@@ -87,15 +87,14 @@ export const DocEditor = ({doc, onCancel, onSave}: DocEditorProps) => {
                             type='text'
                         />
                         <div class='tags-list'>
-                            {editorState.tags.map((tag) => <span class='tag' key={tag}>
+                            {editorState.tags.map((tag) => (
+                                <span class='tag' key={tag}>
                                     {tag}
-                                    <button
-                                        class='tag-remove'
-                                        onClick={() => handleTagRemove(tag)}
-                                    >
+                                    <button class='tag-remove' onClick={() => handleTagRemove(tag)}>
                                         ×
                                     </button>
-                            </span>)}
+                                </span>
+                            ))}
                         </div>
                     </div>
                 </div>

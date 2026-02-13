@@ -1,20 +1,16 @@
-import type {I18n, WorkspaceConfig, WorkspaceDescription} from '../src/types.ts'
-import {
-    copyObject,
-    keyMod,
-    keyPath,
-    mergeDeep,
-    sortNestedObjectKeys,
-} from '@garage44/common/lib/utils.ts'
-import {I18N_PATH_SYMBOL} from './i18n.ts'
-
 import type {WebSocketServerManager} from '@garage44/common/lib/ws-server'
-import fs from 'fs-extra'
+
+import {copyObject, keyMod, keyPath, mergeDeep, sortNestedObjectKeys} from '@garage44/common/lib/utils.ts'
 import {Glob} from 'bun'
-import {lintWorkspace} from './lint.ts'
-import {logger} from '../service.ts'
-import path from 'node:path'
+import fs from 'fs-extra'
 import {watch} from 'node:fs'
+import path from 'node:path'
+
+import type {I18n, WorkspaceConfig, WorkspaceDescription} from '../src/types.ts'
+
+import {logger} from '../service.ts'
+import {I18N_PATH_SYMBOL} from './i18n.ts'
+import {lintWorkspace} from './lint.ts'
 
 export class Workspace {
     private wsManager?: WebSocketServerManager
@@ -106,7 +102,6 @@ export class Workspace {
 
                 return true
             },
-
         })
     }
 
@@ -125,7 +120,7 @@ export class Workspace {
         }
 
         // If this is the first change or it's been a while since the last change
-        if (this.operationTimestamp === 0 || (now - this.operationTimestamp) > this.OPERATION_GROUPING_TIME) {
+        if (this.operationTimestamp === 0 || now - this.operationTimestamp > this.OPERATION_GROUPING_TIME) {
             /*
              * This is either the first change in a new operation,
              * or it's been long enough that this is a separate operation
@@ -170,8 +165,8 @@ export class Workspace {
         keyMod(newI18n, (_srcRef, _id, refPath) => {
             const sourceRef = keyPath(newI18n, refPath)
             if (typeof sourceRef === 'object' && sourceRef !== null && 'source' in sourceRef && refPath.length > 0) {
-                const pathString = `i18n.${refPath.join('.')}`;
-                (sourceRef as Record<string | symbol, unknown>)[I18N_PATH_SYMBOL] = pathString
+                const pathString = `i18n.${refPath.join('.')}`
+                ;(sourceRef as Record<string | symbol, unknown>)[I18N_PATH_SYMBOL] = pathString
             }
         })
 
@@ -201,10 +196,18 @@ export class Workspace {
             logger.info(
                 `[workspace-${this.config.workspace_id}] no workspace config found yet; creating ${this.config.source_file}...`,
             )
-            await fs.writeFile(this.config.source_file, JSON.stringify(sortNestedObjectKeys({
-                config: this.config,
-                i18n: {},
-            }), null, 4), 'utf8')
+            await fs.writeFile(
+                this.config.source_file,
+                JSON.stringify(
+                    sortNestedObjectKeys({
+                        config: this.config,
+                        i18n: {},
+                    }),
+                    null,
+                    4,
+                ),
+                'utf8',
+            )
         }
 
         const workspaceData = await this.load()
@@ -243,8 +246,8 @@ export class Workspace {
                  * Path format: i18n.path.to.translation
                  */
                 if ('source' in sourceRef && refPath.length > 0) {
-                    const pathString = `i18n.${refPath.join('.')}`;
-                    (sourceRef as Record<string | symbol, unknown>)[I18N_PATH_SYMBOL] = pathString
+                    const pathString = `i18n.${refPath.join('.')}`
+                    ;(sourceRef as Record<string | symbol, unknown>)[I18N_PATH_SYMBOL] = pathString
                 }
             }
         })
@@ -289,10 +292,18 @@ export class Workspace {
             }
         })
 
-        await fs.writeFile(this.config.source_file, JSON.stringify(sortNestedObjectKeys({
-            config: this.config,
-            i18n,
-        }), null, 4), 'utf8')
+        await fs.writeFile(
+            this.config.source_file,
+            JSON.stringify(
+                sortNestedObjectKeys({
+                    config: this.config,
+                    i18n,
+                }),
+                null,
+                4,
+            ),
+            'utf8',
+        )
     }
 
     async unwatch() {
@@ -321,12 +332,12 @@ export class Workspace {
         // Create watchers for each file
         for (const file of files) {
             try {
-                const watcher = watch(file, async(eventType, filename) => {
+                const watcher = watch(file, async (eventType, filename) => {
                     logger.debug(`[workspace-${this.config.workspace_id}] file changed: ${filename} (${eventType})`)
                     await this.applyLinting('sync')
                 })
                 this.watchers.push(watcher)
-            } catch(error) {
+            } catch (error) {
                 logger.warn(`[workspace-${this.config.workspace_id}] failed to watch file ${file}: ${error}`)
             }
         }
@@ -361,7 +372,7 @@ export class Workspace {
             clearTimeout(this._addHistoryTimeout)
         }
 
-        this._addHistoryTimeout = setTimeout(async() => {
+        this._addHistoryTimeout = setTimeout(async () => {
             const fullStateCopy = copyObject(newI18n)
 
             // If we're not at the end of the history, remove everything after current point
@@ -400,9 +411,8 @@ export class Workspace {
 
             // Set flag to prevent recursive history tracking during undo/redo
             this.isHistoryOperation = true
-            this._i18n = this.createDeepProxy(
-                copyObject(this.i18nHistory[this.i18nHistoryPointer]),
-                () => this.addToHistory(copyObject(this._i18n)),
+            this._i18n = this.createDeepProxy(copyObject(this.i18nHistory[this.i18nHistoryPointer]), () =>
+                this.addToHistory(copyObject(this._i18n)),
             )
             this.isHistoryOperation = false
 
@@ -423,9 +433,8 @@ export class Workspace {
 
             // Set flag to prevent recursive history tracking during undo/redo
             this.isHistoryOperation = true
-            this._i18n = this.createDeepProxy(
-                copyObject(this.i18nHistory[this.i18nHistoryPointer]),
-                () => this.addToHistory(copyObject(this._i18n)),
+            this._i18n = this.createDeepProxy(copyObject(this.i18nHistory[this.i18nHistoryPointer]), () =>
+                this.addToHistory(copyObject(this._i18n)),
             )
             this.isHistoryOperation = false
 
@@ -455,7 +464,6 @@ export class Workspace {
                  * Only remove properties that shouldn't be sent to clients
                  * but keep all UI-relevant properties
                  */
-
                 /*
                  * Example: if you have any internal server-only properties, remove them here
                  * delete sourceRef._serverOnlyProp

@@ -1,11 +1,12 @@
-import classnames from 'classnames'
-import {useMemo} from 'preact/hooks'
 import {$t} from '@garage44/common/app'
 import {getAvatarUrl} from '@garage44/common/lib/avatar'
-import {emojiLookup} from '@/models/chat'
-import {$s} from '@/app'
+import classnames from 'classnames'
+import {useMemo} from 'preact/hooks'
 
-const urlRegex = /(\b(https?|ftp|file):\/\/[-A-Z0-9+&@#/%?=~_|!:,.;]*[-A-Z0-9+&@#/%=~_|])/ig
+import {$s} from '@/app'
+import {emojiLookup} from '@/models/chat'
+
+const urlRegex = /(\b(https?|ftp|file):\/\/[-A-Z0-9+&@#/%?=~_|!:,.;]*[-A-Z0-9+&@#/%=~_|])/gi
 
 interface MessageBlock {
     type: 'text' | 'emoji' | 'url'
@@ -100,44 +101,46 @@ export default function Message({channelSlug, message}: MessageProps) {
 
     return (
         <div class={classnames('message', {command: !message.nick, [message.kind]: true})}>
-            {message.kind === 'me' &&
+            {message.kind === 'me' && (
                 <div>
                     <div class='text'>
-                        {message.nick}
-{' '}
-{$t(message.message)}
-...
+                        {message.nick} {$t(message.message)}
+                        ...
                     </div>
-                    <div class='time'>
-                        {formatTime(message.time)}
-                    </div>
-                </div>}
+                    <div class='time'>{formatTime(message.time)}</div>
+                </div>
+            )}
 
-            {message.kind !== 'me' &&
+            {message.kind !== 'me' && (
                 <>
-                    {message.nick &&
+                    {message.nick && (
                         <header>
                             <div class='author'>
-                                {avatarUrl ?
-                                    <img alt={message.nick} class='avatar' src={avatarUrl} /> :
-                                    <div class='avatar-initials'>{getInitials(message.nick)}</div>}
+                                {avatarUrl ? (
+                                    <img alt={message.nick} class='avatar' src={avatarUrl} />
+                                ) : (
+                                    <div class='avatar-initials'>{getInitials(message.nick)}</div>
+                                )}
                                 <span class='username'>{message.nick}</span>
                             </div>
-                            <div class='time'>
-                                {formatTime(message.time)}
-                            </div>
-                        </header>}
+                            <div class='time'>{formatTime(message.time)}</div>
+                        </header>
+                    )}
                     <section>
-                        {messageModel.map((msgModel, index) => <span key={index}>
+                        {messageModel.map((msgModel, index) => (
+                            <span key={index}>
                                 {msgModel.type === 'text' && <span class='text'>{msgModel.value}</span>}
                                 {msgModel.type === 'emoji' && <span class='emoji'>{msgModel.value}</span>}
-                                {msgModel.type === 'url' &&
+                                {msgModel.type === 'url' && (
                                     <a class='url' href={msgModel.value} rel='noopener noreferrer' target='_blank'>
                                         {msgModel.value}
-                                    </a>}
-                        </span>)}
+                                    </a>
+                                )}
+                            </span>
+                        ))}
                     </section>
-                </>}
+                </>
+            )}
         </div>
     )
 }

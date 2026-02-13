@@ -1,11 +1,12 @@
-import classnames from 'classnames'
-
 import {Icon} from '@garage44/common/components'
-import TabMisc from './tab-misc'
-import TabPermissions from './tab-permissions'
+import classnames from 'classnames'
 import {Link} from 'preact-router'
+
 import {$s} from '@/app'
 import {saveUser} from '@/models/user'
+
+import TabMisc from './tab-misc'
+import TabPermissions from './tab-permissions'
 
 interface SettingsProps {
     tabId?: string
@@ -17,7 +18,7 @@ export default function Settings({tabId = 'misc', userId}: SettingsProps) {
         return `/settings/users/${$s.admin.user.id}?tab=${tab}`
     }
 
-    const saveUserAction = async() => {
+    const saveUserAction = async () => {
         if (userId) {
             await saveUser(parseInt(userId), $s.admin.user)
         }
@@ -30,10 +31,10 @@ export default function Settings({tabId = 'misc', userId}: SettingsProps) {
             <header>
                 <div class='notice' />
                 <div class='title'>
-                    <span>{typeof $s.admin.user === 'object' && $s.admin.user !== null &&
-                        'name' in $s.admin.user ?
-                            String($s.admin.user.name) :
-                        ''}
+                    <span>
+                        {typeof $s.admin.user === 'object' && $s.admin.user !== null && 'name' in $s.admin.user
+                            ? String($s.admin.user.name)
+                            : ''}
                     </span>
                     <Icon className='icon icon-regular' name='user' />
                 </div>

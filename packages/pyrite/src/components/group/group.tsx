@@ -1,10 +1,12 @@
-import {IconLogo} from '@garage44/common/components'
-import {Stream} from '../stream/stream'
-import {useEffect, useRef, useCallback} from 'preact/hooks'
-import {$s} from '@/app'
 import {notifier} from '@garage44/common/app'
-import {connect} from '@/models/sfu/sfu'
+import {IconLogo} from '@garage44/common/components'
+import {useEffect, useRef, useCallback} from 'preact/hooks'
+
+import {$s} from '@/app'
 import {currentGroup} from '@/models/group'
+import {connect} from '@/models/sfu/sfu'
+
+import {Stream} from '../stream/stream'
 
 export const Group = () => {
     const viewRef = useRef<HTMLDivElement>(null)
@@ -34,8 +36,7 @@ export const Group = () => {
         const containerWidth = viewRef.current.offsetWidth
         const containerHeight = viewRef.current.offsetHeight
         let layout = {area: 0, cols: 0, height: 0, rows: 0, width: 0}
-        let height,
-            width
+        let height, width
 
         for (let cols = 1; cols <= $s.streams.length; cols++) {
             const rows = Math.ceil($s.streams.length / cols)
@@ -67,7 +68,7 @@ export const Group = () => {
 
     // Auto-connect logic
     useEffect(() => {
-        const attemptAutoConnect = async() => {
+        const attemptAutoConnect = async () => {
             if ($s.sfu.channel.connected) {
                 // Already connected
                 return
@@ -94,13 +95,14 @@ export const Group = () => {
                         message: 'This group requires authentication. Please log in first.',
                     })
                 }
-            } catch(err) {
+            } catch (err) {
                 // Connection failed - could be auth error or network error
                 notifier.notify({
                     level: 'error',
-                    message: err === 'not authorised' ?
-                        'Authentication failed. Please check your credentials.' :
-                        'Failed to connect to group. Please try again.',
+                    message:
+                        err === 'not authorised'
+                            ? 'Authentication failed. Please check your credentials.'
+                            : 'Failed to connect to group. Please try again.',
                 })
             }
         }
@@ -142,16 +144,15 @@ export const Group = () => {
 
     return (
         <div class='c-group' ref={viewRef}>
-            {sortedStreams.map((description, index) => <Stream
-                key={description.id || index}
-                modelValue={sortedStreams[index]}
-                onUpdate={handleStreamUpdate}
-            />)}
+            {sortedStreams.map((description, index) => (
+                <Stream key={description.id || index} modelValue={sortedStreams[index]} onUpdate={handleStreamUpdate} />
+            ))}
 
-            {!$s.streams.length &&
+            {!$s.streams.length && (
                 <svg class='icon logo-animated' height='40' viewBox='0 0 24 24' width='40'>
                     <IconLogo />
-                </svg>}
+                </svg>
+            )}
         </div>
     )
 }

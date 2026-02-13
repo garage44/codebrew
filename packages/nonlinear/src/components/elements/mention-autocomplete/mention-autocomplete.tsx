@@ -1,7 +1,9 @@
 import {Autocomplete, type AutocompleteItem} from '@garage44/common/components'
-import {AgentAvatar} from '../agent-avatar/agent-avatar'
 import {Icon} from '@garage44/common/components'
+
 import {$s} from '@/app'
+
+import {AgentAvatar} from '../agent-avatar/agent-avatar'
 
 interface MentionAutocompleteProps {
     content: string
@@ -43,13 +45,11 @@ export function MentionAutocomplete({content, onContentChange, textareaRef}: Men
                             displayName: agent.display_name || agent.name,
                             id: agent.id,
                             name: agent.name,
-                            type: (
-                                (agent.type as string | undefined) === 'prioritizer' ?
-                                    'prioritizer' :
-                                    agent.type === 'planner' ?
-                                        'planner' :
-                                        agent.type || 'developer'
-                            ) as 'developer' | 'prioritizer' | 'reviewer',
+                            type: ((agent.type as string | undefined) === 'prioritizer'
+                                ? 'prioritizer'
+                                : agent.type === 'planner'
+                                  ? 'planner'
+                                  : agent.type || 'developer') as 'developer' | 'prioritizer' | 'reviewer',
                         },
                         displayName: agent.display_name || agent.name,
                         name: agent.name,
@@ -97,40 +97,42 @@ export function MentionAutocomplete({content, onContentChange, textareaRef}: Men
                         <div class='mention-agent' style={{pointerEvents: 'none'}}>
                             <AgentAvatar
                                 agent={{
-                                    avatar: (
-                                        item.data.agent as {
-                                            avatar?: string
-                                            display_name?: string
-                                            displayName?: string
-                                            id: string
-                                            name: string
-                                            status?: string
-                                            type?: string
-                                        }
-                                    ).avatar || 'placeholder-1.png',
-                                    displayName: (
-                                        item.data.agent as {
-                                            display_name?: string
-                                            displayName?: string
-                                            name: string
-                                        }
-                                    ).displayName ||
-                                    (
-                                        item.data.agent as {
-                                            display_name?: string
-                                            name: string
-                                        }
-                                    ).display_name ||
-                                    item.data.agent.name,
+                                    avatar:
+                                        (
+                                            item.data.agent as {
+                                                avatar?: string
+                                                display_name?: string
+                                                displayName?: string
+                                                id: string
+                                                name: string
+                                                status?: string
+                                                type?: string
+                                            }
+                                        ).avatar || 'placeholder-1.png',
+                                    displayName:
+                                        (
+                                            item.data.agent as {
+                                                display_name?: string
+                                                displayName?: string
+                                                name: string
+                                            }
+                                        ).displayName ||
+                                        (
+                                            item.data.agent as {
+                                                display_name?: string
+                                                name: string
+                                            }
+                                        ).display_name ||
+                                        item.data.agent.name,
                                     id: item.data.agent.id,
-                                    status: (
-                                        (item.data.agent as {status?: string}).status || 'idle'
-                                    ) as 'idle' | 'working' | 'error' | 'offline',
-                                    type: (
-                                        ((item.data.agent as {type?: string}).type as string) === 'prioritizer' ?
-                                            'planner' :
-                                                (item.data.agent as {type?: string}).type
-                                    ) as 'developer' | 'planner' | 'reviewer',
+                                    status: ((item.data.agent as {status?: string}).status || 'idle') as
+                                        | 'idle'
+                                        | 'working'
+                                        | 'error'
+                                        | 'offline',
+                                    type: (((item.data.agent as {type?: string}).type as string) === 'prioritizer'
+                                        ? 'planner'
+                                        : (item.data.agent as {type?: string}).type) as 'developer' | 'planner' | 'reviewer',
                                 }}
                                 size='d'
                             />

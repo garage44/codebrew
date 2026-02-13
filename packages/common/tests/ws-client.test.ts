@@ -5,9 +5,11 @@
  */
 
 import {describe, expect, test, afterEach} from 'bun:test'
-import {TestServer} from './helpers/test-server.ts'
-import {TestClient} from './helpers/test-client.ts'
+
 import type {MessageData} from '../lib/ws-client.ts'
+
+import {TestClient} from './helpers/test-client.ts'
+import {TestServer} from './helpers/test-server.ts'
 
 describe('WebSocket Client - Message Validation', () => {
     let server: TestServer
@@ -18,7 +20,7 @@ describe('WebSocket Client - Message Validation', () => {
         }
     })
 
-    test('should emit error event when receiving invalid JSON', async() => {
+    test('should emit error event when receiving invalid JSON', async () => {
         server = new TestServer()
         await server.start()
 
@@ -42,7 +44,7 @@ describe('WebSocket Client - Message Validation', () => {
         client.disconnect()
     })
 
-    test('should handle malformed message structure gracefully', async() => {
+    test('should handle malformed message structure gracefully', async () => {
         server = new TestServer()
         await server.start()
 
@@ -65,7 +67,7 @@ describe('WebSocket Client - Message Validation', () => {
         client.disconnect()
     })
 
-    test('should handle messages without url field', async() => {
+    test('should handle messages without url field', async () => {
         server = new TestServer()
         await server.start()
 
@@ -99,11 +101,11 @@ describe('WebSocket Client - Request/Response', () => {
         }
     })
 
-    test('should send request and receive response', async() => {
+    test('should send request and receive response', async () => {
         server = new TestServer()
         await server.start()
 
-        server.wsManager.api.get('/api/test', async() => {
+        server.wsManager.api.get('/api/test', async () => {
             return {success: true}
         })
 
@@ -118,7 +120,7 @@ describe('WebSocket Client - Request/Response', () => {
         client.disconnect()
     })
 
-    test('should queue messages when not connected', async() => {
+    test('should queue messages when not connected', async () => {
         server = new TestServer()
         await server.start()
 
@@ -132,7 +134,7 @@ describe('WebSocket Client - Request/Response', () => {
         await client.connect()
 
         // Register handler
-        server.wsManager.api.get('/api/test', async() => {
+        server.wsManager.api.get('/api/test', async () => {
             return {success: true}
         })
 
@@ -153,7 +155,7 @@ describe('WebSocket Client - Reconnection', () => {
         }
     })
 
-    test('should reconnect after connection closes', async() => {
+    test('should reconnect after connection closes', async () => {
         server = new TestServer()
         await server.start()
 

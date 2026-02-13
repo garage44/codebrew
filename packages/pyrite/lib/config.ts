@@ -1,9 +1,10 @@
 import {copyObject, randomId} from '@garage44/common/lib/utils'
-import {logger} from '../service.ts'
 import fs from 'fs-extra'
 import {homedir} from 'node:os'
 import path from 'node:path'
 import rc from 'rc'
+
+import {logger} from '../service.ts'
 
 const config = rc('pyrite', {
     listen: {
@@ -39,7 +40,7 @@ async function initConfig(config) {
     const envConfigPath = process.env.CONFIG_PATH
     const configPath = envConfigPath || path.join(homedir(), '.pyriterc')
     // Check if the config file exists
-    if (!await fs.pathExists(configPath)) {
+    if (!(await fs.pathExists(configPath))) {
         await saveConfig()
     }
     return config
@@ -58,8 +59,4 @@ async function saveConfig() {
     logger.info(`[config] saved config to ${configPath}`)
 }
 
-export {
-    config,
-    initConfig,
-    saveConfig,
-}
+export {config, initConfig, saveConfig}

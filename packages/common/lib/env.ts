@@ -1,4 +1,5 @@
 import {effect} from '@preact/signals'
+
 import {store} from '../app'
 
 // Apply theme based on preference (light/dark/system)
@@ -52,7 +53,6 @@ export default function env(env, _storeParam = null) {
         mediaQuery.addListener(updateLayout)
     }
 
-
     env.url = window.location.pathname
 
     const updateUrl = () => {
@@ -68,16 +68,15 @@ export default function env(env, _storeParam = null) {
     const originalPushState = history.pushState
     const originalReplaceState = history.replaceState
 
-    history.pushState = function(...args) {
+    history.pushState = function (...args) {
         originalPushState.apply(history, args)
         updateUrl()
     }
 
-    history.replaceState = function(...args) {
+    history.replaceState = function (...args) {
         originalReplaceState.apply(history, args)
         updateUrl()
     }
-
 
     document.addEventListener('keydown', (event) => {
         if (event.altKey) {

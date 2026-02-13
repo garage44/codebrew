@@ -1,10 +1,12 @@
-import {useMemo} from 'preact/hooks'
-import {getCurrentUrl} from 'preact-router'
-import {$s} from '@/app'
 import {$t} from '@garage44/common/app'
+import {UsersList, ChannelsList} from '@garage44/common/components'
 import {Settings as CommonSettings} from '@garage44/common/components/ui/settings/settings'
 import {Profile} from '@garage44/common/components/ui/settings/tabs/profile'
-import {UsersList, ChannelsList} from '@garage44/common/components'
+import {getCurrentUrl} from 'preact-router'
+import {useMemo} from 'preact/hooks'
+
+import {$s} from '@/app'
+
 import TabDevices from './tabs/devices'
 import TabMedia from './tabs/media'
 
@@ -59,17 +61,17 @@ export default function Settings({tabId}: SettingsProps) {
             label: $t('ui.settings.profile.name') || 'Profile',
             tip: $t('ui.settings.profile.name') || 'Profile',
         },
-        ...showUserSettings ?
-                [
-                    {
-                        component: <UsersList $t={$t} />,
-                        icon: 'user',
-                        id: 'users',
-                        label: $t('ui.settings.users.name') || 'Users',
-                        tip: $t('ui.settings.users.name') || 'Users',
-                    },
-                ] :
-                [],
+        ...(showUserSettings
+            ? [
+                  {
+                      component: <UsersList $t={$t} />,
+                      icon: 'user',
+                      id: 'users',
+                      label: $t('ui.settings.users.name') || 'Users',
+                      tip: $t('ui.settings.users.name') || 'Users',
+                  },
+              ]
+            : []),
         {
             component: <ChannelsList $t={$t} />,
             icon: 'chat',

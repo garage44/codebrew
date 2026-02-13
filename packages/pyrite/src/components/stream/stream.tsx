@@ -1,11 +1,13 @@
-import classnames from 'classnames'
-import {useEffect, useRef, useMemo} from 'preact/hooks'
-import {deepSignal} from 'deepsignal'
-import {Button, FieldSlider, SoundMeter, Icon, IconLogo} from '@garage44/common/components'
-import {Reports} from './reports'
-import {$s} from '@/app'
 import {$t, logger} from '@garage44/common/app'
+import {Button, FieldSlider, SoundMeter, Icon, IconLogo} from '@garage44/common/components'
+import classnames from 'classnames'
+import {deepSignal} from 'deepsignal'
+import {useEffect, useRef, useMemo} from 'preact/hooks'
+
+import {$s} from '@/app'
 import * as sfu from '@/models/sfu/sfu'
+
+import {Reports} from './reports'
 
 interface StreamProps {
     controls?: boolean
@@ -33,15 +35,17 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
     const glnStreamRef = useRef<{[key: string]: unknown; _iceStateCleanup?: () => void; stream?: MediaStream} | null>(null)
 
     // Per-instance component state using DeepSignal (useRef to prevent recreation on each render)
-    const stateRef = useRef(deepSignal({
-        autoplayBlocked: false,
-        bar: {active: false},
-        mediaFailed: false,
-        muted: false,
-        pip: {active: false, enabled: false},
-        stats: {visible: false},
-        stream: null as MediaStream | null,
-    }))
+    const stateRef = useRef(
+        deepSignal({
+            autoplayBlocked: false,
+            bar: {active: false},
+            mediaFailed: false,
+            muted: false,
+            pip: {active: false, enabled: false},
+            stats: {visible: false},
+            stream: null as MediaStream | null,
+        }),
+    )
     const state = stateRef.current
 
     // Computed values
@@ -49,17 +53,13 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
         return !!(modelValue.hasAudio && state.stream && state.stream.getAudioTracks().length)
     }, [modelValue.hasAudio, state.stream])
 
-
     const hasSettings = useMemo(() => {
         if (!modelValue?.settings) return false
-        return (
-            Object.keys(modelValue.settings.audio || {}).length ||
-            Object.keys(modelValue.settings.video || {}).length
-        )
+        return Object.keys(modelValue.settings.audio || {}).length || Object.keys(modelValue.settings.video || {}).length
     }, [modelValue?.settings])
 
     // Methods
-    const loadSettings = async() => {
+    const loadSettings = async () => {
         if (!state.stream) return
         logger.debug('loading stream settings')
         const settings = {audio: {}, video: {}}
@@ -83,14 +83,12 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
         }
     }
 
-    const mountDownstream = async() => {
+    const mountDownstream = async () => {
         /*
          * Always check if stream exists in connection.down - component re-renders when it appears
          * This ensures we only mount when the stream is actually available (state-driven)
          */
-        const glnStream = sfu.connection?.down[
-            modelValue.id
-        ]
+        const glnStream = sfu.connection?.down[modelValue.id]
 
         if (!glnStream) {
             /*
@@ -137,17 +135,19 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
                 })
 
                 // If ICE is already connected, try to play immediately (handles remount case)
-                const iceConnected = glnStream.pc?.iceConnectionState === 'connected' ||
-                    glnStream.pc?.iceConnectionState === 'completed'
+                const iceConnected =
+                    glnStream.pc?.iceConnectionState === 'connected' || glnStream.pc?.iceConnectionState === 'completed'
                 if (glnStream.pc && iceConnected) {
                     requestAnimationFrame(() => {
                         if (mediaRef.current && glnStream.stream && mediaRef.current.srcObject) {
                             playStream().catch((error) => {
                                 const errorMessage = error instanceof Error ? error.message : String(error)
                                 // Don't log autoplay errors - they're expected
-                                if (!errorMessage.includes('user didn\'t interact') &&
+                                if (
+                                    !errorMessage.includes("user didn't interact") &&
                                     !errorMessage.includes('autoplay') &&
-                                    !errorMessage.includes('user interaction')) {
+                                    !errorMessage.includes('user interaction')
+                                ) {
                                     logger.debug(`[Stream] play failed after setupMedia (will retry): ${error}`)
                                 }
                             })
@@ -290,9 +290,11 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
                                 playStream().catch((error) => {
                                     const errorMessage = error instanceof Error ? error.message : String(error)
                                     // Don't log autoplay errors as debug - they're expected
-                                    if (!errorMessage.includes('user didn\'t interact') &&
+                                    if (
+                                        !errorMessage.includes("user didn't interact") &&
                                         !errorMessage.includes('autoplay') &&
-                                        !errorMessage.includes('user interaction')) {
+                                        !errorMessage.includes('user interaction')
+                                    ) {
                                         logger.debug(`[Stream] play failed (will retry): ${error}`)
                                     }
                                     // Don't set failed immediately - might be a temporary issue
@@ -327,8 +329,8 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
             const handleIceStateChange = () => {
                 checkConnectionState()
                 // Also check if tracks have arrived when ICE connects
-                const iceConnected = glnStream.pc?.iceConnectionState === 'connected' ||
-                    glnStream.pc?.iceConnectionState === 'completed'
+                const iceConnected =
+                    glnStream.pc?.iceConnectionState === 'connected' || glnStream.pc?.iceConnectionState === 'completed'
                 if (glnStream.pc && iceConnected) {
                     if (glnStream.stream && !mediaRef.current?.srcObject) {
                         logger.debug(`[Stream] ICE connected but media not set, setting up now for stream ${modelValue.id}`)
@@ -348,8 +350,8 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
                     }
                     setupMedia()
                     // If ICE is already connected, try to play
-                    const iceConnected = glnStream.pc?.iceConnectionState === 'connected' ||
-                        glnStream.pc?.iceConnectionState === 'completed'
+                    const iceConnected =
+                        glnStream.pc?.iceConnectionState === 'connected' || glnStream.pc?.iceConnectionState === 'completed'
                     if (glnStream.pc && iceConnected) {
                         requestAnimationFrame(() => {
                             if (mediaRef.current && glnStream.stream) {
@@ -391,7 +393,8 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
                                 const existingStream = new MediaStream(tracks)
                                 glnStream.stream = existingStream
                                 const trackCount = tracks.length
-                                const logMsg = `[Stream] Created MediaStream from ${trackCount} existing tracks ` +
+                                const logMsg =
+                                    `[Stream] Created MediaStream from ${trackCount} existing tracks ` +
                                     `for stream ${modelValue.id}`
                                 logger.debug(logMsg)
                             } else {
@@ -406,7 +409,8 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
                             }
                             setupMedia()
                             // If ICE is already connected, try to play
-                            const iceConnected = glnStream.pc?.iceConnectionState === 'connected' ||
+                            const iceConnected =
+                                glnStream.pc?.iceConnectionState === 'connected' ||
                                 glnStream.pc?.iceConnectionState === 'completed'
                             if (glnStream.pc && iceConnected) {
                                 requestAnimationFrame(() => {
@@ -419,19 +423,20 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
                             }
                         } else {
                             const receiverCount = receivers.length
-                            const logMsg = `[Stream] Found ${receiverCount} receivers but no live tracks yet ` +
+                            const logMsg =
+                                `[Stream] Found ${receiverCount} receivers but no live tracks yet ` +
                                 `for stream ${modelValue.id}`
                             logger.debug(logMsg)
                         }
                     }
-                } catch(error) {
+                } catch (error) {
                     logger.debug(`[Stream] Error checking receivers: ${error}`)
                 }
             }
         }
     }
 
-    const mountUpstream = async() => {
+    const mountUpstream = async () => {
         // Mute local streams, so people don't hear themselves talk.
         if (!state.muted) {
             toggleMuteVolume()
@@ -529,7 +534,7 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
                         }
                     }
 
-                    glnStream.onstatus = async(status: string) => {
+                    glnStream.onstatus = async (status: string) => {
                         if (status === 'connected') {
                             await loadSettings()
                         }
@@ -553,7 +558,7 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
         glnStreamRef.current.stream = state.stream
     }
 
-    const playStream = async() => {
+    const playStream = async () => {
         if (!mediaRef.current) {
             logger.warn('[Stream] playStream called but mediaRef.current is null')
             return
@@ -580,7 +585,7 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
             state.mediaFailed = false
             // Clear autoplay blocked state on successful play
             state.autoplayBlocked = false
-        } catch(error) {
+        } catch (error) {
             /*
              * Don't remove stream on play() failure - it might be temporary (autoplay policy, Firefox canvas stream timing, etc.)
              * Like original Galène setMediaStatus line 2348-2351, we just log and mark as failed, but don't remove
@@ -589,7 +594,8 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
             logger.debug(`[Stream] stream ${modelValue.id} play() failed: ${errorMessage}`)
 
             // Check if this is a fatal error (stream ended, track ended) vs temporary (autoplay, not ready)
-            const streamEnded = mediaRef.current.srcObject &&
+            const streamEnded =
+                mediaRef.current.srcObject &&
                 (mediaRef.current.srcObject as MediaStream).getTracks().every((t) => t.readyState === 'ended')
             const isFatal = errorMessage.includes('ended') || errorMessage.includes('terminated') || streamEnded
 
@@ -599,13 +605,14 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
                 // Don't call delMedia here - let onclose handler clean it up when stream actually closes
             } else {
                 // Temporary error - just mark as failed, stream will retry on next ICE state change or track event
-                const isAutoplayError = errorMessage.includes('user didn\'t interact') ||
+                const isAutoplayError =
+                    errorMessage.includes("user didn't interact") ||
                     errorMessage.includes('autoplay') ||
                     errorMessage.includes('user interaction')
 
                 if (isAutoplayError) {
-                    const logMsg = `[Stream] stream ${modelValue.id} play() blocked by autoplay policy, ` +
-                        'will retry on user interaction'
+                    const logMsg =
+                        `[Stream] stream ${modelValue.id} play() blocked by autoplay policy, ` + 'will retry on user interaction'
                     logger.debug(logMsg)
                     state.mediaFailed = true
                     state.autoplayBlocked = true
@@ -736,9 +743,7 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
         }
     }, [])
 
-    const upMediaCount = modelValue.direction === 'up' ?
-        $s.upMedia.camera.length + $s.upMedia.screenshare.length :
-        0
+    const upMediaCount = modelValue.direction === 'up' ? $s.upMedia.camera.length + $s.upMedia.screenshare.length : 0
 
     useEffect(() => {
         if (!mediaRef.current) return
@@ -794,71 +799,58 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
                 ref={mediaRef}
             />
 
-            {!modelValue.playing &&
+            {!modelValue.playing && (
                 <div class='loading-container'>
-                    {state.autoplayBlocked ?
+                    {state.autoplayBlocked ? (
                         <div class='autoplay-message'>
                             <Icon className='icon icon-l' name='webcam' />
                             <p>Click to start video</p>
                             <p class='autoplay-hint'>Browser requires user interaction to play media</p>
-                        </div> :
+                        </div>
+                    ) : (
                         <>
                             <Icon className='spinner' name='spinner' />
-                        </>}
-                </div>}
+                        </>
+                    )}
+                </div>
+            )}
 
-            {modelValue.playing && !modelValue.hasVideo &&
+            {modelValue.playing && !modelValue.hasVideo && (
                 <div class='media-container'>
                     <svg height='40' viewBox='0 0 24 24' width='40'>
                         <IconLogo />
                     </svg>
-                </div>}
+                </div>
+            )}
 
             {state.stats.visible && <Reports description={modelValue} onClick={toggleStats} />}
 
-            {controls && modelValue.playing &&
+            {controls && modelValue.playing && (
                 <div class='user-info'>
-                    {audioEnabled && state.stream &&
-                        <SoundMeter
-                            class='soundmeter'
-                            orientation='vertical'
-                            stream={state.stream}
-                            streamId={state.stream.id}
-                        />}
+                    {audioEnabled && state.stream && (
+                        <SoundMeter class='soundmeter' orientation='vertical' stream={state.stream} streamId={state.stream.id} />
+                    )}
 
-                    <div class={classnames('user', {'has-audio': audioEnabled})}>
-                        {modelValue.username}
-                    </div>
-                </div>}
+                    <div class={classnames('user', {'has-audio': audioEnabled})}>{modelValue.username}</div>
+                </div>
+            )}
 
             <div class={classnames('stream-options', {active: state.bar.active})}>
-                    {audioEnabled && modelValue.direction === 'down' &&
-                        <div class='volume-slider'>
+                {audioEnabled && modelValue.direction === 'down' && (
+                    <div class='volume-slider'>
                         <FieldSlider
                             IconComponent={Icon}
                             onChange={handleVolumeChange}
                             value={{locked: modelValue.volume?.locked ?? null, value: modelValue.volume?.value ?? 100}}
                         />
-                        </div>}
+                    </div>
+                )}
 
-                {state.pip.enabled &&
-                    <Button
-                        icon='pip'
-                        onClick={setPipMode}
-                        size='s'
-                        tip={$t('stream.pip')}
-                        variant='toggle'
-                    />}
+                {state.pip.enabled && <Button icon='pip' onClick={setPipMode} size='s' tip={$t('stream.pip')} variant='toggle' />}
 
-                <Button
-                    icon='fullscreen'
-                    onClick={setFullscreen}
-                    size='s'
-                    tip={$t('stream.fullscreen')}
-                    variant='toggle'
-                />
+                <Button icon='fullscreen' onClick={setFullscreen} size='s' tip={$t('stream.fullscreen')} variant='toggle' />
 
-                {hasSettings &&
+                {hasSettings && (
                     <Button
                         active={state.stats.visible}
                         icon='info'
@@ -866,7 +858,8 @@ export const Stream = ({controls = true, modelValue, onUpdate}: StreamProps) => 
                         size='s'
                         tip={$t('stream.info')}
                         variant='toggle'
-                    />}
+                    />
+                )}
             </div>
         </div>
     )

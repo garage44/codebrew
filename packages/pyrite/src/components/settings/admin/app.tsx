@@ -1,11 +1,13 @@
-import {useEffect} from 'preact/hooks'
-import {Router, Route} from 'preact-router'
-import Controls from './controls/controls'
-import GroupsContext from './context/context-groups'
 import {Notifications, PanelContext} from '@garage44/common/components'
+import {Router, Route} from 'preact-router'
+import {useEffect} from 'preact/hooks'
+
+import {$s} from '@/app'
+
+import GroupsContext from './context/context-groups'
+import Controls from './controls/controls'
 import {Groups} from './groups'
 import {Users} from './users/users'
-import {$s} from '@/app'
 
 export const AdminApp = () => {
     useEffect(() => {
@@ -18,9 +20,7 @@ export const AdminApp = () => {
 
     return (
         <div class='c-admin-app app'>
-            <PanelContext
-                collapsed={$s.panels.context.collapsed}
-            >
+            <PanelContext collapsed={$s.panels.context.collapsed}>
                 <GroupsContext />
             </PanelContext>
             <Controls />

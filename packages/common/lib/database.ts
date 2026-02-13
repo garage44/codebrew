@@ -1,7 +1,7 @@
 import {Database} from 'bun:sqlite'
-import path from 'node:path'
-import {homedir} from 'node:os'
 import fs from 'fs-extra'
+import {homedir} from 'node:os'
+import path from 'node:path'
 
 /**
  * Common database initialization for user management
@@ -109,7 +109,7 @@ export function initDatabase(dbPath?: string, appName?: string, logger?: Logger)
                     logger.info(`[Database] Removed orphaned SHM file: ${shmPath}`)
                 }
             }
-        } catch(cleanupError) {
+        } catch (cleanupError) {
             if (logger) {
                 logger.warn?.(`[Database] Cleanup warning: ${cleanupError}`)
             }

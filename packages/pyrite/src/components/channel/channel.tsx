@@ -1,9 +1,11 @@
+import {logger} from '@garage44/common/app'
 import {useEffect} from 'preact/hooks'
+
 import {$s} from '@/app'
-import ChannelChat from '../chat/channel-chat'
 import {selectChannel, loadChannelHistory} from '@/models/chat'
 import {connect as connectSFU} from '@/models/sfu/sfu'
-import {logger} from '@garage44/common/app'
+
+import ChannelChat from '../chat/channel-chat'
 
 interface ChannelProps {
     channelSlug: string
@@ -32,10 +34,7 @@ export const Channel = ({channelSlug}: ChannelProps) => {
          * Original: only connect when !connected
          * Channel switch: when connected to different channel, connect() closes old and creates new
          */
-        const shouldConnect = channelSlug && (
-            !$s.sfu.channel.connected ||
-            $s.sfu.channel.name !== channelSlug
-        )
+        const shouldConnect = channelSlug && (!$s.sfu.channel.connected || $s.sfu.channel.name !== channelSlug)
 
         if (shouldConnect) {
             if ($s.sfu.channel.connected && $s.sfu.channel.name !== channelSlug) {
@@ -44,7 +43,7 @@ export const Channel = ({channelSlug}: ChannelProps) => {
             logger.info(`[Channel] Preparing to connect to SFU for channel: ${channelSlug}`)
             logger.info(
                 `[Channel] Credentials check: username=${$s.profile.username ? '***' : '(empty)'}, ` +
-                `password=${$s.profile.password ? '***' : '(empty)'}`,
+                    `password=${$s.profile.password ? '***' : '(empty)'}`,
             )
             connectSFU()
                 .then(() => {

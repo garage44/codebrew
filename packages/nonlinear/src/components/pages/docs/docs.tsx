@@ -1,10 +1,12 @@
-import {$s} from '@/app'
 import {api, ws} from '@garage44/common/app'
 import {Icon} from '@garage44/common/components'
 import {deepSignal} from 'deepsignal'
 import {useEffect} from 'preact/hooks'
-import {Markdown} from './markdown'
+
+import {$s} from '@/app'
+
 import {DocEditor} from './editor'
+import {Markdown} from './markdown'
 import './docs.css'
 
 // Use api for public access, ws for authenticated
@@ -36,7 +38,7 @@ export const Docs = () => {
         loadDocs()
     }, [])
 
-    const loadDocs = async() => {
+    const loadDocs = async () => {
         try {
             state.loading = true
             const apiClient = getApi()
@@ -44,14 +46,14 @@ export const Docs = () => {
             if (result.docs) {
                 state.docs = result.docs
             }
-        } catch(error) {
+        } catch (error) {
             console.error('Failed to load docs:', error)
         } finally {
             state.loading = false
         }
     }
 
-    const handleDocSelect = async(path: string) => {
+    const handleDocSelect = async (path: string) => {
         try {
             const apiClient = getApi()
             const url = `/api/docs/by-path?path=${encodeURIComponent(path)}`
@@ -71,7 +73,7 @@ export const Docs = () => {
             } else {
                 console.warn('[Docs] Unexpected result format:', result)
             }
-        } catch(error) {
+        } catch (error) {
             console.error('[Docs] Failed to load doc:', error)
         }
     }
@@ -80,7 +82,7 @@ export const Docs = () => {
         state.editing = true
     }
 
-    const handleSave = async(content: string, tags: string[]) => {
+    const handleSave = async (content: string, tags: string[]) => {
         if (!state.selectedDoc) return
 
         try {
@@ -94,7 +96,7 @@ export const Docs = () => {
                 // Reload docs list
                 await loadDocs()
             }
-        } catch(error) {
+        } catch (error) {
             console.error('Failed to save doc:', error)
         }
     }
@@ -204,8 +206,9 @@ export const Docs = () => {
                 </div>
 
                 <div class='tree'>
-                    {state.loading ?
-                        <div class='loading'>Loading...</div> :
+                    {state.loading ? (
+                        <div class='loading'>Loading...</div>
+                    ) : (
                         <ul>
                             {filteredItems.map((item) => {
                                 if (item.type === 'dir') {
@@ -230,42 +233,42 @@ export const Docs = () => {
                                     </li>
                                 )
                             })}
-                        </ul>}
+                        </ul>
+                    )}
                 </div>
             </div>
 
             <div class='content'>
-                {state.selectedDoc ?
-                    state.editing ?
-                        <DocEditor
-                            doc={state.selectedDoc}
-                            onCancel={handleCancel}
-                            onSave={handleSave}
-                        /> :
+                {state.selectedDoc ? (
+                    state.editing ? (
+                        <DocEditor doc={state.selectedDoc} onCancel={handleCancel} onSave={handleSave} />
+                    ) : (
                         <div class='doc-viewer'>
                             <div class='doc-header'>
                                 <h1>{state.selectedDoc.title}</h1>
-                                {$s.profile.authenticated &&
+                                {$s.profile.authenticated && (
                                     <button onClick={handleEdit}>
                                         <Icon name='edit' type='info' />
                                         Edit
-                                    </button>}
+                                    </button>
+                                )}
                             </div>
                             <div class='doc-tags'>
-                                {state.selectedDoc.labelDefinitions?.map((def) => <span
-                                    class='tag'
-                                    key={def.name}
-                                    style={`background-color: ${def.color}`}
-                                >
+                                {state.selectedDoc.labelDefinitions?.map((def) => (
+                                    <span class='tag' key={def.name} style={`background-color: ${def.color}`}>
                                         {def.name}
-                                </span>)}
+                                    </span>
+                                ))}
                             </div>
                             <Markdown content={state.selectedDoc.content} />
-                        </div> :
+                        </div>
+                    )
+                ) : (
                     <div class='empty'>
                         <Icon name='description' size='xl' type='info' />
                         <p>Select a document to view</p>
-                    </div>}
+                    </div>
+                )}
             </div>
         </div>
     )

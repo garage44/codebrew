@@ -5,9 +5,11 @@
  */
 
 import {describe, expect, test, afterEach} from 'bun:test'
-import {TestServer} from './helpers/test-server.ts'
-import {TestClient} from './helpers/test-client.ts'
+
 import type {MessageData, WebSocketMessage} from '../lib/ws-client.ts'
+
+import {TestClient} from './helpers/test-client.ts'
+import {TestServer} from './helpers/test-server.ts'
 
 describe('WebSocket Server - Error Handling', () => {
     let server: TestServer
@@ -18,7 +20,7 @@ describe('WebSocket Server - Error Handling', () => {
         }
     })
 
-    test('should send error response when message has invalid JSON', async() => {
+    test('should send error response when message has invalid JSON', async () => {
         server = new TestServer()
         await server.start()
 
@@ -40,7 +42,7 @@ describe('WebSocket Server - Error Handling', () => {
         client.disconnect()
     })
 
-    test('should send error response when message is missing url field', async() => {
+    test('should send error response when message is missing url field', async () => {
         server = new TestServer()
         await server.start()
 
@@ -64,7 +66,7 @@ describe('WebSocket Server - Error Handling', () => {
         client.disconnect()
     })
 
-    test('should send error response when no route matches', async() => {
+    test('should send error response when no route matches', async () => {
         server = new TestServer()
         await server.start()
 
@@ -80,12 +82,12 @@ describe('WebSocket Server - Error Handling', () => {
         client.disconnect()
     })
 
-    test('should send error response when handler throws error', async() => {
+    test('should send error response when handler throws error', async () => {
         server = new TestServer()
         await server.start()
 
         // Register a handler that throws
-        server.wsManager.api.get('/api/error', async() => {
+        server.wsManager.api.get('/api/error', async () => {
             throw new Error('Handler error')
         })
 
@@ -110,7 +112,7 @@ describe('WebSocket Server - Broadcast Robustness', () => {
         }
     })
 
-    test('should not crash when broadcasting to dead connections', async() => {
+    test('should not crash when broadcasting to dead connections', async () => {
         server = new TestServer()
         await server.start()
 
@@ -134,7 +136,7 @@ describe('WebSocket Server - Broadcast Robustness', () => {
         expect(server.wsManager.connections.size).toBe(0)
     })
 
-    test('should clean up dead connections during broadcast', async() => {
+    test('should clean up dead connections during broadcast', async () => {
         server = new TestServer()
         await server.start()
 
@@ -169,11 +171,11 @@ describe('WebSocket Server - Request/Response', () => {
         }
     })
 
-    test('should handle GET request and return response', async() => {
+    test('should handle GET request and return response', async () => {
         server = new TestServer()
         await server.start()
 
-        server.wsManager.api.get('/api/test', async() => {
+        server.wsManager.api.get('/api/test', async () => {
             return {data: 'test', success: true}
         })
 
@@ -189,11 +191,11 @@ describe('WebSocket Server - Request/Response', () => {
         client.disconnect()
     })
 
-    test('should handle POST request with data', async() => {
+    test('should handle POST request with data', async () => {
         server = new TestServer()
         await server.start()
 
-        server.wsManager.api.post('/api/test', async(_ctx, req) => {
+        server.wsManager.api.post('/api/test', async (_ctx, req) => {
             return {received: req.data, success: true}
         })
 

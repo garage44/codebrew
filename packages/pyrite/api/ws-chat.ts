@@ -5,26 +5,28 @@
  */
 
 import type {WebSocketServerManager} from '@garage44/common/lib/ws-server'
+
 import {userManager} from '@garage44/common/service'
+
+import {validateRequest} from '../lib/api/validate.ts'
 import {ChannelManager} from '../lib/channel-manager.ts'
 import {getDatabase} from '../lib/database.ts'
-import {logger} from '../service.ts'
-import {validateRequest} from '../lib/api/validate.ts'
 import {
     ChannelSlugParamsSchema,
     SendMessageRequestSchema,
     TypingIndicatorRequestSchema,
     GetMessagesRequestSchema,
 } from '../lib/schemas/chat.ts'
+import {logger} from '../service.ts'
 
 let channelManager: ChannelManager | null = null
 
 /**
  * Helper function to get user ID from WebSocket context
  */
-async function getUserIdFromContext(
-    context: {session?: {userid?: string}},
-): Promise<{userId: string | null; username: string | null}> {
+async function getUserIdFromContext(context: {
+    session?: {userid?: string}
+}): Promise<{userId: string | null; username: string | null}> {
     if (!context.session?.userid) {
         return {userId: null, username: null}
     }
@@ -50,7 +52,7 @@ export const registerChatWebSocket = (wsManager: WebSocketServerManager) => {
      * POST /channels/:channelSlug/messages
      * Accepts channel slug (matches Galene group name 1:1)
      */
-    api.post('/channels/:channelSlug/messages', async(context, request) => {
+    api.post('/channels/:channelSlug/messages', async (context, request) => {
         try {
             const {channelSlug} = validateRequest(ChannelSlugParamsSchema, request.params)
             const {kind, message} = validateRequest(SendMessageRequestSchema, request.data)
@@ -115,7 +117,7 @@ export const registerChatWebSocket = (wsManager: WebSocketServerManager) => {
                 success: true,
             }
             return response
-        } catch(error) {
+        } catch (error) {
             logger.error('[Chat API] Error sending message:', error)
             return {
                 error: error.message,
@@ -129,7 +131,7 @@ export const registerChatWebSocket = (wsManager: WebSocketServerManager) => {
      * POST /channels/:channelSlug/typing
      * Accepts channel slug (matches Galene group name 1:1)
      */
-    api.post('/channels/:channelSlug/typing', async(context, request) => {
+    api.post('/channels/:channelSlug/typing', async (context, request) => {
         try {
             const {channelSlug} = validateRequest(ChannelSlugParamsSchema, request.params)
             const {typing} = validateRequest(TypingIndicatorRequestSchema, request.data)
@@ -165,7 +167,7 @@ export const registerChatWebSocket = (wsManager: WebSocketServerManager) => {
             })
 
             return {success: true}
-        } catch(error) {
+        } catch (error) {
             logger.error('[Chat API] Error sending typing indicator:', error)
             return {
                 error: error.message,
@@ -179,7 +181,7 @@ export const registerChatWebSocket = (wsManager: WebSocketServerManager) => {
      * GET /channels/:channelSlug/messages
      * Accepts channel slug (matches Galene group name 1:1)
      */
-    api.get('/channels/:channelSlug/messages', async(context, request) => {
+    api.get('/channels/:channelSlug/messages', async (context, request) => {
         try {
             const {channelSlug} = validateRequest(ChannelSlugParamsSchema, request.params)
             const {limit = 100} = validateRequest(GetMessagesRequestSchema, request.data || {})
@@ -235,7 +237,7 @@ export const registerChatWebSocket = (wsManager: WebSocketServerManager) => {
                 messages,
                 success: true,
             }
-        } catch(error) {
+        } catch (error) {
             logger.error('[Chat API] Error getting message history:', error)
             return {
                 error: error.message,

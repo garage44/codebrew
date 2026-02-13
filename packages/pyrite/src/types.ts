@@ -129,15 +129,18 @@ export interface PyriteState extends CommonState {
             name: string
             recording: boolean
         }
-        channels: Record<string, {
-            audio: boolean
-            clientCount?: number
-            comment?: string
-            connected?: boolean
-            description?: string
-            locked?: boolean
-            video: boolean
-        }>
+        channels: Record<
+            string,
+            {
+                audio: boolean
+                clientCount?: number
+                comment?: string
+                connected?: boolean
+                description?: string
+                locked?: boolean
+                video: boolean
+            }
+        >
         profile: {
             // Galene-specific user data
             availability: {id: string; name: string}

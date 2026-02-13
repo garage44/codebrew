@@ -3,24 +3,20 @@
  */
 
 import type {WebSocketServerManager} from '@garage44/common/lib/ws-server'
-import {
-    deleteLabelDefinition,
-    getLabelDefinition,
-    getLabelDefinitions,
-    upsertLabelDefinition,
-} from '../lib/database.ts'
-import {logger} from '../service.ts'
+
+import {validateRequest} from '../lib/api/validate.ts'
+import {deleteLabelDefinition, getLabelDefinition, getLabelDefinitions, upsertLabelDefinition} from '../lib/database.ts'
 import {
     CreateLabelRequestSchema,
     LabelNameParamsSchema,
     LabelParamsSchema,
     UpdateLabelRequestSchema,
 } from '../lib/schemas/labels.ts'
-import {validateRequest} from '../lib/api/validate.ts'
+import {logger} from '../service.ts'
 
 export function registerLabelsWebSocketApiRoutes(wsManager: WebSocketServerManager) {
     // Get all label definitions
-    wsManager.api.get('/api/labels', async(_ctx, _req) => {
+    wsManager.api.get('/api/labels', async (_ctx, _req) => {
         const labels = getLabelDefinitions()
 
         return {
@@ -29,7 +25,7 @@ export function registerLabelsWebSocketApiRoutes(wsManager: WebSocketServerManag
     })
 
     // Get label definition by name
-    wsManager.api.get('/api/labels/:name', async(_ctx, req) => {
+    wsManager.api.get('/api/labels/:name', async (_ctx, req) => {
         const params = validateRequest(LabelNameParamsSchema, req.params)
         const label = getLabelDefinition(params.name)
 
@@ -43,7 +39,7 @@ export function registerLabelsWebSocketApiRoutes(wsManager: WebSocketServerManag
     })
 
     // Create or update label definition
-    wsManager.api.post('/api/labels', async(_ctx, req) => {
+    wsManager.api.post('/api/labels', async (_ctx, req) => {
         const data = validateRequest(CreateLabelRequestSchema, req.data)
 
         const labelId = data.id || `label-${data.name.toLowerCase().replaceAll(/[^a-z0-9]/g, '-')}-${Date.now()}`
@@ -69,7 +65,7 @@ export function registerLabelsWebSocketApiRoutes(wsManager: WebSocketServerManag
     })
 
     // Update label definition
-    wsManager.api.put('/api/labels/:id', async(_ctx, req) => {
+    wsManager.api.put('/api/labels/:id', async (_ctx, req) => {
         const params = validateRequest(LabelParamsSchema, req.params)
         const data = validateRequest(UpdateLabelRequestSchema, req.data)
 
@@ -103,7 +99,7 @@ export function registerLabelsWebSocketApiRoutes(wsManager: WebSocketServerManag
     })
 
     // Delete label definition
-    wsManager.api.delete('/api/labels/:id', async(_ctx, req) => {
+    wsManager.api.delete('/api/labels/:id', async (_ctx, req) => {
         const params = validateRequest(LabelParamsSchema, req.params)
 
         const existing = getLabelDefinitions().find((l) => l.id === params.id)

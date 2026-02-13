@@ -35,8 +35,4 @@ export async function createComplexAuthContext(config: {
     }
 }
 
-export {
-    adminContext,
-    deniedContext,
-    userContext,
-}
+export {adminContext, deniedContext, userContext}

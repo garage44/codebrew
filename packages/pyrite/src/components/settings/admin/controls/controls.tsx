@@ -1,8 +1,9 @@
-import {Button} from '@garage44/common/components'
-import {useMemo} from 'preact/hooks'
-import {route} from 'preact-router'
-import {$s} from '@/app'
 import {$t, api, store} from '@garage44/common/app'
+import {Button} from '@garage44/common/components'
+import {route} from 'preact-router'
+import {useMemo} from 'preact/hooks'
+
+import {$s} from '@/app'
 
 interface AdminControlsProps {
     path?: string
@@ -14,22 +15,21 @@ export default function AdminControls({path}: AdminControlsProps) {
             return `/settings/groups/${$s.admin.group._name}/misc`
         } else {
             // Use first channel from sfu.channels that has metadata
-            const firstChannel = Object.entries($s.sfu.channels).find(
-                ([_, data]) => {
-                    const channel = typeof data === 'object' && data !== null && 'audio' in data ?
-                        data as {
-                            audio: boolean
-                            clientCount?: number
-                            comment?: string
-                            connected?: boolean
-                            description?: string
-                            locked?: boolean
-                            video: boolean
-                        } :
-                        null
-                    return channel && (channel.description || channel.comment || channel.clientCount !== undefined)
-                },
-            )
+            const firstChannel = Object.entries($s.sfu.channels).find(([_, data]) => {
+                const channel =
+                    typeof data === 'object' && data !== null && 'audio' in data
+                        ? (data as {
+                              audio: boolean
+                              clientCount?: number
+                              comment?: string
+                              connected?: boolean
+                              description?: string
+                              locked?: boolean
+                              video: boolean
+                          })
+                        : null
+                return channel && (channel.description || channel.comment || channel.clientCount !== undefined)
+            })
             if (firstChannel) {
                 return `/settings/groups/${firstChannel[0]}/misc`
             } else {
@@ -46,7 +46,7 @@ export default function AdminControls({path}: AdminControlsProps) {
         }
     }, [$s.admin.user])
 
-    const logout = async() => {
+    const logout = async () => {
         const context = await api.get('/api/logout')
         Object.assign($s.admin, context)
         // Clear stored credentials
@@ -80,13 +80,9 @@ export default function AdminControls({path}: AdminControlsProps) {
                     variant='menu'
                 />
 
-                {($s.admin.authenticated && $s.admin.permission) &&
-                    <Button
-                        icon='Logout'
-                        onClick={logout}
-                        tip={$t('user.action.logout')}
-                        variant='menu'
-                    />}
+                {$s.admin.authenticated && $s.admin.permission && (
+                    <Button icon='Logout' onClick={logout} tip={$t('user.action.logout')} variant='menu' />
+                )}
             </div>
 
             <Button

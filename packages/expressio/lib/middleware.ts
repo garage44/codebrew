@@ -1,15 +1,17 @@
+import type {Logger} from '@garage44/common/lib/logger.node'
+
+import {createAvatarRoutes} from '@garage44/common/lib/avatar-routes'
+import {devContext} from '@garage44/common/lib/dev-context'
 import {createFinalHandler} from '@garage44/common/lib/middleware'
 import {adminContext, deniedContext, userContext} from '@garage44/common/lib/profile.ts'
-import {createAvatarRoutes} from '@garage44/common/lib/avatar-routes'
-import type {Logger} from '@garage44/common/lib/logger.node'
-import {devContext} from '@garage44/common/lib/dev-context'
 import {userManager} from '@garage44/common/service'
-import {logger, runtime} from '../service.ts'
+import path from 'node:path'
+
 import apiConfig from '../api/config.ts'
 import apiI18n from '../api/i18n.ts'
 import apiUsers from '../api/users.ts'
 import apiWorkspaces from '../api/workspaces'
-import path from 'node:path'
+import {logger, runtime} from '../service.ts'
 
 // Simple HTTP router for Bun.serve that mimics Express pattern
 type Session = Record<string, string> | undefined
@@ -69,9 +71,8 @@ class Router {
     }
 }
 
-
 // Auth middleware that can be reused across workspace routes
-const requireAdmin = async(ctx, next) => {
+const requireAdmin = async (ctx, next) => {
     if (!ctx.session?.userid) {
         throw new Error('Unauthorized')
     }
@@ -82,7 +83,6 @@ const requireAdmin = async(ctx, next) => {
      */
     return next(ctx)
 }
-
 
 async function initMiddleware(_bunchyConfig) {
     const router = new Router()
@@ -104,7 +104,7 @@ async function initMiddleware(_bunchyConfig) {
     // Register HTTP API endpoints using familiar Express-like pattern
     const httpRouterAdapter = {
         get: (path: string, handler: (req: Request, params: Record<string, string>) => Response) => {
-            router.get(path, async(req: Request, params: Record<string, string>) => {
+            router.get(path, async (req: Request, params: Record<string, string>) => {
                 const response = handler(req, params)
                 return response instanceof Promise ? await response : response
             })
@@ -148,7 +148,4 @@ async function initMiddleware(_bunchyConfig) {
     }
 }
 
-export {
-    initMiddleware,
-    requireAdmin,
-}
+export {initMiddleware, requireAdmin}

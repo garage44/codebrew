@@ -6,25 +6,31 @@ const colors = [
     {id: 'warning', name: 'Warning'},
 ]
 
-
-export const Tokens = () => <div class='c-tokens styleguide-page'>
+export const Tokens = () => (
+    <div class='c-tokens styleguide-page'>
         <h1>Design Tokens</h1>
         <p>Colors, typography, spacing, and other design system values</p>
 
         <section class='token-section'>
             <h2>Colors</h2>
 
-            {colors.map((color) => <div class='' key={color.id}>
-                <h3>{color.name}</h3>
-                <div class='color-grid'>
-                    {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((level) => <div class='c-color-swatch' key={level}>
-                            <div class='color' style={{background: `var(--${color.id}-${level})`}} />
-                            <div class='label'>
-                                <code>--{color.id}-{level}</code>
+            {colors.map((color) => (
+                <div class='' key={color.id}>
+                    <h3>{color.name}</h3>
+                    <div class='color-grid'>
+                        {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((level) => (
+                            <div class='c-color-swatch' key={level}>
+                                <div class='color' style={{background: `var(--${color.id}-${level})`}} />
+                                <div class='label'>
+                                    <code>
+                                        --{color.id}-{level}
+                                    </code>
+                                </div>
                             </div>
-                    </div>)}
+                        ))}
+                    </div>
                 </div>
-            </div>)}
+            ))}
         </section>
 
         <section class='token-section'>
@@ -89,13 +95,17 @@ export const Tokens = () => <div class='c-tokens styleguide-page'>
                     {name: '--spacer-6', px: '48px', value: 'calc(var(--spacer-1) * 6)'},
                     {name: '--spacer-7', px: '56px', value: 'calc(var(--spacer-1) * 7)'},
                     {name: '--spacer-8', px: '64px', value: 'calc(var(--spacer-1) * 8)'},
-                ].map(({name, px, value}) => <div class='spacing-item' key={name}>
+                ].map(({name, px, value}) => (
+                    <div class='spacing-item' key={name}>
                         <div class='spacing-visual' style={{height: `var(${name})`, width: `var(${name})`}} />
                         <div class='spacing-info'>
                             <code>{name}</code>
-                            <div class='spacing-value'>{value} ({px})</div>
+                            <div class='spacing-value'>
+                                {value} ({px})
+                            </div>
                         </div>
-                </div>)}
+                    </div>
+                ))}
             </div>
         </section>
 
@@ -108,13 +118,15 @@ export const Tokens = () => <div class='c-tokens styleguide-page'>
                     {name: '--icon-d', px: '24px'},
                     {name: '--icon-l', px: '32px'},
                     {name: '--icon-xl', px: '36px'},
-                ].map(({name, px}) => <div class='icon-size-item' key={name}>
+                ].map(({name, px}) => (
+                    <div class='icon-size-item' key={name}>
                         <div class='icon-size-visual' style={{height: `var(${name})`, width: `var(${name})`}} />
                         <div class='icon-size-info'>
                             <code>{name}</code>
                             <div class='icon-size-value'>{px}</div>
                         </div>
-                </div>)}
+                    </div>
+                ))}
             </div>
         </section>
 
@@ -127,13 +139,16 @@ export const Tokens = () => <div class='c-tokens styleguide-page'>
                     {name: '--border-radius-d', px: '8px'},
                     {name: '--border-radius-l', px: '12px'},
                     {name: '--border-radius-xl', px: '16px'},
-                ].map(({name, px}) => <div class='radius-item' key={name}>
+                ].map(({name, px}) => (
+                    <div class='radius-item' key={name}>
                         <div class='radius-visual' style={{'border-radius': `var(${name})`}} />
                         <div class='radius-info'>
                             <code>{name}</code>
                             <div class='radius-value'>{px}</div>
                         </div>
-                </div>)}
+                    </div>
+                ))}
             </div>
         </section>
-</div>
+    </div>
+)

@@ -1,9 +1,10 @@
-import {keyMod, keyPath, randomId} from '@garage44/common/lib/utils.ts'
 import {pathCreate, pathDelete} from '@garage44/common/lib/paths.ts'
-import {enola} from '../service.ts'
-import fs from 'fs-extra'
+import {keyMod, keyPath, randomId} from '@garage44/common/lib/utils.ts'
 import {Glob} from 'bun'
+import fs from 'fs-extra'
 import path from 'node:path'
+
+import {enola} from '../service.ts'
 import {translate_tag} from './translate.ts'
 
 export async function lintWorkspace(workspace, lintMode: 'sync' | 'lint') {
@@ -58,13 +59,18 @@ export async function lintWorkspace(workspace, lintMode: 'sync' | 'lint') {
                     sourceText = `tag_${randomId()}`
                 }
 
-                let {id, ref} = pathCreate(workspace.i18n, tagPath, {
-                    _soft: true,
-                    source: sourceText,
-                    target: {},
-                } as {cache?: string; source: string; target: Record<string, string>}, workspace.config.languages.target);
+                let {id, ref} = pathCreate(
+                    workspace.i18n,
+                    tagPath,
+                    {
+                        _soft: true,
+                        source: sourceText,
+                        target: {},
+                    } as {cache?: string; source: string; target: Record<string, string>},
+                    workspace.config.languages.target,
+                )
 
-                ({id, ref} = await translate_tag(workspace, tagPath, sourceText, false))
+                ;({id, ref} = await translate_tag(workspace, tagPath, sourceText, false))
                 createTags.push({path: tagPath, value: ref[id]})
             } else if (lintMode === 'lint') {
                 const file = path.relative(path.dirname(workspace.config.source_file), files[i])
@@ -74,7 +80,6 @@ export async function lintWorkspace(workspace, lintMode: 'sync' | 'lint') {
                 const column = lastNewline === -1 ? match.index : match.index - lastNewline - 1
                 createTags.push({column, file, line, match, path: tagPath})
             }
-
 
             redundantTags.delete(tag)
         }

@@ -3,15 +3,17 @@
  * Imports documentation and creates preset tickets when database is empty
  */
 
-import {logger} from '../service.ts'
+import type {Database} from 'bun:sqlite'
+
 import {randomId} from '@garage44/common/lib/utils'
-import {extractWorkspacePackages} from './workspace.ts'
 import {readFileSync, existsSync, readdirSync} from 'fs'
 import {join, relative, dirname} from 'path'
 import {fileURLToPath} from 'url'
-import {queueIndexingJob} from './indexing/queue.ts'
-import type {Database} from 'bun:sqlite'
+
+import {logger} from '../service.ts'
 import {DEFAULT_AVATARS} from './agent/avatars.ts'
+import {queueIndexingJob} from './indexing/queue.ts'
+import {extractWorkspacePackages} from './workspace.ts'
 
 /**
  * Initialize fixtures in development mode when database is empty
@@ -90,42 +92,20 @@ async function createDefaultAgents(db: Database): Promise<void> {
         db.prepare(`
             INSERT INTO agents (id, name, type, config, enabled, avatar, display_name, status, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(
-            agent.id,
-            agent.name,
-            agent.type,
-            JSON.stringify({}),
-            1,
-            agent.avatar,
-            agent.display_name,
-            agent.status,
-            now,
-        )
+        `).run(agent.id, agent.name, agent.type, JSON.stringify({}), 1, agent.avatar, agent.display_name, agent.status, now)
     }
 
     logger.info('[Fixtures] Created default agents')
 }
 
-async function createGarage44Workspace(
-    db: Database,
-    workspaceRoot: string,
-): Promise<string> {
+async function createGarage44Workspace(db: Database, workspaceRoot: string): Promise<string> {
     const workspaceId = randomId()
     const now = Date.now()
 
     db.prepare(`
         INSERT INTO repositories (id, name, path, platform, remote_url, config, created_at, updated_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-        workspaceId,
-        'garage44',
-        workspaceRoot,
-        'local',
-        null,
-        JSON.stringify({}),
-        now,
-        now,
-    )
+    `).run(workspaceId, 'garage44', workspaceRoot, 'local', null, JSON.stringify({}), now, now)
 
     logger.info(`[Fixtures] Created garage44 workspace: ${workspaceId}`)
     return workspaceId
@@ -271,15 +251,7 @@ async function importDocsFromDirectory(options: ImportDocsOptions): Promise<void
                 db.prepare(`
                     INSERT INTO documentation (id, path, title, content, author_id, created_at, updated_at)
                     VALUES (?, ?, ?, ?, ?, ?, ?)
-                `).run(
-                    docId,
-                    wikiPath,
-                    title,
-                    content,
-                    authorId,
-                    now,
-                    now,
-                )
+                `).run(docId, wikiPath, title, content, authorId, now, now)
 
                 // Add tags
                 for (const tag of tags) {
@@ -311,12 +283,12 @@ async function importDocsFromDirectory(options: ImportDocsOptions): Promise<void
                         docId,
                         type: 'doc',
                     })
-                } catch(error) {
+                } catch (error) {
                     logger.warn(`[Fixtures] Failed to generate embeddings for ${wikiPath}:`, error)
                 }
 
                 logger.info(`[Fixtures] Imported doc: ${wikiPath}`)
-            } catch(error) {
+            } catch (error) {
                 logger.warn(`[Fixtures] Failed to import ${fullPath}:`, error)
             }
         }
@@ -357,11 +329,7 @@ function ensureLabelExists(db: Database, label: string): void {
     }
 }
 
-async function importFixtureDocs(
-    db: Database,
-    workspaceRoot: string,
-    workspaceId: string,
-): Promise<void> {
+async function importFixtureDocs(db: Database, workspaceRoot: string, workspaceId: string): Promise<void> {
     logger.info('[Fixtures] Importing fixture docs...')
 
     // Import malkovich docs from local fixtures directory
@@ -490,16 +458,7 @@ async function createPresetTickets(db: Database, workspaceId: string): Promise<v
         db.prepare(`
             INSERT INTO tickets (id, repository_id, title, description, status, priority, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(
-            ticketId,
-            workspaceId,
-            ticket.title,
-            ticket.description,
-            ticket.status,
-            ticket.priority,
-            now,
-            now,
-        )
+        `).run(ticketId, workspaceId, ticket.title, ticket.description, ticket.status, ticket.priority, now, now)
 
         // Add labels
         for (const label of ticket.labels) {
@@ -521,7 +480,7 @@ async function createPresetTickets(db: Database, workspaceId: string): Promise<v
         try {
             const {generateTicketEmbedding} = await import('./docs/embeddings.ts')
             await generateTicketEmbedding(ticketId, ticket.title, ticket.description)
-        } catch(error) {
+        } catch (error) {
             logger.warn(`[Fixtures] Failed to generate embedding for ticket ${ticketId}:`, error)
         }
     }

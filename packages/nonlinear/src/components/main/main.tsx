@@ -1,7 +1,4 @@
-import {$s} from '@/app'
 import {api, logger, store, ws} from '@garage44/common/app'
-import {copyObject, mergeDeep} from '@garage44/common/lib/utils'
-import {Board, Docs, Settings, TicketDetail} from '@/components/pages'
 import {
     AppLayout,
     MenuGroup,
@@ -12,14 +9,18 @@ import {
     Progress,
     UserMenu,
 } from '@garage44/common/components'
-import {TicketForm} from '@/components/elements/ticket-form/ticket-form'
+import {copyObject, mergeDeep} from '@garage44/common/lib/utils'
 import {Link, Route, Router, route} from 'preact-router'
-import {Login} from '@/components/pages/login/login'
 import {useEffect} from 'preact/hooks'
+
+import {$s} from '@/app'
+import {TicketForm} from '@/components/elements/ticket-form/ticket-form'
+import {Board, Docs, Settings, TicketDetail} from '@/components/pages'
+import {Login} from '@/components/pages/login/login'
 
 export const Main = () => {
     useEffect(() => {
-        (async() => {
+        ;(async () => {
             const context = await api.get('/api/context')
 
             /*
@@ -42,18 +43,18 @@ export const Main = () => {
                 ws.connect()
 
                 // Load initial data
-                const ticketsResult = await ws.get('/api/tickets') as {tickets?: unknown}
+                const ticketsResult = (await ws.get('/api/tickets')) as {tickets?: unknown}
                 if (ticketsResult.tickets) {
                     $s.tickets = ticketsResult.tickets as typeof $s.tickets
                 }
 
-                const reposResult = await ws.get('/api/repositories') as {repositories?: unknown}
+                const reposResult = (await ws.get('/api/repositories')) as {repositories?: unknown}
                 if (reposResult.repositories) {
                     $s.repositories = reposResult.repositories as typeof $s.repositories
                 }
 
                 // Load Anthropic token usage
-                const usageResult = await ws.get('/api/anthropic/usage') as {usage?: {count?: number; limit?: number}}
+                const usageResult = (await ws.get('/api/anthropic/usage')) as {usage?: {count?: number; limit?: number}}
                 if (usageResult.usage) {
                     $s.anthropic.usage = {
                         count: usageResult.usage.count || 0,
@@ -68,17 +69,19 @@ export const Main = () => {
                  */
                 const bootstrapState =
                     typeof window !== 'undefined' &&
-                    (window as {
-                        __NONLINEAR_BOOTSTRAP_STATE__?: {
-                            agents: Record<
-                                string,
-                                {
-                                    stats?: {completed: number; failed: number; pending: number; processing: number}
-                                    status: 'idle' | 'working' | 'error' | 'offline'
-                                }
-                            >
+                    (
+                        window as {
+                            __NONLINEAR_BOOTSTRAP_STATE__?: {
+                                agents: Record<
+                                    string,
+                                    {
+                                        stats?: {completed: number; failed: number; pending: number; processing: number}
+                                        status: 'idle' | 'working' | 'error' | 'offline'
+                                    }
+                                >
+                            }
                         }
-                    }).__NONLINEAR_BOOTSTRAP_STATE__
+                    ).__NONLINEAR_BOOTSTRAP_STATE__
 
                 if (bootstrapState?.agents) {
                     const agentIds = Object.keys(bootstrapState.agents)
@@ -86,92 +89,94 @@ export const Main = () => {
                     for (const [agentId, state] of Object.entries(bootstrapState.agents)) {
                         logger.debug(
                             `[Bootstrap] Agent ${agentId}: status=${state.status}, ` +
-                            `stats=${JSON.stringify(state.stats)}, statsExists=${!!state.stats}`,
+                                `stats=${JSON.stringify(state.stats)}, statsExists=${!!state.stats}`,
                         )
                     }
                 }
 
-                const agentsResult = await ws.get('/api/agents') as {agents?: unknown[]}
+                const agentsResult = (await ws.get('/api/agents')) as {agents?: unknown[]}
                 if (agentsResult.agents) {
-                    $s.agents = agentsResult.agents.map((agent: {
-                        avatar: string | null
-                        created_at: number
-                        currentTicketId: string | null
-                        display_name: string | null
-                        enabled: number
-                        id: string
-                        lastActivity: number
-                        name: string
-                        serviceOnline?: boolean
-                        stats?: {
-                            completed: number
-                            failed: number
-                            pending: number
-                            processing: number
-                        }
-                        status: string
-                        type: 'planner' | 'developer' | 'reviewer'
-                    }) => {
-                        // Start with base agent data from API
-                        const baseAgent = {
-                            avatar: agent.avatar || 'placeholder-2.png',
-                            config: '',
-                            created_at: agent.created_at,
-                            currentTicketId: agent.currentTicketId || null,
-                            displayName: agent.display_name || `${agent.name} Agent`,
-                            enabled: agent.enabled,
-                            id: agent.id,
-                            isAgent: true as const,
-                            lastActivity: agent.lastActivity || agent.created_at,
-                            name: agent.name,
-                            serviceOnline: agent.serviceOnline ?? false,
-                            stats: agent.stats || {
-                                completed: 0,
-                                failed: 0,
-                                pending: 0,
-                                processing: 0,
-                            },
-                            status: (agent.status || 'idle') as 'idle' | 'working' | 'error' | 'offline',
-                            type: agent.type,
-                            username: agent.name,
-                        }
-
-                        // Merge bootstrap state over base agent (bootstrap takes precedence)
-                        const bootstrapAgent = bootstrapState?.agents?.[agent.id]
-                        if (bootstrapAgent) {
-                            // Create a copy of baseAgent before merging (mergeDeep mutates the target)
-                            const agentCopy = copyObject(baseAgent)
-
-                            /*
-                             * Use mergeDeep to merge bootstrap state over base agent
-                             * Bootstrap state has status and stats, which will override base values
-                             */
-                            mergeDeep(agentCopy, {
-                                stats: bootstrapAgent.stats,
-                                status: bootstrapAgent.status,
-                            })
-
-                            // serviceOnline is derived from status
-                            agentCopy.serviceOnline = agentCopy.status !== 'offline'
-
-                            if (process.env.NODE_ENV === 'development') {
-                                logger.debug(
-                                    `[Bootstrap] Merged agent ${agent.id} using mergeDeep: ` +
-                                    `status=${agentCopy.status}, stats=${JSON.stringify(agentCopy.stats)}`,
-                                )
+                    $s.agents = agentsResult.agents.map(
+                        (agent: {
+                            avatar: string | null
+                            created_at: number
+                            currentTicketId: string | null
+                            display_name: string | null
+                            enabled: number
+                            id: string
+                            lastActivity: number
+                            name: string
+                            serviceOnline?: boolean
+                            stats?: {
+                                completed: number
+                                failed: number
+                                pending: number
+                                processing: number
+                            }
+                            status: string
+                            type: 'planner' | 'developer' | 'reviewer'
+                        }) => {
+                            // Start with base agent data from API
+                            const baseAgent = {
+                                avatar: agent.avatar || 'placeholder-2.png',
+                                config: '',
+                                created_at: agent.created_at,
+                                currentTicketId: agent.currentTicketId || null,
+                                displayName: agent.display_name || `${agent.name} Agent`,
+                                enabled: agent.enabled,
+                                id: agent.id,
+                                isAgent: true as const,
+                                lastActivity: agent.lastActivity || agent.created_at,
+                                name: agent.name,
+                                serviceOnline: agent.serviceOnline ?? false,
+                                stats: agent.stats || {
+                                    completed: 0,
+                                    failed: 0,
+                                    pending: 0,
+                                    processing: 0,
+                                },
+                                status: (agent.status || 'idle') as 'idle' | 'working' | 'error' | 'offline',
+                                type: agent.type,
+                                username: agent.name,
                             }
 
-                            return agentCopy
-                        }
+                            // Merge bootstrap state over base agent (bootstrap takes precedence)
+                            const bootstrapAgent = bootstrapState?.agents?.[agent.id]
+                            if (bootstrapAgent) {
+                                // Create a copy of baseAgent before merging (mergeDeep mutates the target)
+                                const agentCopy = copyObject(baseAgent)
 
-                        // No bootstrap state - derive serviceOnline from status
-                        baseAgent.serviceOnline = baseAgent.status !== 'offline'
-                        return baseAgent
-                    })
+                                /*
+                                 * Use mergeDeep to merge bootstrap state over base agent
+                                 * Bootstrap state has status and stats, which will override base values
+                                 */
+                                mergeDeep(agentCopy, {
+                                    stats: bootstrapAgent.stats,
+                                    status: bootstrapAgent.status,
+                                })
+
+                                // serviceOnline is derived from status
+                                agentCopy.serviceOnline = agentCopy.status !== 'offline'
+
+                                if (process.env.NODE_ENV === 'development') {
+                                    logger.debug(
+                                        `[Bootstrap] Merged agent ${agent.id} using mergeDeep: ` +
+                                            `status=${agentCopy.status}, stats=${JSON.stringify(agentCopy.stats)}`,
+                                    )
+                                }
+
+                                return agentCopy
+                            }
+
+                            // No bootstrap state - derive serviceOnline from status
+                            baseAgent.serviceOnline = baseAgent.status !== 'offline'
+                            return baseAgent
+                        },
+                    )
                 }
 
                 // Load label definitions
-                const labelsResult = await ws.get('/api/labels') as {labels?: unknown}
+                const labelsResult = (await ws.get('/api/labels')) as {labels?: unknown}
                 if (labelsResult.labels) {
                     $s.labelDefinitions = labelsResult.labels as typeof $s.labelDefinitions
                 }
@@ -326,8 +331,7 @@ export const Main = () => {
     }
 
     // Allow public access to docs and board (if configured)
-    const isPublicRoute =
-        $s.env.url === '/docs' || $s.env.url === '/' || $s.env.url.startsWith('/docs/')
+    const isPublicRoute = $s.env.url === '/docs' || $s.env.url === '/' || $s.env.url.startsWith('/docs/')
     // TODO: Get from config.public.showPlanning
     const showPublicBoard = true
 
@@ -336,7 +340,7 @@ export const Main = () => {
         return <Login />
     }
 
-    const handleRoute = async({url}: {url: string}) => {
+    const handleRoute = async ({url}: {url: string}) => {
         $s.env.url = url
 
         // Redirect root to docs (public entry point)
@@ -351,128 +355,131 @@ export const Main = () => {
         store.save()
     }
 
-    const handleTicketCreated = async() => {
+    const handleTicketCreated = async () => {
         // Reload tickets to get the new one
-        const result = await ws.get('/api/tickets') as {tickets?: unknown}
+        const result = (await ws.get('/api/tickets')) as {tickets?: unknown}
         if (result.tickets) {
             $s.tickets = result.tickets as typeof $s.tickets
         }
     }
 
-    return <>
-        <AppLayout
-            context={
-                $s.selectedLane ?
-
-                            <PanelContext
-                                collapsed={false}
-                                defaultWidth={600}
-                                maxWidth={1000}
-                                minWidth={64}
-                                onWidthChange={(width) => {
-                                    $s.panels.context.width = width
-                                    store.save()
-                                }}
-                                width={$s.panels.context.width === 200 ? undefined : $s.panels.context.width}
-                            >
-                                <TicketForm
-                                    initialStatus={$s.selectedLane}
-                                    onClose={handleClosePanel}
-                                    onSuccess={handleTicketCreated}
+    return (
+        <>
+            <AppLayout
+                context={
+                    $s.selectedLane ? (
+                        <PanelContext
+                            collapsed={false}
+                            defaultWidth={600}
+                            maxWidth={1000}
+                            minWidth={64}
+                            onWidthChange={(width) => {
+                                $s.panels.context.width = width
+                                store.save()
+                            }}
+                            width={$s.panels.context.width === 200 ? undefined : $s.panels.context.width}
+                        >
+                            <TicketForm
+                                initialStatus={$s.selectedLane}
+                                onClose={handleClosePanel}
+                                onSuccess={handleTicketCreated}
+                            />
+                        </PanelContext>
+                    ) : null
+                }
+                menu={
+                    <PanelMenu
+                        actions={
+                            $s.profile.authenticated ? (
+                                <UserMenu
+                                    collapsed={$s.panels.menu.collapsed}
+                                    onLogout={async () => {
+                                        const result = await api.get('/api/logout')
+                                        $s.profile.authenticated = result.authenticated || false
+                                        $s.profile.admin = result.admin || false
+                                        route('/docs')
+                                    }}
+                                    settingsHref='/settings'
+                                    user={{
+                                        id: $s.profile.id || null,
+                                        profile: {
+                                            avatar: $s.profile.avatar || null,
+                                            displayName: $s.profile.displayName || $s.profile.username || 'User',
+                                        },
+                                    }}
                                 />
-                            </PanelContext> :
-                    null
-            }
-            menu={(
-                <PanelMenu
-                    actions={(
-                        $s.profile.authenticated ?
-                            <UserMenu
-                                collapsed={$s.panels.menu.collapsed}
-                                onLogout={async() => {
-                                    const result = await api.get('/api/logout')
-                                    $s.profile.authenticated = result.authenticated || false
-                                    $s.profile.admin = result.admin || false
-                                    route('/docs')
-                                }}
-                                settingsHref='/settings'
-                                user={{
-                                    id: $s.profile.id || null,
-                                    profile: {
-                                        avatar: $s.profile.avatar || null,
-                                        displayName: $s.profile.displayName || $s.profile.username || 'User',
-                                    },
-                                }}
-                            /> :
-                            <div style={{padding: 'var(--spacer-2)'}}>
-                                <a href='/login' style={{color: 'var(--text-1)', textDecoration: 'none'}}>
-                                    Login
-                                </a>
+                            ) : (
+                                <div style={{padding: 'var(--spacer-2)'}}>
+                                    <a href='/login' style={{color: 'var(--text-1)', textDecoration: 'none'}}>
+                                        Login
+                                    </a>
+                                </div>
+                            )
+                        }
+                        collapsed={$s.panels.menu.collapsed}
+                        footer={
+                            <div class='anthropic-usage'>
+                                <span>Anthropic API Usage</span>
+                                <Progress
+                                    boundaries={[$s.anthropic.usage.count, $s.anthropic.usage.limit]}
+                                    iso6391='en-gb'
+                                    loading={$s.anthropic.usage.loading}
+                                    percentage={
+                                        $s.anthropic.usage.limit > 0 ? $s.anthropic.usage.count / $s.anthropic.usage.limit : 0
+                                    }
+                                />
                             </div>
-
-                      )}
-                    collapsed={$s.panels.menu.collapsed}
-                    footer={
-                        <div class='anthropic-usage'>
-                            <span>Anthropic API Usage</span>
-                            <Progress
-                                boundaries={[$s.anthropic.usage.count, $s.anthropic.usage.limit]}
-                                iso6391='en-gb'
-                                loading={$s.anthropic.usage.loading}
-                                percentage={
-                                    $s.anthropic.usage.limit > 0 ?
-                                        $s.anthropic.usage.count / $s.anthropic.usage.limit :
-                                        0
-                                }
-                            />
-                        </div>
-                    }
-                    LinkComponent={Link}
-                    logoCommitHash={process.env.APP_COMMIT_HASH || ''}
-                    logoHref='/board'
-                    logoSrc='/public/img/logo.svg'
-                    logoText='Nonlinear'
-                    logoVersion={process.env.APP_VERSION || ''}
-                    navigation={(
-                        <MenuGroup collapsed={$s.panels.menu.collapsed}>
-                            <MenuItem
-                                active={$s.env.url === '/docs'}
-                                collapsed={$s.panels.menu.collapsed}
-                                href='/docs'
-                                icon='description'
-                                iconType='info'
-                                text='Documentation'
-                            />
-                            <MenuItem
-                                active={$s.env.url === '/board' || $s.env.url === '/'}
-                                collapsed={$s.panels.menu.collapsed}
-                                href='/board'
-                                icon='view_kanban'
-                                iconType='info'
-                                text='Development'
-                            />
-                        </MenuGroup>
-                      )}
-                    onCollapseChange={(collapsed) => {
-                        $s.panels.menu.collapsed = collapsed
-                    }}
-                />
-              )}
-        >
-            <div class='view'>
-                <Router onChange={handleRoute}>
-                    <Route component={Docs} path='/docs' />
-                    <Route component={Board} default path='/board' />
-                    <Route component={Board} path='/' />
-                    <Route
-                        component={(props: {ticketId?: string}) => <TicketDetail ticketId={props.ticketId || ''} />}
-                        path='/tickets/:ticketId'
+                        }
+                        LinkComponent={Link}
+                        logoCommitHash={process.env.APP_COMMIT_HASH || ''}
+                        logoHref='/board'
+                        logoSrc='/public/img/logo.svg'
+                        logoText='Nonlinear'
+                        logoVersion={process.env.APP_VERSION || ''}
+                        navigation={
+                            <MenuGroup collapsed={$s.panels.menu.collapsed}>
+                                <MenuItem
+                                    active={$s.env.url === '/docs'}
+                                    collapsed={$s.panels.menu.collapsed}
+                                    href='/docs'
+                                    icon='description'
+                                    iconType='info'
+                                    text='Documentation'
+                                />
+                                <MenuItem
+                                    active={$s.env.url === '/board' || $s.env.url === '/'}
+                                    collapsed={$s.panels.menu.collapsed}
+                                    href='/board'
+                                    icon='view_kanban'
+                                    iconType='info'
+                                    text='Development'
+                                />
+                            </MenuGroup>
+                        }
+                        onCollapseChange={(collapsed) => {
+                            $s.panels.menu.collapsed = collapsed
+                        }}
                     />
-                    <Route component={(props: {tabId?: string}) => <Settings tabId={props.tabId} />} path='/settings' />
-                    <Route component={(props: {tabId?: string}) => <Settings tabId={props.tabId} />} path='/settings/:tabId' />
-                </Router>
-            </div>
-        </AppLayout>
-        <Notifications notifications={$s.notifications} />
-    </>
+                }
+            >
+                <div class='view'>
+                    <Router onChange={handleRoute}>
+                        <Route component={Docs} path='/docs' />
+                        <Route component={Board} default path='/board' />
+                        <Route component={Board} path='/' />
+                        <Route
+                            component={(props: {ticketId?: string}) => <TicketDetail ticketId={props.ticketId || ''} />}
+                            path='/tickets/:ticketId'
+                        />
+                        <Route component={(props: {tabId?: string}) => <Settings tabId={props.tabId} />} path='/settings' />
+                        <Route
+                            component={(props: {tabId?: string}) => <Settings tabId={props.tabId} />}
+                            path='/settings/:tabId'
+                        />
+                    </Router>
+                </div>
+            </AppLayout>
+            <Notifications notifications={$s.notifications} />
+        </>
+    )
 }

@@ -53,7 +53,7 @@
   "devDependencies": {
     "@types/node": "catalog:dev",
     "bun-types": "catalog:dev",
-    "eslint": "catalog:dev",
+    "oxfmt": "catalog:dev",
     "oxlint": "catalog:dev",
     "stylelint": "catalog:dev",
     "stylelint-order": "catalog:dev"

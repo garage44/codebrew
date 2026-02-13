@@ -1,13 +1,15 @@
-import classnames from 'classnames'
 import {Icon} from '@garage44/common/components'
+import classnames from 'classnames'
+import {Link, route} from 'preact-router'
+
+import {$s} from '@/app'
 import Recordings from '@/components/settings/admin/group/recordings/recordings'
 import Stats from '@/components/settings/admin/group/stats/stats'
+import {saveGroup} from '@/models/group'
+
 import TabAccess from './tab-access'
 import TabMisc from './tab-misc'
 import TabPermissions from './tab-permissions'
-import {Link, route} from 'preact-router'
-import {$s} from '@/app'
-import {saveGroup} from '@/models/group'
 
 interface SettingsProps {
     groupId?: string
@@ -20,7 +22,7 @@ export default function Settings({groupId, path, tabId = 'misc'}: SettingsProps)
         return `/settings/groups/${groupId}?tab=${tab}`
     }
 
-    const saveGroupAction = async() => {
+    const saveGroupAction = async () => {
         if (groupId) {
             const group = await saveGroup(groupId, $s.admin.group)
             route(`/settings/groups/${group._name}?tab=${tabId}`)
@@ -32,9 +34,10 @@ export default function Settings({groupId, path, tabId = 'misc'}: SettingsProps)
             <header>
                 <div class='notice' />
                 <div class='title'>
-                    {$s.admin.group && typeof $s.admin.group === 'object' &&
-                        $s.admin.group !== null && '_name' in $s.admin.group &&
-                        <span>{String($s.admin.group._name)}</span>}
+                    {$s.admin.group &&
+                        typeof $s.admin.group === 'object' &&
+                        $s.admin.group !== null &&
+                        '_name' in $s.admin.group && <span>{String($s.admin.group._name)}</span>}
                     <Icon className='icon icon-regular' name='group' />
                 </div>
             </header>
@@ -93,12 +96,13 @@ export default function Settings({groupId, path, tabId = 'misc'}: SettingsProps)
                 {tabId === 'stats' && <Stats groupId={groupId} />}
                 {tabId === 'recordings' && <Recordings groupId={groupId} />}
 
-                {path?.includes('/settings/groups') &&
+                {path?.includes('/settings/groups') && (
                     <div class='actions'>
                         <button class='btn btn-menu btn-save' onClick={saveGroupAction}>
                             <Icon className='icon-d' name='save' />
                         </button>
-                    </div>}
+                    </div>
+                )}
             </div>
         </div>
     )

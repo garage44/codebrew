@@ -5,6 +5,7 @@
  */
 
 import type {WebSocketServerManager} from '@garage44/common/lib/ws-server'
+
 import {validateRequest} from '../lib/api/validate.ts'
 import {
     GroupIdParamsSchema,
@@ -22,7 +23,7 @@ export const registerGroupsWebSocket = (wsManager: WebSocketServerManager) => {
      * Set group lock status
      * POST /api/groups/:groupId/lock
      */
-    api.post('/api/groups/:groupId/lock', async(context, request) => {
+    api.post('/api/groups/:groupId/lock', async (context, request) => {
         const {groupId} = validateRequest(GroupIdParamsSchema, request.params)
         const {locked, reason} = validateRequest(GroupLockRequestSchema, request.data)
 
@@ -40,7 +41,7 @@ export const registerGroupsWebSocket = (wsManager: WebSocketServerManager) => {
      * Set recording status
      * POST /api/groups/:groupId/recording
      */
-    api.post('/api/groups/:groupId/recording', async(context, request) => {
+    api.post('/api/groups/:groupId/recording', async (context, request) => {
         const {groupId} = validateRequest(GroupIdParamsSchema, request.params)
         const {recording, recordingId} = validateRequest(GroupRecordingRequestSchema, request.data)
 
@@ -58,7 +59,7 @@ export const registerGroupsWebSocket = (wsManager: WebSocketServerManager) => {
      * Update group configuration
      * POST /api/groups/:groupId/config
      */
-    api.post('/api/groups/:groupId/config', async(context, request) => {
+    api.post('/api/groups/:groupId/config', async (context, request) => {
         const {groupId} = validateRequest(GroupIdParamsSchema, request.params)
         const {config} = validateRequest(GroupConfigRequestSchema, request.data)
 
@@ -75,7 +76,7 @@ export const registerGroupsWebSocket = (wsManager: WebSocketServerManager) => {
      * Notify group created or deleted
      * POST /api/groups/update
      */
-    api.post('/api/groups/update', async(context, request) => {
+    api.post('/api/groups/update', async (context, request) => {
         const {action, group, groupId} = validateRequest(GroupUpdateRequestSchema, request.data)
 
         // Broadcast group update to all clients
@@ -93,7 +94,7 @@ export const registerGroupsWebSocket = (wsManager: WebSocketServerManager) => {
      * Operator action (kick, mute, permissions)
      * POST /api/groups/:groupId/op-action
      */
-    api.post('/api/groups/:groupId/op-action', async(context, request) => {
+    api.post('/api/groups/:groupId/op-action', async (context, request) => {
         const {groupId} = validateRequest(GroupIdParamsSchema, request.params)
         const {action, actionData, targetUserId} = validateRequest(OperatorActionRequestSchema, request.data)
 

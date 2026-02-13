@@ -1,8 +1,9 @@
 // oxlint-disable-next-line consistent-type-specifier-style
 import {type DeepSignal, deepSignal} from 'deepsignal'
-import {copyObject, mergeDeep} from './utils'
+
 import type {CommonState} from '../types'
 
+import {copyObject, mergeDeep} from './utils'
 
 export class Store<StateType extends Record<string, unknown> = Record<string, unknown>> {
     state: DeepSignal<StateType>
@@ -39,10 +40,7 @@ export class Store<StateType extends Record<string, unknown> = Record<string, un
         Object.assign(
             this.state,
             mergeDeep(
-                mergeDeep(
-                    mergeDeep(persistantState as Record<string, unknown>, restoredState),
-                    hmrState,
-                ),
+                mergeDeep(mergeDeep(persistantState as Record<string, unknown>, restoredState), hmrState),
                 volatileState as Record<string, unknown>,
             ),
         )
@@ -70,10 +68,7 @@ export class Store<StateType extends Record<string, unknown> = Record<string, un
             localStorage.setItem(
                 'store',
                 JSON.stringify(
-                    this.filterKeys(
-                        this.state as Record<string, unknown>,
-                        this.persistantState as Record<string, unknown>,
-                    ),
+                    this.filterKeys(this.state as Record<string, unknown>, this.persistantState as Record<string, unknown>),
                 ),
             )
         }

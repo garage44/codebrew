@@ -1,8 +1,9 @@
-import {Splash} from '@garage44/common/components'
-import {useEffect} from 'preact/hooks'
-import {ComponentChildren} from 'preact'
-import {$s} from '@/app'
 import {$t, api, logger} from '@garage44/common/app'
+import {Splash} from '@garage44/common/components'
+import {ComponentChildren} from 'preact'
+import {useEffect} from 'preact/hooks'
+
+import {$s} from '@/app'
 
 interface GroupsProps {
     children?: ComponentChildren
@@ -15,7 +16,7 @@ interface GroupsProps {
  * don't have to.
  */
 export const Groups = ({children, groupId}: GroupsProps) => {
-    const loadGroup = async(groupId: string) => {
+    const loadGroup = async (groupId: string) => {
         logger.debug(`load group ${groupId}`)
         let group = $s.admin.groups.find((i) => {
             const groupName = typeof i._name === 'string' ? i._name : String(i._name || '')
@@ -27,7 +28,7 @@ export const Groups = ({children, groupId}: GroupsProps) => {
                 $s.admin.group = group as typeof $s.admin.group
             }
         } else {
-            const apiGroup = await api.get(`/api/groups/${encodeURIComponent(groupId)}`) as Record<string, unknown>
+            const apiGroup = (await api.get(`/api/groups/${encodeURIComponent(groupId)}`)) as Record<string, unknown>
             if (group) {
                 // Don't update internal state properties.
                 for (const key of Object.keys(group)) {

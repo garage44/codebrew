@@ -1,11 +1,12 @@
-import {$s} from '@/app'
 import {api, logger, notifier, ws} from '@garage44/common/app'
-import {$t} from '@garage44/expressio'
 import {Login as CommonLogin} from '@garage44/common/components'
 import {mergeDeep} from '@garage44/common/lib/utils'
+import {$t} from '@garage44/expressio'
+
+import {$s} from '@/app'
 
 export const Login = () => {
-    const handleLogin = async(username: string, password: string): Promise<string | null> => {
+    const handleLogin = async (username: string, password: string): Promise<string | null> => {
         try {
             const result = await api.post('/api/login', {
                 password,
@@ -50,9 +51,11 @@ export const Login = () => {
                  */
                 if (config.workspaces && config.workspaces.length > 0) {
                     const firstWorkspace = config.workspaces[0]
-                    const workspaceResult = await ws.get(
-                        `/api/workspaces/${firstWorkspace.workspace_id}`,
-                    ) as {config: unknown; i18n: unknown; id: string}
+                    const workspaceResult = (await ws.get(`/api/workspaces/${firstWorkspace.workspace_id}`)) as {
+                        config: unknown
+                        i18n: unknown
+                        id: string
+                    }
                     $s.workspace = {
                         config: workspaceResult.config,
                         i18n: workspaceResult.i18n,
@@ -60,10 +63,9 @@ export const Login = () => {
                 }
 
                 // Now that workspace is loaded, we can safely access workspace.i18n
-                const loggedInMessage =
-                    $s.workspace?.i18n?.notifications?.logged_in ?
-                            $t($s.workspace.i18n.notifications.logged_in) :
-                        'Login successful'
+                const loggedInMessage = $s.workspace?.i18n?.notifications?.logged_in
+                    ? $t($s.workspace.i18n.notifications.logged_in)
+                    : 'Login successful'
                 notifier.notify({
                     icon: 'check_circle',
                     link: {text: '', url: ''},
@@ -80,14 +82,13 @@ export const Login = () => {
                  */
                 $s.profile.authenticated = true
 
-
                 // Success - no error message
                 return null
             }
 
-            const failedMessage = $s.workspace?.i18n?.notifications?.logged_in_fail ?
-                    $t($s.workspace.i18n.notifications.logged_in_fail) :
-                'Failed to login; please check your credentials'
+            const failedMessage = $s.workspace?.i18n?.notifications?.logged_in_fail
+                ? $t($s.workspace.i18n.notifications.logged_in_fail)
+                : 'Failed to login; please check your credentials'
             notifier.notify({
                 icon: 'warning',
                 link: {text: '', url: ''},
@@ -96,11 +97,11 @@ export const Login = () => {
                 type: 'warning',
             })
             return failedMessage
-        } catch(error) {
+        } catch (error) {
             logger.error('[Login] Login error:', error)
-            const failedMessage = $s.workspace?.i18n?.notifications?.logged_in_fail ?
-                    $t($s.workspace.i18n.notifications.logged_in_fail) :
-                'Failed to login; please check your credentials'
+            const failedMessage = $s.workspace?.i18n?.notifications?.logged_in_fail
+                ? $t($s.workspace.i18n.notifications.logged_in_fail)
+                : 'Failed to login; please check your credentials'
             notifier.notify({
                 icon: 'warning',
                 link: {text: '', url: ''},
@@ -112,12 +113,5 @@ export const Login = () => {
         }
     }
 
-    return (
-<CommonLogin
-    animated={true}
-    logo='/public/img/logo.svg'
-    onLogin={handleLogin}
-    title='Expressio'
-/>
-    )
+    return <CommonLogin animated={true} logo='/public/img/logo.svg' onLogin={handleLogin} title='Expressio' />
 }

@@ -24,12 +24,12 @@ function flattenEnv(obj: Record<string, unknown>, parent?: string, res: Record<s
 }
 
 function formatBytes(size: number): string {
-    if (size > (1024 ** 3)) {
-        const gb = Math.round((size / (1024 ** 3)) * 10) / 10
+    if (size > 1024 ** 3) {
+        const gb = Math.round((size / 1024 ** 3) * 10) / 10
         return `${gb}GiB`
     }
-    if (size > (1024 ** 2)) {
-        const mb = Math.round((size / (1024 ** 2)) * 10) / 10
+    if (size > 1024 ** 2) {
+        const mb = Math.round((size / 1024 ** 2) * 10) / 10
         return `${mb}MiB`
     }
     if (size > 1024) {
@@ -51,9 +51,9 @@ function hash(str: string): string {
      * FNV-1a hash algorithm constants
      * First half
      */
-    let h1 = 0xDE_AD_BE_EF
+    let h1 = 0xde_ad_be_ef
     // Second half
-    let h2 = 0x41_C6_CE_57
+    let h2 = 0x41_c6_ce_57
 
     for (let index = 0; index < str.length; index++) {
         const char = str.codePointAt(index)
@@ -109,11 +109,7 @@ function keyMod<T extends Record<string, unknown>>(
  * @returns {any} - The value at the end of the path, or the modified object if segments were created.
  * @throws {Error} If `refPath` is not an array.
  */
-function keyPath<T extends Record<string, unknown>>(
-    obj: T,
-    refPath: string[],
-    create = false,
-): T | Record<string, unknown> {
+function keyPath<T extends Record<string, unknown>>(obj: T, refPath: string[], create = false): T | Record<string, unknown> {
     if (!Array.isArray(refPath)) {
         throw new TypeError('refPath must be an array')
     }
@@ -129,7 +125,7 @@ function keyPath<T extends Record<string, unknown>>(
         if (typeof _obj === 'object' && _obj !== null && key in (_obj as Record<string, unknown>)) {
             _obj = (_obj as Record<string, unknown>)[key]
         } else if (create && typeof _obj === 'object' && _obj !== null) {
-            (_obj as Record<string, unknown>)[key] = {}
+            ;(_obj as Record<string, unknown>)[key] = {}
             _obj = (_obj as Record<string, unknown>)[key]
         } else {
             break

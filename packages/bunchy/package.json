@@ -29,7 +29,7 @@
     "access": "public"
   },
   "devDependencies": {
-    "eslint": "catalog:dev",
+    "oxfmt": "catalog:dev",
     "oxlint": "catalog:dev"
   },
   "scripts": {

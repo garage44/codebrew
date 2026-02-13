@@ -1,7 +1,7 @@
-import {useEffect, useState} from 'preact/hooks'
-import {Chart, Icon} from '@garage44/common/components'
 import {api, logger} from '@garage44/common/app'
 import {$t} from '@garage44/common/app'
+import {Chart, Icon} from '@garage44/common/components'
+import {useEffect, useState} from 'preact/hooks'
 
 interface StatsProps {
     groupId?: string
@@ -45,7 +45,7 @@ export default function Stats({groupId}: StatsProps) {
         return false
     }
 
-    const loadStats = async() => {
+    const loadStats = async () => {
         if (!groupId) return
 
         let initClient = false
@@ -157,7 +157,8 @@ export default function Stats({groupId}: StatsProps) {
 
     return (
         <section class='c-admin-groups-stats tab-content active'>
-            {clientsArray.map((client) => <div class='client' key={client.id}>
+            {clientsArray.map((client) => (
+                <div class='client' key={client.id}>
                     <div
                         class={`client-header ${client.collapsed ? 'collapsed' : ''}`}
                         onClick={() => toggleCollapse(client.id)}
@@ -165,19 +166,23 @@ export default function Stats({groupId}: StatsProps) {
                         role='button'
                         tabIndex={0}
                     >
-                        <Icon className='icon icon-d' name='stats' />
-{' '}
-{client.id}
+                        <Icon className='icon icon-d' name='stats' /> {client.id}
                     </div>
-                    {!client.collapsed && client.up.map((stream, streamIdx) => <div class='stream' key={streamIdx}>
-                            {stream.tracks.map((track, trackIdx) => <div class='track' key={trackIdx}>
-                                    {statProps.bitrate && <Chart data={track.bitrate} name='bitrate' />}
-                                    {statProps.jitter && <Chart data={track.jitter} name='jitter' />}
-                                    {statProps.loss && <Chart data={track.loss} name='loss' />}
-                                    {statProps.maxBitrate && <Chart data={track.maxBitrate} name='maxBitrate' />}
-                            </div>)}
-                    </div>)}
-            </div>)}
+                    {!client.collapsed &&
+                        client.up.map((stream, streamIdx) => (
+                            <div class='stream' key={streamIdx}>
+                                {stream.tracks.map((track, trackIdx) => (
+                                    <div class='track' key={trackIdx}>
+                                        {statProps.bitrate && <Chart data={track.bitrate} name='bitrate' />}
+                                        {statProps.jitter && <Chart data={track.jitter} name='jitter' />}
+                                        {statProps.loss && <Chart data={track.loss} name='loss' />}
+                                        {statProps.maxBitrate && <Chart data={track.maxBitrate} name='maxBitrate' />}
+                                    </div>
+                                ))}
+                            </div>
+                        ))}
+                </div>
+            ))}
         </section>
     )
 }

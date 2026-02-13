@@ -1,5 +1,6 @@
-import {UserManager} from './user-manager'
 import path from 'node:path'
+
+import {UserManager} from './user-manager'
 
 // Configuration interface for package-specific middleware behavior
 export interface MiddlewareConfig {
@@ -59,7 +60,7 @@ const sessionMiddleware = (request: Request, sessionCookieName: string) => {
  * First new session gets admin, second gets alice, third gets bob, etc.
  * Resets on server restart (in-memory counter).
  */
-const populateNoSecuritySession = async(session: unknown, sessionId: string, userManager: UserManager): Promise<void> => {
+const populateNoSecuritySession = async (session: unknown, sessionId: string, userManager: UserManager): Promise<void> => {
     const noSecurityValue = process.env.GARAGE44_NO_SECURITY
     if (!noSecurityValue) return
 
@@ -67,7 +68,7 @@ const populateNoSecuritySession = async(session: unknown, sessionId: string, use
     if (noSecurityValue !== '1' && noSecurityValue.toLowerCase() !== 'true') {
         const user = await userManager.getUserByUsername(noSecurityValue)
         if (user) {
-            (session as {userid?: string}).userid = user.username
+            ;(session as {userid?: string}).userid = user.username
             return
         }
     }
@@ -98,14 +99,17 @@ const populateNoSecuritySession = async(session: unknown, sessionId: string, use
 
     const assignedUser = sortedUsers[userIndex]
     if (assignedUser) {
-        (session as {userid?: string}).userid = assignedUser.username
+        ;(session as {userid?: string}).userid = assignedUser.username
     }
 }
 
 // Auth middleware for Bun.serve
-const authMiddleware = async(
-    request: Request, session: unknown, sessionId: string,
-    userManager: UserManager, endpointAllowList: string[] = [],
+const authMiddleware = async (
+    request: Request,
+    session: unknown,
+    sessionId: string,
+    userManager: UserManager,
+    endpointAllowList: string[] = [],
 ) => {
     const url = new URL(request.url)
 
@@ -186,11 +190,10 @@ const handleWebSocket = (_ws: unknown, _request: Request) => {
      */
 }
 
-
 // Create unified middleware with package-specific configuration
 export const createMiddleware = (config: MiddlewareConfig, userManager: UserManager) => {
     return {
-        handleRequest: async(
+        handleRequest: async (
             request: Request,
             server?: unknown,
             _logger?: unknown,
@@ -236,7 +239,7 @@ export const createMiddleware = (config: MiddlewareConfig, userManager: UserMana
             // Handle session and auth
             const {session, sessionId} = sessionMiddleware(request, config.sessionCookieName)
 
-            if (!await authMiddleware(request, session, sessionId, userManager, config.endpointAllowList)) {
+            if (!(await authMiddleware(request, session, sessionId, userManager, config.endpointAllowList))) {
                 return new Response('Unauthorized', {status: 401})
             }
 
@@ -245,15 +248,11 @@ export const createMiddleware = (config: MiddlewareConfig, userManager: UserMana
         },
         handleWebSocket,
         sessionMiddleware: (request: Request) => sessionMiddleware(request, config.sessionCookieName),
-        setSessionCookie: (
-            response: Response,
-            sessionId: string,
-            request?: Request,
-        ) => setSessionCookie(response, sessionId, config.sessionCookieName, request),
+        setSessionCookie: (response: Response, sessionId: string, request?: Request) =>
+            setSessionCookie(response, sessionId, config.sessionCookieName, request),
         userManager,
     }
 }
-
 
 // Create unified final request handler with common patterns
 export const createFinalHandler = (config: {
@@ -284,15 +283,18 @@ export const createFinalHandler = (config: {
     sessionCookieName: string
     userManager: UserManager
 }) => {
-    const unifiedMiddleware = createMiddleware({
-        configPath: config.configPath,
-        customWebSocketHandlers: config.customWebSocketHandlers,
-        endpointAllowList: config.endpointAllowList,
-        packageName: config.packageName,
-        sessionCookieName: config.sessionCookieName,
-    }, config.userManager)
+    const unifiedMiddleware = createMiddleware(
+        {
+            configPath: config.configPath,
+            customWebSocketHandlers: config.customWebSocketHandlers,
+            endpointAllowList: config.endpointAllowList,
+            packageName: config.packageName,
+            sessionCookieName: config.sessionCookieName,
+        },
+        config.userManager,
+    )
 
-    return async(request: Request, server?: unknown): Promise<Response | undefined> => {
+    return async (request: Request, server?: unknown): Promise<Response | undefined> => {
         const url = new URL(request.url)
 
         config.devContext.addHttp({method: request.method, ts: Date.now(), url: url.pathname})
@@ -310,7 +312,7 @@ export const createFinalHandler = (config: {
             if (debugUser) {
                 const user = await config.userManager.getUserByUsername(debugUser)
                 if (user) {
-                    (session as {userid?: string}).userid = user.username
+                    ;(session as {userid?: string}).userid = user.username
                     sessions.set(sessionId, session)
                     config.logger.debug(`[Middleware] debug_user override: session ${sessionId} -> ${user.username}`)
                 }
@@ -358,9 +360,7 @@ export const createFinalHandler = (config: {
             if (process.env.GARAGE44_NO_SECURITY) {
                 // Use the user from the session (already set by cycling or debug_user)
                 const sessionUserId = (finalSession as {userid?: string})?.userid
-                let targetUser = sessionUserId ?
-                        await config.userManager.getUserByUsername(sessionUserId) :
-                    null
+                let targetUser = sessionUserId ? await config.userManager.getUserByUsername(sessionUserId) : null
 
                 // Fallback to first admin user if session has no user
                 if (!targetUser) {
@@ -395,9 +395,9 @@ export const createFinalHandler = (config: {
             if ((finalSession as {userid?: string})?.userid) {
                 const user = await config.userManager.getUserByUsername((finalSession as {userid: string}).userid)
                 if (user) {
-                    const baseContext = user.permissions?.admin ?
-                            await Promise.resolve(config.contextFunctions.adminContext()) :
-                            await Promise.resolve(config.contextFunctions.userContext())
+                    const baseContext = user.permissions?.admin
+                        ? await Promise.resolve(config.contextFunctions.adminContext())
+                        : await Promise.resolve(config.contextFunctions.userContext())
 
                     /*
                      * Include full user profile in context
@@ -446,16 +446,19 @@ export const createFinalHandler = (config: {
             }
 
             // Return user data in the format expected by the frontend
-            const userMeResponse = new Response(JSON.stringify({
-                id: user.id,
-                profile: {
-                    avatar: user.profile.avatar || 'placeholder-1.png',
-                    displayName: user.profile.displayName || user.username,
+            const userMeResponse = new Response(
+                JSON.stringify({
+                    id: user.id,
+                    profile: {
+                        avatar: user.profile.avatar || 'placeholder-1.png',
+                        displayName: user.profile.displayName || user.username,
+                    },
+                    username: user.username,
+                }),
+                {
+                    headers: {'Content-Type': 'application/json'},
                 },
-                username: user.username,
-            }), {
-                headers: {'Content-Type': 'application/json'},
-            })
+            )
             return unifiedMiddleware.setSessionCookie(userMeResponse, finalSessionId, request)
         }
 
@@ -472,7 +475,7 @@ export const createFinalHandler = (config: {
                  * Use finalSession and finalSessionId to ensure we're modifying the session that will be used
                  * Set the user in session
                  */
-                (finalSession as {userid: string}).userid = user.username
+                ;(finalSession as {userid: string}).userid = user.username
 
                 /*
                  * Explicitly save the session to ensure it persists
@@ -481,9 +484,9 @@ export const createFinalHandler = (config: {
                  */
                 sessions.set(finalSessionId, finalSession)
 
-                const baseContext = user.permissions?.admin ?
-                        await Promise.resolve(config.contextFunctions.adminContext()) :
-                        await Promise.resolve(config.contextFunctions.userContext())
+                const baseContext = user.permissions?.admin
+                    ? await Promise.resolve(config.contextFunctions.adminContext())
+                    : await Promise.resolve(config.contextFunctions.userContext())
 
                 /*
                  * Include full user profile in context
@@ -517,7 +520,7 @@ export const createFinalHandler = (config: {
         if (url.pathname === '/api/logout' && request.method === 'GET') {
             // Clear the session - use finalSession to ensure we're modifying the correct session
             if (finalSession) {
-                (finalSession as {userid: string | null}).userid = null
+                ;(finalSession as {userid: string | null}).userid = null
                 sessions.set(finalSessionId, finalSession)
             }
 
@@ -549,7 +552,7 @@ export const createFinalHandler = (config: {
 
                     return new Response(file)
                 }
-            } catch(error) {
+            } catch (error) {
                 // File doesn't exist, continue to next handler
                 config.logger.debug(`[HTTP] static file not found: ${filePath} (${error})`)
             }
@@ -574,7 +577,7 @@ export const createFinalHandler = (config: {
                 config.devContext.addHttp({method: request.method, status: 200, ts: Date.now(), url: url.pathname})
                 return unifiedMiddleware.setSessionCookie(response, sessionId, request)
             }
-        } catch(error) {
+        } catch (error) {
             // index.html doesn't exist
             config.logger.debug(`[HTTP] SPA fallback index.html not found: ${error}`)
         }
@@ -587,6 +590,4 @@ export const createFinalHandler = (config: {
     }
 }
 
-export {
-    handleWebSocket,
-}
+export {handleWebSocket}

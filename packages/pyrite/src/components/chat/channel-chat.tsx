@@ -1,12 +1,14 @@
-import ChatMessage from './message'
+import {logger} from '@garage44/common/app'
+import {Icon} from '@garage44/common/components'
+import {effect} from '@preact/signals'
 import classnames from 'classnames'
 import {useEffect, useRef, useCallback} from 'preact/hooks'
-import {effect} from '@preact/signals'
-import {Icon} from '@garage44/common/components'
-import Emoji from './emoji'
-import {logger} from '@garage44/common/app'
+
 import {$s} from '@/app'
 import {sendMessage as sendChatMessage, sendTypingIndicator} from '@/models/chat'
+
+import Emoji from './emoji'
+import ChatMessage from './message'
 
 const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -70,7 +72,7 @@ export default function ChannelChat({channel, channelSlug}: ChannelChatProps) {
         }
     }
 
-    const sendMessage = async(e: KeyboardEvent | MouseEvent) => {
+    const sendMessage = async (e: KeyboardEvent | MouseEvent) => {
         if (e instanceof KeyboardEvent && !(e.key === 'Enter' && !e.ctrlKey && !e.shiftKey && !e.metaKey)) {
             // ctrl/shift/meta +enter is next line.
             $s.chat.message += '\r\n'
@@ -193,140 +195,137 @@ export default function ChannelChat({channel, channelSlug}: ChannelChatProps) {
     }
 
     return (
-<div class={classnames('c-channel-chat', {[$s.env.layout]: true})} ref={viewRef}>
-        {/* Channel Header */}
-        <div class='channel-header'>
-            <Icon className='icon icon-s' name='chat' />
-            <h1>{currentChannel.name}</h1>
-            {currentChannel?.description &&
-                <p class='channel-description'>{currentChannel.description}</p>}
-        </div>
+        <div class={classnames('c-channel-chat', {[$s.env.layout]: true})} ref={viewRef}>
+            {/* Channel Header */}
+            <div class='channel-header'>
+                <Icon className='icon icon-s' name='chat' />
+                <h1>{currentChannel.name}</h1>
+                {currentChannel?.description && <p class='channel-description'>{currentChannel.description}</p>}
+            </div>
 
-        {/* Emoji Picker */}
-        {$s.chat.emoji.active && <Emoji onselect={addEmoji} />}
+            {/* Emoji Picker */}
+            {$s.chat.emoji.active && <Emoji onselect={addEmoji} />}
 
-        {/* Messages */}
-        <div class='messages scroller' ref={messagesRef}>
-            {(() => {
-                // Access messages directly in render for DeepSignal reactivity
-                const channelData = $s.chat.channels[channelKey]
-                const msgs = channelData?.messages || []
-                const sorted = msgs.length > 0 ?
-                        [...msgs].toSorted((a, b) => {
-                            const timeA = (a as {time?: number}).time ?? 0
-                            const timeB = (b as {time?: number}).time ?? 0
-                            return timeA - timeB
-                        }) :
-                        []
+            {/* Messages */}
+            <div class='messages scroller' ref={messagesRef}>
+                {(() => {
+                    // Access messages directly in render for DeepSignal reactivity
+                    const channelData = $s.chat.channels[channelKey]
+                    const msgs = channelData?.messages || []
+                    const sorted =
+                        msgs.length > 0
+                            ? [...msgs].toSorted((a, b) => {
+                                  const timeA = (a as {time?: number}).time ?? 0
+                                  const timeB = (b as {time?: number}).time ?? 0
+                                  return timeA - timeB
+                              })
+                            : []
 
-                // Get typing indicators for this channel
-                const typingUsers = channelData?.typing ? Object.values(channelData.typing) : []
+                    // Get typing indicators for this channel
+                    const typingUsers = channelData?.typing ? Object.values(channelData.typing) : []
 
-                /*
-                 * Filter out current user's typing indicator and stale indicators (older than 5 seconds)
-                 * Also enrich with username from global users if missing
-                 */
-                const otherTypingUsers = typingUsers
-                    .map((t: {timestamp: number; userId: string | number; username: string}) => {
-                        // Use username from global users if not provided
-                        if (!t.username && $s.chat.users?.[String(t.userId)]) {
-                            t.username = $s.chat.users[String(t.userId)].username
-                        }
-                        return t
-                    })
-                    .filter((t: {timestamp: number; userId: string | number; username: string}) => {
-                        const isStale = Date.now() - t.timestamp > 5000
-                        const isCurrentUser = $s.profile.id && String(t.userId) === String($s.profile.id)
-                        return !isStale && !isCurrentUser
-                    })
+                    /*
+                     * Filter out current user's typing indicator and stale indicators (older than 5 seconds)
+                     * Also enrich with username from global users if missing
+                     */
+                    const otherTypingUsers = typingUsers
+                        .map((t: {timestamp: number; userId: string | number; username: string}) => {
+                            // Use username from global users if not provided
+                            if (!t.username && $s.chat.users?.[String(t.userId)]) {
+                                t.username = $s.chat.users[String(t.userId)].username
+                            }
+                            return t
+                        })
+                        .filter((t: {timestamp: number; userId: string | number; username: string}) => {
+                            const isStale = Date.now() - t.timestamp > 5000
+                            const isCurrentUser = $s.profile.id && String(t.userId) === String($s.profile.id)
+                            return !isStale && !isCurrentUser
+                        })
 
-                if (sorted.length === 0 && otherTypingUsers.length === 0) {
+                    if (sorted.length === 0 && otherTypingUsers.length === 0) {
+                        return (
+                            <div class='no-messages'>
+                                <Icon className='icon icon-l' name='chat' />
+                                <p>No messages yet. Start the conversation!</p>
+                            </div>
+                        )
+                    }
+
                     return (
-                        <div class='no-messages'>
-                            <Icon className='icon icon-l' name='chat' />
-                            <p>No messages yet. Start the conversation!</p>
-                        </div>
+                        <>
+                            {sorted.map((message, index) => {
+                                const msg = message as {
+                                    kind: string
+                                    message: string
+                                    nick?: string
+                                    time: number
+                                    user_id?: string
+                                }
+                                return <ChatMessage channelSlug={channelSlug} key={index} message={msg} />
+                            })}
+                            {otherTypingUsers.length > 0 && (
+                                <div class='typing-indicator'>
+                                    {otherTypingUsers.length === 1 ? (
+                                        <span class='typing-text'>
+                                            <strong>{(otherTypingUsers[0] as {username: string}).username}</strong> is typing...
+                                        </span>
+                                    ) : (
+                                        <span class='typing-text'>{otherTypingUsers.length} people are typing...</span>
+                                    )}
+                                </div>
+                            )}
+                        </>
                     )
-                }
+                })()}
+            </div>
 
-                return (
-                    <>
-                        {sorted.map((message, index) => {
-                            const msg = message as {kind: string; message: string; nick?: string; time: number; user_id?: string}
-                            return <ChatMessage channelSlug={channelSlug} key={index} message={msg} />
+            {/* Message Input */}
+            <div class='send'>
+                <div class='send-input'>
+                    <textarea
+                        autofocus={true}
+                        onInput={(e) => {
+                            $s.chat.message = (e.target as HTMLTextAreaElement).value
+                            // Send typing indicator (debounced)
+                            const now = Date.now()
+                            if (now - lastTypingSentRef.current > 1000) {
+                                // Send typing indicator every 1 second max
+                                sendTypingIndicator(true, channelSlug)
+                                lastTypingSentRef.current = now
+                            }
+
+                            // Clear existing timeout
+                            if (typingTimeoutRef.current) {
+                                clearTimeout(typingTimeoutRef.current)
+                            }
+
+                            // Set timeout to stop typing indicator after 3 seconds of inactivity
+                            typingTimeoutRef.current = setTimeout(() => {
+                                sendTypingIndicator(false, channelSlug)
+                            }, 3000)
+                        }}
+                        onKeyDown={handleKeyDown}
+                        onKeyUp={handleKeyUp}
+                        placeholder={`Message #${currentChannel.name}`}
+                        ref={chatInputRef}
+                        value={$s.chat.message}
+                    />
+                </div>
+
+                <div class='chat-actions'>
+                    <button
+                        class={classnames('btn btn-menu', {
+                            active: $s.chat.emoji.active,
                         })}
-                        {otherTypingUsers.length > 0 &&
-                            <div class='typing-indicator'>
-                                {otherTypingUsers.length === 1 ?
-                                    <span class='typing-text'>
-                                        <strong>{(otherTypingUsers[0] as {username: string}).username}</strong>
-{' '}
-is typing...
-                                    </span> :
-                                    <span class='typing-text'>
-                                        {otherTypingUsers.length}
-{' '}
-people are typing...
-                                    </span>}
-                            </div>}
-                    </>
-                )
-            })()}
-        </div>
-
-        {/* Message Input */}
-        <div class='send'>
-            <div class='send-input'>
-                <textarea
-                    autofocus={true}
-                    onInput={(e) => {
-                        $s.chat.message = (e.target as HTMLTextAreaElement).value
-                        // Send typing indicator (debounced)
-                        const now = Date.now()
-                        if (now - lastTypingSentRef.current > 1000) {
-                        // Send typing indicator every 1 second max
-                            sendTypingIndicator(true, channelSlug)
-                            lastTypingSentRef.current = now
-                        }
-
-                        // Clear existing timeout
-                        if (typingTimeoutRef.current) {
-                            clearTimeout(typingTimeoutRef.current)
-                        }
-
-                        // Set timeout to stop typing indicator after 3 seconds of inactivity
-                        typingTimeoutRef.current = setTimeout(() => {
-                            sendTypingIndicator(false, channelSlug)
-                        }, 3000)
-                    }}
-                    onKeyDown={handleKeyDown}
-                    onKeyUp={handleKeyUp}
-                    placeholder={`Message #${currentChannel.name}`}
-                    ref={chatInputRef}
-                    value={$s.chat.message}
-                />
-            </div>
-
-
-            <div class='chat-actions'>
-                <button
-                    class={classnames('btn btn-menu', {
-                        active: $s.chat.emoji.active,
-                    })}
-                    onClick={() => $s.chat.emoji.active = !$s.chat.emoji.active}
-                >
-                    😼
-                </button>
-                <button
-                    class='btn btn-menu'
-                    disabled={formattedMessage === ''}
-                    onClick={sendMessage}
-                >
-                    <Icon className='icon icon-s' name='send' />
-                </button>
+                        onClick={() => ($s.chat.emoji.active = !$s.chat.emoji.active)}
+                    >
+                        😼
+                    </button>
+                    <button class='btn btn-menu' disabled={formattedMessage === ''} onClick={sendMessage}>
+                        <Icon className='icon icon-s' name='send' />
+                    </button>
+                </div>
             </div>
         </div>
-
-</div>
     )
 }

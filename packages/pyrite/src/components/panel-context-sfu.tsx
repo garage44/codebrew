@@ -1,11 +1,13 @@
-import {VideoStrip} from './video/video-strip'
-import {VideoCanvas} from './video/video-canvas'
-import {ControlsMain} from './controls/controls-main'
-import {PanelContext} from '@garage44/common/components'
-import {$s} from '@/app'
 import {store} from '@garage44/common/app'
-import {DeviceSettings} from './device-settings'
+import {PanelContext} from '@garage44/common/components'
 import {useEffect, useMemo, useRef} from 'preact/hooks'
+
+import {$s} from '@/app'
+
+import {ControlsMain} from './controls/controls-main'
+import {DeviceSettings} from './device-settings'
+import {VideoCanvas} from './video/video-canvas'
+import {VideoStrip} from './video/video-strip'
 
 export function PanelContextSfu() {
     const canvasRef = useRef<HTMLDivElement>(null)
@@ -20,7 +22,7 @@ export function PanelContextSfu() {
     const showCanvasLayout = useMemo(() => !$s.panels.context.collapsed && currentWidth > 300, [currentWidth])
 
     // Fullscreen handler
-    const handleFullscreen = async() => {
+    const handleFullscreen = async () => {
         if (!canvasRef.current) return
 
         // Only allow fullscreen when canvas layout is visible
@@ -39,7 +41,7 @@ export function PanelContextSfu() {
                 $s.panels.context.expanded = true
             }
             store.save()
-        } catch(error) {
+        } catch (error) {
             console.error('Fullscreen error:', error)
         }
     }
@@ -133,14 +135,16 @@ export function PanelContextSfu() {
                 }}
                 onFullscreen={handleFullscreen}
             />
-            {$s.env.url.includes('/devices') ?
-                <DeviceSettings key='devices' /> :
+            {$s.env.url.includes('/devices') ? (
+                <DeviceSettings key='devices' />
+            ) : (
                 <>
                     <VideoStrip className={showCanvasLayout ? 'hidden' : ''} key='video-strip' />
                     <div class='canvas-fullscreen-container' ref={canvasRef}>
                         <VideoCanvas className={showCanvasLayout ? '' : 'hidden'} key='video-canvas' />
                     </div>
-                </>}
+                </>
+            )}
         </PanelContext>
     )
 }

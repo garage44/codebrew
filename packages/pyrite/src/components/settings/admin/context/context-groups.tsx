@@ -1,8 +1,9 @@
-import classnames from 'classnames'
+import {$t, api, notifier} from '@garage44/common/app'
 import {Icon} from '@garage44/common/components'
+import classnames from 'classnames'
 import {Link, route} from 'preact-router'
 import {useMemo, useEffect} from 'preact/hooks'
-import {$t, api, notifier} from '@garage44/common/app'
+
 import {$s} from '@/app'
 import {saveGroup} from '@/models/group'
 
@@ -17,8 +18,7 @@ export default function ContextGroups({groupId, path}: ContextGroupsProps) {
     }, [$s.admin.groups])
 
     const orderedGroups = useMemo(() => {
-        const groups = $s.admin.groups
-            .filter((g) => g.public).concat($s.admin.groups.filter((g) => !g.public))
+        const groups = $s.admin.groups.filter((g) => g.public).concat($s.admin.groups.filter((g) => !g.public))
         return groups.sort((a, b) => {
             if (a._name < b._name) return -1
             if (a._name > b._name) return 1
@@ -26,22 +26,26 @@ export default function ContextGroups({groupId, path}: ContextGroupsProps) {
         })
     }, [$s.admin.groups])
 
-    const addGroup = async() => {
+    const addGroup = async () => {
         const group = await api.get('/api/groups/template')
         $s.admin.groups.push(group)
         toggleSelection(group._name)
     }
 
-    const deleteGroups = async() => {
+    const deleteGroups = async () => {
         notifier.notify({
             level: 'info',
-            message: deletionGroups.length === 1 ?
-                    $t('deleting one group') :
-                    $t('deleting {count} groups', {count: deletionGroups.length}),
+            message:
+                deletionGroups.length === 1
+                    ? $t('deleting one group')
+                    : $t('deleting {count} groups', {count: deletionGroups.length}),
         })
         const deleteRequests = []
         for (const group of deletionGroups) {
-            $s.admin.groups.splice($s.admin.groups.findIndex((i) => i._name === group._name), 1)
+            $s.admin.groups.splice(
+                $s.admin.groups.findIndex((i) => i._name === group._name),
+                1,
+            )
             if (!group._unsaved) {
                 deleteRequests.push(fetch(`/api/groups/${group._name}/delete`))
             }
@@ -63,7 +67,7 @@ export default function ContextGroups({groupId, path}: ContextGroupsProps) {
         }
     }
 
-    const saveGroupAction = async() => {
+    const saveGroupAction = async () => {
         if (!$s.admin.group) return
         const groupId = $s.admin.group._name
         const group = await saveGroup(groupId, $s.admin.group)
@@ -87,7 +91,7 @@ export default function ContextGroups({groupId, path}: ContextGroupsProps) {
         }
     }
 
-    const toggleMarkDelete = async() => {
+    const toggleMarkDelete = async () => {
         if (!$s.admin.group) return
         $s.admin.group._delete = !$s.admin.group._delete
         for (let group of $s.admin.groups) {
@@ -125,23 +129,13 @@ export default function ContextGroups({groupId, path}: ContextGroupsProps) {
         <section class='c-admin-groups-context presence'>
             <div class='actions'>
                 <button class='btn' disabled={!$s.admin.group} onClick={toggleMarkDelete}>
-                    <Icon
-                        className='item-icon icon-d'
-                        name='minus'
-                    />
+                    <Icon className='item-icon icon-d' name='minus' />
                 </button>
                 <button class='btn'>
-                    <Icon
-                        className='item-icon icon-d'
-                        name='plus'
-                        onClick={addGroup}
-                    />
+                    <Icon className='item-icon icon-d' name='plus' onClick={addGroup} />
                 </button>
                 <button class='btn' disabled={!deletionGroups.length} onClick={deleteGroups}>
-                    <Icon
-                        className='icon-d'
-                        name='trash'
-                    />
+                    <Icon className='icon-d' name='trash' />
                 </button>
                 <button class='btn' disabled={!$s.admin.group} onClick={saveGroupAction}>
                     <Icon className='icon-d' name='save' />
@@ -154,13 +148,14 @@ export default function ContextGroups({groupId, path}: ContextGroupsProps) {
                 const isLocked = typeof group.locked === 'boolean' ? group.locked : Boolean(group.locked)
                 const isDelete = typeof group._delete === 'boolean' ? group._delete : Boolean(group._delete)
                 const isUnsaved = typeof group._unsaved === 'boolean' ? group._unsaved : Boolean(group._unsaved)
-                return <Link
-                    {...({
-                        class: classnames('group item', {active: groupId === groupName}),
-                        href: groupLink(groupName),
-                    } as Record<string, unknown>)}
-                    key={groupName}
-                >
+                return (
+                    <Link
+                        {...({
+                            class: classnames('group item', {active: groupId === groupName}),
+                            href: groupLink(groupName),
+                        } as Record<string, unknown>)}
+                        key={groupName}
+                    >
                         <Icon
                             className={classnames('item-icon icon-d', {
                                 delete: isDelete,
@@ -170,30 +165,22 @@ export default function ContextGroups({groupId, path}: ContextGroupsProps) {
                         />
 
                         <div class='flex-column'>
-                            <div class='name'>
-                                {groupName}
-                            </div>
+                            <div class='name'>{groupName}</div>
                             <div class='item-properties'>
-                                <Icon
-                                    className='icon-xs'
-                                    name={isPublic ? 'Eye' : 'EyeClosed'}
-                                />
-                                <Icon
-                                    className='icon-xs'
-                                    name={isLocked ? 'Lock' : 'Unlock'}
-                                />
+                                <Icon className='icon-xs' name={isPublic ? 'Eye' : 'EyeClosed'} />
+                                <Icon className='icon-xs' name={isLocked ? 'Lock' : 'Unlock'} />
                             </div>
                         </div>
-                </Link>
+                    </Link>
+                )
             })}
 
-            {!orderedGroups.length &&
+            {!orderedGroups.length && (
                 <div class='group item no-presence'>
                     <Icon className='item-icon icon-d' name='group' />
-                    <div class='name'>
-                        {$t('group.no_groups')}
-                    </div>
-                </div>}
+                    <div class='name'>{$t('group.no_groups')}</div>
+                </div>
+            )}
         </section>
     )
 }

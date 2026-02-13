@@ -1,22 +1,24 @@
-import {$s} from '@/app'
 import {api, ws, notifier, logger, store} from '@garage44/common/app'
-import {Router, Route, route} from 'preact-router'
-import {mergeDeep} from '@garage44/common/lib/utils'
 import {Login, Notifications, AppLayout, PanelMenu, UserMenu, IconLogo} from '@garage44/common/components'
-import {useEffect} from 'preact/hooks'
-import {Link} from 'preact-router'
-import {emojiLookup} from '@/models/chat'
+import {mergeDeep} from '@garage44/common/lib/utils'
 import classnames from 'classnames'
-import ChannelsContext from '../context/context-channels'
+import {Router, Route, route} from 'preact-router'
+import {Link} from 'preact-router'
+import {useEffect} from 'preact/hooks'
+
+import {$s} from '@/app'
+import {emojiLookup} from '@/models/chat'
+
 import {Channel} from '../channel/channel'
+import ChannelsContext from '../context/context-channels'
+import {PanelContextSfu} from '../panel-context-sfu'
+import ChannelsFormWrapper from '../settings/channels-form-wrapper'
 import Settings from '../settings/settings'
 import UsersFormWrapper from '../settings/users-form-wrapper'
-import ChannelsFormWrapper from '../settings/channels-form-wrapper'
-import {PanelContextSfu} from '../panel-context-sfu'
 
 export const Main = () => {
     useEffect(() => {
-        (async() => {
+        ;(async () => {
             // Store previous user ID to detect changes (for debug_user switching)
             const previousUserId = $s.profile.id
 
@@ -145,23 +147,23 @@ export const Main = () => {
                         if (!$s.chat.users) {
                             $s.chat.users = {}
                         }
-                        ($s.chat.users as Record<string, {avatar: string; username: string}>)[userData.id] = {
+                        ;($s.chat.users as Record<string, {avatar: string; username: string}>)[userData.id] = {
                             avatar: $s.profile.avatar,
                             username: $s.profile.username,
                         }
                         logger.info(
                             `[Main] Loaded user: ${userData.id}, avatar: ${$s.profile.avatar}, ` +
-                            `username preserved: ${!!existingUsername}, password preserved: ${!!existingPassword}`,
+                                `username preserved: ${!!existingUsername}, password preserved: ${!!existingPassword}`,
                         )
                     }
-                } catch(error) {
+                } catch (error) {
                     logger.warn('[Main] Failed to load current user:', error)
                 }
             }
         })()
     }, [])
 
-    const handleLogin = async(username: string, password: string): Promise<string | null> => {
+    const handleLogin = async (username: string, password: string): Promise<string | null> => {
         try {
             const context = await api.post('/api/login', {
                 password,
@@ -213,7 +215,7 @@ export const Main = () => {
                             route(`/channels/${defaultChannelResponse.channel.slug}`)
                         }, 100)
                     }
-                } catch(error) {
+                } catch (error) {
                     // If getting default channel fails, just continue without redirecting
                     logger.debug('[Login] Could not get default channel:', error)
                 }
@@ -225,13 +227,13 @@ export const Main = () => {
                 return 'Invalid credentials'
             }
             return 'No permission'
-        } catch(error) {
+        } catch (error) {
             logger.error('[Login] Login error:', error)
             return 'Login failed. Please try again.'
         }
     }
 
-    const handleLogout = async() => {
+    const handleLogout = async () => {
         const context = await api.get('/api/logout')
         mergeDeep($s.admin, context)
         // Clear stored credentials
@@ -251,21 +253,16 @@ export const Main = () => {
     }
 
     if (!$s.admin.authenticated) {
-        return <Login
-            animated={true}
-            LogoIcon={IconLogo}
-            onLogin={handleLogin}
-            title='Pyrite'
-        />
+        return <Login animated={true} LogoIcon={IconLogo} onLogin={handleLogin} title='Pyrite' />
     }
 
     return (
         <div class={classnames('c-conference-app app', {'c-conference-mode': $s.panels.conferenceMode})}>
             <AppLayout
                 context={$s.chat.activeChannelSlug ? <PanelContextSfu /> : null}
-                menu={(
+                menu={
                     <PanelMenu
-                        actions={(
+                        actions={
                             <UserMenu
                                 collapsed={$s.panels.menu.collapsed}
                                 onLogout={handleLogout}
@@ -278,7 +275,7 @@ export const Main = () => {
                                     },
                                 }}
                             />
-                          )}
+                        }
                         collapsed={$s.panels.menu.collapsed}
                         LinkComponent={Link}
                         logoCommitHash={process.env.APP_COMMIT_HASH || ''}
@@ -292,7 +289,7 @@ export const Main = () => {
                             store.save()
                         }}
                     />
-                  )}
+                }
             >
                 <Router onChange={handleRoute}>
                     <Route component={Channel} path='/channels/:channelSlug/devices' />
@@ -304,11 +301,13 @@ export const Main = () => {
                     <Route component={Settings} path='/settings' />
                     <Route component={Settings} path='/settings/:tabId' />
                     <Route
-                        component={() => <div class='c-welcome'>
-                            <IconLogo />
-                            <h1>Welcome to Pyrite</h1>
-                            <p>Select a channel from the sidebar to start chatting.</p>
-                        </div>}
+                        component={() => (
+                            <div class='c-welcome'>
+                                <IconLogo />
+                                <h1>Welcome to Pyrite</h1>
+                                <p>Select a channel from the sidebar to start chatting.</p>
+                            </div>
+                        )}
                         default
                     />
                 </Router>

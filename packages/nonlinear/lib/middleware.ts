@@ -1,10 +1,12 @@
-import {createFinalHandler, createMiddleware} from '@garage44/common/lib/middleware'
+import type {Logger} from '@garage44/common/lib/logger.node'
+
 import {createAvatarRoutes} from '@garage44/common/lib/avatar-routes'
 import {devContext} from '@garage44/common/lib/dev-context'
+import {createFinalHandler, createMiddleware} from '@garage44/common/lib/middleware'
 import {userManager} from '@garage44/common/service'
-import {logger, runtime} from '../service.ts'
-import type {Logger} from '@garage44/common/lib/logger.node'
 import path from 'node:path'
+
+import {logger, runtime} from '../service.ts'
 
 const _BUN_ENV = process.env.BUN_ENV || 'production'
 
@@ -65,7 +67,7 @@ class Router {
 }
 
 // Auth middleware that can be reused across routes
-const requireAdmin = async(ctx, next) => {
+const requireAdmin = async (ctx, next) => {
     if (!ctx.session?.userid) {
         throw new Error('Unauthorized')
     }
@@ -94,7 +96,7 @@ async function initMiddleware(_bunchyConfig) {
     apiDocs(router)
 
     // Register webhook endpoint (signature validation, no auth required)
-    router.post('/webhook', async(req) => {
+    router.post('/webhook', async (req) => {
         const {handleWebhook} = await import('./deploy/webhook')
         return await handleWebhook(req)
     })
@@ -111,20 +113,13 @@ async function initMiddleware(_bunchyConfig) {
     const originalFinalHandleRequest = createFinalHandler({
         configPath,
         contextFunctions: {
-            adminContext: async() => ({admin: true}),
-            deniedContext: async() => ({denied: true}),
-            userContext: async() => ({user: true}),
+            adminContext: async () => ({admin: true}),
+            deniedContext: async () => ({denied: true}),
+            userContext: async () => ({user: true}),
         },
         customWebSocketHandlers: [],
         devContext,
-        endpointAllowList: [
-            '/api/login',
-            '/api/docs',
-            '/api/docs/by-path',
-            '/api/docs/search',
-            '/api/search',
-            '/webhook',
-        ],
+        endpointAllowList: ['/api/login', '/api/docs', '/api/docs/by-path', '/api/docs/search', '/api/search', '/webhook'],
         logger,
         mimeTypes: {
             '.css': 'text/css',
@@ -148,7 +143,7 @@ async function initMiddleware(_bunchyConfig) {
     })
 
     // Wrap finalHandleRequest to inject bootstrap state into index.html
-    const finalHandleRequest = async(request: Request, server?: unknown): Promise<Response | undefined> => {
+    const finalHandleRequest = async (request: Request, server?: unknown): Promise<Response | undefined> => {
         const response = await originalFinalHandleRequest(request, server)
 
         // Inject bootstrap state into index.html responses
@@ -184,9 +179,11 @@ async function initMiddleware(_bunchyConfig) {
                          * Determine status - if service is offline, status should be 'offline'
                          * Otherwise use the actual agent status (idle, working, error)
                          */
-                        let status: 'idle' | 'working' | 'error' | 'offline' = (
-                            agentStatus?.status || 'idle'
-                        ) as 'idle' | 'working' | 'error' | 'offline'
+                        let status: 'idle' | 'working' | 'error' | 'offline' = (agentStatus?.status || 'idle') as
+                            | 'idle'
+                            | 'working'
+                            | 'error'
+                            | 'offline'
                         if (!serviceOnline && status !== 'working') {
                             status = 'offline'
                         }
@@ -209,7 +206,7 @@ async function initMiddleware(_bunchyConfig) {
                         headers: response.headers,
                         status: response.status,
                     })
-                } catch(error) {
+                } catch (error) {
                     logger.warn(`[Middleware] Failed to inject bootstrap state: ${error}`)
                     return response
                 }
@@ -220,20 +217,16 @@ async function initMiddleware(_bunchyConfig) {
     }
 
     // Create middleware to get sessionMiddleware for WebSocket managers
-    const unifiedMiddleware = createMiddleware({
-        configPath,
-        customWebSocketHandlers: [],
-        endpointAllowList: [
-            '/api/login',
-            '/api/docs',
-            '/api/docs/by-path',
-            '/api/docs/search',
-            '/api/search',
-            '/webhook',
-        ],
-        packageName: 'nonlinear',
-        sessionCookieName: 'nonlinear-session',
-    }, userManager)
+    const unifiedMiddleware = createMiddleware(
+        {
+            configPath,
+            customWebSocketHandlers: [],
+            endpointAllowList: ['/api/login', '/api/docs', '/api/docs/by-path', '/api/docs/search', '/api/search', '/webhook'],
+            packageName: 'nonlinear',
+            sessionCookieName: 'nonlinear-session',
+        },
+        userManager,
+    )
 
     return {
         handleRequest: finalHandleRequest,
@@ -243,7 +236,4 @@ async function initMiddleware(_bunchyConfig) {
     }
 }
 
-export {
-    initMiddleware,
-    requireAdmin,
-}
+export {initMiddleware, requireAdmin}

@@ -5,22 +5,19 @@
  * Keeping for reference but marking as legacy to avoid type errors
  */
 
+import crypto from 'crypto'
+import fs from 'fs-extra'
+// @ts-expect-error - Legacy import
+import inquirer from 'inquirer'
+// @ts-expect-error - Legacy import
+import fetch from 'node-fetch'
+import os from 'os'
+import {dirname} from 'path'
+import path from 'path'
+import {fileURLToPath} from 'url'
 
 // @ts-expect-error - Legacy imports
 import app from '../app.js'
-import crypto from 'crypto'
-import {dirname} from 'path'
-
-// @ts-expect-error - Legacy import
-import fetch from 'node-fetch'
-import {fileURLToPath} from 'url'
-import fs from 'fs-extra'
-
-// @ts-expect-error - Legacy import
-import inquirer from 'inquirer'
-import os from 'os'
-import path from 'path'
-
 // @ts-expect-error - Legacy import
 import {userTemplate} from './user.js'
 
@@ -39,7 +36,7 @@ export async function verifyConfig(app) {
     // Always keep a reference to the config file itself in the config.
     app.settings.config = configFile
 
-    if (!await fs.pathExists(configFile)) {
+    if (!(await fs.pathExists(configFile))) {
         app.logger.info('generating config...')
         let sfuPath
 
@@ -90,30 +87,39 @@ export async function verifyConfig(app) {
 }
 
 export async function verifySFU() {
-    if (!await fs.pathExists(app.config.sfu.path.data)) {
+    if (!(await fs.pathExists(app.config.sfu.path.data))) {
         app.logger.info(`creating sfu path: ${app.config.sfu.path.data}`)
         await fs.mkdir(app.config.sfu.path.data)
     }
 
-    if (!await fs.pathExists(app.config.sfu.path.groups)) {
+    if (!(await fs.pathExists(app.config.sfu.path.groups))) {
         app.logger.info(`creating sfu path: ${app.config.sfu.path.groups}`)
         await fs.mkdir(app.config.sfu.path.groups)
     }
 
-    if (!await fs.pathExists(app.config.sfu.path.recordings)) {
+    if (!(await fs.pathExists(app.config.sfu.path.recordings))) {
         app.logger.info(`creating sfu path: ${app.config.sfu.path.recordings}`)
         await fs.mkdir(app.config.sfu.path.recordings)
     }
 
     const sfuConfigFile = path.join(app.config.sfu.path.data, 'config.json')
-    if (!await fs.pathExists(sfuConfigFile)) {
+    if (!(await fs.pathExists(sfuConfigFile))) {
         app.logger.info(`creating sfu config: ${sfuConfigFile}`)
-        await fs.writeFile(sfuConfigFile, JSON.stringify({
-            admin: [{
-                password: crypto.randomBytes(20).toString('hex'),
-                username: 'admin',
-            }],
-        }, null, '  '))
+        await fs.writeFile(
+            sfuConfigFile,
+            JSON.stringify(
+                {
+                    admin: [
+                        {
+                            password: crypto.randomBytes(20).toString('hex'),
+                            username: 'admin',
+                        },
+                    ],
+                },
+                null,
+                '  ',
+            ),
+        )
     }
 
     const config = JSON.parse(await fs.readFile(sfuConfigFile, 'utf-8'))

@@ -1,4 +1,5 @@
 import {EventEmitter} from 'node:events'
+
 import {logger} from './logger'
 
 export type MessageData = Record<string, unknown>
@@ -39,11 +40,14 @@ class WebSocketClient extends EventEmitter {
 
     private messageListeners: EventListener[] = []
 
-    private pendingRequests = new Map<string, {
-        reject: (reason?: unknown) => void
-        resolve: (value: MessageData | null) => void
-        timeout: ReturnType<typeof setTimeout>
-    }>()
+    private pendingRequests = new Map<
+        string,
+        {
+            reject: (reason?: unknown) => void
+            resolve: (value: MessageData | null) => void
+            timeout: ReturnType<typeof setTimeout>
+        }
+    >()
 
     private reconnectAttempts = 0
 
@@ -115,11 +119,7 @@ class WebSocketClient extends EventEmitter {
 
     connect() {
         // Don't try to connect if we're already connecting/connected or had an auth failure
-        if (
-            this.ws && (
-                this.ws.readyState === WebSocket.CONNECTING ||
-                this.ws.readyState === WebSocket.OPEN
-            )) {
+        if (this.ws && (this.ws.readyState === WebSocket.CONNECTING || this.ws.readyState === WebSocket.OPEN)) {
             logger.debug('[WS] already connected, skipping')
             return
         }
@@ -145,7 +145,7 @@ class WebSocketClient extends EventEmitter {
             let message: WebSocketMessage
             try {
                 message = JSON.parse(event.data)
-            } catch(error) {
+            } catch (error) {
                 // Log at debug level - this is expected for invalid messages
                 logger.debug('[WS] failed to parse message', error)
                 this.emit('error', new Error('Invalid JSON message'))
@@ -235,10 +235,7 @@ class WebSocketClient extends EventEmitter {
         }
 
         // Calculate delay with exponential backoff
-        const delay = Math.min(
-            this.baseReconnectDelay * (1.5 ** this.reconnectAttempts),
-            this.maxReconnectDelay,
-        )
+        const delay = Math.min(this.baseReconnectDelay * 1.5 ** this.reconnectAttempts, this.maxReconnectDelay)
 
         this.reconnectAttempts++
         logger.debug(`[WS] reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`)
@@ -380,9 +377,4 @@ const WebSocketEvents = {
     UNAUTHORIZED: 'unauthorized',
 }
 
-export {
-    constructMessage,
-    parseMessage,
-    WebSocketClient,
-    WebSocketEvents,
-}
+export {constructMessage, parseMessage, WebSocketClient, WebSocketEvents}

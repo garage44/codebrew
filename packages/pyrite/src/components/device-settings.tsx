@@ -1,11 +1,12 @@
+import {$t, logger, store} from '@garage44/common/app'
 import {FieldSelect, Icon, SoundMeter as Soundmeter} from '@garage44/common/components'
-import Sound from '@/lib/sound'
-import {Stream} from '@/components/stream/stream'
-import {useState, useEffect, useRef} from 'preact/hooks'
 import {signal, type Signal} from '@preact/signals'
 import {effect} from '@preact/signals'
+import {useState, useEffect, useRef} from 'preact/hooks'
+
 import {$s} from '@/app'
-import {$t, logger, store} from '@garage44/common/app'
+import {Stream} from '@/components/stream/stream'
+import Sound from '@/lib/sound'
 import {getUserMedia, queryDevices, localStream} from '@/models/media'
 import * as sfu from '@/models/sfu/sfu'
 
@@ -80,7 +81,7 @@ export function DeviceSettings() {
         }
     }, [])
 
-    const remountStream = async() => {
+    const remountStream = async () => {
         try {
             const newStream = await getUserMedia($s.devices)
             if (newStream) {
@@ -105,12 +106,12 @@ export function DeviceSettings() {
                     },
                 })
             }
-        } catch(error) {
+        } catch (error) {
             logger.error(`[DeviceSettings] Failed to remount stream: ${error}`)
         }
     }
 
-    const testSoundAudio = async() => {
+    const testSoundAudio = async () => {
         if (!soundAudio) return
 
         // Stop if already playing
@@ -130,14 +131,14 @@ export function DeviceSettings() {
                 }
             }
             checkPlaying()
-        } catch(error) {
+        } catch (error) {
             logger.error(`[DeviceSettings] Failed to play test sound: ${error}`)
         }
     }
 
     // Initial mount
     useEffect(() => {
-        const init = async() => {
+        const init = async () => {
             try {
                 await queryDevices()
 
@@ -146,14 +147,15 @@ export function DeviceSettings() {
                  * This handles the case where restoration happened during queryDevices
                  */
                 const micSelected = $s.devices.mic.selected
-                const micId = typeof micSelected === 'object' && micSelected !== null && 'id' in micSelected ?
-                        String(micSelected.id || '') :
-                    ''
+                const micId =
+                    typeof micSelected === 'object' && micSelected !== null && 'id' in micSelected
+                        ? String(micSelected.id || '')
+                        : ''
                 if (micIdSignalRef.current.value !== micId) {
                     micIdSignalRef.current.value = micId
                     logger.debug(`[DeviceSettings] Synced mic signal after queryDevices: ${micId}`)
                 }
-            } catch(error) {
+            } catch (error) {
                 logger.error(`[DeviceSettings] Failed to query devices: ${error}`)
                 // Continue anyway - fake stream option will be available
             }
@@ -203,30 +205,33 @@ export function DeviceSettings() {
                     label={$t('device.select_cam_label')}
                     model={camIdSignalRef.current as Signal<string>}
                     onChange={(value) => {
-                        const selectedOption = Array.isArray($s.devices.cam.options) ?
-                                $s.devices.cam.options.find((opt: {id: string; name: string}) => opt.id === value) :
-                            undefined
+                        const selectedOption = Array.isArray($s.devices.cam.options)
+                            ? $s.devices.cam.options.find((opt: {id: string; name: string}) => opt.id === value)
+                            : undefined
                         if (selectedOption) {
                             $s.devices.cam.selected = selectedOption
                             store.save()
                         }
                     }}
-                    options={Array.isArray($s.devices.cam.options) ?
-                        $s.devices.cam.options as Array<{id: string; name: string}> :
-                            []}
+                    options={
+                        Array.isArray($s.devices.cam.options) ? ($s.devices.cam.options as Array<{id: string; name: string}>) : []
+                    }
                 />
-                {description && <Stream
-                    controls={false}
-                    modelValue={{
-                        hasAudio: description.hasAudio,
-                        id: description.id,
-                        src: description.src instanceof MediaStream ? description.src : String(description.src),
-                    }}
-                />}
-                {!description &&
+                {description && (
+                    <Stream
+                        controls={false}
+                        modelValue={{
+                            hasAudio: description.hasAudio,
+                            id: description.id,
+                            src: description.src instanceof MediaStream ? description.src : String(description.src),
+                        }}
+                    />
+                )}
+                {!description && (
                     <div class='c-device-settings__placeholder'>
                         <Icon name='webcam' />
-                    </div>}
+                    </div>
+                )}
             </div>
 
             <div class='c-device-settings__section'>
@@ -239,17 +244,17 @@ export function DeviceSettings() {
                     label='Microphone Input Device'
                     model={micIdSignalRef.current as Signal<string>}
                     onChange={(value) => {
-                        const selectedOption = Array.isArray($s.devices.mic.options) ?
-                                $s.devices.mic.options.find((opt: {id: string; name: string}) => opt.id === value) :
-                            undefined
+                        const selectedOption = Array.isArray($s.devices.mic.options)
+                            ? $s.devices.mic.options.find((opt: {id: string; name: string}) => opt.id === value)
+                            : undefined
                         if (selectedOption) {
                             $s.devices.mic.selected = selectedOption
                             store.save()
                         }
                     }}
-                    options={Array.isArray($s.devices.mic.options) ?
-                        $s.devices.mic.options as Array<{id: string; name: string}> :
-                            []}
+                    options={
+                        Array.isArray($s.devices.mic.options) ? ($s.devices.mic.options as Array<{id: string; name: string}>) : []
+                    }
                 />
                 {streamId && stream && <Soundmeter stream={stream} streamId={streamId} />}
             </div>
@@ -259,24 +264,25 @@ export function DeviceSettings() {
                 <p class='c-device-settings__help c-device-settings__section-intro'>
                     Select an audio output device (speaker/headphones) to test where sound will play.
                 </p>
-                {Array.isArray($s.devices.audio.options) && $s.devices.audio.options.length > 0 && !$s.env.isFirefox &&
+                {Array.isArray($s.devices.audio.options) && $s.devices.audio.options.length > 0 && !$s.env.isFirefox && (
                     <FieldSelect
                         help='Select which audio output device (speaker/headphones) should play sound'
                         label='Audio Output Device'
                         model={audioIdSignalRef.current as Signal<string>}
                         onChange={(value) => {
-                            const selectedOption = Array.isArray($s.devices.audio.options) ?
-                                    $s.devices.audio.options.find((opt: {id: string; name: string}) => opt.id === value) :
-                                undefined
+                            const selectedOption = Array.isArray($s.devices.audio.options)
+                                ? $s.devices.audio.options.find((opt: {id: string; name: string}) => opt.id === value)
+                                : undefined
                             if (selectedOption) {
                                 $s.devices.audio.selected = selectedOption
                                 store.save()
                             }
                         }}
                         options={$s.devices.audio.options as Array<{id: string; name: string}>}
-                    />}
+                    />
+                )}
 
-                {($s.env.isFirefox || !Array.isArray($s.devices.audio.options) || $s.devices.audio.options.length === 0) &&
+                {($s.env.isFirefox || !Array.isArray($s.devices.audio.options) || $s.devices.audio.options.length === 0) && (
                     <div class='c-device-settings__audio-test'>
                         <label htmlFor='test-audio-output-btn'>Test Audio Output</label>
                         <button class='btn' disabled={!soundAudio} id='test-audio-output-btn' onClick={testSoundAudio}>
@@ -284,11 +290,12 @@ export function DeviceSettings() {
                         </button>
                         <p class='c-device-settings__help'>
                             Click play to test which audio output device (speaker/headphones) plays sound.
-                            {!Array.isArray($s.devices.audio.options) || $s.devices.audio.options.length === 0 ?
-                                ' Audio output device selection is not available in this browser.' :
-                                ''}
+                            {!Array.isArray($s.devices.audio.options) || $s.devices.audio.options.length === 0
+                                ? ' Audio output device selection is not available in this browser.'
+                                : ''}
                         </p>
-                    </div>}
+                    </div>
+                )}
             </div>
         </div>
     )

@@ -1,9 +1,9 @@
-import {pathCreate, pathDelete, pathMove, pathRef, pathToggle} from '@garage44/common/lib/paths.ts'
-import {translate_path, translate_tag} from '../lib/translate.ts'
 import type {WebSocketServerManager} from '@garage44/common/lib/ws-server'
-import {i18nFormat} from '@garage44/expressio/lib/i18n'
+
 import {logger} from '@garage44/common/app'
-import {workspaces} from '../service.ts'
+import {pathCreate, pathDelete, pathMove, pathRef, pathToggle} from '@garage44/common/lib/paths.ts'
+import {i18nFormat} from '@garage44/expressio/lib/i18n'
+
 import {validateRequest} from '../lib/api/validate.ts'
 import {
     WorkspaceIdParamsSchema,
@@ -16,13 +16,15 @@ import {
     TranslateResponseSchema,
     GetTranslationsParamsSchema,
 } from '../lib/schemas/i18n.ts'
+import {translate_path, translate_tag} from '../lib/translate.ts'
+import {workspaces} from '../service.ts'
 
 export function registerI18nWebSocketApiRoutes(wsManager: WebSocketServerManager) {
     // WebSocket API routes (unchanged) - these are for real-time features
     const apiWs = wsManager.api
 
     // oxlint-disable-next-line require-await
-    apiWs.post('/api/workspaces/:workspace_id/paths', async(_context, request) => {
+    apiWs.post('/api/workspaces/:workspace_id/paths', async (_context, request) => {
         const {workspace_id} = validateRequest(WorkspaceIdParamsSchema, request.params)
         const workspace = workspaces.get(workspace_id)
         const {path, value} = validateRequest(CreatePathRequestSchema, request.data)
@@ -42,7 +44,7 @@ export function registerI18nWebSocketApiRoutes(wsManager: WebSocketServerManager
     })
 
     // oxlint-disable-next-line require-await
-    apiWs.delete('/api/workspaces/:workspace_id/paths', async(_context, request) => {
+    apiWs.delete('/api/workspaces/:workspace_id/paths', async (_context, request) => {
         const {workspace_id} = validateRequest(WorkspaceIdParamsSchema, request.params)
         const workspace = workspaces.get(workspace_id)
         const {path} = validateRequest(DeletePathRequestSchema, request.data)
@@ -52,7 +54,7 @@ export function registerI18nWebSocketApiRoutes(wsManager: WebSocketServerManager
     })
 
     // oxlint-disable-next-line require-await
-    apiWs.put('/api/workspaces/:workspace_id/paths', async(_context, request) => {
+    apiWs.put('/api/workspaces/:workspace_id/paths', async (_context, request) => {
         const {workspace_id} = validateRequest(WorkspaceIdParamsSchema, request.params)
         const workspace = workspaces.get(workspace_id)
         const {new_path, old_path} = validateRequest(MovePathRequestSchema, request.data)
@@ -60,7 +62,7 @@ export function registerI18nWebSocketApiRoutes(wsManager: WebSocketServerManager
         workspace.save()
     })
     // oxlint-disable-next-line require-await
-    apiWs.post('/api/workspaces/:workspace_id/collapse', async(_context, request) => {
+    apiWs.post('/api/workspaces/:workspace_id/collapse', async (_context, request) => {
         const {workspace_id} = validateRequest(WorkspaceIdParamsSchema, request.params)
         const {path, tag_modifier, value} = validateRequest(CollapsePathRequestSchema, request.data)
         const workspace = workspaces.get(workspace_id)
@@ -76,7 +78,7 @@ export function registerI18nWebSocketApiRoutes(wsManager: WebSocketServerManager
     })
 
     // oxlint-disable-next-line require-await
-    apiWs.post('/api/workspaces/:workspace_id/tags', async(_context, request) => {
+    apiWs.post('/api/workspaces/:workspace_id/tags', async (_context, request) => {
         const {workspace_id} = validateRequest(WorkspaceIdParamsSchema, request.params)
         const workspace = workspaces.get(workspace_id)
         const {path, source} = validateRequest(UpdateTagRequestSchema, request.data)
@@ -86,7 +88,7 @@ export function registerI18nWebSocketApiRoutes(wsManager: WebSocketServerManager
         workspace.save()
     })
 
-    apiWs.post('/api/workspaces/:workspace_id/translate', async(_context, request) => {
+    apiWs.post('/api/workspaces/:workspace_id/translate', async (_context, request) => {
         const {workspace_id} = validateRequest(WorkspaceIdParamsSchema, request.params)
         const workspace = workspaces.get(workspace_id)
 
@@ -116,7 +118,7 @@ export function registerI18nWebSocketApiRoutes(wsManager: WebSocketServerManager
                 // Validate response matches schema
                 validateRequest(TranslateResponseSchema, response)
                 return response
-            } catch(error) {
+            } catch (error) {
                 logger.error('Translation error:', error)
                 const errorResponse = {
                     cached: [],
@@ -137,7 +139,7 @@ export function registerI18nWebSocketApiRoutes(wsManager: WebSocketServerManager
                 // Validate response matches schema
                 validateRequest(TranslateResponseSchema, response)
                 return response
-            } catch(error) {
+            } catch (error) {
                 logger.error('Translation error:', error)
                 const errorResponse = {
                     cached: [],
@@ -154,14 +156,14 @@ export function registerI18nWebSocketApiRoutes(wsManager: WebSocketServerManager
     })
 
     // oxlint-disable-next-line require-await
-    apiWs.post('/api/workspaces/:workspace_id/undo', async(_context, request) => {
+    apiWs.post('/api/workspaces/:workspace_id/undo', async (_context, request) => {
         const {workspace_id} = validateRequest(WorkspaceIdParamsSchema, request.params)
         const workspace = workspaces.get(workspace_id)
         workspace.undo()
     })
 
     // oxlint-disable-next-line require-await
-    apiWs.post('/api/workspaces/:workspace_id/redo', async(_context, request) => {
+    apiWs.post('/api/workspaces/:workspace_id/redo', async (_context, request) => {
         const {workspace_id} = validateRequest(WorkspaceIdParamsSchema, request.params)
         const workspace = workspaces.get(workspace_id)
         workspace.redo()

@@ -1,11 +1,12 @@
+import {$t, store} from '@garage44/common/app'
 import {FieldSelect, Icon, SoundMeter as Soundmeter} from '@garage44/common/components'
-import Sound from '@/lib/sound'
-import {Stream} from '@/components/stream/stream'
-import {useState, useEffect, useRef} from 'preact/hooks'
 import {signal, type Signal} from '@preact/signals'
 import {effect} from '@preact/signals'
+import {useState, useEffect, useRef} from 'preact/hooks'
+
 import {$s} from '@/app'
-import {$t, store} from '@garage44/common/app'
+import {Stream} from '@/components/stream/stream'
+import Sound from '@/lib/sound'
 import {getUserMedia, queryDevices, localStream} from '@/models/media'
 import * as sfu from '@/models/sfu/sfu'
 
@@ -76,7 +77,7 @@ export default function TabDevices() {
         }
     }, [])
 
-    const remountStream = async() => {
+    const remountStream = async () => {
         const newStream = await getUserMedia($s.devices)
         if (newStream) {
             setStream(newStream)
@@ -110,13 +111,12 @@ export default function TabDevices() {
 
     // Initial mount
     useEffect(() => {
-        const init = async() => {
+        const init = async () => {
             await queryDevices()
             // After queryDevices completes, ensure signals are synced with restored state
             const micSelected = $s.devices.mic.selected
-            const micId = typeof micSelected === 'object' && micSelected !== null && 'id' in micSelected ?
-                    String(micSelected.id || '') :
-                ''
+            const micId =
+                typeof micSelected === 'object' && micSelected !== null && 'id' in micSelected ? String(micSelected.id || '') : ''
             if (micIdSignalRef.current.value !== micId) {
                 micIdSignalRef.current.value = micId
             }
@@ -169,32 +169,35 @@ export default function TabDevices() {
                     label={$t('device.select_cam_label')}
                     model={camIdSignalRef.current as Signal<string>}
                     onChange={(value) => {
-                        const selectedOption = Array.isArray($s.devices.cam.options) ?
-                                $s.devices.cam.options.find((opt: {id: string; name: string}) => opt.id === value) :
-                            undefined
+                        const selectedOption = Array.isArray($s.devices.cam.options)
+                            ? $s.devices.cam.options.find((opt: {id: string; name: string}) => opt.id === value)
+                            : undefined
                         if (selectedOption) {
                             $s.devices.cam.selected = selectedOption
                             store.save()
                         }
                     }}
-                    options={Array.isArray($s.devices.cam.options) ?
-                        $s.devices.cam.options as Array<{id: string; name: string}> :
-                            []}
+                    options={
+                        Array.isArray($s.devices.cam.options) ? ($s.devices.cam.options as Array<{id: string; name: string}>) : []
+                    }
                 />
 
-                {description && <Stream
-                    controls={false}
-                    modelValue={{
-                        hasAudio: description.hasAudio,
-                        hasVideo: description.hasVideo,
-                        id: description.id,
-                        src: description.src,
-                    }}
-                />}
-                {!description &&
+                {description && (
+                    <Stream
+                        controls={false}
+                        modelValue={{
+                            hasAudio: description.hasAudio,
+                            hasVideo: description.hasVideo,
+                            id: description.id,
+                            src: description.src,
+                        }}
+                    />
+                )}
+                {!description && (
                     <div class='webcam-placeholder'>
                         <Icon name='webcam' />
-                    </div>}
+                    </div>
+                )}
             </div>
 
             <FieldSelect
@@ -202,46 +205,47 @@ export default function TabDevices() {
                 label={$t('device.select_mic_label')}
                 model={micIdSignalRef.current as Signal<string>}
                 onChange={(value) => {
-                    const selectedOption = Array.isArray($s.devices.mic.options) ?
-                            $s.devices.mic.options.find((opt: {id: string; name: string}) => opt.id === value) :
-                        undefined
+                    const selectedOption = Array.isArray($s.devices.mic.options)
+                        ? $s.devices.mic.options.find((opt: {id: string; name: string}) => opt.id === value)
+                        : undefined
                     if (selectedOption) {
                         $s.devices.mic.selected = selectedOption
                         store.save()
                     }
                 }}
-                options={Array.isArray($s.devices.mic.options) ?
-                    $s.devices.mic.options as Array<{id: string; name: string}> :
-                        []}
+                options={
+                    Array.isArray($s.devices.mic.options) ? ($s.devices.mic.options as Array<{id: string; name: string}>) : []
+                }
             />
 
-            <div class='soundmeter'>
-                {streamId && stream && <Soundmeter stream={stream} streamId={streamId} />}
-            </div>
+            <div class='soundmeter'>{streamId && stream && <Soundmeter stream={stream} streamId={streamId} />}</div>
 
             <div class='output-config'>
                 {/* https://bugzilla.mozilla.org/show_bug.cgi?id=1498512 */}
                 {/* https://bugzilla.mozilla.org/show_bug.cgi?id=1152401 */}
-                {$s.devices.audio.options.length && !$s.env.isFirefox &&
+                {$s.devices.audio.options.length && !$s.env.isFirefox && (
                     <FieldSelect
                         help={$t('device.select_audio_verify_help')}
                         label={$t('device.select_audio_label')}
                         model={audioIdSignalRef.current as Signal<string>}
                         onChange={(value) => {
-                            const selectedOption = Array.isArray($s.devices.audio.options) ?
-                                    $s.devices.audio.options.find((opt: {id: string; name: string}) => opt.id === value) :
-                                undefined
+                            const selectedOption = Array.isArray($s.devices.audio.options)
+                                ? $s.devices.audio.options.find((opt: {id: string; name: string}) => opt.id === value)
+                                : undefined
                             if (selectedOption) {
                                 $s.devices.audio.selected = selectedOption
                                 store.save()
                             }
                         }}
-                        options={Array.isArray($s.devices.audio.options) ?
-                            $s.devices.audio.options as Array<{id: string; name: string}> :
-                                []}
-                    />}
+                        options={
+                            Array.isArray($s.devices.audio.options)
+                                ? ($s.devices.audio.options as Array<{id: string; name: string}>)
+                                : []
+                        }
+                    />
+                )}
 
-                {($s.env.isFirefox || !$s.devices.audio.options.length) &&
+                {($s.env.isFirefox || !$s.devices.audio.options.length) && (
                     <div class='field'>
                         <div class='label-container'>
                             <label class='field-label'>{$t('device.select_audio_label')}</label>
@@ -250,10 +254,9 @@ export default function TabDevices() {
                             </button>
                         </div>
 
-                        <div class='help'>
-                            {$t('device.select_audio_verify_help')}
-                        </div>
-                    </div>}
+                        <div class='help'>{$t('device.select_audio_verify_help')}</div>
+                    </div>
+                )}
             </div>
         </section>
     )

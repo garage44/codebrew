@@ -1,12 +1,14 @@
-import {config} from './config.ts'
-import {logger} from '../service.ts'
-import {dictionary} from './utils.ts'
+import type {User} from '@garage44/common/lib/user-manager'
+
 import {userManager} from '@garage44/common/service'
-import fs from 'fs-extra'
 import {Glob} from 'bun'
+import fs from 'fs-extra'
 import path from 'node:path'
 import {uniqueNamesGenerator} from 'unique-names-generator'
-import type {User} from '@garage44/common/lib/user-manager'
+
+import {logger} from '../service.ts'
+import {config} from './config.ts'
+import {dictionary} from './utils.ts'
 
 const ROLES = ['op', 'other', 'presenter'] as const
 
@@ -41,7 +43,7 @@ export interface GroupData {
 
 // Helper functions to use UserManager from service
 const loadUsers = (): Promise<User[]> => userManager.listUsers()
-const saveUsers = async(users: User[]) => {
+const saveUsers = async (users: User[]) => {
     // Save users by updating each user individually
     for (const user of users) {
         await userManager.updateUser(user.id || user.username, user)
@@ -66,12 +68,14 @@ const PUBLIC_GROUP_FIELDS = [
 ]
 
 export function groupTemplate(groupId: string | null = null): GroupData {
-    const name = groupId || uniqueNamesGenerator({
-        dictionaries: [dictionary.adjs, dictionary.nouns],
-        length: 2,
-        separator: '-',
-        style: 'lowerCase',
-    })
+    const name =
+        groupId ||
+        uniqueNamesGenerator({
+            dictionaries: [dictionary.adjs, dictionary.nouns],
+            length: 2,
+            separator: '-',
+            style: 'lowerCase',
+        })
     const template: GroupData = {
         _name: name,
         _newName: name,
@@ -110,8 +114,10 @@ export async function loadGroupPermissions(groupName: string): Promise<{op: stri
         for (const permissionName of Object.keys(userGroups)) {
             const groups = userGroups[permissionName] || []
             for (const _groupName of groups) {
-                if (groupName === _groupName &&
-                    (permissionName === 'op' || permissionName === 'other' || permissionName === 'presenter')) {
+                if (
+                    groupName === _groupName &&
+                    (permissionName === 'op' || permissionName === 'other' || permissionName === 'presenter')
+                ) {
                     permissions[permissionName].push(user.username)
                 }
             }
@@ -209,7 +215,9 @@ export async function loadGroup(groupName: string): Promise<GroupData | null> {
     } else if (groupData.other) {
         // Pyrite legacy: empty object in 'other' array means public access
         const public_access_idx = groupData.other.findIndex(
-            (obj) => obj && typeof obj === 'object' &&
+            (obj) =>
+                obj &&
+                typeof obj === 'object' &&
                 Object.keys(obj).length === 0 &&
                 Object.getPrototypeOf(obj) === Object.prototype,
         )

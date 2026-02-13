@@ -25,7 +25,7 @@ class Logger {
 
     private logForwarder?: (level: LogLevel, msg: string, args: unknown[]) => void
 
-    constructor({level = 'info' }: {level?: LogLevel} = {}) {
+    constructor({level = 'info'}: {level?: LogLevel} = {}) {
         this.level = level
     }
 
@@ -142,7 +142,4 @@ class Logger {
 // Provide a shared logger instance for the browser
 const logger = new Logger()
 
-export {
-    logger,
-    Logger,
-}
+export {logger, Logger}

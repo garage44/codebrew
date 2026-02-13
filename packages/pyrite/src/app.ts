@@ -1,13 +1,17 @@
+import type {CommonState} from '@garage44/common/types'
+
 import {App, store, api, notifier, logger, $t} from '@garage44/common/app'
 import {createTypedI18n, i18nFormat} from '@garage44/expressio'
-import {h, render} from 'preact'
-import {persistantState, volatileState} from './lib/state'
-import type {PyriteState} from './types'
-import {Main} from './components/main/main'
-import {initWebSocketSubscriptions} from '@/lib/ws-subscriptions'
 import {type DeepSignal} from 'deepsignal'
+import {h, render} from 'preact'
+
 import workspace from '@/.expressio.json'
-import type {CommonState} from '@garage44/common/types'
+import {initWebSocketSubscriptions} from '@/lib/ws-subscriptions'
+
+import type {PyriteState} from './types'
+
+import {Main} from './components/main/main'
+import {persistantState, volatileState} from './lib/state'
 
 const $s = store.state as unknown as DeepSignal<PyriteState>
 
@@ -20,13 +24,9 @@ store.load(
 initWebSocketSubscriptions()
 
 const app = new App()
-app.init(
-    Main,
-    render,
-    h,
-    i18nFormat(workspace.i18n, workspace.config.languages.target),
-    {enableBunchy: process.env.NODE_ENV !== 'production'},
-)
+app.init(Main, render, h, i18nFormat(workspace.i18n, workspace.config.languages.target), {
+    enableBunchy: process.env.NODE_ENV !== 'production',
+})
 
 /*
  * Export typed i18n object for type-safe translation references

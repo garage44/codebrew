@@ -1,4 +1,5 @@
 import {deepSignal as originalDeepSignal, type DeepSignal} from 'deepsignal'
+
 import type {CommonState} from '../types'
 import type {Notification} from './notifier'
 
@@ -131,7 +132,7 @@ function deepSignal<T extends object>(initialValue: T): DeepSignal<T> {
                     Object.assign(state, savedState)
                     // Clear the saved state after restoration
                     delete savedStates[filePath]
-                } catch(error) {
+                } catch (error) {
                     console.warn(`[Bunchy HMR] Could not restore state for ${filePath}:`, error)
                 }
             }
@@ -141,8 +142,4 @@ function deepSignal<T extends object>(initialValue: T): DeepSignal<T> {
     return state
 }
 
-export {
-    persistentState,
-    volatileState,
-    deepSignal,
-}
+export {persistentState, volatileState, deepSignal}

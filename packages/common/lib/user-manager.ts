@@ -1,4 +1,5 @@
 import {Database} from 'bun:sqlite'
+
 import {getPlaceholderAvatar} from './avatar.ts'
 
 export interface User {
@@ -174,7 +175,6 @@ export class UserManager {
         }))
     }
 
-
     async createUser(userData: Partial<User>): Promise<User> {
         if (!this.db) throw new Error('Database not initialized')
 
@@ -209,15 +209,7 @@ export class UserManager {
             username: userData.username!,
         }
 
-        stmt.run(
-            userId,
-            user.username,
-            user.password.key,
-            JSON.stringify(user.permissions),
-            avatar,
-            now,
-            now,
-        )
+        stmt.run(userId, user.username, user.password.key, JSON.stringify(user.permissions), avatar, now, now)
 
         return user
     }
@@ -415,9 +407,9 @@ export class UserManager {
         if (!user) return false
 
         // Note: bcrypt hashing can be added later if needed
-        const passwordObj = this.useBcrypt ?
-                {key: newPassword, type: 'bcrypt' as const} :
-                {key: newPassword, type: 'plaintext' as const}
+        const passwordObj = this.useBcrypt
+            ? {key: newPassword, type: 'bcrypt' as const}
+            : {key: newPassword, type: 'plaintext' as const}
 
         await this.updateUser(userId, {password: passwordObj})
         return true

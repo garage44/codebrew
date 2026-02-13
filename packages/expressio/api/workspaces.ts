@@ -1,12 +1,12 @@
-import {enola, logger, workspaces} from '../service.ts'
 import type {WebSocketServerManager} from '@garage44/common/lib/ws-server'
-import {config} from '../lib/config.ts'
-import fs from 'fs/promises'
-import path from 'node:path'
-import {homedir} from 'node:os'
 
-import {syncLanguage} from '../lib/sync.ts'
+import fs from 'fs/promises'
+import {homedir} from 'node:os'
+import path from 'node:path'
+import {z} from 'zod'
+
 import {validateRequest} from '../lib/api/validate.ts'
+import {config} from '../lib/config.ts'
 import {
     WorkspaceIdParamsSchema,
     WorkspaceIdPathSchema,
@@ -20,7 +20,8 @@ import {
     CreateWorkspaceResponseSchema,
     DeleteWorkspaceResponseSchema,
 } from '../lib/schemas/workspaces.ts'
-import {z} from 'zod'
+import {syncLanguage} from '../lib/sync.ts'
+import {enola, logger, workspaces} from '../service.ts'
 
 /**
  * Get the browse root directory using ~/.expressio/workspaces convention
@@ -41,7 +42,7 @@ async function ensureBrowseRootExists(): Promise<void> {
         if (!stats.isDirectory()) {
             throw new Error(`Path exists but is not a directory: ${browseRoot}`)
         }
-    } catch(error: unknown) {
+    } catch (error: unknown) {
         // If error is because path doesn't exist, create it
         const nodeError = error as NodeJS.ErrnoException
         if (nodeError.code === 'ENOENT') {
@@ -52,7 +53,7 @@ async function ensureBrowseRootExists(): Promise<void> {
                 if (!parentStats.isDirectory()) {
                     throw new Error(`Parent path exists but is not a directory: ${parentDir}. Cannot create ${browseRoot}`)
                 }
-            } catch(parentError: unknown) {
+            } catch (parentError: unknown) {
                 const parentNodeError = parentError as NodeJS.ErrnoException
                 if (parentNodeError.code === 'ENOENT') {
                     // Parent doesn't exist, recursive mkdir will create it
@@ -98,11 +99,11 @@ function validateBrowsePath(requestedPath: string | null | undefined): string {
 export function registerWorkspacesWebSocketApiRoutes(wsManager: WebSocketServerManager) {
     // WebSocket API routes (unchanged) - these are for real-time features
     const api = wsManager.api
-    api.get('/api/workspaces/browse', async(context, request) => {
+    api.get('/api/workspaces/browse', async (context, request) => {
         // Ensure browse root exists
         try {
             await ensureBrowseRootExists()
-        } catch(error: unknown) {
+        } catch (error: unknown) {
             const errorMessage = error instanceof Error ? error.message : String(error)
             logger.error(`[api] Failed to ensure browse root exists: ${errorMessage}`)
             throw new Error(
@@ -116,7 +117,7 @@ export function registerWorkspacesWebSocketApiRoutes(wsManager: WebSocketServerM
         try {
             const browseData = validateRequest(BrowseRequestSchema, request.data || {})
             absPath = validateBrowsePath(browseData.path)
-        } catch(error: unknown) {
+        } catch (error: unknown) {
             if (error instanceof z.ZodError) {
                 throw error
             }
@@ -132,24 +133,29 @@ export function registerWorkspacesWebSocketApiRoutes(wsManager: WebSocketServerM
         let entries = []
         try {
             const dirents = await fs.readdir(absPath, {withFileTypes: true})
-            entries = await Promise.all(dirents.filter((d) => d.isDirectory()).map((dirent) => {
-                const dirPath = path.join(absPath, dirent.name)
-                // Validate that child directories are also within root
-                try {
-                    validateBrowsePath(dirPath)
-                } catch {
-                    // Skip directories outside the root
-                    return null
-                }
-                // Check if this directory is a workspace root
-                const is_workspace = workspaces.workspaces.some((ws) => path.dirname(ws.config.source_file) === dirPath)
-                return {
-                    is_workspace,
-                    name: dirent.name,
-                    path: dirPath,
-                }
-            }).filter((entry) => entry !== null))
-        } catch(error) {
+            entries = await Promise.all(
+                dirents
+                    .filter((d) => d.isDirectory())
+                    .map((dirent) => {
+                        const dirPath = path.join(absPath, dirent.name)
+                        // Validate that child directories are also within root
+                        try {
+                            validateBrowsePath(dirPath)
+                        } catch {
+                            // Skip directories outside the root
+                            return null
+                        }
+                        // Check if this directory is a workspace root
+                        const is_workspace = workspaces.workspaces.some((ws) => path.dirname(ws.config.source_file) === dirPath)
+                        return {
+                            is_workspace,
+                            name: dirent.name,
+                            path: dirPath,
+                        }
+                    })
+                    .filter((entry) => entry !== null),
+            )
+        } catch (error) {
             logger.error(`[api] Failed to list directory: ${absPath} - ${error}`)
         }
 
@@ -173,12 +179,12 @@ export function registerWorkspacesWebSocketApiRoutes(wsManager: WebSocketServerM
         const response = {
             current: {
                 path: absPath,
-                workspace: currentWorkspace ?
-                        {
-                            config: currentWorkspace.config,
-                            id: currentWorkspace.config.workspace_id,
-                        } :
-                    null,
+                workspace: currentWorkspace
+                    ? {
+                          config: currentWorkspace.config,
+                          id: currentWorkspace.config.workspace_id,
+                      }
+                    : null,
             },
             directories: entries,
             parent,
@@ -188,7 +194,7 @@ export function registerWorkspacesWebSocketApiRoutes(wsManager: WebSocketServerM
         return response
     })
 
-    api.get('/api/workspaces/:workspace_id', async(context, req) => {
+    api.get('/api/workspaces/:workspace_id', async (context, req) => {
         const {workspace_id: workspaceId} = validateRequest(WorkspaceIdParamsSchema, req.params)
         const ws = workspaces.get(workspaceId)
         if (!ws) {
@@ -226,7 +232,7 @@ export function registerWorkspacesWebSocketApiRoutes(wsManager: WebSocketServerM
 // Default export for backward compatibility
 export default function apiWorkspaces(router) {
     // HTTP API endpoints using familiar Express-like pattern
-    router.get('/api/workspaces/:workspace_id/usage', async() => {
+    router.get('/api/workspaces/:workspace_id/usage', async () => {
         // Get the first available engine for usage
         const engine = Object.keys(config.enola.engines)[0] || 'deepl'
         const usage = await enola.usage(engine)
@@ -237,7 +243,7 @@ export default function apiWorkspaces(router) {
         })
     })
 
-    router.post('/api/workspaces/:workspace_id', async(req, params) => {
+    router.post('/api/workspaces/:workspace_id', async (req, params) => {
         try {
             const {param0: workspaceId} = validateRequest(WorkspaceIdPathSchema, params)
             const workspace_data = validateRequest(UpdateWorkspaceRequestSchema, await req.json())
@@ -266,10 +272,12 @@ export default function apiWorkspaces(router) {
                 await syncLanguage(workspace, language, 'remove')
             }
 
-            await Promise.all([...updateLanguages, ...addLanguages].map((language) => {
-                logger.info(`sync: (re)translate language ${language.id}`)
-                return syncLanguage(workspace, language, 'update')
-            }))
+            await Promise.all(
+                [...updateLanguages, ...addLanguages].map((language) => {
+                    logger.info(`sync: (re)translate language ${language.id}`)
+                    return syncLanguage(workspace, language, 'update')
+                }),
+            )
 
             Object.assign(workspace.config, workspace_data.workspace.config)
             workspace.save()
@@ -279,7 +287,7 @@ export default function apiWorkspaces(router) {
             return new Response(JSON.stringify(response), {
                 headers: {'Content-Type': 'application/json'},
             })
-        } catch(error) {
+        } catch (error) {
             if (error instanceof z.ZodError) {
                 return new Response(JSON.stringify({error: error.errors}), {
                     headers: {'Content-Type': 'application/json'},
@@ -290,7 +298,7 @@ export default function apiWorkspaces(router) {
         }
     })
 
-    router.delete('/api/workspaces/:workspace_id', async(req, params) => {
+    router.delete('/api/workspaces/:workspace_id', async (req, params) => {
         const {param0: workspaceId} = validateRequest(WorkspaceIdPathSchema, params)
         logger.info(`Deleting workspace: ${workspaceId}`)
         await workspaces.delete(workspaceId)
@@ -303,7 +311,7 @@ export default function apiWorkspaces(router) {
         })
     })
 
-    router.post('/api/workspaces', async(req) => {
+    router.post('/api/workspaces', async (req) => {
         try {
             const body = validateRequest(CreateWorkspaceRequestSchema, await req.json())
             const workspace = await workspaces.add({source_file: body.path})
@@ -314,7 +322,7 @@ export default function apiWorkspaces(router) {
             return new Response(JSON.stringify(response), {
                 headers: {'Content-Type': 'application/json'},
             })
-        } catch(error) {
+        } catch (error) {
             if (error instanceof z.ZodError) {
                 return new Response(JSON.stringify({error: error.errors}), {
                     headers: {'Content-Type': 'application/json'},

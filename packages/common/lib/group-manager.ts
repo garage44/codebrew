@@ -1,5 +1,6 @@
 import fs from 'fs-extra'
 import path from 'node:path'
+
 import {UserManager, User} from './user-manager'
 
 export interface Group {
@@ -73,7 +74,7 @@ export class GroupManager {
 
     async deleteGroup(groupName: string): Promise<boolean> {
         const groupFile = path.join(this.storagePath, `${groupName}.json`)
-        if (!await fs.pathExists(groupFile)) return false
+        if (!(await fs.pathExists(groupFile))) return false
 
         await fs.remove(groupFile)
         return true
@@ -139,11 +140,11 @@ export class GroupManager {
             // Update Pyrite arrays
             for (const role of roles) {
                 if (role === 'op' && !(groupData.op as string[]).includes(user.username)) {
-                    (groupData.op as string[]).push(user.username)
+                    ;(groupData.op as string[]).push(user.username)
                 } else if (role === 'presenter' && !(groupData.presenter as string[]).includes(user.username)) {
-                    (groupData.presenter as string[]).push(user.username)
+                    ;(groupData.presenter as string[]).push(user.username)
                 } else if (role === 'other' && !(groupData.other as string[]).includes(user.username)) {
-                    (groupData.other as string[]).push(user.username)
+                    ;(groupData.other as string[]).push(user.username)
                 }
             }
 
@@ -167,7 +168,7 @@ export class GroupManager {
     private async loadGroupFromDisk(groupName: string): Promise<Group | null> {
         const groupFile = path.join(this.storagePath, `${groupName}.json`)
 
-        if (!await fs.pathExists(groupFile)) {
+        if (!(await fs.pathExists(groupFile))) {
             return null
         }
 

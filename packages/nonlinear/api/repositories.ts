@@ -3,12 +3,15 @@
  */
 
 import type {WebSocketServerManager} from '@garage44/common/lib/ws-server'
-import {db} from '../lib/database.ts'
+
 import {randomId} from '@garage44/common/lib/utils'
-import {logger} from '../service.ts'
-import {getDefaultPlatform} from '../lib/git/index.ts'
 import fs from 'fs-extra'
 import path from 'node:path'
+import {z} from 'zod'
+
+import {validateRequest} from '../lib/api/validate.ts'
+import {db} from '../lib/database.ts'
+import {getDefaultPlatform} from '../lib/git/index.ts'
 import {
     CreateRepositoryRequestSchema,
     DiscoverRepositoriesRequestSchema,
@@ -16,16 +19,17 @@ import {
     RepositorySchema,
     UpdateRepositoryRequestSchema,
 } from '../lib/schemas/repositories.ts'
-import {validateRequest} from '../lib/api/validate.ts'
-import {z} from 'zod'
+import {logger} from '../service.ts'
 
 export function registerRepositoriesWebSocketApiRoutes(wsManager: WebSocketServerManager) {
     // Get all repositories
-    wsManager.api.get('/api/repositories', async(_ctx, _req) => {
-        const repositories = db.prepare(`
+    wsManager.api.get('/api/repositories', async (_ctx, _req) => {
+        const repositories = db
+            .prepare(`
             SELECT * FROM repositories
             ORDER BY name ASC
-        `).all() as Array<{
+        `)
+            .all() as Array<{
             config: string
             created_at: number
             id: string
@@ -45,19 +49,21 @@ export function registerRepositoriesWebSocketApiRoutes(wsManager: WebSocketServe
     })
 
     // Get repository by ID
-    wsManager.api.get('/api/repositories/:id', async(_ctx, req) => {
+    wsManager.api.get('/api/repositories/:id', async (_ctx, req) => {
         const params = validateRequest(RepositoryParamsSchema, req.params)
 
-        const repo = db.prepare('SELECT * FROM repositories WHERE id = ?').get(params.id) as {
-            config: string
-            created_at: number
-            id: string
-            name: string
-            path: string
-            platform: 'github' | 'gitlab' | 'local'
-            remote_url: string | null
-            updated_at: number
-        } | undefined
+        const repo = db.prepare('SELECT * FROM repositories WHERE id = ?').get(params.id) as
+            | {
+                  config: string
+                  created_at: number
+                  id: string
+                  name: string
+                  path: string
+                  platform: 'github' | 'gitlab' | 'local'
+                  remote_url: string | null
+                  updated_at: number
+              }
+            | undefined
 
         if (!repo) {
             throw new Error('Repository not found')
@@ -71,7 +77,7 @@ export function registerRepositoriesWebSocketApiRoutes(wsManager: WebSocketServe
     })
 
     // Discover local git repositories
-    wsManager.api.post('/api/repositories/discover', async(_ctx, req) => {
+    wsManager.api.post('/api/repositories/discover', async (_ctx, req) => {
         const data = validateRequest(DiscoverRepositoriesRequestSchema, req.data)
 
         const searchDir = data.searchPath || process.cwd()
@@ -103,7 +109,7 @@ export function registerRepositoriesWebSocketApiRoutes(wsManager: WebSocketServe
                         await scanDirectory(fullPath, depth + 1)
                     }
                 }
-            } catch(error) {
+            } catch (error) {
                 // Skip directories we can't read
                 logger.debug(`[API] Could not scan directory ${dir}: ${error}`)
             }
@@ -117,12 +123,12 @@ export function registerRepositoriesWebSocketApiRoutes(wsManager: WebSocketServe
     })
 
     // Add repository
-    wsManager.api.post('/api/repositories', async(_ctx, req) => {
+    wsManager.api.post('/api/repositories', async (_ctx, req) => {
         const data = validateRequest(CreateRepositoryRequestSchema, req.data)
 
         // Verify path exists and is a git repository
         const gitPath = path.join(data.path, '.git')
-        if (!await fs.pathExists(gitPath)) {
+        if (!(await fs.pathExists(gitPath))) {
             throw new Error('Path is not a git repository')
         }
 
@@ -135,16 +141,7 @@ export function registerRepositoriesWebSocketApiRoutes(wsManager: WebSocketServe
                 id, name, path, platform, remote_url, config, created_at, updated_at
             )
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(
-            repoId,
-            data.name,
-            data.path,
-            repoPlatform,
-            data.remote_url || null,
-            JSON.stringify(data.config || {}),
-            now,
-            now,
-        )
+        `).run(repoId, data.name, data.path, repoPlatform, data.remote_url || null, JSON.stringify(data.config || {}), now, now)
 
         const repository = db.prepare('SELECT * FROM repositories WHERE id = ?').get(repoId) as {
             config: string
@@ -177,7 +174,7 @@ export function registerRepositoriesWebSocketApiRoutes(wsManager: WebSocketServe
     })
 
     // Update repository
-    wsManager.api.put('/api/repositories/:id', async(_ctx, req) => {
+    wsManager.api.put('/api/repositories/:id', async (_ctx, req) => {
         const params = validateRequest(RepositoryParamsSchema, req.params)
         const updates = validateRequest(UpdateRepositoryRequestSchema, req.data)
 
@@ -219,16 +216,18 @@ export function registerRepositoriesWebSocketApiRoutes(wsManager: WebSocketServe
             WHERE id = ?
         `).run(...(values as unknown as Parameters<ReturnType<typeof db.prepare>['run']>))
 
-        const repository = db.prepare('SELECT * FROM repositories WHERE id = ?').get(params.id) as {
-            config: string
-            created_at: number
-            id: string
-            name: string
-            path: string
-            platform: 'github' | 'gitlab' | 'local'
-            remote_url: string | null
-            updated_at: number
-        } | undefined
+        const repository = db.prepare('SELECT * FROM repositories WHERE id = ?').get(params.id) as
+            | {
+                  config: string
+                  created_at: number
+                  id: string
+                  name: string
+                  path: string
+                  platform: 'github' | 'gitlab' | 'local'
+                  remote_url: string | null
+                  updated_at: number
+              }
+            | undefined
 
         if (!repository) {
             throw new Error('Repository not found')
@@ -248,7 +247,7 @@ export function registerRepositoriesWebSocketApiRoutes(wsManager: WebSocketServe
     })
 
     // Delete repository
-    wsManager.api.delete('/api/repositories/:id', async(_ctx, req) => {
+    wsManager.api.delete('/api/repositories/:id', async (_ctx, req) => {
         const params = validateRequest(RepositoryParamsSchema, req.params)
 
         db.prepare('DELETE FROM repositories WHERE id = ?').run(params.id)
@@ -292,11 +291,13 @@ export default function apiRepositories(router: unknown) {
         ) => void
     }
 
-    routerTyped.get('/api/repositories', async(_req: Request, _params: Record<string, string>, _session: unknown) => {
-        const repositories = db.prepare(`
+    routerTyped.get('/api/repositories', async (_req: Request, _params: Record<string, string>, _session: unknown) => {
+        const repositories = db
+            .prepare(`
             SELECT * FROM repositories
             ORDER BY name ASC
-        `).all() as Array<{
+        `)
+            .all() as Array<{
             config: string
             created_at: number
             id: string
@@ -314,19 +315,21 @@ export default function apiRepositories(router: unknown) {
         })
     })
 
-    routerTyped.get('/api/repositories/:id', async(_req: Request, params: Record<string, string>, _session: unknown) => {
+    routerTyped.get('/api/repositories/:id', async (_req: Request, params: Record<string, string>, _session: unknown) => {
         try {
             const validatedParams = validateRequest(RepositoryParamsSchema, params)
-            const repo = db.prepare('SELECT * FROM repositories WHERE id = ?').get(validatedParams.id) as {
-                config: string
-                created_at: number
-                id: string
-                name: string
-                path: string
-                platform: 'github' | 'gitlab' | 'local'
-                remote_url: string | null
-                updated_at: number
-            } | undefined
+            const repo = db.prepare('SELECT * FROM repositories WHERE id = ?').get(validatedParams.id) as
+                | {
+                      config: string
+                      created_at: number
+                      id: string
+                      name: string
+                      path: string
+                      platform: 'github' | 'gitlab' | 'local'
+                      remote_url: string | null
+                      updated_at: number
+                  }
+                | undefined
 
             if (!repo) {
                 return new Response(JSON.stringify({error: 'Repository not found'}), {
@@ -340,7 +343,7 @@ export default function apiRepositories(router: unknown) {
             return new Response(JSON.stringify({repository: validatedRepo}), {
                 headers: {'Content-Type': 'application/json'},
             })
-        } catch(error) {
+        } catch (error) {
             return new Response(JSON.stringify({error: error instanceof Error ? error.message : 'Invalid request'}), {
                 headers: {'Content-Type': 'application/json'},
                 status: 400,
@@ -348,14 +351,14 @@ export default function apiRepositories(router: unknown) {
         }
     })
 
-    routerTyped.post('/api/repositories', async(req: Request, _params: Record<string, string>, _session: unknown) => {
+    routerTyped.post('/api/repositories', async (req: Request, _params: Record<string, string>, _session: unknown) => {
         try {
             const body = await req.json()
             const data = validateRequest(CreateRepositoryRequestSchema, body)
 
             // Verify path exists and is a git repository
             const gitPath = path.join(data.path, '.git')
-            if (!await fs.pathExists(gitPath)) {
+            if (!(await fs.pathExists(gitPath))) {
                 return new Response(JSON.stringify({error: 'Path is not a git repository'}), {
                     headers: {'Content-Type': 'application/json'},
                     status: 400,
@@ -382,16 +385,18 @@ export default function apiRepositories(router: unknown) {
                 now,
             )
 
-            const repository = db.prepare('SELECT * FROM repositories WHERE id = ?').get(repoId) as {
-                config: string
-                created_at: number
-                id: string
-                name: string
-                path: string
-                platform: 'github' | 'gitlab' | 'local'
-                remote_url: string | null
-                updated_at: number
-            } | undefined
+            const repository = db.prepare('SELECT * FROM repositories WHERE id = ?').get(repoId) as
+                | {
+                      config: string
+                      created_at: number
+                      id: string
+                      name: string
+                      path: string
+                      platform: 'github' | 'gitlab' | 'local'
+                      remote_url: string | null
+                      updated_at: number
+                  }
+                | undefined
 
             if (!repository) {
                 throw new Error('Failed to create repository')
@@ -404,7 +409,7 @@ export default function apiRepositories(router: unknown) {
             return new Response(JSON.stringify({repository: validatedRepo}), {
                 headers: {'Content-Type': 'application/json'},
             })
-        } catch(error) {
+        } catch (error) {
             logger.error(`[API] Error adding repository: ${error}`)
             const errorMessage = error instanceof Error ? error.message : 'Failed to add repository'
             const status = error instanceof z.ZodError ? 400 : 500
@@ -415,7 +420,7 @@ export default function apiRepositories(router: unknown) {
         }
     })
 
-    routerTyped.put('/api/repositories/:id', async(req: Request, params: Record<string, string>, _session: unknown) => {
+    routerTyped.put('/api/repositories/:id', async (req: Request, params: Record<string, string>, _session: unknown) => {
         try {
             const validatedParams = validateRequest(RepositoryParamsSchema, params)
             const body = await req.json()
@@ -462,16 +467,18 @@ export default function apiRepositories(router: unknown) {
                 WHERE id = ?
             `).run(...(values as unknown as Parameters<ReturnType<typeof db.prepare>['run']>))
 
-            const repository = db.prepare('SELECT * FROM repositories WHERE id = ?').get(validatedParams.id) as {
-                config: string
-                created_at: number
-                id: string
-                name: string
-                path: string
-                platform: 'github' | 'gitlab' | 'local'
-                remote_url: string | null
-                updated_at: number
-            } | undefined
+            const repository = db.prepare('SELECT * FROM repositories WHERE id = ?').get(validatedParams.id) as
+                | {
+                      config: string
+                      created_at: number
+                      id: string
+                      name: string
+                      path: string
+                      platform: 'github' | 'gitlab' | 'local'
+                      remote_url: string | null
+                      updated_at: number
+                  }
+                | undefined
 
             if (!repository) {
                 return new Response(JSON.stringify({error: 'Repository not found'}), {
@@ -485,7 +492,7 @@ export default function apiRepositories(router: unknown) {
             return new Response(JSON.stringify({repository: validatedRepo}), {
                 headers: {'Content-Type': 'application/json'},
             })
-        } catch(error) {
+        } catch (error) {
             logger.error(`[API] Error updating repository: ${error}`)
             const errorMessage = error instanceof Error ? error.message : 'Failed to update repository'
             const status = error instanceof z.ZodError ? 400 : 500
@@ -496,7 +503,7 @@ export default function apiRepositories(router: unknown) {
         }
     })
 
-    routerTyped.delete('/api/repositories/:id', async(_req: Request, params: Record<string, string>, _session: unknown) => {
+    routerTyped.delete('/api/repositories/:id', async (_req: Request, params: Record<string, string>, _session: unknown) => {
         try {
             const validatedParams = validateRequest(RepositoryParamsSchema, params)
 
@@ -507,7 +514,7 @@ export default function apiRepositories(router: unknown) {
             return new Response(JSON.stringify({success: true}), {
                 headers: {'Content-Type': 'application/json'},
             })
-        } catch(error) {
+        } catch (error) {
             return new Response(JSON.stringify({error: error instanceof Error ? error.message : 'Invalid request'}), {
                 headers: {'Content-Type': 'application/json'},
                 status: 400,

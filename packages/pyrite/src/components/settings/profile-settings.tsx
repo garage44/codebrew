@@ -1,6 +1,7 @@
-import {$s} from '@/app'
 import {logger, store} from '@garage44/common/app'
 import {ProfileSettings as CommonProfileSettings} from '@garage44/common/components'
+
+import {$s} from '@/app'
 
 /**
  * Profile Settings Page

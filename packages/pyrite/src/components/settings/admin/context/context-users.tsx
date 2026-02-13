@@ -1,10 +1,10 @@
-import classnames from 'classnames'
+import {api, notifier} from '@garage44/common/app'
 import {Icon} from '@garage44/common/components'
+import classnames from 'classnames'
 import {Link, route} from 'preact-router'
 import {useMemo, useEffect} from 'preact/hooks'
-import {api, notifier} from '@garage44/common/app'
-import {$s} from '@/app'
 
+import {$s} from '@/app'
 import {saveUser} from '@/models/user'
 
 interface ContextUsersProps {
@@ -18,8 +18,7 @@ export default function ContextUsers({path: _path, userId}: ContextUsersProps) {
     }, [$s.admin.users])
 
     const orderedUsers = useMemo(() => {
-        const users = $s.admin.users
-            .filter((g) => g.admin).concat($s.admin.users.filter((g) => !g.admin))
+        const users = $s.admin.users.filter((g) => g.admin).concat($s.admin.users.filter((g) => !g.admin))
         return users.sort((a, b) => {
             if (a.name < b.name) return -1
             if (a.name > b.name) return 1
@@ -27,17 +26,20 @@ export default function ContextUsers({path: _path, userId}: ContextUsersProps) {
         })
     }, [$s.admin.users])
 
-    const addUser = async() => {
+    const addUser = async () => {
         const user = await api.get('/api/users/template')
         $s.admin.users.push(user)
         toggleSelection(user.id)
     }
 
-    const deleteUsers = async() => {
+    const deleteUsers = async () => {
         notifier.notify({level: 'info', message: `deleting ${deletionUsers.length} users`})
         const deleteRequests = []
         for (const user of deletionUsers) {
-            $s.admin.users.splice($s.admin.users.findIndex((i) => i.id === user.id), 1)
+            $s.admin.users.splice(
+                $s.admin.users.findIndex((i) => i.id === user.id),
+                1,
+            )
             if (!user._unsaved) {
                 deleteRequests.push(fetch(`/api/users/${user.id}/delete`))
             }
@@ -51,11 +53,11 @@ export default function ContextUsers({path: _path, userId}: ContextUsersProps) {
         }
     }
 
-    const loadUsers = async() => {
+    const loadUsers = async () => {
         $s.admin.users = await api.get('/api/users')
     }
 
-    const saveUserAction = async() => {
+    const saveUserAction = async () => {
         if (!$s.admin.user) return
         await saveUser($s.admin.user.id, $s.admin.user)
         // Select the next unsaved user, when this user was unsaved to allow rapid user creation.
@@ -69,7 +71,7 @@ export default function ContextUsers({path: _path, userId}: ContextUsersProps) {
         }
     }
 
-    const toggleMarkDelete = async() => {
+    const toggleMarkDelete = async () => {
         if (!$s.admin.user) return
         $s.admin.user._delete = !$s.admin.user._delete
         for (let user of $s.admin.users) {
@@ -112,29 +114,20 @@ export default function ContextUsers({path: _path, userId}: ContextUsersProps) {
     }, [$s.admin.authenticated])
 
     return (
-        <section class={classnames('c-admin-users-context presence', {
-            collapsed: $s.panels.context.collapsed,
-        })}
+        <section
+            class={classnames('c-admin-users-context presence', {
+                collapsed: $s.panels.context.collapsed,
+            })}
         >
             <div class='actions'>
                 <button class='btn' disabled={!$s.admin.user} onClick={toggleMarkDelete}>
-                    <Icon
-                        className='item-icon icon-d'
-                        name='minus'
-                    />
+                    <Icon className='item-icon icon-d' name='minus' />
                 </button>
                 <button class='btn'>
-                    <Icon
-                        className='item-icon icon-d'
-                        name='plus'
-                        onClick={addUser}
-                    />
+                    <Icon className='item-icon icon-d' name='plus' onClick={addUser} />
                 </button>
                 <button class='btn' disabled={!deletionUsers.length} onClick={deleteUsers}>
-                    <Icon
-                        className='icon-d'
-                        name='trash'
-                    />
+                    <Icon className='icon-d' name='trash' />
                 </button>
                 <button class='btn' disabled={!$s.admin.user} onClick={saveUserAction}>
                     <Icon className='icon-d' name='save' />
@@ -142,24 +135,24 @@ export default function ContextUsers({path: _path, userId}: ContextUsersProps) {
             </div>
             {orderedUsers.map((user) => {
                 const userIdNum = typeof user.id === 'number' ? user.id : parseInt(String(user.id || '0'), 10)
-                return <Link
-                    {...({
-                        class: classnames('user item', {
-                            active: parseInt(userId || '0', 10) === userIdNum,
-                        }),
-                        href: userLink(userIdNum),
-                    } as Record<string, unknown>)}
-                    key={userIdNum}
-                >
-                    <Icon
-                        className={classnames('item-icon icon-d', {delete: user._delete, unsaved: user._unsaved})}
-                        name={user._delete ? 'Trash' : 'User'}
-                    />
+                return (
+                    <Link
+                        {...({
+                            class: classnames('user item', {
+                                active: parseInt(userId || '0', 10) === userIdNum,
+                            }),
+                            href: userLink(userIdNum),
+                        } as Record<string, unknown>)}
+                        key={userIdNum}
+                    >
+                        <Icon
+                            className={classnames('item-icon icon-d', {delete: user._delete, unsaved: user._unsaved})}
+                            name={user._delete ? 'Trash' : 'User'}
+                        />
 
-                    <div class='name'>
-                        {typeof user.name === 'string' ? user.name : String(user.name || '')}
-                    </div>
-                </Link>
+                        <div class='name'>{typeof user.name === 'string' ? user.name : String(user.name || '')}</div>
+                    </Link>
+                )
             })}
         </section>
     )

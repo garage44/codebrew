@@ -1,11 +1,12 @@
-import {userManager} from '@garage44/common/service'
 import {getAvatarStoragePath} from '@garage44/common/lib/avatar-routes'
-import {logger} from '../service.ts'
+import {userManager} from '@garage44/common/service'
 import fs from 'fs-extra'
 import path from 'node:path'
+import {z} from 'zod'
+
 import {validateRequest} from '../lib/api/validate.ts'
 import {UploadAvatarParamsSchema, UploadAvatarResponseSchema} from '../lib/schemas/users.ts'
-import {z} from 'zod'
+import {logger} from '../service.ts'
 
 export default function apiUsers(router) {
     /**
@@ -14,7 +15,7 @@ export default function apiUsers(router) {
      * Note: /api/users/me is handled by common middleware
      * IMPORTANT: This must be registered BEFORE any other /api/users/:userid routes to avoid route matching issues
      */
-    router.post('/api/users/:userid/avatar', async(req: Request, params: Record<string, string>) => {
+    router.post('/api/users/:userid/avatar', async (req: Request, params: Record<string, string>) => {
         try {
             const {param0: userId} = validateRequest(UploadAvatarParamsSchema, params)
 
@@ -136,7 +137,7 @@ export default function apiUsers(router) {
 
             logger.info(
                 `[Users API] User updated successfully. New avatar: ${updatedUser.profile.avatar}, ` +
-                `ID verified: ${updatedUser.id}`,
+                    `ID verified: ${updatedUser.id}`,
             )
 
             // Return success with avatar URL
@@ -150,7 +151,7 @@ export default function apiUsers(router) {
             return new Response(JSON.stringify(response), {
                 headers: {'Content-Type': 'application/json'},
             })
-        } catch(error) {
+        } catch (error) {
             if (error instanceof z.ZodError) {
                 return new Response(JSON.stringify({error: error.errors}), {
                     headers: {'Content-Type': 'application/json'},

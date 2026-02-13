@@ -1,18 +1,19 @@
+import {devContext} from '@garage44/common/lib/dev-context'
 import {createFinalHandler} from '@garage44/common/lib/middleware'
 import {createComplexAuthContext} from '@garage44/common/lib/profile.ts'
-import {devContext} from '@garage44/common/lib/dev-context'
 import {userManager} from '@garage44/common/service'
-import {logger, runtime} from '../service.ts'
-import apiChat from '../api/chat.ts'
+import path from 'node:path'
+
 import apiChannels from '../api/channels.ts'
+import apiChat from '../api/chat.ts'
 import apiDashboard from '../api/dashboard.ts'
 import apiGroups from '../api/groups.ts'
 import apiI18n from '../api/i18n.ts'
 import apiRecordings from '../api/recordings.ts'
 import apiUsers from '../api/users.ts'
 import {config} from '../lib/config.ts'
+import {logger, runtime} from '../service.ts'
 import {loadGroups} from './group.js'
-import path from 'node:path'
 
 // Type definitions
 export type Session = {userid?: string}
@@ -109,7 +110,7 @@ async function proxySFUWebSocket(request: Request, server: Server) {
         } else {
             logger.warn(`[SFU Proxy] Galène health check failed: ${healthResponse.status} ${healthResponse.statusText}`)
         }
-    } catch(healthError) {
+    } catch (healthError) {
         const errorMessage = healthError instanceof Error ? healthError.message : String(healthError)
         logger.warn(`[SFU Proxy] Galène health check error (non-fatal): ${errorMessage}`)
         // Continue anyway - WebSocket might still work even if HTTP health check fails
@@ -205,7 +206,7 @@ async function proxySFUWebSocket(request: Request, server: Server) {
         logger.error('[SFU Proxy] Failed to upgrade client connection')
         upstream.close()
         return new Response('WebSocket upgrade failed', {status: 400})
-    } catch(error) {
+    } catch (error) {
         logger.error(`[SFU Proxy] Failed to connect to SFU: ${error}`)
         if (error instanceof Error) {
             logger.error(`[SFU Proxy] Error details: ${error.message}`)
@@ -215,9 +216,8 @@ async function proxySFUWebSocket(request: Request, server: Server) {
     }
 }
 
-
 // Auth middleware that can be reused across routes
-const requireAdmin = async(ctx: {session?: Session}, next: (ctx: {session?: Session}) => Promise<unknown>) => {
+const requireAdmin = async (ctx: {session?: Session}, next: (ctx: {session?: Session}) => Promise<unknown>) => {
     if (!ctx.session?.userid) {
         throw new Error('Unauthorized')
     }
@@ -261,10 +261,12 @@ async function initMiddleware(_bunchyConfig) {
             deniedContext: contextFunctions.deniedContext,
             userContext: contextFunctions.userContext,
         },
-        customWebSocketHandlers: [{
-            handler: proxySFUWebSocket,
-            path: '/sfu',
-        }],
+        customWebSocketHandlers: [
+            {
+                handler: proxySFUWebSocket,
+                path: '/sfu',
+            },
+        ],
         devContext,
         endpointAllowList: ['/api/i18n', '/api/chat/emoji', '/api/groups/public', '/api/login'],
         logger,
@@ -296,7 +298,4 @@ async function initMiddleware(_bunchyConfig) {
     }
 }
 
-export {
-    initMiddleware,
-    requireAdmin,
-}
+export {initMiddleware, requireAdmin}

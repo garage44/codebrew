@@ -1,10 +1,12 @@
-import {$s} from '@/app'
 import {ws} from '@garage44/common/app'
 import {Button} from '@garage44/common/components'
-import {TicketCard} from '@/components/elements/ticket/ticket'
-import type {TicketCardProps} from '@/components/elements/ticket/ticket'
-import {useEffect} from 'preact/hooks'
 import {deepSignal} from 'deepsignal'
+import {useEffect} from 'preact/hooks'
+
+import type {TicketCardProps} from '@/components/elements/ticket/ticket'
+
+import {$s} from '@/app'
+import {TicketCard} from '@/components/elements/ticket/ticket'
 
 const LANES = [
     {id: 'backlog', label: 'Backlog'},
@@ -81,7 +83,7 @@ const handleTicketDragOver = (e: DragEvent, ticketId: string, _ticketIndex: numb
 
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
     const mouseY = e.clientY
-    const ticketCenter = rect.top + (rect.height / 2)
+    const ticketCenter = rect.top + rect.height / 2
     const dropPosition = mouseY < ticketCenter ? 'above' : 'below'
 
     dragState.dropTargetTicketId = ticketId
@@ -126,8 +128,8 @@ const handleTicketDragLeave = (e: DragEvent) => {
 export const Board = () => {
     useEffect(() => {
         // Load tickets on mount
-        (async() => {
-            const result = await ws.get('/api/tickets') as {tickets?: unknown}
+        ;(async () => {
+            const result = (await ws.get('/api/tickets')) as {tickets?: unknown}
             if (result.tickets) {
                 $s.tickets = result.tickets as typeof $s.tickets
             }
@@ -204,7 +206,7 @@ export const Board = () => {
         }
     }
 
-    const handleTicketDrop = async(e: DragEvent, targetTicketId: string, targetStatus: string) => {
+    const handleTicketDrop = async (e: DragEvent, targetTicketId: string, targetStatus: string) => {
         e.preventDefault()
         e.stopPropagation()
 
@@ -246,7 +248,7 @@ export const Board = () => {
                 updatedTickets[ticketIndex] = {
                     ...updatedTickets[ticketIndex],
                     ...updates,
-                } as typeof $s.tickets[number]
+                } as (typeof $s.tickets)[number]
                 $s.tickets = updatedTickets
             }
 
@@ -259,9 +261,9 @@ export const Board = () => {
             document.querySelectorAll('.drop-indicator').forEach((el) => {
                 el.remove()
             })
-        } catch(error) {
+        } catch (error) {
             // Revert optimistic update on error
-            const result = await ws.get('/api/tickets') as {tickets?: unknown}
+            const result = (await ws.get('/api/tickets')) as {tickets?: unknown}
             if (result.tickets) {
                 $s.tickets = result.tickets as typeof $s.tickets
             }
@@ -274,7 +276,7 @@ export const Board = () => {
         }
     }
 
-    const handleDrop = async(e: DragEvent, targetStatus: string) => {
+    const handleDrop = async (e: DragEvent, targetStatus: string) => {
         e.preventDefault()
         const target = e.currentTarget as HTMLElement
         if (target) {
@@ -307,7 +309,7 @@ export const Board = () => {
                 updatedTickets[ticketIndex] = {
                     ...updatedTickets[ticketIndex],
                     status: targetStatus,
-                } as typeof $s.tickets[number]
+                } as (typeof $s.tickets)[number]
                 $s.tickets = updatedTickets
             }
 
@@ -316,9 +318,9 @@ export const Board = () => {
                 status: targetStatus,
             })
             // WebSocket broadcast will update state with server response
-        } catch(error) {
+        } catch (error) {
             // Revert optimistic update on error
-            const result = await ws.get('/api/tickets') as {tickets?: unknown}
+            const result = (await ws.get('/api/tickets')) as {tickets?: unknown}
             if (result.tickets) {
                 $s.tickets = result.tickets as typeof $s.tickets
             }
@@ -358,13 +360,11 @@ export const Board = () => {
                                 </div>
                             </div>
                             <div class='lane-content'>
-                                {tickets.length === 0 ?
-
-                                            <div class='lane-empty'>
-                                                No tickets
-                                            </div> :
-
-                                        tickets.map((ticket, index) => <div
+                                {tickets.length === 0 ? (
+                                    <div class='lane-empty'>No tickets</div>
+                                ) : (
+                                    tickets.map((ticket, index) => (
+                                        <div
                                             class='ticket-card-container'
                                             draggable
                                             key={ticket.id}
@@ -374,8 +374,10 @@ export const Board = () => {
                                             onDragStart={(e) => handleDragStart(e, ticket.id)}
                                             onDrop={(e) => handleTicketDrop(e, ticket.id, lane.id)}
                                         >
-                                                <TicketCard ticket={ticket as TicketCardProps['ticket']} />
-                                        </div>)}
+                                            <TicketCard ticket={ticket as TicketCardProps['ticket']} />
+                                        </div>
+                                    ))
+                                )}
                             </div>
                         </div>
                     )

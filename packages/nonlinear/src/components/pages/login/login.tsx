@@ -1,10 +1,11 @@
 import {api, ws} from '@garage44/common/app'
-import {$s} from '@/app'
 import {Login as SharedLogin} from '@garage44/common/components'
 import {route} from 'preact-router'
 
+import {$s} from '@/app'
+
 export const Login = () => {
-    const handleLogin = async(username: string, password: string) => {
+    const handleLogin = async (username: string, password: string) => {
         try {
             const result = await api.post('/api/login', {
                 password,
@@ -36,7 +37,7 @@ export const Login = () => {
             } else {
                 return result.error || 'Invalid credentials'
             }
-        } catch(err) {
+        } catch (err) {
             return err instanceof Error ? err.message : 'Login failed'
         }
     }
