@@ -35,9 +35,9 @@ export const dependencyTools: Record<string, Tool> = {
 
                 const packageJson = JSON.parse(packageJsonContent)
                 const allDependencies = {
-                    ...packageJson.dependencies || {},
-                    ...packageJson.devDependencies || {},
-                    ...packageJson.peerDependencies || {},
+                    ...packageJson.dependencies,
+                    ...packageJson.devDependencies,
+                    ...packageJson.peerDependencies,
                 }
 
                 // If specific package requested

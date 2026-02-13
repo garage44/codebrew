@@ -94,7 +94,7 @@ export class REPL {
         }
 
         // Remove if it's a duplicate of the last entry
-        if (this.history.length > 0 && this.history[this.history.length - 1] === command) {
+        if (this.history.length > 0 && this.history.at(-1) === command) {
             return
         }
 

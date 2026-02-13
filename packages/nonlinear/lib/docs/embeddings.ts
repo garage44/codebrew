@@ -84,7 +84,7 @@ async function generateLocalEmbedding(text: string): Promise<Float32Array> {
         return new Float32Array(result.data as ArrayLike<number>)
     } catch(error) {
         logger.error('[Embeddings] Failed to generate local embedding:', error)
-        throw new Error(`Local embedding generation failed: ${error instanceof Error ? error.message : String(error)}`)
+        throw new Error(`Local embedding generation failed: ${error instanceof Error ? error.message : String(error)}`, { cause: error })
     }
 }
 
