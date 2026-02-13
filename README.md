@@ -2,9 +2,13 @@
 
 [![License](https://img.shields.io/badge/License-Mixed-blue.svg)](#licenses) [![Bun](https://img.shields.io/badge/Powered%20by-Bun-black.svg)](https://bun.sh/)
 
-Submodules that combine into **Codebrew** — unified platform for video conferencing, AI project management, and i18n automation. Built with Bun, Preact, DeepSignal. Real-time first, WebSocket-native.
+Monorepo packages that combine into **Codebrew** — unified platform for video conferencing, AI project management, and i18n automation. Built with Bun, Preact, DeepSignal. Real-time first, WebSocket-native.
 
-## Submodules
+## Codebrew
+
+**Codebrew** is the parent platform that unifies the packages below into a cohesive suite. Each package can run independently or integrate with others through shared components and WebSocket-based real-time communication.
+
+## Packages
 
 - **[Expressio](https://expressio.garage44.org)** — i18n automation (DeepL/Claude)
 - **[Nonlinear](https://garage44.org)** — AI project management
