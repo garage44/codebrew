@@ -25,6 +25,7 @@ export interface CodebrewAppPlugin {
         text: string
     }[]
     name: string
+    presenceWidget?: ComponentType
     routes: CodebrewRoute[]
     wsRoutes?: (wsManager: WebSocketServerManager) => void
 }
