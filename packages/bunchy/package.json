@@ -35,8 +35,8 @@
   "scripts": {
     "clean": "rm -rf dist;rm -rf node_modules",
     "lint:ts": "bun run lint:ts-syntax && bun run lint:ts-style && bun run lint:ts-types",
-    "lint:ts-syntax": "bun run oxlint *.ts tests/**/*.ts --config ../../.oxlintrc.json",
-    "lint:ts-style": "eslint **/*.ts --config ../../eslint.config.js",
+    "lint:ts-syntax": "oxlint *.ts tests/**/*.ts --config ../../.oxlintrc.json",
+    "lint:ts-style": "oxfmt --write **/*.ts",
     "lint:ts-types": "bun tsgo --noEmit",
     "test": "bun test"
   }
