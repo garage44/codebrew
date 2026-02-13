@@ -7,6 +7,8 @@
 import type {WebSocketServerManager} from '@garage44/common/lib/ws-server'
 import {db} from '../database.ts'
 import {logger} from '../../service.ts'
+import {getAgentStatus} from './status.ts'
+import {getTaskStats} from './tasks.ts'
 
 export interface AgentState {
     lastHeartbeat?: number
@@ -51,7 +53,7 @@ class AgentStateTracker {
         return new Proxy(obj, {
             deleteProperty: (target, prop): boolean => {
                 if (typeof prop === 'string' && prop in target && !this.batchUpdateInProgress) {
-                    delete target[prop]
+                    Reflect.deleteProperty(target, prop)
                     this.pendingChanges = true
                     this.trackOperation(onChange)
                 }
@@ -242,9 +244,6 @@ class AgentStateTracker {
         }
 
         /* Create a clean copy of state enriched with status and stats */
-        const {getAgentStatus} = require('../agent/status.ts') as {getAgentStatus: (agentId: string): {status?: 'idle' | 'working' | 'error' | 'offline'} | undefined}
-        const {getTaskStats} = require('../agent/tasks.ts') as {getTaskStats: (agentId: string): {completed: number; failed: number; pending: number; processing: number}}
-
         const cleanState: AgentStateData = {}
         for (const [agentId, state] of Object.entries(this._state) as [string, AgentState][]) {
             const agentStatus = getAgentStatus(agentId)

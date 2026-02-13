@@ -118,13 +118,11 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
                     })
                 } else if (data.type === 'comment:updated' && data.comment) {
                     // Update existing comment content (streaming update)
-                    setComments((prev) =>
-                        prev.map((c) => c.id === data.comment!.id ? {...c, ...data.comment!} : c),
-                    )
+                    setComments((prev) => prev.map((c) => (c.id === data.comment!.id ? {...c, ...data.comment!} : c)))
                 } else if (data.type === 'comment:completed' && data.comment) {
                     // Finalize comment (mark as completed)
                     setComments((prev) =>
-                        prev.map((c) => c.id === data.comment!.id ? {...c, ...data.comment!, status: 'completed' as const} : c),
+                        prev.map((c) => (c.id === data.comment!.id ? {...c, ...data.comment!, status: 'completed' as const} : c)),
                     )
                 } else if (data.type === 'ticket:updated' && data.ticket) {
                     // Update ticket in state
@@ -196,7 +194,9 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
     }
 
     const handleAddComment = async () => {
-        if (!commentState.content.trim() || !ticket) {return}
+        if (!commentState.content.trim() || !ticket) {
+            return
+        }
 
         // Extract @mentions from comment
         const mentionRegex = /@(\w+)/g
@@ -230,7 +230,9 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
     }
 
     const handleApprove = async () => {
-        if (!ticket) {return}
+        if (!ticket) {
+            return
+        }
 
         try {
             await ws.post(`/api/tickets/${ticket.id}/approve`, {})
@@ -250,10 +252,14 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
     }
 
     const handleReopen = async () => {
-        if (!ticket) {return}
+        if (!ticket) {
+            return
+        }
 
         const reason = prompt('Why are you reopening this ticket?')
-        if (!reason) {return}
+        if (!reason) {
+            return
+        }
 
         try {
             await ws.post(`/api/tickets/${ticket.id}/reopen`, {
@@ -275,7 +281,9 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
     }
 
     const handleRequestRefinement = async () => {
-        if (!ticket) {return}
+        if (!ticket) {
+            return
+        }
 
         // Find PlannerAgent
         const plannerAgent = $s.agents.find((a) => a.type === 'planner' && a.enabled === 1)
@@ -306,7 +314,9 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
     }
 
     const getAssigneeOptions = () => {
-        if (!ticket) {return []}
+        if (!ticket) {
+            return []
+        }
 
         // Get currently assigned IDs to filter them out
         const currentAssigneeIds = new Set((ticket.assignees || []).map((a) => a.assignee_id))
@@ -315,7 +325,9 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
             return $s.agents
                 .filter((agent) => {
                     // Filter out disabled agents
-                    if (agent.enabled !== 1) {return false}
+                    if (agent.enabled !== 1) {
+                        return false
+                    }
                     // Filter out already assigned agents (agents use their name as assignee_id)
                     return !currentAssigneeIds.has(agent.name) && !currentAssigneeIds.has(agent.id)
                 })
@@ -334,7 +346,9 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
 
     const getLabelSuggestions = () => {
         const query = labelsState.newLabel.trim().toLowerCase()
-        if (!query) {return $s.labelDefinitions}
+        if (!query) {
+            return $s.labelDefinitions
+        }
 
         return $s.labelDefinitions.filter(
             (def) => def.name.toLowerCase().includes(query) && !labelsState.labels.includes(def.name),
@@ -342,10 +356,14 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
     }
 
     const handleAddLabel = async (labelName?: string) => {
-        if (!ticket) {return}
+        if (!ticket) {
+            return
+        }
 
         const labelToAdd = (labelName || labelsState.newLabel.trim()).toLowerCase()
-        if (!labelToAdd) {return}
+        if (!labelToAdd) {
+            return
+        }
 
         // Check if label definition exists, if not create it
         let labelDef = $s.labelDefinitions.find((def) => def.name.toLowerCase() === labelToAdd)
@@ -401,7 +419,9 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
     }
 
     const handleRemoveLabel = async (label: string) => {
-        if (!ticket) {return}
+        if (!ticket) {
+            return
+        }
 
         try {
             const updatedLabels = labelsState.labels.filter((l) => l !== label)
@@ -424,7 +444,9 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
     }
 
     const handleAddAssignee = async (assigneeType: 'agent' | 'human', assigneeId: string) => {
-        if (!ticket) {return}
+        if (!ticket) {
+            return
+        }
 
         try {
             const currentAssignees = ticket.assignees || []
@@ -472,7 +494,9 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
     }
 
     const handleRemoveAssignee = async (assigneeType: 'agent' | 'human', assigneeId: string) => {
-        if (!ticket) {return}
+        if (!ticket) {
+            return
+        }
 
         try {
             const currentAssignees = ticket.assignees || []
@@ -499,7 +523,9 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
     }
 
     const handleSaveEdit = async () => {
-        if (!ticket) {return}
+        if (!ticket) {
+            return
+        }
 
         try {
             await ws.put(`/api/tickets/${ticket.id}`, {

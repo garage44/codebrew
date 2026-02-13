@@ -52,8 +52,8 @@ export class REPL {
             if (await fs.pathExists(this.historyFilePath)) {
                 const content = await fs.readFile(this.historyFilePath, 'utf8')
                 this.history = content.split('\n')
-                    .map((line) => line.trim())
-                    .filter((line) => line.length > 0)
+                    .map((line: string): string => line.trim())
+                    .filter((line: string): boolean => line.length > 0)
                     .slice(-1000)
                 // Keep last 1000 entries
 
@@ -209,7 +209,7 @@ export class REPL {
             this.options.onExit()
         }
         this.rl.close()
-        process.exit(0)
+        throw new Error('REPL exited')
     }
 
     /**

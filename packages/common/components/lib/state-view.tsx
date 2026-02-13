@@ -1,5 +1,4 @@
-import type {h} from 'preact';
-import type { JSX} from 'preact'
+import type {h, JSX} from 'preact'
 import {useState} from 'preact/hooks'
 
 interface StateViewProps {

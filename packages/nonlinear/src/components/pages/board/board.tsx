@@ -148,9 +148,15 @@ export const Board = () => {
         // Sort by priority: higher priority first, null priorities at the end
         return [...laneTickets].toSorted((a, b) => {
             // Handle null priorities - put them at the end
-            if (a.priority === null && b.priority === null) {return 0}
-            if (a.priority === null) {return 1}
-            if (b.priority === null) {return -1}
+            if (a.priority === null && b.priority === null) {
+                return 0
+            }
+            if (a.priority === null) {
+                return 1
+            }
+            if (b.priority === null) {
+                return -1
+            }
             // Higher priority first (descending order)
             return b.priority - a.priority
         })
@@ -166,7 +172,9 @@ export const Board = () => {
         const targetIndex = laneTickets.findIndex((t) => t.id === targetTicketId)
         const draggedTicket = $s.tickets.find((t) => t.id === draggedTicketId)
 
-        if (targetIndex === -1 || !draggedTicket) {return draggedTicket?.priority ?? 5}
+        if (targetIndex === -1 || !draggedTicket) {
+            return draggedTicket?.priority ?? 5
+        }
 
         const targetTicket = laneTickets[targetIndex]
         const targetPriority = targetTicket.priority ?? 0
@@ -218,7 +226,9 @@ export const Board = () => {
         }
 
         const draggedTicket = $s.tickets.find((t) => t.id === ticketId)
-        if (!draggedTicket) {return}
+        if (!draggedTicket) {
+            return
+        }
 
         const isSameLane = draggedTicket.status === targetStatus
         const dropPosition = dragState.dropPosition ?? 'below'
@@ -287,10 +297,14 @@ export const Board = () => {
         }
 
         const ticketId = e.dataTransfer?.getData('text/plain')
-        if (!ticketId) {return}
+        if (!ticketId) {
+            return
+        }
 
         const draggedTicket = $s.tickets.find((t) => t.id === ticketId)
-        if (!draggedTicket) {return}
+        if (!draggedTicket) {
+            return
+        }
 
         // Only handle lane drops if not dropping on a specific ticket
         if (draggedTicket.status === targetStatus) {

@@ -24,7 +24,7 @@ let wsManager: WebSocketServerManager | null = null
 /**
  * Initialize agent status tracking
  */
-export function initAgentStatusTracking(manager: WebSocketServerManager) {
+export function initAgentStatusTracking(manager: WebSocketServerManager): void {
     wsManager = manager
 
     // Load existing agent statuses from database
@@ -50,7 +50,7 @@ export function updateAgentStatus(
     status: AgentStatus,
     ticketId?: string | null,
     error?: string | null,
-) {
+): void {
     const currentState = agentStatuses.get(agentId) || {
         agentId,
         currentTicketId: null,
@@ -112,6 +112,6 @@ export function getAllAgentStatuses(): AgentStatusState[] {
 /**
  * Clear agent status (when agent stops working)
  */
-export function clearAgentStatus(agentId: string) {
+export function clearAgentStatus(agentId: string): void {
     updateAgentStatus(agentId, 'idle', null, null)
 }

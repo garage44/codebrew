@@ -49,7 +49,7 @@ export function extractWorkspacePackages(workspaceRoot: string): string[] {
         // Handle both array format and object format (Bun workspaces can be either)
         let workspaces: string[] = []
         if (Array.isArray(packageJson.workspaces)) {
-            ({ workspaces } = packageJson)
+            ;({workspaces} = packageJson)
         } else if (packageJson.workspaces && Array.isArray(packageJson.workspaces.packages)) {
             workspaces = packageJson.workspaces.packages
         }

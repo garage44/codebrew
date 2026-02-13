@@ -6,8 +6,7 @@
 import {logger} from '../../service.ts'
 import {db} from '../database.ts'
 import {indexCodeFile} from '../docs/code-embeddings.ts'
-import {generateDocEmbeddings} from '../docs/embeddings.ts'
-import {generateTicketEmbedding} from '../docs/embeddings.ts' as {generateTicketEmbedding: (ticketId: string, title: string, description: string | null) => Promise<void>}
+import {generateDocEmbeddings, generateTicketEmbedding} from '../docs/embeddings.ts'
 
 export interface IndexingJob {
     completed_at?: number
@@ -75,6 +74,7 @@ class IndexingWorker {
 
         while (this.queue.length > 0) {
             const jobs = this.queue.splice(0, this.maxConcurrent)
+            // eslint-disable-next-line no-await-in-loop
             await Promise.all(jobs.map((job): Promise<void> => this.processJob(job)))
         }
 

@@ -32,8 +32,12 @@ export const Main = () => {
 
             $s.profile.admin = context.admin || false
             $s.profile.authenticated = isAuthenticated || false
-            if (context.id) {$s.profile.id = context.id}
-            if (context.username) {$s.profile.username = context.username}
+            if (context.id) {
+                $s.profile.id = context.id
+            }
+            if (context.username) {
+                $s.profile.username = context.username
+            }
             if (context.profile) {
                 $s.profile.avatar = context.profile.avatar || 'placeholder-1.png'
                 $s.profile.displayName = context.profile.displayName || context.username || 'User'

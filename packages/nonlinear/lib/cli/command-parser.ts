@@ -4,8 +4,7 @@
  */
 
 import pc from 'picocolors'
-import type {Tool, ToolResult} from '../fixtures/tools/types.ts'
-import type {ToolContext} from '../fixtures/tools/types.ts'
+import type {Tool, ToolContext, ToolResult} from '../fixtures/tools/types.ts'
 
 /**
  * Parse command-line style arguments into a params object
@@ -90,7 +89,7 @@ function validateParams(params: Record<string, unknown>, tool: Tool): {errors: s
 
     // Check required parameters
     for (const param of tool.parameters) {
-        if (param.required && params[param.name] === undefined) {
+        if (param.required && !(param.name in params) || params[param.name] === null) {
             errors.push(`Missing required parameter: ${param.name}`)
         }
     }

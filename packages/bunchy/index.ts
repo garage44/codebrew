@@ -70,8 +70,8 @@ function applySettings(config: Config): void {
 }
 
 interface WsManager {
-    api: {
-        post: (path: string, handler: (ctx: unknown, req: {data: unknown}) => Promise<{status: string}>) => void
+    api?: {
+        post?: (path: string, handler: (ctx: unknown, req: {data?: unknown}) => Promise<unknown>, middlewares?: unknown[]) => void
     }
     broadcast: (url: string, data: MessageData, method?: string) => void
 }
@@ -165,7 +165,10 @@ const broadcast = (url: string, data: MessageData, method = 'POST'): void => {
 
 // Set up log forwarding from client to server
 function setupLogForwarding(wsManager: WsManager): void {
-    wsManager.api.post('/logs/forward', async (_ctx: unknown, req: {data: unknown}): Promise<{status: string}> => {
+    if (!wsManager.api?.post) {
+        return
+    }
+    wsManager.api.post('/logs/forward', async (_ctx: unknown, req: {data?: unknown}): Promise<{status: string}> => {
         const {args, level, message, source, timestamp} = req.data as {
             args: string[]
             level: string
@@ -185,33 +188,40 @@ function setupLogForwarding(wsManager: WsManager): void {
             // Ignore errors in dev context logging
         }
         switch (level) {
-            case 'error': {
+            case 'error': { 
                 logger.remote(formattedMessage, ...formattedArgs)
                 break
             }
-            case 'warn': {
+            
+            case 'warn': { 
                 logger.remote(formattedMessage, ...formattedArgs)
                 break
             }
-            case 'info': {
+            
+            case 'info': { 
                 logger.remote(formattedMessage, ...formattedArgs)
                 break
             }
-            case 'success': {
+            
+            case 'success': { 
                 logger.remote(formattedMessage, ...formattedArgs)
                 break
             }
-            case 'verbose': {
+            
+            case 'verbose': { 
                 logger.remote(formattedMessage, ...formattedArgs)
                 break
             }
-            case 'debug': {
+            
+            case 'debug': { 
                 logger.remote(formattedMessage, ...formattedArgs)
                 break
             }
-            default: {
+            
+            default: { 
                 logger.remote(formattedMessage, ...formattedArgs)
             }
+            
         }
 
         return {status: 'ok'}

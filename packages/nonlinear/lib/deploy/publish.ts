@@ -66,6 +66,7 @@ async function buildDependencyGraph(workspaceRoot: string, packages: string[]): 
         const packageJsonPath = join(packagePath, 'package.json')
 
         try {
+            // eslint-disable-next-line no-await-in-loop
             const packageJson = JSON.parse(await readFile(packageJsonPath, 'utf8'))
             const packageName = packageJson.name
 
@@ -153,6 +154,7 @@ export async function publish(): Promise<void> {
             const packageInfo = packageList.find((pkg) => pkg.name === packageName)
             if (packageInfo) {
                 const packagePath = join(workspaceRoot, packageInfo.path)
+                // eslint-disable-next-line no-await-in-loop
                 const currentVersion = await getCurrentVersion(packagePath)
                 const newVersion = bumpVersion(currentVersion)
                 packageVersions[packageName] = newVersion
@@ -177,6 +179,7 @@ export async function publish(): Promise<void> {
                 let readmeCopied = false
                 if (packageName === '@garage44/expressio') {
                     try {
+                        // eslint-disable-next-line no-await-in-loop
                         await copyFile(join(workspaceRoot, 'README.md'), join(packagePath, 'README.md'))
                         // eslint-disable-next-line no-console
                         console.log('📄 Copied root README.md to expressio package')

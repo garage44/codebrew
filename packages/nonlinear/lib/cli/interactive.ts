@@ -187,6 +187,7 @@ export async function runAgentInteractive(options: InteractiveCLIOptions): Promi
                                 markTaskProcessing(task.id)
 
                                 const taskData = JSON.parse(task.task_data) as Record<string, unknown>
+                                // eslint-disable-next-line no-await-in-loop
                                 await runAgentScheduler(agentRecord.id, {
                                     ...taskData,
                                     task_id: task.id,

@@ -18,7 +18,7 @@ export interface ParsedMention {
 export function parseMentions(content: string): ParsedMention[] {
     const mentions: ParsedMention[] = []
     const mentionRegex = /@(\w+)/g
-    let match
+    let match: RegExpExecArray | null = null
 
     while ((match = mentionRegex.exec(content)) !== null) {
         const name = match[1]

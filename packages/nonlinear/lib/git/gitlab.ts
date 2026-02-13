@@ -163,10 +163,17 @@ export class GitLabAdapter implements GitPlatform {
         }
 
         const mr = mrs[0]
+        let state: 'open' | 'closed' | 'merged' = 'closed'
+        if (mr.state === 'merged') {
+            state = 'merged'
+        } else if (mr.state === 'opened') {
+            state = 'open'
+        }
+
         return {
             description: mr.description || '',
             id: mr.iid.toString(),
-            state: mr.state === 'merged' ? 'merged' : (mr.state === 'opened' ? 'open' : 'closed'),
+            state,
             title: mr.title,
             url: mr.web_url,
         }

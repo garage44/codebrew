@@ -29,7 +29,7 @@ export class Task {
     }
 
     log(...args: unknown[]): void {
-        logger.info(...(args.map((arg: unknown): string => String(arg)) as [string, ...string[]]))
+        logger.info(...(args.map(String) as [string, ...string[]]))
     }
 
     async start(...args: unknown[]): Promise<unknown> {

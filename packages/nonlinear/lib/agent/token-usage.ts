@@ -24,7 +24,7 @@ let wsManager: WebSocketServerManager | null = null
 /**
  * Initialize token usage tracking
  */
-export function initTokenUsageTracking(manager: WebSocketServerManager) {
+export function initTokenUsageTracking(manager: WebSocketServerManager): void {
     wsManager = manager
     logger.info('[Token Usage] Initialized token usage tracking (usage retrieved from API response headers)')
 }
@@ -37,10 +37,10 @@ export function updateUsageFromHeaders(headers: {
     limit?: number
     remaining?: number
     reset?: string
-}) {
+}): void {
     logger.debug(`[Token Usage] updateUsageFromHeaders called with: ${JSON.stringify(headers)}`)
 
-    if (headers.limit !== undefined && headers.remaining !== undefined) {
+    if (headers.limit !== null && headers.remaining !== null) {
         const used = headers.limit - headers.remaining
         const oldCount = tokenUsage.count
         const oldLimit = tokenUsage.limit
@@ -83,7 +83,7 @@ export function updateUsageFromResponse(response: {
         input_tokens: number
         output_tokens: number
     }
-}) {
+}): void {
     // Try to extract rate limit headers if available
     if (response.headers) {
         const limit = Number.parseInt(response.headers.get('anthropic-ratelimit-tokens-limit') || '0', 10)

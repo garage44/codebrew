@@ -10,7 +10,7 @@ import {Markdown} from './markdown'
 import './docs.css'
 
 // Use api for public access, ws for authenticated
-const getApi = () => $s.profile.authenticated ? ws : api
+const getApi = () => ($s.profile.authenticated ? ws : api)
 
 interface Doc {
     content: string
@@ -87,7 +87,9 @@ export const Docs = () => {
     }
 
     const handleSave = async (content: string, tags: string[]) => {
-        if (!state.selectedDoc) {return}
+        if (!state.selectedDoc) {
+            return
+        }
 
         try {
             const result = await ws.put(`/api/docs/${state.selectedDoc.id}`, {

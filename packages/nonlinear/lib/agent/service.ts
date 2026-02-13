@@ -365,8 +365,8 @@ if (import.meta.main) {
     const service = new AgentService(agentId)
 
     /* Declare logger here */
-    let logger: ReturnType<typeof loggerTransports>;
-    (async() => {
+    let logger: ReturnType<typeof loggerTransports> | null = null
+    ;(async(): Promise<void> => {
         await initConfig(config)
         initDatabase()
 

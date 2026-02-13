@@ -73,7 +73,10 @@ export async function updatePRDeployment(
 
 export async function removePRDeployment(prNumber: number): Promise<void> {
     const registry = await loadPRRegistry()
-    delete registry[prNumber]
+    const key = prNumber.toString()
+    if (key in registry) {
+        Reflect.deleteProperty(registry, key)
+    }
     await savePRRegistry(registry)
 }
 

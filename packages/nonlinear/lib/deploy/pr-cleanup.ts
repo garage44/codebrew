@@ -104,6 +104,7 @@ export async function cleanupPRDeployment(prNumber: number): Promise<{
             for (const packageName of packagesToClean) {
                 const port = portMap[packageName as keyof typeof portMap] || deployment.ports.nonlinear
                 // Try to kill processes on the port (fuser might not be available, so use nothrow)
+                // eslint-disable-next-line no-await-in-loop
                 await $`sudo fuser -k ${port}/tcp 2>/dev/null || true`.quiet().nothrow()
             }
             // eslint-disable-next-line no-console
@@ -201,11 +202,14 @@ server {
 
                 // Write the "removed" config
                 const tempFile = `/tmp/pr-${prNumber}-${packageName}-removed.nginx.conf`
+                // eslint-disable-next-line no-await-in-loop
                 await Bun.write(tempFile, removedContent) as Promise<number>
+                // eslint-disable-next-line no-await-in-loop
                 await $`sudo mv ${tempFile} ${configFile}`.quiet() as Promise<unknown>
 
                 // Ensure symlink exists
                 if (!existsSync(enabledLink)) {
+                    // eslint-disable-next-line no-await-in-loop
                     await $`sudo ln -s ${configFile} ${enabledLink}`.quiet() as Promise<unknown>
                 }
             }
@@ -278,6 +282,7 @@ export async function cleanupStaleDeployments(
             if (age > maxAge) {
                 // eslint-disable-next-line no-console
                 console.log(`[pr-cleanup] PR #${prNumber} is stale (${Math.round(age / (24 * 60 * 60 * 1000)) as number} days old)`)
+                // eslint-disable-next-line no-await-in-loop
                 const result = await cleanupPRDeployment(Number(prNumber))
                 if (result.success) {
                     cleaned += 1

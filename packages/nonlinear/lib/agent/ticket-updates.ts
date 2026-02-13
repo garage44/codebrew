@@ -12,7 +12,7 @@ let wsManager: WebSocketServerManager | null = null
 /**
  * Initialize ticket update broadcasting
  */
-export function initAgentTicketUpdateBroadcasting(manager: WebSocketServerManager) {
+export function initAgentTicketUpdateBroadcasting(manager: WebSocketServerManager): void {
     wsManager = manager
     logger.info('[Agent Ticket Updates] Initialized agent ticket update broadcasting')
 }
@@ -75,15 +75,15 @@ export async function updateTicketFromAgent(
     const fields: string[] = []
     const values: (string | number | null)[] = []
 
-    if (updates.title !== undefined) {
+    if ('title' in updates) {
         fields.push('title = ?')
         values.push(updates.title)
     }
-    if (updates.description !== undefined) {
+    if ('description' in updates) {
         fields.push('description = ?')
         values.push(updates.description)
     }
-    if (updates.solution_plan !== undefined) {
+    if ('solution_plan' in updates) {
         fields.push('solution_plan = ?')
         values.push(updates.solution_plan)
     }
@@ -130,7 +130,7 @@ export async function updateTicketFields(
     }
 
     // Validate priority range if provided
-    if (updates.priority !== undefined && updates.priority !== null && (updates.priority < 0 || updates.priority > 10)) {
+    if ('priority' in updates && updates.priority !== null && (updates.priority < 0 || updates.priority > 10)) {
         return {
             error: 'Priority must be between 0 and 10',
             success: false,
@@ -138,7 +138,7 @@ export async function updateTicketFields(
     }
 
     // Validate status if provided
-    if (updates.status !== undefined && updates.status !== null) {
+    if ('status' in updates && updates.status !== null) {
         const validStatuses = ['backlog', 'todo', 'in_progress', 'review', 'closed']
         if (!validStatuses.includes(updates.status)) {
             return {
@@ -151,23 +151,23 @@ export async function updateTicketFields(
     const fields: string[] = []
     const values: (string | number | null)[] = []
 
-    if (updates.title !== undefined) {
+    if ('title' in updates) {
         fields.push('title = ?')
         values.push(updates.title)
     }
-    if (updates.description !== undefined) {
+    if ('description' in updates) {
         fields.push('description = ?')
         values.push(updates.description)
     }
-    if (updates.status !== undefined) {
+    if ('status' in updates) {
         fields.push('status = ?')
         values.push(updates.status)
     }
-    if (updates.priority !== undefined) {
+    if ('priority' in updates) {
         fields.push('priority = ?')
         values.push(updates.priority)
     }
-    if (updates.solution_plan !== undefined) {
+    if ('solution_plan' in updates) {
         fields.push('solution_plan = ?')
         values.push(updates.solution_plan)
     }
@@ -191,7 +191,7 @@ export async function updateTicketFields(
         `).run(...values)
 
         // Regenerate ticket embedding if title or description changed
-        if (updates.title !== undefined || updates.description !== undefined) {
+        if ('title' in updates || 'description' in updates) {
             try {
                 const {queueIndexingJob} = await import('../indexing/queue.ts')
                 await queueIndexingJob({

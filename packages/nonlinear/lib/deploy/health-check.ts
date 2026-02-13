@@ -91,7 +91,7 @@ export async function checkPortListening(port: number): Promise<HealthCheckResul
 export async function checkHttpEndpoint(url: string, timeoutMs = 10_000): Promise<HealthCheckResult> {
     try {
         const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+        const timeoutId = setTimeout((): void => controller.abort(), timeoutMs)
 
         try {
             const response = await fetch(url, {
@@ -159,6 +159,7 @@ export async function waitForService(
     const startTime = Date.now()
 
     while (Date.now() - startTime < maxWaitMs) {
+        // eslint-disable-next-line no-await-in-loop
         const check = await checkServiceStatus(serviceName)
         if (check.healthy) {
             return {
@@ -168,7 +169,8 @@ export async function waitForService(
         }
 
         // Wait before next check
-        await new Promise((resolve) => setTimeout(resolve, checkIntervalMs))
+        // eslint-disable-next-line no-await-in-loop
+        await new Promise((resolve: () => void): void => setTimeout(resolve, checkIntervalMs))
     }
 
     // Final check
@@ -195,6 +197,7 @@ export async function waitForPort(
     const startTime = Date.now()
 
     while (Date.now() - startTime < maxWaitMs) {
+        // eslint-disable-next-line no-await-in-loop
         const check = await checkPortListening(port)
         if (check.healthy) {
             return {
@@ -204,7 +207,8 @@ export async function waitForPort(
         }
 
         // Wait before next check
-        await new Promise((resolve) => setTimeout(resolve, checkIntervalMs))
+        // eslint-disable-next-line no-await-in-loop
+        await new Promise((resolve: () => void): void => setTimeout(resolve, checkIntervalMs))
     }
 
     // Final check
@@ -231,6 +235,7 @@ export async function waitForHttpEndpoint(
     const startTime = Date.now()
 
     while (Date.now() - startTime < maxWaitMs) {
+        // eslint-disable-next-line no-await-in-loop
         const check = await checkHttpEndpoint(url, timeoutMs)
         if (check.healthy) {
             return {
@@ -241,7 +246,8 @@ export async function waitForHttpEndpoint(
         }
 
         // Wait before next check
-        await new Promise((resolve) => setTimeout(resolve, checkIntervalMs))
+        // eslint-disable-next-line no-await-in-loop
+        await new Promise((resolve: () => void): void => setTimeout(resolve, checkIntervalMs))
     }
 
     // Final check
@@ -286,6 +292,7 @@ export async function checkPRDeploymentHealth(
         const httpsUrl = `https://${subdomain}`
 
         // Check service status
+        // eslint-disable-next-line no-await-in-loop
         const serviceCheck = await checkServiceStatus(serviceName)
         checks.push({
             name: `Service: ${serviceName}`,
@@ -293,6 +300,7 @@ export async function checkPRDeploymentHealth(
         })
 
         // Check port
+        // eslint-disable-next-line no-await-in-loop
         const portCheck = await checkPortListening(port)
         checks.push({
             name: `Port: ${port} (${packageName})`,
@@ -300,6 +308,7 @@ export async function checkPRDeploymentHealth(
         })
 
         // Check HTTP endpoint
+        // eslint-disable-next-line no-await-in-loop
         const httpCheck = await checkHttpEndpoint(httpsUrl, 10_000)
         checks.push({
             name: `HTTP: ${httpsUrl}`,

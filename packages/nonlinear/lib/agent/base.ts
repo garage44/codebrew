@@ -107,14 +107,14 @@ export abstract class BaseAgent {
             filters?: DocFilters
             limit?: number
         } = {},
-    ) {
+    ): Promise<{docs: {chunk: {index: number; score: number; text: string}; doc: {content: string; id: string; path: string; title: string}}[]; tickets: {score: number; ticket: {description: string | null; id: string; title: string}}[]}> {
         try {
             return await unifiedVectorSearch(query, {
                 contentType: options.contentType || 'both',
                 filters: options.filters,
                 limit: options.limit || 5,
             })
-        } catch(error) {
+        } catch(error: unknown) {
             logger.warn(`[${this.name}] Semantic search failed:`, error)
             return {docs: [], tickets: []}
         }
@@ -123,10 +123,10 @@ export abstract class BaseAgent {
     /**
      * Search only documentation
      */
-    protected async searchDocs(query: string, filters?: DocFilters, limit: number = 5) {
+    protected async searchDocs(query: string, filters?: DocFilters, limit = 5): Promise<{chunk: {index: number; score: number; text: string}; doc: {content: string; id: string; path: string; title: string}}[]> {
         try {
             return await searchDocsVector(query, filters, limit)
-        } catch(error) {
+        } catch(error: unknown) {
             logger.warn(`[${this.name}] Doc search failed:`, error)
             return []
         }
@@ -135,10 +135,10 @@ export abstract class BaseAgent {
     /**
      * Search only tickets
      */
-    protected async searchTickets(query: string, filters?: DocFilters, limit: number = 5) {
+    protected async searchTickets(query: string, filters?: DocFilters, limit = 5): Promise<{score: number; ticket: {description: string | null; id: string; title: string}}[]> {
         try {
             return await searchTicketsVector(query, filters, limit)
-        } catch(error) {
+        } catch(error: unknown) {
             logger.warn(`[${this.name}] Ticket search failed:`, error)
             return []
         }
@@ -155,7 +155,7 @@ export abstract class BaseAgent {
             return 'No relevant documentation found.'
         }
 
-        const formatted = results.map((result, idx) => `[Doc ${idx + 1}] ${result.doc.title} (${result.doc.path})
+        const formatted = results.map((result, idx): string => `[Doc ${idx + 1}] ${result.doc.title} (${result.doc.path})
 Score: ${(result.chunk.score * 100).toFixed(1)}%
 Relevant excerpt:
 ${result.chunk.text.slice(0, 500)}${result.chunk.text.length > 500 ? '...' : ''}
@@ -260,7 +260,7 @@ ${result.doc.content}
         }
 
         const paramsStr = Object.entries(params)
-            .map(([key, value]) => {
+            .map(([key, value]): string => {
                 const valStr = typeof value === 'string' && value.length > 50 ?
                     `${value.slice(0, 50)}...` :
                         String(value)
@@ -327,7 +327,7 @@ ${result.doc.content}
                 throw new Error(error.error?.message || `API error: ${response.status}`)
             }
 
-            const data = await response.json()
+            const data = await response.json() as {content: {type: string; text?: string}[]; id: string; model: string; role: string; stop_reason: string; type: string; usage: {completion_tokens: number; prompt_tokens: number}}
 
             // Extract rate limit headers
             const limitHeader = response.headers.get('anthropic-ratelimit-tokens-limit')
@@ -350,10 +350,10 @@ ${result.doc.content}
             }
 
             // Handle tool_use content blocks
-            const toolUses = data.content.filter((c: {type: string}): boolean => c.type === 'tool_use')
+            const toolUses = (data.content as {type: string}[]).filter((c): boolean => c.type === 'tool_use')
             if (toolUses.length === 0) {
                 // Final text response
-                const textContent = data.content.find((c: {type: string}): boolean => c.type === 'text')
+                const textContent = (data.content as {type: string; text?: string}[]).find((c): boolean => c.type === 'text')
                 if (textContent) {
                     await this.streamReasoning('✅ Completed')
                     return textContent.text
@@ -369,7 +369,7 @@ ${result.doc.content}
             }
 
             const toolResults = await Promise.all(
-                toolUses.map(async(toolUse: {id: string; input: Record<string, unknown>; name: string}) => {
+                toolUses.map(async(toolUse: {id: string; input: Record<string, unknown>; name: string}): Promise<{content: string; tool_use_id: string; type: string}> => {
                     const tool = this.tools[toolUse.name]
                     if (!tool) {
                         await this.streamReasoning(`❌ ERROR: Tool "${toolUse.name}" not found`)
@@ -382,7 +382,7 @@ ${result.doc.content}
 
                     // Format tool parameters for display
                     const paramsStr = Object.entries(toolUse.input)
-                        .map(([key, value]) => {
+                        .map(([key, value]): string => {
                             const valStr = typeof value === 'string' && value.length > 50 ?
                                 `${value.slice(0, 50)}...` :
                                     String(value)
@@ -488,7 +488,7 @@ ${result.doc.content}
             let buffer = ''
             let fullResponse = ''
 
-            while (true) {
+            while (true) { // eslint-disable-line no-constant-condition
                 const {done, value} = await reader.read()
                 if (done) {break}
 
@@ -501,19 +501,19 @@ ${result.doc.content}
                     if (line.startsWith('data: ')) {
                         // Remove 'data: ' prefix
                         const data = line.slice(6)
-                        if (data === '[DONE]') {
-                            continue
-                        }
-
-                        try {
-                            const event = JSON.parse(data)
-                            if (event.type === 'content_block_delta' && event.delta?.type === 'text_delta') {
-                                const chunk = event.delta.text
-                                fullResponse += chunk
-                                await onChunk(chunk)
+                        if (data !== '[DONE]') {
+                            try {
+                                const event = JSON.parse(data) as {delta?: {text?: string; type?: string}; type?: string}
+                                if (event.type === 'content_block_delta' && event.delta?.type === 'text_delta') {
+                                    const chunk = event.delta.text
+                                    if (chunk) {
+                                        fullResponse += chunk
+                                        await onChunk(chunk)
+                                    }
+                                }
+                            } catch {
+                                // Ignore parse errors for non-JSON lines
                             }
-                        } catch {
-                            // Ignore parse errors for non-JSON lines
                         }
                     }
                 }
@@ -539,7 +539,7 @@ ${result.doc.content}
             }
 
             return fullResponse
-        } catch(error) {
+        } catch(error: unknown) {
             logger.error(`[Agent ${this.name}] Error calling Anthropic streaming API: ${error}`)
             throw error
         }
@@ -583,7 +583,7 @@ ${result.doc.content}
                 throw new Error(error.error?.message || `API error: ${response.status}`)
             }
 
-            const data = await response.json()
+            const data = await response.json() as {content: {type: string; text?: string}[]; id: string; model: string; role: string; stop_reason: string; type: string; usage: {completion_tokens: number; prompt_tokens: number}}
 
             // Extract rate limit headers
             const limitHeader = response.headers.get('anthropic-ratelimit-tokens-limit')
@@ -619,7 +619,7 @@ ${result.doc.content}
             }
 
             throw new Error('Unexpected response type from Anthropic API')
-        } catch(error) {
+        } catch(error: unknown) {
             logger.error(`[Agent ${this.name}] Error calling Anthropic API: ${error}`)
             throw error
         }
@@ -631,19 +631,22 @@ ${result.doc.content}
     protected log(message: string, level: 'info' | 'warn' | 'error' = 'info'): void {
         const logMessage = `[Agent ${this.name}] ${message}`
         switch (level) {
-            case 'info': 
+            case 'info': { 
                 logger.info(logMessage)
                 break
+            }
             
             
-            case 'warn': 
+            case 'warn': { 
                 logger.warn(logMessage)
                 break
+            }
             
             
-            case 'error': 
+            case 'error': { 
                 logger.error(logMessage)
                 break
+            }
             
             
         }
@@ -662,12 +665,12 @@ ${result.doc.content}
         for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
             try {
                 return await fn()
-            } catch(error) {
+            } catch(error: unknown) {
                 lastError = error instanceof Error ? error : new Error(String(error))
                 if (attempt < maxAttempts) {
                     const waitTime = delay * 2 ** (attempt - 1)
                     this.log(`Attempt ${attempt} failed, retrying in ${waitTime}ms...`, 'warn')
-                    await new Promise((resolve) => setTimeout(resolve, waitTime))
+                    await new Promise<void>((resolve): void => { setTimeout((): void => { resolve() }, waitTime) })
                 }
             }
         }

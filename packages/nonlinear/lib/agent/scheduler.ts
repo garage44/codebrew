@@ -14,7 +14,7 @@ import {getAgentById} from './index.ts'
  * @deprecated Agents should be started via AgentService or CLI commands
  * This function is kept for backward compatibility but does nothing
  */
-export async function initAgentScheduler() {
+export async function initAgentScheduler(): Promise<void> {
     logger.warn('[Agent Scheduler] initAgentScheduler() is deprecated. Use AgentService or CLI commands to start agents.')
 }
 

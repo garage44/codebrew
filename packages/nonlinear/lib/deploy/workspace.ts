@@ -67,14 +67,13 @@ export function extractWorkspacePackages(workspaceRoot: string): string[] {
                     const entries = readdirSync(packagesDir)
                     for (const entry of entries) {
                         // Skip hidden files/directories and ensure it's a directory
-                        if (entry.startsWith('.')) {
-                            continue
-                        }
-                        const entryPath = join(packagesDir, entry)
-                        const pkgPath = join(entryPath, 'package.json')
-                        // Check if it's a directory and has package.json
-                        if (existsSync(entryPath) && existsSync(pkgPath)) {
-                            packages.push(entry)
+                        if (!entry.startsWith('.')) {
+                            const entryPath = join(packagesDir, entry)
+                            const pkgPath = join(entryPath, 'package.json')
+                            // Check if it's a directory and has package.json
+                            if (existsSync(entryPath) && existsSync(pkgPath)) {
+                                packages.push(entry)
+                            }
                         }
                     }
                 } catch(error: unknown) {

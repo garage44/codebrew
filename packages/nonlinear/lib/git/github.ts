@@ -156,10 +156,19 @@ export class GitHubAdapter implements GitPlatform {
         }
 
         const pr = prs[0]
+        let state: 'open' | 'closed' | 'merged'
+        if (pr.merged) {
+            state = 'merged'
+        } else if (pr.state === 'open') {
+            state = 'open'
+        } else {
+            state = 'closed'
+        }
+
         return {
             description: pr.body || '',
             id: pr.number.toString(),
-            state: pr.merged ? 'merged' : (pr.state === 'open' ? 'open' : 'closed'),
+            state,
             title: pr.title,
             url: pr.html_url,
         }

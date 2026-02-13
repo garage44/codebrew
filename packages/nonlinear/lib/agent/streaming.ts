@@ -184,7 +184,7 @@ export function getStreamingMessage(messageId: string): {
     id: string
     status: StreamingMessageStatus
     type: StreamingMessageType
-} | undefined {
+} | null {
     const comment = db.prepare('SELECT * FROM comments WHERE id = ?').get(messageId) as {
         content: string
         id: string
@@ -201,5 +201,5 @@ export function getStreamingMessage(messageId: string): {
     }
 
     // Future: chat message lookup
-    return undefined
+    return null
 }

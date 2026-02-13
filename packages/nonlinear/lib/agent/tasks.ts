@@ -3,9 +3,8 @@
  * Handles creation, retrieval, and status updates for agent tasks
  */
 
-import {db} from '../database.ts'
+import {db, type AgentTask} from '../database.ts'
 import {randomId} from '@garage44/common/lib/utils'
-import type {AgentTask} from '../database.ts'
 
 export type TaskType = 'mention' | 'assignment' | 'manual' | 'refinement'
 

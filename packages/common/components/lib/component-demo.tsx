@@ -1,5 +1,4 @@
-import type {h} from 'preact';
-import type { ComponentChildren} from 'preact'
+import type {h, ComponentChildren} from 'preact'
 
 interface ComponentDemoProps {
     children: ComponentChildren

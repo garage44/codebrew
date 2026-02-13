@@ -30,7 +30,7 @@ export function chunkCode(
 
     // Extract functions
     const functionRegex = /^(export\s+)?(async\s+)?function\s+(\w+)/gm
-    let match: RegExpExecArray | null
+    let match: RegExpExecArray | null = null
     while ((match = functionRegex.exec(code)) !== null) {
         const funcName = match[3]
         const startPos = match.index

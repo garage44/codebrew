@@ -45,6 +45,6 @@ Access the documentation via the nonlinear package or visit the deployed instanc
     } catch(error) {
         // eslint-disable-next-line no-console
         console.error('❌ Failed to create AGENTS.md:', error)
-        process.exit(1)
+        throw error
     }
 }
