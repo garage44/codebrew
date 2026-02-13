@@ -3,8 +3,8 @@
  * Picks up "todo" tickets, creates branches, implements code, and creates MRs
  */
 
-import {BaseAgent, type AgentContext, type AgentResponse} from './base.ts'
-import {db, addTicketAssignee, type Repository} from '../database.ts'
+import {type AgentContext, type AgentResponse, BaseAgent} from './base.ts'
+import {type Repository, addTicketAssignee, db} from '../database.ts'
 import {logger} from '../../service.ts'
 import {createGitPlatform} from '../git/index.ts'
 import {addAgentComment} from './comments.ts'
@@ -212,8 +212,8 @@ Use the available tools to implement the solution plan. Make changes directly us
                 // Commit changes (tools may have already committed, but ensure we have a commit)
                 const gitStatusProc = Bun.spawn(['git', 'status', '--porcelain'], {
                     cwd: ticket.path,
-                    stdout: 'pipe',
                     stderr: 'pipe',
+                    stdout: 'pipe',
                 })
                 const gitStatus = await new Response(gitStatusProc.stdout).text();
                 await gitStatusProc.exited;
@@ -286,7 +286,7 @@ Use the available tools to implement the solution plan. Make changes directly us
             } finally {
                 process.chdir(originalCwd)
             }
-        } catch(_error) {
+        } catch{
             this.log('Error during development: ' + error, 'error')
             // Revert ticket status back to todo on error
             if (ticket) {
@@ -313,7 +313,7 @@ Use the available tools to implement the solution plan. Make changes directly us
                 packageJson: packageJson ? JSON.parse(packageJson) : null,
                 readme: readme || null,
             }, null, 2)
-        } catch(_error) {
+        } catch{
             return 'Error reading repository context: ' + error
         }
     }
@@ -356,7 +356,7 @@ Use the available tools to implement the solution plan. Make changes directly us
                 message: response,
                 success: true,
             }
-        } catch(_error) {
+        } catch{
             const errorMsg = error instanceof Error ? error.message : String(error)
             return {
                 error: errorMsg,

@@ -8,7 +8,7 @@ import {Enola} from './lib/enola/index.ts'
 import {Workspace} from './lib/workspace.ts'
 import {Workspaces} from './lib/workspaces.ts'
 import {translate_tag} from './lib/translate.ts'
-import {createRuntime, createWelcomeBanner, setupBunchyConfig, createWebSocketManagers, service, loggerTransports} from '@garage44/common/service'
+import {createRuntime, createWebSocketManagers, createWelcomeBanner, loggerTransports, service, setupBunchyConfig} from '@garage44/common/service'
 import {initDatabase} from '@garage44/common/lib/database'
 import fs from 'fs-extra'
 import {hideBin} from 'yargs/helpers'
@@ -212,7 +212,7 @@ void cli.usage('Usage: $0 [task]')
                 pathCreate(workspace.i18n, [...refPath], {
                     source: sourceRef[id],
                     target: {},
-                }, workspace.config.languages.target as unknown as Array<{engine: 'anthropic' | 'deepl'; formality: 'default' | 'more' | 'less'; id: string; name: string}>)
+                }, workspace.config.languages.target as unknown as {engine: 'anthropic' | 'deepl'; formality: 'default' | 'more' | 'less'; id: string; name: string}[])
             }
         })
 

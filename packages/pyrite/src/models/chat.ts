@@ -93,10 +93,10 @@ export async function onMessage(messageData: {
     }
 
     // Notifies user of a new message when the active channel
-    // is not visible, because the chat panel is closed or a different
-    // channel is active. Not that the chat history is also replayed through
-    // onMessage. This is why no chat channel is selected initially;
-    // we don't want to show those messages while entering the group.
+    // Is not visible, because the chat panel is closed or a different
+    // Channel is active. Not that the chat history is also replayed through
+    // OnMessage. This is why no chat channel is selected initially;
+    // We don't want to show those messages while entering the group.
     if (
         $s.chat.channels[$s.chat.channel] &&
         ((channelId !== $s.chat.channel) || $s.panels.chat.collapsed)
@@ -126,15 +126,15 @@ function updateUserFromMember(member: {user_id: unknown, username?: string, avat
         }
     } else {
         $s.chat.users[userId] = {
-            username: member.username,
             avatar: member.avatar,
-            status: 'online', // Users in channels are online
+            status: 'online',
+            username: member.username, // Users in channels are online
         }
     }
 }
 
 export function selectChannel(channelSlug: string | number) {
-    // channelSlug can be a channel slug (string) or a legacy numeric ID (for backward compatibility during migration)
+    // ChannelSlug can be a channel slug (string) or a legacy numeric ID (for backward compatibility during migration)
     // For non-channel chat (e.g., 'main', user IDs), treat as string
     if (typeof channelSlug === 'string') {
         // Check if it's a Pyrite channel slug (by checking if it exists in channels)
@@ -186,8 +186,8 @@ export async function loadGlobalUsers() {
                         // Store user globally: userId -> {username, avatar}
                         // Use normalized user ID as key to prevent duplicates
                         $s.chat.users[userId] = {
-                            username: user.username || 'User',
                             avatar: user.profile?.avatar || '',
+                            username: user.username || 'User',
                         }
                     }
                 }
@@ -201,8 +201,8 @@ export async function loadGlobalUsers() {
             const currentUserId = String($s.profile.id)
             if (!$s.chat.users[currentUserId]) {
                 $s.chat.users[currentUserId] = {
-                    username: $s.profile.username || 'User',
                     avatar: $s.profile.avatar || '',
+                    username: $s.profile.username || 'User',
                 }
             }
         }
@@ -230,9 +230,9 @@ export async function loadGlobalUsers() {
                     for (const member of membersResponse.members) {
                         if (member && typeof member === 'object' && 'user_id' in member && member.user_id) {
                             updateUserFromMember({
+                                avatar: 'avatar' in member && typeof member.avatar === 'string' ? member.avatar : undefined,
                                 user_id: member.user_id,
                                 username: 'username' in member && typeof member.username === 'string' ? member.username : undefined,
-                                avatar: 'avatar' in member && typeof member.avatar === 'string' ? member.avatar : undefined,
                             })
                         }
                     }
@@ -292,8 +292,8 @@ export async function loadChannelHistory(channelSlug: string | number) {
                     }
                     const updatedChatUsers = $s.chat.users as PyriteState['chat']['users']
                     updatedChatUsers[userId] = {
-                        username: 'username' in member && typeof member.username === 'string' ? member.username : '',
                         avatar: String(member.avatar),
+                        username: 'username' in member && typeof member.username === 'string' ? member.username : '',
                     }
                 }
             }
@@ -338,7 +338,7 @@ export async function loadChannelHistory(channelSlug: string | number) {
  */
 export async function sendTypingIndicator(typing: boolean, channelSlug?: string) {
     const targetChannelSlug = channelSlug || $s.chat.activeChannelSlug
-    if (!targetChannelSlug) return
+    if (!targetChannelSlug) {return}
 
     try {
         await ws.post(`/channels/${targetChannelSlug}/typing`, {
@@ -371,7 +371,7 @@ export async function sendMessage(message: string) {
             kind = 'message'
         } else {
             let cmd, rest
-            let space = message.indexOf(' ')
+            const space = message.indexOf(' ')
             if (space < 0) {
                 cmd = message.slice(1)
                 rest = ''
@@ -395,8 +395,8 @@ export async function sendMessage(message: string) {
 
     try {
         const response = await ws.post(`/channels/${$s.chat.activeChannelSlug}/messages`, {
-            message,
-            kind
+            kind,
+            message
         })
 
         if (!response || typeof response !== 'object' || !('success' in response) || !response.success) {

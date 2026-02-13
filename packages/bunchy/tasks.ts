@@ -1,11 +1,11 @@
 import {broadcast, settings} from './index.ts'
 import {Task} from './task.ts'
 import fs from 'fs-extra'
-import {Glob, $} from 'bun'
-import path from 'path'
+import {$, Glob} from 'bun'
+import path from 'node:path'
 import template from 'lodash.template'
 import {throttle} from '@garage44/common/lib/utils'
-import {watch} from 'fs'
+import {watch} from 'node:fs'
 import {bundle} from 'lightningcss'
 
 const debounce = {options: {trailing: true}, wait: 1000}
@@ -496,15 +496,13 @@ tasks.stylesComponents = new Task('styles:components', async function taskStyles
     const glob1 = new Glob('**/*.css')
     const glob2 = new Glob('**/*.css')
 
-    const imports1 = Array.from(glob1.scanSync(settings.dir.common)).map((f) => path.join(settings.dir.common, f))
-    const imports2 = Array.from(glob2.scanSync(settings.dir.components)).map((f) => path.join(settings.dir.components, f))
+    const imports1 = [...glob1.scanSync(settings.dir.common)].map((f) => path.join(settings.dir.common, f))
+    const imports2 = [...glob2.scanSync(settings.dir.components)].map((f) => path.join(settings.dir.components, f))
 
     const allImports = [...imports1, ...imports2]
 
     // Create the components entry file content using absolute paths
-    const componentImports = allImports.map((importFile) => {
-        return `@import "${importFile}";`
-    })
+    const componentImports = allImports.map((importFile) => `@import "${importFile}";`)
 
     const entryContent = componentImports.join('\n')
     const entryFile = path.join(settings.dir.src, 'components.css')

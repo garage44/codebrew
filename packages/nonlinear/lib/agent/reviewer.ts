@@ -3,7 +3,7 @@
  * Reviews merge requests and provides feedback
  */
 
-import {BaseAgent, type AgentContext, type AgentResponse} from './base.ts'
+import {type AgentContext, type AgentResponse, BaseAgent} from './base.ts'
 import {db} from '../database.ts'
 import {logger} from '../../service.ts'
 import {createGitPlatform} from '../git/index.ts'
@@ -75,13 +75,13 @@ export class ReviewerAgent extends BaseAgent {
                 SELECT * FROM comments
                 WHERE ticket_id = ?
                 ORDER BY created_at ASC
-            `).all(ticket.id) as Array<{
+            `).all(ticket.id) as {
                 author_id: string
                 author_type: string
                 content: string
                 created_at: number
                 id: string
-            }>
+            }[]
 
             // Review the MR using LLM
             const systemPrompt = `You are a code review AI agent for a Bun/TypeScript project.
@@ -116,9 +116,9 @@ Please review the changes and provide feedback.`
             // Parse review response
             let review: {
                 approved: boolean
-                feedback: Array<{message: string; type: string}>
-                issues?: Array<string>
-                suggestions?: Array<string>
+                feedback: {message: string; type: string}[]
+                issues?: string[]
+                suggestions?: string[]
             }
 
             try {
@@ -186,9 +186,9 @@ Please review the changes and provide feedback.`
 
     private formatReviewComment(review: {
         approved: boolean
-        feedback: Array<{message: string; type: string}>
-        issues?: Array<string>
-        suggestions?: Array<string>
+        feedback: {message: string; type: string}[]
+        issues?: string[]
+        suggestions?: string[]
     }): string {
         const lines: string[] = []
 

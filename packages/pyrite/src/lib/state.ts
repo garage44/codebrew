@@ -3,8 +3,6 @@ import {
     volatileState as commonVolatileState,
 } from '@garage44/common/lib/state'
 import {mergeDeep} from '@garage44/common/lib/utils'
-
-// Pyrite state management using DeepSignal pattern
 import type {PyriteState} from '../types.ts'
 
 export const persistantState = mergeDeep({

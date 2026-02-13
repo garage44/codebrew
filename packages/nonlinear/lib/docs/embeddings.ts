@@ -4,7 +4,7 @@
 
 import {config} from '../config.ts'
 import {logger} from '../../service.ts'
-import {chunkMarkdown, type Chunk} from './chunking.ts'
+import {type Chunk, chunkMarkdown} from './chunking.ts'
 import {db} from '../database.ts'
 import {randomId} from '@garage44/common/lib/utils'
 
@@ -123,7 +123,7 @@ async function generateOpenAIEmbedding(text: string): Promise<Float32Array> {
  * Chunks content and generates embeddings for each chunk
  */
 export async function generateDocEmbeddings(docId: string, content: string): Promise<void> {
-    if (!db) throw new Error('Database not initialized')
+    if (!db) {throw new Error('Database not initialized')}
 
     // Chunk content
     const chunks = chunkMarkdown(
@@ -147,8 +147,8 @@ export async function generateDocEmbeddings(docId: string, content: string): Pro
 /**
  * Store embeddings in vec0 table
  */
-async function storeDocEmbeddings(docId: string, chunks: Array<Chunk & {embedding: Float32Array}>): Promise<void> {
-    if (!db) throw new Error('Database not initialized')
+async function storeDocEmbeddings(docId: string, chunks: (Chunk & {embedding: Float32Array})[]): Promise<void> {
+    if (!db) {throw new Error('Database not initialized')}
 
     // Delete existing embeddings for this doc
     try {
@@ -164,7 +164,7 @@ async function storeDocEmbeddings(docId: string, chunks: Array<Chunk & {embeddin
     // Insert embeddings into vec0 table
     for (const chunk of chunks) {
         const chunkId = randomId()
-        const embeddingJson = JSON.stringify(Array.from(chunk.embedding))
+        const embeddingJson = JSON.stringify([...chunk.embedding])
         const metadata = JSON.stringify({
             heading: chunk.heading,
         })
@@ -210,7 +210,7 @@ async function storeDocEmbeddings(docId: string, chunks: Array<Chunk & {embeddin
  * Combines title and description into single embedding
  */
 export async function generateTicketEmbedding(ticketId: string, title: string, description: string | null): Promise<void> {
-    if (!db) throw new Error('Database not initialized')
+    if (!db) {throw new Error('Database not initialized')}
 
     // Combine title and description
     const text = `${title}\n\n${description || ''}`
@@ -227,14 +227,14 @@ export async function generateTicketEmbedding(ticketId: string, title: string, d
         undefined
 
     // Get ticket labels
-    const labels = db.prepare('SELECT label FROM ticket_labels WHERE ticket_id = ?').all(ticketId) as Array<{label: string}>
+    const labels = db.prepare('SELECT label FROM ticket_labels WHERE ticket_id = ?').all(ticketId) as {label: string}[]
     const ticketLabels = labels.map((l) => l.label)
 
     // Get ticket status
     const ticketStatus = db.prepare('SELECT status FROM tickets WHERE id = ?').get(ticketId) as {status: string} | undefined
 
     // Store in vec0 table
-    const embeddingJson = JSON.stringify(Array.from(embedding))
+    const embeddingJson = JSON.stringify([...embedding])
     const metadata = JSON.stringify({
         status: ticketStatus?.status,
         tags: ticketLabels,

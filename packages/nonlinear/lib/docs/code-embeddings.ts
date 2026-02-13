@@ -6,7 +6,7 @@ import {logger} from '../../service.ts'
 import {db} from '../database.ts'
 import {config} from '../config.ts'
 import {generateEmbedding} from './embeddings.ts'
-import {chunkCode, type CodeChunk} from './code-chunking.ts'
+import {type CodeChunk, chunkCode} from './code-chunking.ts'
 import {createHash} from 'node:crypto'
 import path from 'node:path'
 
@@ -75,7 +75,7 @@ export async function indexCodeFile(
                 const embedding = await generateEmbedding(chunk.text)
                 return {
                     ...chunk,
-                    embedding: Array.from(embedding),
+                    embedding: [...embedding],
                 }
             }),
         )
@@ -130,7 +130,7 @@ export async function searchCode(
     try {
         // 1. Generate embedding for QUERY (local provider - fast, no network)
         const queryEmbedding = await generateEmbedding(query)
-        const embeddingJson = JSON.stringify(Array.from(queryEmbedding))
+        const embeddingJson = JSON.stringify([...queryEmbedding])
 
         // 2. Build search query
         let sql = `
@@ -178,7 +178,7 @@ export async function findSimilarCode(
 ): Promise<CodeSearchResult[]> {
     // Generate embedding for the code snippet
     const codeEmbedding = await generateEmbedding(code)
-    const embeddingJson = JSON.stringify(Array.from(codeEmbedding))
+    const embeddingJson = JSON.stringify([...codeEmbedding])
 
     if (!db) {
         throw new Error('Database not initialized')

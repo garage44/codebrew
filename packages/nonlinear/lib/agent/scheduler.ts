@@ -5,8 +5,8 @@
 
 import {db} from '../database.ts'
 import {logger} from '../../service.ts'
-import {updateAgentStatus, getAgentStatus} from './status.ts'
-import {type AgentContext} from './base.ts'
+import {getAgentStatus, updateAgentStatus} from './status.ts'
+import type {AgentContext} from './base.ts'
 import {getAgentById} from './index.ts'
 
 /**
@@ -47,7 +47,7 @@ export async function runAgent(agentId: string, context: Record<string, unknown>
     }
 
     // Check if this is a task-based trigger (has task_id)
-    const isTaskTrigger = !!context.task_id
+    const isTaskTrigger = Boolean(context.task_id)
     const taskId = context.task_id as string | undefined
 
     /*
@@ -67,7 +67,7 @@ export async function runAgent(agentId: string, context: Record<string, unknown>
     }
 
     // Check if this is a mention trigger (has comment_id) - allow it even if agent is working
-    const isMentionTrigger = !!context.comment_id
+    const isMentionTrigger = Boolean(context.comment_id)
 
     // Check agent status (skip unless it's a mention/task trigger)
     const status = getAgentStatus(agentId)

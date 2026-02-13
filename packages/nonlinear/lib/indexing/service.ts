@@ -5,8 +5,8 @@
  * Runs independently from the main Nonlinear service
  */
 
-import {initConfig, config} from '../config.ts'
-import {initDatabase, db} from '../database.ts'
+import {config, initConfig} from '../config.ts'
+import {db, initDatabase} from '../database.ts'
 import {loggerTransports} from '@garage44/common/service'
 import {indexCodeFile} from '../docs/code-embeddings.ts'
 import {generateDocEmbeddings} from '../docs/embeddings.ts'
@@ -286,7 +286,7 @@ if (import.meta.main) {
                 `[IndexingService] Status: ${status.pendingJobs} pending, ` +
                 `${status.processingJobs} processing, ${status.failedJobs} failed`,
             )
-        }, 60000)
+        }, 60_000)
     })()
 }
 

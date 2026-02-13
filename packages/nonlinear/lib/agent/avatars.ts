@@ -23,17 +23,17 @@ export function initAgentAvatars() {
     const agents = db.prepare(`
         SELECT id, name, type, avatar, display_name
         FROM agents
-    `).all() as Array<{
+    `).all() as {
         avatar: string | null
         display_name: string | null
         id: string
         name: string
         type: 'planner' | 'developer' | 'reviewer'
-    }>
+    }[]
 
     for (const agent of agents) {
         let needsUpdate = false
-        let avatar = agent.avatar
+        let {avatar} = agent
         let displayName = agent.display_name
 
         // Assign default avatar if missing

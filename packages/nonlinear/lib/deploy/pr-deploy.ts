@@ -1,19 +1,19 @@
 import {$} from 'bun'
-import {existsSync, mkdirSync} from 'fs'
-import {homedir} from 'os'
-import path from 'path'
+import {existsSync, mkdirSync} from 'node:fs'
+import {homedir} from 'node:os'
+import path from 'node:path'
 import {
+    type PRDeployment,
     addPRDeployment,
     getPRDeployment,
     listActivePRDeployments,
     updatePRDeployment,
-    type PRDeployment,
 } from './pr-registry'
-import {extractWorkspacePackages, isApplicationPackage, findWorkspaceRoot} from './workspace'
+import {extractWorkspacePackages, findWorkspaceRoot, isApplicationPackage} from './workspace'
 
 const PR_DEPLOYMENTS_DIR = path.join(homedir(), '.nonlinear', 'pr-deployments')
-const PR_PORT_BASE = 40000
-const PR_PORT_RANGE = 10000
+const PR_PORT_BASE = 40_000
+const PR_PORT_RANGE = 10_000
 
 /**
  * Fetch branches from remote to ensure branch info is available
@@ -133,7 +133,7 @@ export async function generatePRToken(prNumber: number): Promise<string> {
     try {
         const cryptoKey = await crypto.subtle.importKey('raw', key, {hash: 'SHA-256', name: 'HMAC'}, false, ['sign'])
         const signature = await crypto.subtle.sign('HMAC', cryptoKey, message)
-        return Array.from(new Uint8Array(signature))
+        return [...new Uint8Array(signature)]
             .map((b) => b.toString(16).padStart(2, '0'))
             .join('')
             .slice(0, 32)
@@ -158,7 +158,7 @@ export async function deployPR(pr: PRMetadata): Promise<{
         await fetchMainRepository()
 
         // Resolve SHA if not provided
-        let head_sha = pr.head_sha
+        let {head_sha} = pr
         if (!head_sha) {
             const sha = await getBranchSHA(pr.head_ref)
             if (!sha) {
@@ -430,7 +430,7 @@ async function updateExistingPRDeployment(pr: PRMetadata): Promise<{
         await fetchMainRepository()
 
         // Resolve SHA if not provided
-        let head_sha = pr.head_sha
+        let {head_sha} = pr
         if (!head_sha) {
             const sha = await getBranchSHA(pr.head_ref)
             if (!sha) {
@@ -585,8 +585,8 @@ async function updateExistingPRDeployment(pr: PRMetadata): Promise<{
         // Update deployment status to failed
         try {
             await updatePRDeployment(pr.number, {status: 'failed'})
-        } catch(statusError) {
-            console.error('[pr-deploy] Failed to update deployment status:', statusError)
+        } catch(error) {
+            console.error('[pr-deploy] Failed to update deployment status:', error)
         }
 
         /*
@@ -807,7 +807,7 @@ export async function updateAllPRDeploymentsWithMain(): Promise<{
 
         let updated = 0
         let skipped = 0
-        let failed = 0
+        const failed = 0
 
         // Update each deployment
         for (const deployment of activeDeployments) {
@@ -973,7 +973,7 @@ async function generateNginxConfig(deployment: PRDeployment, packagesToDeploy: s
     }
 
     // Packages that need WebSocket support
-    const websocketPackages = ['expressio', 'pyrite', 'nonlinear']
+    const websocketPackages = new Set(['expressio', 'pyrite', 'nonlinear'])
 
     // Generate nginx config for each package
     for (const packageName of packagesToDeploy) {
@@ -1039,7 +1039,7 @@ server {
 `
 
         // Add WebSocket support for packages that need it
-        if (websocketPackages.includes(packageName)) {
+        if (websocketPackages.has(packageName)) {
             if (packageName === 'pyrite') {
                 // Pyrite has both /ws and /sfu endpoints
                 content += `
@@ -1089,7 +1089,7 @@ server {
 `
 
         // Add WebSocket headers to main location for WebSocket packages
-        if (websocketPackages.includes(packageName)) {
+        if (websocketPackages.has(packageName)) {
             content += `        proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
 `

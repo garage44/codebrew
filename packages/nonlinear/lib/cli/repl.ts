@@ -50,7 +50,7 @@ export class REPL {
     private async loadHistory(): Promise<void> {
         try {
             if (await fs.pathExists(this.historyFilePath)) {
-                const content = await fs.readFile(this.historyFilePath, 'utf-8')
+                const content = await fs.readFile(this.historyFilePath, 'utf8')
                 this.history = content.split('\n')
                     .map((line) => line.trim())
                     .filter((line) => line.length > 0)
@@ -58,9 +58,9 @@ export class REPL {
                 // Keep last 1000 entries
 
                 // Load history into readline
-                ;(this.rl as unknown as {history: string[]}).history = this.history.slice()
+                ;(this.rl as unknown as {history: string[]}).history = [...this.history]
             }
-        } catch(_error) {
+        } catch{
             // Ignore errors loading history (file might not exist yet)
         }
     }
@@ -78,8 +78,8 @@ export class REPL {
             const limitedHistory = historyToSave.slice(-1000)
 
             // Write to file
-            await fs.writeFile(this.historyFilePath, limitedHistory.join('\n') + '\n', 'utf-8')
-        } catch(_error) {
+            await fs.writeFile(this.historyFilePath, limitedHistory.join('\n') + '\n', 'utf8')
+        } catch{
             // Ignore errors saving history (permissions, etc.)
         }
     }
@@ -107,7 +107,7 @@ export class REPL {
         }
 
         // Update readline history
-        (this.rl as unknown as {history: string[]}).history = this.history.slice()
+        (this.rl as unknown as {history: string[]}).history = [...this.history]
     }
 
     /**
@@ -182,7 +182,7 @@ export class REPL {
             try {
                 const currentHistory = (this.rl as {history?: string[]}).history || []
                 const limitedHistory = currentHistory.slice(-1000)
-                fs.writeFileSync(this.historyFilePath, limitedHistory.join('\n') + '\n', 'utf-8')
+                fs.writeFileSync(this.historyFilePath, limitedHistory.join('\n') + '\n', 'utf8')
             } catch {
                 // Ignore errors
             }

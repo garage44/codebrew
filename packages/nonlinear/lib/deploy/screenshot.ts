@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
-import {chromium, type Browser, type Page} from 'playwright'
-import {join} from 'path'
-import {mkdir} from 'fs/promises'
+import {type Browser, type Page, chromium} from 'playwright'
+import {join} from 'node:path'
+import {mkdir} from 'node:fs/promises'
 
 interface ScreenshotConfig {
     actions?: (page: Page) => Promise<void>
@@ -93,7 +93,7 @@ async function waitForServer(maxAttempts = 30): Promise<boolean> {
             if (response.ok || response.status === 404) {
                 return true
             }
-        } catch(_error) {}
+        } catch{}
 
         console.log(`Waiting for server... (${i + 1}/${maxAttempts})`)
         await new Promise((resolve) => setTimeout(resolve, 2000))
@@ -125,7 +125,7 @@ async function takeScreenshot(browser: Browser, config: ScreenshotConfig): Promi
 
             if (config.waitForSelector) {
                 console.log(`  ⏳ Waiting for selector: ${config.waitForSelector}`)
-                await page.waitForSelector(config.waitForSelector, {timeout: 10000})
+                await page.waitForSelector(config.waitForSelector, {timeout: 10_000})
             }
         }
 
@@ -151,7 +151,7 @@ async function takeScreenshot(browser: Browser, config: ScreenshotConfig): Promi
         try {
             const currentUrl = page.url()
             console.log(`  📍 Current URL: ${currentUrl}`)
-        } catch(_e) {
+        } catch{
             // Ignore if page is closed
         }
 

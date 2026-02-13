@@ -1,7 +1,7 @@
 import {logger} from './index.ts'
 import notifier from 'node-notifier'
 import pc from 'picocolors'
-import {performance} from 'perf_hooks'
+import {performance} from 'node:perf_hooks'
 
 export class Task {
     title: string
@@ -43,16 +43,16 @@ export class Task {
             if (result && result.size) {
                 if (result.size < 1024) {
                     this.size = `${result.size}B`
-                } else if (result.size < Math.pow(1024, 2)) {
+                } else if (result.size < 1024 ** 2) {
                     this.size = `${Number(result.size / 1024).toFixed(2)}KiB`
                 } else {
-                    this.size = `${Number(result.size / Math.pow(1024, 2)).toFixed(2)}MiB`
+                    this.size = `${Number(result.size / 1024 ** 2).toFixed(2)}MiB`
                 }
             }
-        } catch(err) {
-            logger.error(`${this.prefix.error}task failed\n${err}`)
+        } catch(error) {
+            logger.error(`${this.prefix.error}task failed\n${error}`)
             notifier.notify({
-                message: `${err}`,
+                message: `${error}`,
                 title: `Task ${this.title} failed!`,
             })
         }
@@ -62,7 +62,7 @@ export class Task {
         let logComplete = `${this.prefix.ok}task completed`
 
         logComplete += ` (${pc.bold(this.spendTime)}`
-        if (this.size) logComplete += `, ${pc.bold(this.size)}`
+        if (this.size) {logComplete += `, ${pc.bold(this.size)}`}
         logComplete += ')'
 
         logger.info(logComplete)

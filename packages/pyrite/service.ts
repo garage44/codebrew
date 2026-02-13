@@ -1,26 +1,37 @@
 #!/usr/bin/env bun
-import {URL, fileURLToPath} from 'node:url'
+import {fileURLToPath, URL} from 'node:url'
+import path from 'node:path'
+import {
+    bunchyArgs,
+    bunchyService,
+} from '@garage44/bunchy'
 import {createBunWebSocketHandler} from '@garage44/common/lib/ws-server'
-import {bunchyArgs, bunchyService} from '@garage44/bunchy'
-import {config, initConfig} from './lib/config.ts'
 import {devContext} from '@garage44/common/lib/dev-context'
 import {
     createRuntime,
-    createWelcomeBanner,
-    setupBunchyConfig,
     createWebSocketManagers,
-    service,
+    createWelcomeBanner,
     loggerTransports,
+    service,
+    setupBunchyConfig,
 } from '@garage44/common/service'
 import {hideBin} from 'yargs/helpers'
-import {initMiddleware} from './lib/middleware.ts'
-import path from 'node:path'
+import yargs from 'yargs'
+import {
+    registerChannelsWebSocket,
+} from './api/ws-channels'
 import {registerChatWebSocket} from './api/ws-chat'
 import {registerGroupsWebSocket} from './api/ws-groups'
 import {registerPresenceWebSocket} from './api/ws-presence'
-import {registerChannelsWebSocket} from './api/ws-channels'
-import {initDatabase, initializeDefaultData} from './lib/database.ts'
-import yargs from 'yargs'
+import {
+    config,
+    initConfig,
+} from './lib/config.ts'
+import {
+    initDatabase,
+    initializeDefaultData,
+} from './lib/database.ts'
+import {initMiddleware} from './lib/middleware.ts'
 
 const pyriteDir = fileURLToPath(new URL('.', import.meta.url))
 
@@ -52,7 +63,7 @@ if (BUN_ENV === 'development') {
     bunchyArgs(cli, bunchyConfig)
 }
 
-void cli.usage('Usage: $0 [task]')
+cli.usage('Usage: $0 [task]')
     .detectLocale(false)
     .command('start', 'Start the Pyrite service', (yargs) => {
         // oxlint-disable-next-line no-console

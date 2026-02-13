@@ -23,7 +23,7 @@ function updateStylesheet(filename: string, publicPath: string) {
     // Find matching stylesheet by base name (without hash)
     const baseFileName = filename.split('.')[0] // Extract 'app' from 'app.axuasllor.css'
     const linkElements = allLinks.filter((link) => {
-        const href = link.href
+        const {href} = link
         // Match /public/app.*.css or /public/components.*.css pattern
         const pattern = new RegExp(`/public/${baseFileName}\\.[^/]*\\.css`)
         return pattern.test(href)
@@ -235,9 +235,9 @@ async function handleHMRUpdate(_filePath: string, timestamp: number) {
         hideExceptionPage()
 
         // Initialize HMR state storage if not exists
-        if (!g.__HMR_STATE__) g.__HMR_STATE__ = null
-        if (!g.__HMR_COMPONENT_STATES__) g.__HMR_COMPONENT_STATES__ = {}
-        if (!g.__HMR_REGISTRY__) g.__HMR_REGISTRY__ = {}
+        if (!g.__HMR_STATE__) {g.__HMR_STATE__ = null}
+        if (!g.__HMR_COMPONENT_STATES__) {g.__HMR_COMPONENT_STATES__ = {}}
+        if (!g.__HMR_REGISTRY__) {g.__HMR_REGISTRY__ = {}}
 
         // Save global store state
         try {
@@ -380,8 +380,8 @@ function setupLoggerForwarding(client: WebSocketClient) {
 // Helper function to construct WebSocket URL based on current protocol
 function getWebSocketUrl(path: string): string {
     const protocol = globalThis.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const hostname = globalThis.location.hostname
-    const port = (globalThis as any).location.port
+    const {hostname} = globalThis.location
+    const {port} = (globalThis as any).location
 
     /*
      * Only include port if it's explicitly set and not the default (80 for HTTP, 443 for HTTPS)

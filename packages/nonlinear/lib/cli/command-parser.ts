@@ -55,10 +55,10 @@ function parseArgs(args: string[]): Record<string, unknown> {
 function parseValue(value: string): unknown {
     // Try to parse as number
     if (/^-?\d+$/.test(value)) {
-        return parseInt(value, 10)
+        return Number.parseInt(value, 10)
     }
     if (/^-?\d+\.\d+$/.test(value)) {
-        return parseFloat(value)
+        return Number.parseFloat(value)
     }
 
     // Try to parse as boolean
@@ -183,7 +183,7 @@ export function getToolsList(tools: Record<string, Tool>): string {
     lines.push(pc.cyan('\nAvailable Tools:\n'))
 
     // Group tools by category (prefix before underscore)
-    const categories: Record<string, Array<{name: string; tool: Tool}>> = {}
+    const categories: Record<string, {name: string; tool: Tool}[]> = {}
     for (const toolName of toolNames) {
         const tool = tools[toolName]
         const category = toolName.includes('_') ? toolName.split('_')[0] : 'other'

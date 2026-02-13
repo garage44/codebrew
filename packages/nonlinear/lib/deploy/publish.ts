@@ -1,7 +1,7 @@
-import {copyFile, readFile, unlink, writeFile} from 'fs/promises'
+import {copyFile, readFile, unlink, writeFile} from 'node:fs/promises'
 import {$} from 'bun'
-import {join} from 'path'
-import {findWorkspaceRoot, extractWorkspacePackages} from './workspace'
+import {join} from 'node:path'
+import {extractWorkspacePackages, findWorkspaceRoot} from './workspace'
 import {takeScreenshots} from './screenshot'
 
 // Topological sort to determine publish order

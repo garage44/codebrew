@@ -15,7 +15,7 @@ const persistantState = mergeDeep({
 }, commonPersistantState) as any
 
 const volatileState = mergeDeep({
-    agents: [] as Array<{
+    agents: [] as {
         avatar: string
         config: string
         created_at: number
@@ -36,34 +36,34 @@ const volatileState = mergeDeep({
         status: 'idle' | 'working' | 'error' | 'offline'
         type: 'planner' | 'developer' | 'reviewer'
         username: string
-    }>,
+    }[],
     anthropic: {
         usage: {
             count: 0,
-            limit: 1000000,
+            limit: 1_000_000,
             // Default limit: 1M tokens per month (typical Anthropic tier)
             loading: false,
         },
     },
-    docs: [] as Array<{
+    docs: [] as {
         author_id: string
         content: string
         created_at: number
         id: string
-        labelDefinitions?: Array<{color: string; name: string}>
+        labelDefinitions?: {color: string; name: string}[]
         path: string
         tags?: string[]
         title: string
         updated_at: number
-    }>,
-    labelDefinitions: [] as Array<{
+    }[],
+    labelDefinitions: [] as {
         color: string
         created_at: number
         id: string
         name: string
         updated_at: number
-    }>,
-    repositories: [] as Array<{
+    }[],
+    repositories: [] as {
         config: string
         created_at: number
         id: string
@@ -72,15 +72,15 @@ const volatileState = mergeDeep({
         platform: 'github' | 'gitlab' | 'local'
         remote_url: string | null
         updated_at: number
-    }>,
+    }[],
     selectedDoc: null as string | null,
     selectedLane: null as 'backlog' | 'todo' | 'in_progress' | 'review' | 'closed' | null,
     selectedRepository: null as string | null,
     selectedTicket: null as string | null,
-    tickets: [] as Array<{
+    tickets: [] as {
         assignee_id: string | null
         assignee_type: 'agent' | 'human' | null
-        assignees: Array<{assignee_id: string; assignee_type: 'agent' | 'human'}>
+        assignees: {assignee_id: string; assignee_type: 'agent' | 'human'}[]
         branch_name: string | null
         created_at: number
         description: string | null
@@ -93,7 +93,7 @@ const volatileState = mergeDeep({
         status: 'backlog' | 'todo' | 'in_progress' | 'review' | 'closed'
         title: string
         updated_at: number
-    }>,
+    }[],
 }, commonVolatileState)
 
 export {

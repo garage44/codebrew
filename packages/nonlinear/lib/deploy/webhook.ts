@@ -1,16 +1,16 @@
 import {$} from 'bun'
 import {homedir} from 'node:os'
-import {existsSync, unlinkSync} from 'fs'
-import {join as pathJoin} from 'path'
-import {findWorkspaceRoot, extractWorkspacePackages, isApplicationPackage} from './workspace'
+import {existsSync, unlinkSync} from 'node:fs'
+import {join as pathJoin} from 'node:path'
+import {extractWorkspacePackages, findWorkspaceRoot, isApplicationPackage} from './workspace'
 import {cleanupPRDeployment} from './pr-cleanup'
-import {deployPR, type PRMetadata, updateAllPRDeploymentsWithMain} from './pr-deploy'
-import {updatePRDeployment, getPRDeployment} from './pr-registry'
+import {type PRMetadata, deployPR, updateAllPRDeploymentsWithMain} from './pr-deploy'
+import {getPRDeployment, updatePRDeployment} from './pr-registry'
 import {
-    waitForService,
-    waitForPort,
-    waitForHttpEndpoint,
     type HealthCheckResult,
+    waitForHttpEndpoint,
+    waitForPort,
+    waitForService,
 } from './health-check'
 
 interface PullRequestWebhookEvent {
@@ -64,7 +64,7 @@ export async function validateSignature(payload: string, signature: string, secr
     )
 
     const hmacSignature = await crypto.subtle.sign('HMAC', key, payloadData)
-    const calculatedHash = Array.from(new Uint8Array(hmacSignature))
+    const calculatedHash = [...new Uint8Array(hmacSignature)]
         .map((b) => b.toString(16).padStart(2, '0'))
         .join('')
 
@@ -299,7 +299,7 @@ export async function deploy(): Promise<{message: string; success: boolean}> {
  * Handle pull request events
  */
 async function handlePullRequestEvent(event: PullRequestWebhookEvent): Promise<Response> {
-    const action = event.action
+    const {action} = event
     const pullRequest = event.pull_request
     const prNumber = pullRequest?.number
 
@@ -353,8 +353,8 @@ async function handlePullRequestEvent(event: PullRequestWebhookEvent): Promise<R
             if (!deployResult.success) {
                 console.error(`[webhook] PR #${prNumber} deployment failed: ${deployResult.message}`)
                 if (deployResult.deployment) {
-                    await updatePRDeployment(prNumber, {status: 'failed'}).catch((err) => {
-                        console.error('[webhook] Failed to update deployment status:', err)
+                    await updatePRDeployment(prNumber, {status: 'failed'}).catch((error) => {
+                        console.error('[webhook] Failed to update deployment status:', error)
                     })
                 }
 
@@ -405,7 +405,7 @@ async function handlePullRequestEvent(event: PullRequestWebhookEvent): Promise<R
 
             // Wait for services to start (with timeout)
             console.log(`[webhook] Waiting for services to start for PR #${prNumber}...`)
-            const serviceChecks: Array<{name: string; result: HealthCheckResult}> = []
+            const serviceChecks: {name: string; result: HealthCheckResult}[] = []
             const portMap: Record<string, number> = {
                 expressio: deployment.ports.expressio,
                 nonlinear: deployment.ports.nonlinear,
@@ -417,12 +417,12 @@ async function handlePullRequestEvent(event: PullRequestWebhookEvent): Promise<R
                 const port = portMap[packageName] || deployment.ports.nonlinear
 
                 console.log(`[webhook] Waiting for ${serviceName} to become active...`)
-                const serviceCheck = await waitForService(serviceName, 60000, 2000)
+                const serviceCheck = await waitForService(serviceName, 60_000, 2000)
                 serviceChecks.push({name: serviceName, result: serviceCheck})
 
                 if (serviceCheck.healthy) {
                     console.log(`[webhook] Waiting for port ${port} to become listening...`)
-                    const portCheck = await waitForPort(port, 60000, 2000)
+                    const portCheck = await waitForPort(port, 60_000, 2000)
                     serviceChecks.push({name: `port-${port}`, result: portCheck})
                 }
             }
@@ -430,14 +430,14 @@ async function handlePullRequestEvent(event: PullRequestWebhookEvent): Promise<R
             // Wait for HTTP endpoints to become accessible
             console.log(`[webhook] Waiting for HTTP endpoints to become accessible for PR #${prNumber}...`)
             const baseDomain = 'garage44.org'
-            const httpChecks: Array<{name: string; result: HealthCheckResult}> = []
+            const httpChecks: {name: string; result: HealthCheckResult}[] = []
 
             for (const packageName of packagesToDeploy) {
                 const subdomain = `pr-${prNumber}-${packageName}.${baseDomain}`
                 const httpsUrl = `https://${subdomain}`
 
                 console.log(`[webhook] Checking HTTP endpoint: ${httpsUrl}`)
-                const httpCheck = await waitForHttpEndpoint(httpsUrl, 120000, 3000, 10000)
+                const httpCheck = await waitForHttpEndpoint(httpsUrl, 120_000, 3000, 10_000)
                 httpChecks.push({name: httpsUrl, result: httpCheck})
             }
 
@@ -448,8 +448,8 @@ async function handlePullRequestEvent(event: PullRequestWebhookEvent): Promise<R
 
             if (!allHealthy) {
                 console.error(`[webhook] PR #${prNumber} health checks failed:`, failedChecks.map((c) => c.name))
-                await updatePRDeployment(prNumber, {status: 'failed'}).catch((err) => {
-                    console.error('[webhook] Failed to update deployment status:', err)
+                await updatePRDeployment(prNumber, {status: 'failed'}).catch((error) => {
+                    console.error('[webhook] Failed to update deployment status:', error)
                 })
 
                 return new Response(JSON.stringify({
@@ -502,8 +502,8 @@ async function handlePullRequestEvent(event: PullRequestWebhookEvent): Promise<R
             }
 
             // Update deployment status to failed
-            await updatePRDeployment(prNumber, {status: 'failed'}).catch((err) => {
-                console.error('[webhook] Failed to update deployment status:', err)
+            await updatePRDeployment(prNumber, {status: 'failed'}).catch((error) => {
+                console.error('[webhook] Failed to update deployment status:', error)
             })
 
             return new Response(JSON.stringify({

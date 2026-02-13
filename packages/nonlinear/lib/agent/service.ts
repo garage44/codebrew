@@ -5,17 +5,17 @@
  * Runs independently from the main Nonlinear service
  */
 
-import {initConfig, config} from '../config.ts'
-import {initDatabase, db} from '../database.ts'
+import {config, initConfig} from '../config.ts'
+import {db, initDatabase} from '../database.ts'
 import {loggerTransports} from '@garage44/common/service'
 import {WebSocketClient} from '@garage44/common/lib/ws-client'
 import {runAgent as runAgentScheduler} from './scheduler.ts'
 import {
+    type TaskData,
     getPendingTasks,
     markTaskCompleted,
     markTaskFailed,
     markTaskProcessing,
-    type TaskData,
 } from './tasks.ts'
 import {setBroadcastWebSocketClient} from './streaming.ts'
 
@@ -37,7 +37,7 @@ class AgentService {
 
     private processingTask = false
 
-    private taskQueue: Array<{taskData: TaskData; taskId: string}> = []
+    private taskQueue: {taskData: TaskData; taskId: string}[] = []
 
     private running = false
 
@@ -136,7 +136,7 @@ class AgentService {
      * Initialize WebSocket client and subscribe to task events
      */
     private initWebSocket(): void {
-        if (!this.logger) return
+        if (!this.logger) {return}
 
         this.wsClient = new WebSocketClient(this.wsUrl)
 
@@ -147,7 +147,7 @@ class AgentService {
             task_id?: string
             task_type?: string
         }) => {
-            if (!this.logger) return
+            if (!this.logger) {return}
 
             const taskId = data.task_id as string
             const taskType = data.task_type as string
@@ -177,7 +177,7 @@ class AgentService {
         // Subscribe to stop topic
         const stopTopic = `/agents/${this.agentId}/stop`
         this.wsClient.onRoute(stopTopic, async() => {
-            if (!this.logger) return
+            if (!this.logger) {return}
 
             this.logger.info(`[AgentService] Received stop command for agent ${this.agentId}`)
 
@@ -185,7 +185,7 @@ class AgentService {
             if (this.processingTask) {
                 this.logger.info('[AgentService] Waiting for current task to finish before stopping...')
                 // Poll until task is done (max 30 seconds)
-                const maxWait = 30000
+                const maxWait = 30_000
                 const startTime = Date.now()
                 while (this.processingTask && (Date.now() - startTime) < maxWait) {
                     await new Promise((resolve) => setTimeout(resolve, 500))
@@ -249,7 +249,7 @@ class AgentService {
      * Catch up on missed tasks from database
      */
     private async catchUpOnTasks(): Promise<void> {
-        if (!this.logger) return
+        if (!this.logger) {return}
 
         const pendingTasks = getPendingTasks(this.agentId)
 
@@ -281,7 +281,7 @@ class AgentService {
      * Process next task in queue
      */
     private async processNextTask(): Promise<void> {
-        if (!this.logger) return
+        if (!this.logger) {return}
 
         // Don't process if already processing or queue is empty
         if (this.processingTask || this.taskQueue.length === 0) {
@@ -290,7 +290,7 @@ class AgentService {
 
         // Get next task from queue
         const task = this.taskQueue.shift()
-        if (!task) return
+        if (!task) {return}
 
         this.processingTask = true
 
@@ -389,7 +389,7 @@ if (import.meta.main) {
         setInterval(() => {
             const status = service.getStatus()
             logger.debug(`[AgentService] Status: ${JSON.stringify(status)}`)
-        }, 60000)
+        }, 60_000)
     })()
 }
 

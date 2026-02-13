@@ -1,6 +1,6 @@
 /* eslint-disable @stylistic/max-len */
 import {$} from 'bun'
-import {existsSync} from 'fs'
+import {existsSync} from 'node:fs'
 import {
     getPRDeployment,
     loadPRRegistry,

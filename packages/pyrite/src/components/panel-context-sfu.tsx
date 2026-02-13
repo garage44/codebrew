@@ -9,7 +9,7 @@ import {DeviceSettings} from './device-settings'
 import {VideoCanvas} from './video/video-canvas'
 import {VideoStrip} from './video/video-strip'
 
-export function PanelContextSfu() {
+export function PanelContextSfu(): JSX.Element {
     const canvasRef = useRef<HTMLDivElement>(null)
 
     /*
@@ -23,7 +23,9 @@ export function PanelContextSfu() {
 
     // Fullscreen handler
     const handleFullscreen = async () => {
-        if (!canvasRef.current) return
+        if (!canvasRef.current) {
+            return
+        }
 
         // Only allow fullscreen when canvas layout is visible
         if (!showCanvasLayout && !document.fullscreenElement) {
@@ -41,15 +43,15 @@ export function PanelContextSfu() {
                 $s.panels.context.expanded = true
             }
             store.save()
-        } catch (error) {
-            console.error('Fullscreen error:', error)
+        } catch {
+            // Fullscreen error - user may have cancelled or browser doesn't support
         }
     }
 
     // Listen for fullscreen changes to update state
     useEffect(() => {
         const handleFullscreenChange = () => {
-            $s.panels.context.expanded = !!document.fullscreenElement
+            $s.panels.context.expanded = Boolean(document.fullscreenElement)
             store.save()
         }
 
@@ -59,8 +61,10 @@ export function PanelContextSfu() {
 
     // Calculate available space: viewport width - menu width - chat min-width (350px)
     const calculateAvailableWidth = () => {
-        if (typeof window === 'undefined') return 350
-        const viewportWidth = window.innerWidth
+        if (typeof globalThis.window === 'undefined') {
+            return 350
+        }
+        const viewportWidth = globalThis.window.innerWidth
         // Account for actual menu width: collapsed menu still takes ~56px, not 0
         const menuWidth = $s.panels.menu.collapsed ? 56 : $s.panels.menu.width || 240
         const chatMinWidth = 350
@@ -71,7 +75,9 @@ export function PanelContextSfu() {
 
     // Update panel width when window is resized (only if not collapsed)
     useEffect(() => {
-        if ($s.panels.context.collapsed) return
+        if ($s.panels.context.collapsed) {
+            return
+        }
 
         const handleResize = () => {
             const availableWidth = calculateAvailableWidth()
@@ -83,8 +89,8 @@ export function PanelContextSfu() {
             }
         }
 
-        window.addEventListener('resize', handleResize)
-        return () => window.removeEventListener('resize', handleResize)
+        globalThis.window.addEventListener('resize', handleResize)
+        return () => globalThis.window.removeEventListener('resize', handleResize)
     }, [])
 
     // Calculate maximum width based on available space
@@ -140,7 +146,7 @@ export function PanelContextSfu() {
             ) : (
                 <>
                     <VideoStrip className={showCanvasLayout ? 'hidden' : ''} key='video-strip' />
-                    <div class='canvas-fullscreen-container' ref={canvasRef}>
+                    <div className='canvas-fullscreen-container' ref={canvasRef}>
                         <VideoCanvas className={showCanvasLayout ? '' : 'hidden'} key='video-canvas' />
                     </div>
                 </>

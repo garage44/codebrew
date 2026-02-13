@@ -2,7 +2,7 @@ type LogLevel = 'error' | 'warn' | 'info' | 'success' | 'verbose' | 'debug'
 
 interface LanguageUI {
     i18n: Record<string, Record<string, string>>
-    options: Array<{id: string; name: string}>
+    options: {id: string; name: string}[]
     selection: string
 }
 

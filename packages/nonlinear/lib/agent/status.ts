@@ -28,7 +28,7 @@ export function initAgentStatusTracking(manager: WebSocketServerManager) {
     wsManager = manager
 
     // Load existing agent statuses from database
-    const agents = db.prepare('SELECT id, status FROM agents').all() as Array<{id: string; status: string}>
+    const agents = db.prepare('SELECT id, status FROM agents').all() as {id: string; status: string}[]
     for (const agent of agents) {
         agentStatuses.set(agent.id, {
             agentId: agent.id,
@@ -106,7 +106,7 @@ export function getAgentStatus(agentId: string): AgentStatusState | null {
  * Get all agent statuses
  */
 export function getAllAgentStatuses(): AgentStatusState[] {
-    return Array.from(agentStatuses.values())
+    return [...agentStatuses.values()]
 }
 
 /**

@@ -8,9 +8,9 @@ import {WebSocketClient} from '../../lib/ws-client.ts'
 export class TestClient {
     public client: WebSocketClient
 
-    public messages: Array<unknown> = []
+    public messages: unknown[] = []
 
-    public errors: Array<Error> = []
+    public errors: Error[] = []
 
     constructor(url: string) {
         this.client = new WebSocketClient(url)

@@ -2,4 +2,3 @@
 Number.prototype.decimals = function(decimals: number) {
     return Number(Math.round(Number(this + 'e' + decimals)) + 'e-' + decimals)
 }
-

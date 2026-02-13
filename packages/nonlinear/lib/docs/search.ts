@@ -41,13 +41,13 @@ export async function unifiedVectorSearch(
     docs: SearchResult[]
     tickets: TicketSearchResult[]
 }> {
-    if (!db) throw new Error('Database not initialized')
+    if (!db) {throw new Error('Database not initialized')}
 
     const {contentType = 'both', filters, limit = 10} = options
 
     // Generate query embedding
     const queryEmbedding = await generateEmbedding(query)
-    const embeddingJson = JSON.stringify(Array.from(queryEmbedding))
+    const embeddingJson = JSON.stringify([...queryEmbedding])
 
     // Build query
     let querySql = `
@@ -84,26 +84,26 @@ export async function unifiedVectorSearch(
     params.push(limit * 2)
 
     // Execute query
-    let results: Array<{
+    let results: {
         chunk_index: number | null
         chunk_text: string
         content_id: string
         content_type: 'doc' | 'ticket'
         distance: number
         metadata: string
-    }> = []
+    }[] = []
 
     try {
-        results = db.prepare(querySql).all(...params) as Array<{
+        results = db.prepare(querySql).all(...params) as {
             chunk_index: number | null
             chunk_text: string
             content_id: string
             content_type: 'doc' | 'ticket'
             distance: number
             metadata: string
-        }>
+        }[]
     } catch(error) {
-        // vec0 table might not exist (sqlite-vec not loaded)
+        // Vec0 table might not exist (sqlite-vec not loaded)
         logger.warn('[Search] Vector search failed, vec0 table may not exist:', error)
         return {docs: [], tickets: []}
     }
@@ -123,10 +123,10 @@ export async function unifiedVectorSearch(
                 if (filters?.tags && filters.tags.length > 0) {
                     const docLabels = db.prepare(`
                         SELECT label FROM documentation_labels WHERE doc_id = ?
-                    `).all(doc.id) as Array<{label: string}>
-                    const docTags = docLabels.map((l) => l.label)
-                    const hasMatchingTag = filters.tags.some((tag) => docTags.includes(tag))
-                    if (!hasMatchingTag) continue
+                    `).all(doc.id) as {label: string}[]
+                    const docTags = new Set(docLabels.map((l) => l.label))
+                    const hasMatchingTag = filters.tags.some((tag) => docTags.has(tag))
+                    if (!hasMatchingTag) {continue}
                 }
 
                 docResults.push({
@@ -145,10 +145,10 @@ export async function unifiedVectorSearch(
                 if (filters?.tags && filters.tags.length > 0) {
                     const ticketLabels = db.prepare(`
                         SELECT label FROM ticket_labels WHERE ticket_id = ?
-                    `).all(ticket.id) as Array<{label: string}>
-                    const ticketTags = ticketLabels.map((l) => l.label)
-                    const hasMatchingTag = filters.tags.some((tag) => ticketTags.includes(tag))
-                    if (!hasMatchingTag) continue
+                    `).all(ticket.id) as {label: string}[]
+                    const ticketTags = new Set(ticketLabels.map((l) => l.label))
+                    const hasMatchingTag = filters.tags.some((tag) => ticketTags.has(tag))
+                    if (!hasMatchingTag) {continue}
                 }
 
                 ticketResults.push({

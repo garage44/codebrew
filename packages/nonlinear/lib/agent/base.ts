@@ -8,14 +8,14 @@ import {logger} from '../../service.ts'
 import {config} from '../config.ts'
 import {updateUsageFromHeaders} from './token-usage.ts'
 import {
-    unifiedVectorSearch,
+    type DocFilters,
     searchDocs as searchDocsVector,
     searchTickets as searchTicketsVector,
-    type DocFilters,
+    unifiedVectorSearch,
 } from '../docs/search.ts'
 import {loadTools, toolToAnthropic} from '../fixtures/tools/index.ts'
 import type {Tool, ToolContext, ToolResult} from '../fixtures/tools/types.ts'
-import {loadSkills, buildSkillSystemPrompt} from '../fixtures/skills/index.ts'
+import {buildSkillSystemPrompt, loadSkills} from '../fixtures/skills/index.ts'
 import type {Skill} from '../fixtures/skills/types.ts'
 
 export interface AgentContext {
@@ -155,16 +155,14 @@ export abstract class BaseAgent {
             return 'No relevant documentation found.'
         }
 
-        const formatted = results.map((result, idx) => {
-            return `[Doc ${idx + 1}] ${result.doc.title} (${result.doc.path})
+        const formatted = results.map((result, idx) => `[Doc ${idx + 1}] ${result.doc.title} (${result.doc.path})
 Score: ${(result.chunk.score * 100).toFixed(1)}%
 Relevant excerpt:
 ${result.chunk.text.slice(0, 500)}${result.chunk.text.length > 500 ? '...' : ''}
 
 Full content:
 ${result.doc.content}
-`
-        }).join('\n\n---\n\n')
+`).join('\n\n---\n\n')
 
         return `Relevant Documentation (${results.length} results):\n\n${formatted}`
     }
@@ -301,7 +299,7 @@ ${result.doc.content}
             systemPrompt
 
         const anthropicTools = Object.values(this.tools).map(toolToAnthropic)
-        const messages: Array<{content: unknown; role: 'user' | 'assistant'}> = [
+        const messages: {content: unknown; role: 'user' | 'assistant'}[] = [
             {content: userMessage, role: 'user'},
         ]
 
@@ -337,8 +335,8 @@ ${result.doc.content}
             const resetHeader = response.headers.get('anthropic-ratelimit-tokens-reset')
 
             if (limitHeader && remainingHeader) {
-                const limit = parseInt(limitHeader, 10)
-                const remaining = parseInt(remainingHeader, 10)
+                const limit = Number.parseInt(limitHeader, 10)
+                const remaining = Number.parseInt(remainingHeader, 10)
                 const used = limit - remaining
 
                 // Log token usage at debug level to reduce noise
@@ -492,7 +490,7 @@ ${result.doc.content}
 
             while (true) {
                 const {done, value} = await reader.read()
-                if (done) break
+                if (done) {break}
 
                 buffer += decoder.decode(value, {stream: true})
                 const lines = buffer.split('\n')
@@ -527,8 +525,8 @@ ${result.doc.content}
             const resetHeader = response.headers.get('anthropic-ratelimit-tokens-reset')
 
             if (limitHeader && remainingHeader) {
-                const limit = parseInt(limitHeader, 10)
-                const remaining = parseInt(remainingHeader, 10)
+                const limit = Number.parseInt(limitHeader, 10)
+                const remaining = Number.parseInt(remainingHeader, 10)
                 const used = limit - remaining
 
                 logger.debug(`[Agent ${this.name}] Token Usage: ${used}/${limit} (${remaining} remaining)`)
@@ -599,8 +597,8 @@ ${result.doc.content}
             logger.debug(`  All headers: ${JSON.stringify(Object.fromEntries(response.headers.entries()))}`)
 
             if (limitHeader && remainingHeader) {
-                const limit = parseInt(limitHeader, 10)
-                const remaining = parseInt(remainingHeader, 10)
+                const limit = Number.parseInt(limitHeader, 10)
+                const remaining = Number.parseInt(remainingHeader, 10)
                 const used = limit - remaining
 
                 // Log token usage at debug level to reduce noise
@@ -633,15 +631,18 @@ ${result.doc.content}
     protected log(message: string, level: 'info' | 'warn' | 'error' = 'info'): void {
         const logMessage = `[Agent ${this.name}] ${message}`
         switch (level) {
-            case 'info':
+            case 'info': {
                 logger.info(logMessage)
                 break
-            case 'warn':
+            }
+            case 'warn': {
                 logger.warn(logMessage)
                 break
-            case 'error':
+            }
+            case 'error': {
                 logger.error(logMessage)
                 break
+            }
         }
     }
 
@@ -661,7 +662,7 @@ ${result.doc.content}
             } catch(error) {
                 lastError = error instanceof Error ? error : new Error(String(error))
                 if (attempt < maxAttempts) {
-                    const waitTime = delay * Math.pow(2, attempt - 1)
+                    const waitTime = delay * 2 ** (attempt - 1)
                     this.log(`Attempt ${attempt} failed, retrying in ${waitTime}ms...`, 'warn')
                     await new Promise((resolve) => setTimeout(resolve, waitTime))
                 }

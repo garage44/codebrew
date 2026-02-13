@@ -108,7 +108,7 @@ async function withSpaFallback(originalResponse: Response, request: Request, bas
     }
 
     const url = new URL(request.url)
-    const pathname = url.pathname
+    const {pathname} = url
 
     /*
      * Don't apply SPA fallback to:

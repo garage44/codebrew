@@ -1,7 +1,8 @@
 import {$s} from '@/app'
+
 import {$t, api, notifier} from '@garage44/common/app'
 
-export function currentGroup() {
+export function currentGroup(): typeof $s.sfu.channel {
     /*
      * Use channel slug to find group data from sfu.channels
      * Channel slug maps 1:1 to Galene group name
@@ -23,7 +24,7 @@ export function currentGroup() {
     return $s.sfu.channel
 }
 
-export async function saveGroup(groupId, data) {
+export async function saveGroup(groupId: string, data: Record<string, unknown>): Promise<typeof $s.admin.groups[number]> {
     const group = await api.post(`/api/groups/${encodeURIComponent(groupId)}`, data)
 
     if (group._name === group._newName) {

@@ -18,8 +18,8 @@ let isDeduplicating = false
  */
 function deduplicateUsers() {
     // Prevent re-entry to avoid infinite loops
-    if (isDeduplicating) return
-    if (!$s.users || $s.users.length === 0) return
+    if (isDeduplicating) {return}
+    if (!$s.users || $s.users.length === 0) {return}
 
     isDeduplicating = true
     try {
@@ -33,7 +33,7 @@ function deduplicateUsers() {
             }
 
             const normalizedId = String(user.id).trim()
-            if (!normalizedId) continue
+            if (!normalizedId) {continue}
 
             if (seenIds.has(normalizedId)) {
                 duplicateCount++
@@ -64,7 +64,7 @@ export const initWebSocketSubscriptions = () => {
     // Set up reactive deduplication - watches $s.users and removes duplicates automatically
     effect(() => {
         // Access $s.users to track changes
-        const users = $s.users
+        const {users} = $s
         if (users && users.length > 0) {
             // Deduplicate whenever users array changes
             deduplicateUsers()
@@ -92,7 +92,7 @@ const initChatSubscriptions = () => {
          * we use the generic message handler but with better pattern matching
          */
         ws.on('message', (message) => {
-            if (!message || !message.url) return
+            if (!message || !message.url) {return}
 
             /*
              * Check if this is a channel message broadcast
@@ -101,7 +101,7 @@ const initChatSubscriptions = () => {
             const messageUrlMatch = message.url.match(/^\/channels\/([a-zA-Z0-9_-]+)\/messages$/)
             if (messageUrlMatch) {
                 const channelSlug = messageUrlMatch[1]
-                const data = message.data
+                const {data} = message
 
                 if (!data || !channelSlug) {
                     logger.warn('[Chat WS] Invalid message data:', message)
@@ -182,7 +182,7 @@ const initChatSubscriptions = () => {
             const typingUrlMatch = message.url.match(/^\/channels\/([a-zA-Z0-9_-]+)\/typing$/)
             if (typingUrlMatch) {
                 const channelSlug = typingUrlMatch[1]
-                const data = message.data
+                const {data} = message
                 const {typing, userId, username} = data || {}
 
                 if (userId) {
@@ -370,7 +370,7 @@ const initGroupSubscriptions = () => {
         // Group lock status changed (broadcast from backend)
         ws.on('/groups/:groupId/lock', (data) => {
             const {locked, reason, timestamp} = data
-            const groupId = data.groupId // Extracted from broadcast
+            const {groupId} = data // Extracted from broadcast
 
             logger.debug(`Group ${groupId} lock status: ${locked}`)
 
@@ -389,7 +389,7 @@ const initGroupSubscriptions = () => {
         // Recording status changed (broadcast from backend)
         ws.on('/groups/:groupId/recording', (data) => {
             const {recording, recordingId, timestamp} = data
-            const groupId = data.groupId
+            const {groupId} = data
 
             logger.debug(`Group ${groupId} recording status: ${recording}`)
 
@@ -402,7 +402,7 @@ const initGroupSubscriptions = () => {
         // Group configuration updated (broadcast from backend)
         ws.on('/groups/:groupId/config', (data) => {
             const {config, timestamp} = data
-            const groupId = data.groupId
+            const {groupId} = data
 
             logger.debug(`Group ${groupId} config updated`)
 
@@ -450,9 +450,9 @@ const initGroupSubscriptions = () => {
         // Operator action (broadcast from backend)
         ws.on('/groups/:groupId/op-action', (data) => {
             const {action, actionData, targetUserId, timestamp} = data
-            const groupId = data.groupId
+            const {groupId} = data
 
-            if ($s.sfu.channel.name !== groupId) return
+            if ($s.sfu.channel.name !== groupId) {return}
 
             logger.debug(`Operator action in group ${groupId}: ${action}`)
 
@@ -461,7 +461,7 @@ const initGroupSubscriptions = () => {
             const targetUser = $s.users.find((u) => u && u.id && String(u.id).trim() === normalizedTargetUserId)
 
             switch (action) {
-                case 'kick':
+                case 'kick': {
                     // Remove kicked user
                     if (targetUserId === $s.profile.id) {
                         // Current user was kicked, disconnect
@@ -482,8 +482,9 @@ const initGroupSubscriptions = () => {
                         }
                     }
                     break
+                }
 
-                case 'mute':
+                case 'mute': {
                     // Mute user's microphone
                     if (targetUserId === $s.profile.id) {
                         $s.devices.mic.enabled = false
@@ -491,9 +492,10 @@ const initGroupSubscriptions = () => {
                         (targetUser.data as {mic?: boolean}).mic = false
                     }
                     break
+                }
 
                 case 'op':
-                case 'unop':
+                case 'unop': {
                     // Update operator permissions
                     if (targetUser && 'permissions' in targetUser && targetUser.permissions && typeof targetUser.permissions === 'object') {
                         (targetUser.permissions as {op?: boolean}).op = action === 'op'
@@ -502,9 +504,10 @@ const initGroupSubscriptions = () => {
                         $s.permissions.op = action === 'op'
                     }
                     break
+                }
 
                 case 'present':
-                case 'unpresent':
+                case 'unpresent': {
                     // Update presenter permissions
                     if (targetUser && 'permissions' in targetUser && targetUser.permissions && typeof targetUser.permissions === 'object') {
                         (targetUser.permissions as {present?: boolean}).present = action === 'present'
@@ -513,6 +516,7 @@ const initGroupSubscriptions = () => {
                         $s.permissions.present = action === 'present'
                     }
                     break
+                }
             }
         })
     })
@@ -522,7 +526,7 @@ const initGroupSubscriptions = () => {
  * Send chat message via WebSocket (using REST-like API)
  */
 export const sendChatMessage = (message: string, kind: string = 'message') => {
-    if (!$s.sfu.channel.name) return
+    if (!$s.sfu.channel.name) {return}
 
     ws.post(`/api/chat/${$s.sfu.channel.name}/message`, {
         kind,
@@ -535,7 +539,7 @@ export const sendChatMessage = (message: string, kind: string = 'message') => {
  * Send typing indicator
  */
 export const sendTypingIndicator = (typing: boolean) => {
-    if (!$s.sfu.channel.name || !$s.profile.id) return
+    if (!$s.sfu.channel.name || !$s.profile.id) {return}
 
     ws.post(`/api/chat/${$s.sfu.channel.name}/typing`, {
         typing,
@@ -547,7 +551,7 @@ export const sendTypingIndicator = (typing: boolean) => {
  * Join a group (announce presence)
  */
 export const joinGroup = async(groupId: string) => {
-    if (!$s.profile.id || !$s.profile.username) return
+    if (!$s.profile.id || !$s.profile.username) {return}
 
     const response = await ws.post(`/api/presence/${groupId}/join`, {
         userId: $s.profile.id,
@@ -571,7 +575,7 @@ export const joinGroup = async(groupId: string) => {
 
             // Filter out users not in current members list
             $s.users = $s.users.filter((u) => {
-                if (!u || !u.id) return false
+                if (!u || !u.id) {return false}
                 const normalizedId = String(u.id).trim()
                 return memberIds.has(normalizedId)
             })
@@ -616,7 +620,7 @@ export const joinGroup = async(groupId: string) => {
  * Leave a group (remove presence)
  */
 export const leaveGroup = (groupId: string) => {
-    if (!$s.profile.id) return
+    if (!$s.profile.id) {return}
 
     ws.post(`/api/presence/${groupId}/leave`, {
         userId: $s.profile.id,

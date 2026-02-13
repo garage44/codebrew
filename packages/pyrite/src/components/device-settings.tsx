@@ -1,13 +1,13 @@
 import {$t, logger, store} from '@garage44/common/app'
 import {FieldSelect, Icon, SoundMeter as Soundmeter} from '@garage44/common/components'
-import {signal, type Signal} from '@preact/signals'
+import {type Signal, signal} from '@preact/signals'
 import {effect} from '@preact/signals'
-import {useState, useEffect, useRef} from 'preact/hooks'
+import {useEffect, useRef, useState} from 'preact/hooks'
 
 import {$s} from '@/app'
 import {Stream} from '@/components/stream/stream'
 import Sound from '@/lib/sound'
-import {getUserMedia, queryDevices, localStream} from '@/models/media'
+import {getUserMedia, localStream, queryDevices} from '@/models/media'
 import * as sfu from '@/models/sfu/sfu'
 
 /**
@@ -36,14 +36,14 @@ export function DeviceSettings() {
 
     useEffect(() => {
         const updateCamId = () => {
-            const selected = $s.devices.cam.selected
+            const {selected} = $s.devices.cam
             const id = typeof selected === 'object' && selected !== null && 'id' in selected ? String(selected.id || '') : ''
             if (camIdSignalRef.current.value !== id) {
                 camIdSignalRef.current.value = id
             }
         }
         const updateMicId = () => {
-            const selected = $s.devices.mic.selected
+            const {selected} = $s.devices.mic
             const id = typeof selected === 'object' && selected !== null && 'id' in selected ? String(selected.id || '') : ''
             if (micIdSignalRef.current.value !== id) {
                 micIdSignalRef.current.value = id
@@ -51,7 +51,7 @@ export function DeviceSettings() {
             }
         }
         const updateAudioId = () => {
-            const selected = $s.devices.audio.selected
+            const {selected} = $s.devices.audio
             const id = typeof selected === 'object' && selected !== null && 'id' in selected ? String(selected.id || '') : ''
             if (audioIdSignalRef.current.value !== id) {
                 audioIdSignalRef.current.value = id
@@ -112,7 +112,9 @@ export function DeviceSettings() {
     }
 
     const testSoundAudio = async () => {
-        if (!soundAudio) return
+        if (!soundAudio) {
+            return
+        }
 
         // Stop if already playing
         if (soundAudio.description.playing) {
@@ -214,7 +216,7 @@ export function DeviceSettings() {
                         }
                     }}
                     options={
-                        Array.isArray($s.devices.cam.options) ? ($s.devices.cam.options as Array<{id: string; name: string}>) : []
+                        Array.isArray($s.devices.cam.options) ? ($s.devices.cam.options as {id: string; name: string}[]) : []
                     }
                 />
                 {description && (
@@ -253,7 +255,7 @@ export function DeviceSettings() {
                         }
                     }}
                     options={
-                        Array.isArray($s.devices.mic.options) ? ($s.devices.mic.options as Array<{id: string; name: string}>) : []
+                        Array.isArray($s.devices.mic.options) ? ($s.devices.mic.options as {id: string; name: string}[]) : []
                     }
                 />
                 {streamId && stream && <Soundmeter stream={stream} streamId={streamId} />}
@@ -278,7 +280,7 @@ export function DeviceSettings() {
                                 store.save()
                             }
                         }}
-                        options={$s.devices.audio.options as Array<{id: string; name: string}>}
+                        options={$s.devices.audio.options as {id: string; name: string}[]}
                     />
                 )}
 

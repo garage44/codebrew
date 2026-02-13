@@ -3,8 +3,8 @@
  * Analyzes backlog tickets and moves high-priority ones to "todo"
  */
 
-import {BaseAgent, type AgentContext, type AgentResponse} from './base.ts'
-import {db, addTicketLabel} from '../database.ts'
+import {type AgentContext, type AgentResponse, BaseAgent} from './base.ts'
+import {addTicketLabel, db} from '../database.ts'
 import {logger} from '../../service.ts'
 import {addAgentComment} from './comments.ts'
 import {updateTicketFromAgent} from './ticket-updates.ts'
@@ -70,14 +70,14 @@ export class PlannerAgent extends BaseAgent {
                 SELECT * FROM tickets
                 WHERE status = 'backlog'
                 ORDER BY created_at ASC
-            `).all() as Array<{
+            `).all() as {
                 created_at: number
                 description: string | null
                 id: string
                 priority: number | null
                 repository_id: string
                 title: string
-            }>
+            }[]
 
             if (backlogTickets.length === 0) {
                 this.log('No backlog tickets to prioritize')
@@ -152,12 +152,12 @@ ${JSON.stringify(ticketsContext, null, 2)}`
             const response = await this.respond(systemPrompt, userMessage)
 
             // Parse LLM response
-            let prioritizations: Array<{
+            let prioritizations: {
                 priority: number
                 reasoning: string
                 should_move_to_todo: boolean
                 ticket_id: string
-            }>
+            }[]
 
             try {
                 // Try to extract JSON from response (might have markdown code blocks)
@@ -238,10 +238,10 @@ ${JSON.stringify(ticketsContext, null, 2)}`
             let repositoryContext = ''
             if (ticket.repository_path) {
                 try {
-                    const fs = await import('fs/promises')
+                    const fs = await import('node:fs/promises')
                     const readmePath = `${ticket.repository_path}/README.md`
                     try {
-                        const readme = await fs.readFile(readmePath, 'utf-8')
+                        const readme = await fs.readFile(readmePath, 'utf8')
                         repositoryContext = `\n\nRepository README:\n${readme.slice(0, 1000)}`
                     } catch {
                         // README doesn't exist, that's okay
@@ -450,10 +450,10 @@ Provide a refined description and analysis.`
             let repositoryContext = ''
             if (ticket.repository_path) {
                 try {
-                    const fs = await import('fs/promises')
+                    const fs = await import('node:fs/promises')
                     const readmePath = `${ticket.repository_path}/README.md`
                     try {
-                        const readme = await fs.readFile(readmePath, 'utf-8')
+                        const readme = await fs.readFile(readmePath, 'utf8')
                         repositoryContext = `\n\nRepository README:\n${readme.slice(0, 1000)}`
                     } catch {
                         // README doesn't exist, that's okay
@@ -470,12 +470,12 @@ Provide a refined description and analysis.`
                 WHERE ticket_id = ?
                 ORDER BY created_at DESC
                 LIMIT 10
-            `).all(ticket.id) as Array<{
+            `).all(ticket.id) as {
                 author_id: string
                 author_type: string
                 content: string
                 created_at: number
-            }>
+            }[]
 
             const systemPrompt = `You are a project management AI agent that refines and clarifies software development tickets.
 
@@ -559,7 +559,7 @@ Please respond to the user's request and refine the ticket as requested.`
                      * Find the start of the field value
                      */
                     const startIdx = accumulatedResponse.indexOf('"response_comment"')
-                    if (startIdx >= 0) {
+                    if (startIdx !== -1) {
                         // Find the colon and opening quote after "response_comment"
                         const afterField = accumulatedResponse.slice(startIdx + '"response_comment"'.length)
                         const colonQuoteMatch = afterField.match(/^\s*:\s*"/)
@@ -601,7 +601,7 @@ Please respond to the user's request and refine the ticket as requested.`
                                     }
                                 } catch {
                                     // Fallback unescaping
-                                    const unescaped = rawValue.replaceAll('\\n', '\n').replaceAll('\\"', '"').replaceAll('\\\\', '\\')
+                                    const unescaped = rawValue.replaceAll(String.raw`\n`, '\n').replaceAll(String.raw`\"`, '"').replaceAll(String.raw`\\`, '\\')
                                     if (unescaped !== lastBroadcast) {
                                         lastBroadcast = unescaped
                                         await updateAgentComment(responseCommentId, unescaped, false)
@@ -610,7 +610,7 @@ Please respond to the user's request and refine the ticket as requested.`
                                 }
                             } else {
                                 // Incomplete - show partial with basic unescaping
-                                const partial = valueText.replaceAll('\\n', '\n').replaceAll('\\"', '"').replaceAll('\\\\', '\\')
+                                const partial = valueText.replaceAll(String.raw`\n`, '\n').replaceAll(String.raw`\"`, '"').replaceAll(String.raw`\\`, '\\')
                                 const now = Date.now()
                                 if (partial !== lastBroadcast && now - lastBroadcastTime > 100) {
                                     lastBroadcast = partial
@@ -654,7 +654,7 @@ Please respond to the user's request and refine the ticket as requested.`
                 if (!lastBroadcast || lastBroadcast !== refinement.response_comment) {
                     await updateAgentComment(responseCommentId, refinement.response_comment || 'I received your mention.', false)
                 }
-            } catch(error) {
+            } catch{
                 // If parsing fails, use what we streamed or create a simple response
                 this.log('Failed to parse response JSON', 'error')
 
@@ -716,10 +716,10 @@ Please respond to the user's request and refine the ticket as requested.`
             this.log(`Added "refined" label to ticket ${ticket.id}`)
 
             this.log('Mention response completed')
-        } catch(_error) {
-            this.log(`Error responding to mention for ticket ${ticket.id}: ${_error}`, 'error')
+        } catch(error) {
+            this.log(`Error responding to mention for ticket ${ticket.id}: ${error}`, 'error')
             // Add error comment so user knows something went wrong
-            const errorMessage = _error instanceof Error ? _error.message : String(_error)
+            const errorMessage = error instanceof Error ? error.message : String(error)
             await addAgentComment(
                 ticket.id,
                 this.name,

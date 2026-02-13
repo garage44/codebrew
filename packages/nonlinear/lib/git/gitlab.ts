@@ -19,7 +19,7 @@ export class GitLabAdapter implements GitPlatform {
     }
 
     isConfigured(): boolean {
-        return !!this.apiKey
+        return Boolean(this.apiKey)
     }
 
     private async apiRequest(endpoint: string, options: RequestInit = {}): Promise<Response> {
@@ -150,13 +150,13 @@ export class GitLabAdapter implements GitPlatform {
 
         // Find MR for this branch
         const mrsResponse = await this.apiRequest(`/projects/${repoInfo.projectId}/merge_requests?source_branch=${branch}&state=all`)
-        const mrs = await mrsResponse.json() as Array<{
+        const mrs = await mrsResponse.json() as {
             description: string
             iid: number
             state: 'opened' | 'closed' | 'merged'
             title: string
             web_url: string
-        }>
+        }[]
 
         if (mrs.length === 0) {
             return null
@@ -166,7 +166,7 @@ export class GitLabAdapter implements GitPlatform {
         return {
             description: mr.description || '',
             id: mr.iid.toString(),
-            state: mr.state === 'merged' ? 'merged' : mr.state === 'opened' ? 'open' : 'closed',
+            state: mr.state === 'merged' ? 'merged' : (mr.state === 'opened' ? 'open' : 'closed'),
             title: mr.title,
             url: mr.web_url,
         }

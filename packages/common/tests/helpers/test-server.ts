@@ -3,12 +3,12 @@
  * Creates a test WebSocket server for testing WebSocket protocol
  */
 
-import {createBunWebSocketHandler, WebSocketServerManager} from '../../lib/ws-server.ts'
+import {WebSocketServerManager, createBunWebSocketHandler} from '../../lib/ws-server.ts'
 
 export interface TestServerOptions {
     authOptions?: {
         noSecurityEnv?: string
-        users?: Array<{name: string}>
+        users?: {name: string}[]
     }
     endpoint?: string
     port?: number

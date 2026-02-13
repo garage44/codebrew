@@ -41,12 +41,15 @@ bun run lint:css
 
 ## TypeScript Fix Strategy
 
-**See `.cursor/skills/typescript-typing.md` for detailed TypeScript typing guidance, including DeepSignal state patterns.**
+**CRITICAL: Read `.cursor/skills/typescript-typing.md` first** - it contains essential guidance on using type inference and fixing types at interface definitions.
 
-Quick reference:
+**Key principles:**
+- Use type inference instead of explicit types where possible
 - Fix types at interface definitions, not usage sites
 - Find interface/type definition causing error
 - Update definition to match actual usage
-- Use type inference instead of explicit types
 - Avoid adding conditionals just for TypeScript
 - For DeepSignal Record access, use type assertions: `const channels = $s.chat.channels as PyriteState['chat']['channels']`
+- **Return types**: Don't add explicit `: void` or `Promise<type>` return types when TypeScript can infer them - let inference work
+
+**Note:** The `explicit-function-return-type` lint rule may require return types, but prefer inference when possible. Only add explicit return types when the rule explicitly requires it AND TypeScript can't infer, or when it adds clarity for complex types.

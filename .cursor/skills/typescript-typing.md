@@ -122,6 +122,62 @@ const items = $s.someArray as Array<ItemType>
 for (const item of items) { }
 ```
 
+## Return Types and Inference
+
+**Use inference for return types when possible** - TypeScript can infer return types in most cases.
+
+### When Return Types Are Unnecessary
+
+**Don't add explicit return types when TypeScript can infer them:**
+
+```typescript
+// ❌ Unnecessary: TypeScript infers void
+export function _events(): void {
+    events.on('disconnected', () => {
+        $s.users = []
+    })
+}
+
+// ✅ Better: Let TypeScript infer
+export function _events() {
+    events.on('disconnected', () => {
+        $s.users = []
+    })
+}
+
+// ❌ Unnecessary: TypeScript infers Promise<typeof $s.admin.users[number]>
+export async function saveUser(userId: string, data: Record<string, unknown>): Promise<typeof $s.admin.users[number]> {
+    const user = await api.post(`/api/users/${userId}`, data)
+    return user
+}
+
+// ✅ Better: Let TypeScript infer Promise return type
+export async function saveUser(userId: string, data: Record<string, unknown>) {
+    const user = await api.post(`/api/users/${userId}`, data)
+    return user
+}
+```
+
+**Note:** The `explicit-function-return-type` lint rule may require return types, but prefer inference when the rule allows it. Only add explicit return types when:
+- The lint rule explicitly requires it AND TypeScript can't infer
+- The return type adds clarity for complex types
+- The return type is part of a public API interface
+
+### When Return Types Are Helpful
+
+```typescript
+// ✅ Helpful: Complex return type that's clearer when explicit
+export function currentGroup(): typeof $s.sfu.channel {
+    // Complex logic that returns a merged type
+    return { ...$s.sfu.channel, ...channelData }
+}
+
+// ✅ Helpful: Public API where return type is part of contract
+export interface UserService {
+    getUser(id: string): Promise<User>
+}
+```
+
 ## Anti-Patterns
 
 ❌ **Don't do:**
@@ -129,13 +185,15 @@ for (const item of items) { }
 - Use `as any` to silence errors
 - Add type assertions everywhere instead of fixing interfaces
 - Change usage sites when the interface is wrong
+- Add explicit `: void` or `Promise<type>` return types when TypeScript can infer them
 
 ✅ **Do:**
 - Fix interface definitions to match actual usage
 - Use type assertions only when TypeScript errors occur (Record assignments, utility functions)
 - Try direct property access first - DeepSignal proxies unwrap automatically
-- Let TypeScript infer types when possible
+- Let TypeScript infer types when possible (especially return types)
 - Add properties to interfaces when they're actually used
+- Only add explicit return types when they add clarity or are required by lint rules
 
 ## Quick Reference
 

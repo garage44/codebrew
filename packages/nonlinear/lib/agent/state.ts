@@ -129,7 +129,7 @@ class AgentStateTracker {
         this.wsManager = manager
 
         // Load all agents and initialize their state
-        const agents = db.prepare('SELECT id FROM agents').all() as Array<{id: string}>
+        const agents = db.prepare('SELECT id FROM agents').all() as {id: string}[]
         for (const agent of agents) {
             // Check if agent service is already online by checking subscriptions
             const taskTopic = `/agents/${agent.id}/tasks`
@@ -216,7 +216,7 @@ class AgentStateTracker {
     /**
      * Batch update multiple agents (prevents multiple broadcasts)
      */
-    batchUpdate(updates: Array<{agentId: string; updates: Partial<AgentState>}>): void {
+    batchUpdate(updates: {agentId: string; updates: Partial<AgentState>}[]): void {
         this.batchUpdateInProgress = true
 
         for (const {agentId, updates: agentUpdates} of updates) {
@@ -248,7 +248,7 @@ class AgentStateTracker {
         const cleanState: AgentStateData = {}
         for (const [agentId, state] of Object.entries(this._state)) {
             const agentStatus = getAgentStatus(agentId)
-            const serviceOnline = state.serviceOnline
+            const {serviceOnline} = state
 
             /*
              * Determine status - if service is offline, status should be 'offline'
@@ -332,6 +332,6 @@ export function setAgentState(agentId: string, key: keyof AgentState, value: Age
 /**
  * Batch update multiple agents
  */
-export function batchUpdateAgentStates(updates: Array<{agentId: string; updates: Partial<AgentState>}>): void {
+export function batchUpdateAgentStates(updates: {agentId: string; updates: Partial<AgentState>}[]): void {
     agentStateTracker?.batchUpdate(updates)
 }

@@ -1,5 +1,5 @@
-import {symlink, mkdir, rm, stat, lstat, readlink} from 'fs/promises'
-import {join, relative} from 'path'
+import {lstat, mkdir, readlink, rm, stat, symlink} from 'node:fs/promises'
+import {join, relative} from 'node:path'
 import {findWorkspaceRoot} from './workspace'
 
 /**
@@ -17,7 +17,7 @@ export async function rules(): Promise<void> {
             console.error(`❌ ${nonlinearRulesPath} is not a directory`)
             process.exit(1)
         }
-    } catch(_error) {
+    } catch{
         console.error(`❌ Nonlinear rules directory not found: ${nonlinearRulesPath}`)
         process.exit(1)
     }

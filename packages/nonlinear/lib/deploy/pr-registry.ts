@@ -1,6 +1,6 @@
-import {existsSync, readFileSync, writeFileSync} from 'fs'
-import {homedir} from 'os'
-import path from 'path'
+import {existsSync, readFileSync, writeFileSync} from 'node:fs'
+import {homedir} from 'node:os'
+import path from 'node:path'
 
 const REGISTRY_PATH = path.join(homedir(), '.pr-deployments.json')
 
@@ -31,7 +31,7 @@ export async function loadPRRegistry(): Promise<PRRegistry> {
     }
 
     try {
-        const content = readFileSync(REGISTRY_PATH, 'utf-8')
+        const content = readFileSync(REGISTRY_PATH, 'utf8')
         return JSON.parse(content)
     } catch(error) {
         console.error('[pr-registry] Failed to load registry:', error)
@@ -41,7 +41,7 @@ export async function loadPRRegistry(): Promise<PRRegistry> {
 
 export async function savePRRegistry(registry: PRRegistry): Promise<void> {
     try {
-        writeFileSync(REGISTRY_PATH, JSON.stringify(registry, null, 2), 'utf-8')
+        writeFileSync(REGISTRY_PATH, JSON.stringify(registry, null, 2), 'utf8')
     } catch(error) {
         console.error('[pr-registry] Failed to save registry:', error)
         throw error

@@ -27,8 +27,8 @@ export interface FileModification {
 export async function applyFileModifications(
     repoPath: string,
     modifications: FileModification[],
-): Promise<Array<{error?: string; path: string; success: boolean}>> {
-    const results: Array<{error?: string; path: string; success: boolean}> = []
+): Promise<{error?: string; path: string; success: boolean}[]> {
+    const results: {error?: string; path: string; success: boolean}[] = []
 
     for (const mod of modifications) {
         try {

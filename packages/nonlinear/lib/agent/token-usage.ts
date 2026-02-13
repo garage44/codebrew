@@ -13,9 +13,9 @@ interface TokenUsageState {
     loading: boolean
 }
 
-let tokenUsage: TokenUsageState = {
+const tokenUsage: TokenUsageState = {
     count: 0,
-    limit: config.anthropic.tokenLimit || 1000000,
+    limit: config.anthropic.tokenLimit || 1_000_000,
     loading: false,
 }
 
@@ -86,8 +86,8 @@ export function updateUsageFromResponse(response: {
 }) {
     // Try to extract rate limit headers if available
     if (response.headers) {
-        const limit = parseInt(response.headers.get('anthropic-ratelimit-tokens-limit') || '0', 10)
-        const remaining = parseInt(response.headers.get('anthropic-ratelimit-tokens-remaining') || '0', 10)
+        const limit = Number.parseInt(response.headers.get('anthropic-ratelimit-tokens-limit') || '0', 10)
+        const remaining = Number.parseInt(response.headers.get('anthropic-ratelimit-tokens-remaining') || '0', 10)
 
         if (limit > 0 && remaining >= 0) {
             const used = limit - remaining

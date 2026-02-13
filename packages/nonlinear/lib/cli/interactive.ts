@@ -3,10 +3,11 @@
  */
 
 import pc from 'picocolors'
-import {BaseAgent, type AgentContext, type AgentResponse} from '../agent/base.ts'
+import type {BaseAgent} from '../agent/base.ts';
+import type { AgentContext, AgentResponse} from '../agent/base.ts'
 import {REPL, type REPLOptions} from './repl.ts'
 import {executeToolCommand, getToolsHelp, getToolsList} from './command-parser.ts'
-import {getPendingTasks, markTaskProcessing, markTaskCompleted, markTaskFailed} from '../agent/tasks.ts'
+import {getPendingTasks, markTaskCompleted, markTaskFailed, markTaskProcessing} from '../agent/tasks.ts'
 import {runAgent as runAgentScheduler} from '../agent/scheduler.ts'
 import {db} from '../database.ts'
 
@@ -76,7 +77,7 @@ export async function runAgentInteractive(options: InteractiveCLIOptions): Promi
                     `Type ${pc.yellow('process-pending')} or ${pc.yellow('catch-up')} to process them.\n`
             }
         }
-    } catch(_error) {
+    } catch{
         // Silently fail - database might not be initialized or agent not found
     }
 

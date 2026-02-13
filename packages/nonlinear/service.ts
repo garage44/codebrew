@@ -4,11 +4,11 @@ import {createBunWebSocketHandler} from '@garage44/common/lib/ws-server'
 import {bunchyArgs, bunchyService} from '@garage44/bunchy'
 import {
     createRuntime,
-    createWelcomeBanner,
-    setupBunchyConfig,
     createWebSocketManagers,
-    service,
+    createWelcomeBanner,
     loggerTransports,
+    service,
+    setupBunchyConfig,
 } from '@garage44/common/service'
 import type {LoggerConfig} from '@garage44/common/types'
 import {hideBin} from 'yargs/helpers'
@@ -131,9 +131,7 @@ void cli.usage('Usage: $0 [task]')
 
         // Start Bun server
         const server = Bun.serve({
-            fetch: (req, server) => {
-                return handleRequest(req, server)
-            },
+            fetch: (req, server) => handleRequest(req, server),
             hostname: argv.host,
             port: argv.port,
             websocket: enhancedWebSocketHandler,
@@ -199,7 +197,7 @@ void cli.usage('Usage: $0 [task]')
 
             const {extractWorkspacePackages, isApplicationPackage} = await import('./lib/deploy/workspace')
             const repoDir = `${result.deployment.directory}/repo`
-            const {existsSync} = await import('fs')
+            const {existsSync} = await import('node:fs')
             let packagesToShow: string[] = []
 
             if (existsSync(repoDir)) {
@@ -330,7 +328,7 @@ void cli.usage('Usage: $0 [task]')
                 `[IndexingService] Status: ${status.pendingJobs} pending, ` +
                 `${status.processingJobs} processing, ${status.failedJobs} failed`,
             )
-        }, 60000)
+        }, 60_000)
     })
     .command('agent', 'Run an agent interactively', (yargs) => yargs
         .option('ticket-id', {
@@ -438,7 +436,7 @@ void cli.usage('Usage: $0 [task]')
             // Log status every minute
             const status = service.getStatus()
             loggerInstance.info(`[AgentService] Status: ${JSON.stringify(status)}`)
-        }, 60000)
+        }, 60_000)
     })
     .command('agent:run', 'Run an agent interactively in foreground', (yargs) => yargs
         .option('agent-id', {
@@ -501,12 +499,12 @@ void cli.usage('Usage: $0 [task]')
         await initDatabase()
 
         const {db} = await import('./lib/database.ts')
-        const agents = db.prepare('SELECT * FROM agents ORDER BY type, name').all() as Array<{
+        const agents = db.prepare('SELECT * FROM agents ORDER BY type, name').all() as {
             enabled: number
             id: string
             name: string
             type: string
-        }>
+        }[]
 
         console.log('\n📋 Available Agents:\n')
         for (const agent of agents) {

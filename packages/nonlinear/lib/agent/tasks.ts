@@ -133,7 +133,7 @@ export function getTaskStats(agentId: string): {
         FROM agent_tasks
         WHERE agent_id = ?
         GROUP BY status
-    `).all(agentId) as Array<{count: number; status: string}>
+    `).all(agentId) as {count: number; status: string}[]
 
     const result = {
         completed: 0,

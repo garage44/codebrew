@@ -17,7 +17,7 @@ export class GitHubAdapter implements GitPlatform {
     }
 
     isConfigured(): boolean {
-        return !!this.apiKey
+        return Boolean(this.apiKey)
     }
 
     private async apiRequest(endpoint: string, options: RequestInit = {}): Promise<Response> {
@@ -71,7 +71,7 @@ export class GitHubAdapter implements GitPlatform {
         // Get the SHA of the default branch
         const refResponse = await this.apiRequest(`/repos/${repoInfo.owner}/${repoInfo.repo}/git/ref/heads/${defaultBranch}`)
         const refData = await refResponse.json() as {object: {sha: string}}
-        const sha = refData.object.sha
+        const {sha} = refData.object
 
         // Create new branch
         await this.apiRequest(`/repos/${repoInfo.owner}/${repoInfo.repo}/git/refs`, {
@@ -142,14 +142,14 @@ export class GitHubAdapter implements GitPlatform {
 
         // Find PR for this branch
         const prsResponse = await this.apiRequest(`/repos/${repoInfo.owner}/${repoInfo.repo}/pulls?head=${repoInfo.owner}:${branch}&state=all`)
-        const prs = await prsResponse.json() as Array<{
+        const prs = await prsResponse.json() as {
             body: string
             html_url: string
             merged: boolean
             number: number
             state: 'open' | 'closed'
             title: string
-        }>
+        }[]
 
         if (prs.length === 0) {
             return null
@@ -159,7 +159,7 @@ export class GitHubAdapter implements GitPlatform {
         return {
             description: pr.body || '',
             id: pr.number.toString(),
-            state: pr.merged ? 'merged' : pr.state === 'open' ? 'open' : 'closed',
+            state: pr.merged ? 'merged' : (pr.state === 'open' ? 'open' : 'closed'),
             title: pr.title,
             url: pr.html_url,
         }

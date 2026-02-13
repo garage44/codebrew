@@ -1,5 +1,5 @@
 import {Store} from '@garage44/common/lib/store'
-import {create$t, I18N_PATH_SYMBOL, i18nFormat} from './lib/i18n'
+import {I18N_PATH_SYMBOL, create$t, i18nFormat} from './lib/i18n'
 import {keyMod, keyPath} from '@garage44/common/lib/utils'
 import {persistantState, volatileState} from './src/lib/state'
 import type {ExpressioState} from './src/types'

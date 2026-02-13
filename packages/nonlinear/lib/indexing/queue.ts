@@ -84,7 +84,7 @@ export function getIndexingStatus(repositoryId: string): {
     const jobs = db.prepare(`
         SELECT status FROM indexing_jobs
         WHERE repository_id = ?
-    `).all(repositoryId) as Array<{status: string}>
+    `).all(repositoryId) as {status: string}[]
 
     return {
         completed: jobs.filter((j) => j.status === 'completed').length,

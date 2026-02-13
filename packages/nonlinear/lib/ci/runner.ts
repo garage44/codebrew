@@ -12,7 +12,7 @@ import {$} from 'bun'
 
 export interface CIRunResult {
     error?: string
-    fixesApplied: Array<{command: string; output: string}>
+    fixesApplied: {command: string; output: string}[]
     output: string
     success: boolean
 }
@@ -33,7 +33,7 @@ export class CIRunner {
         this.apiKey = apiKey
         this.maxAttempts = config.ci.maxFixAttempts || 3
         // 10 minutes
-        this.timeout = config.ci.timeout || 600000
+        this.timeout = config.ci.timeout || 600_000
     }
 
     /**
@@ -52,7 +52,7 @@ export class CIRunner {
         logger.info(`[CI] Starting CI run ${runId} for ticket ${ticketId}`)
 
         const originalCwd = process.cwd()
-        const fixesApplied: Array<{command: string; output: string}> = []
+        const fixesApplied: {command: string; output: string}[] = []
 
         try {
             process.chdir(repoPath)
@@ -205,8 +205,8 @@ Generate a command to fix this issue.`
             logger.debug(`  All headers: ${JSON.stringify(Object.fromEntries(response.headers.entries()))}`)
 
             if (limitHeader && remainingHeader) {
-                const limit = parseInt(limitHeader, 10)
-                const remaining = parseInt(remainingHeader, 10)
+                const limit = Number.parseInt(limitHeader, 10)
+                const remaining = Number.parseInt(remainingHeader, 10)
                 const used = limit - remaining
 
                 logger.info(`[CI Runner] Token Usage: ${used}/${limit} (${remaining} remaining)`)
@@ -269,7 +269,7 @@ Generate a command to fix this issue.`
         runId: string,
         status: 'success' | 'failed' | 'fixed',
         output: string,
-        fixesApplied: Array<{command: string; output: string}>,
+        fixesApplied: {command: string; output: string}[],
     ): void {
         db.prepare(`
             UPDATE ci_runs

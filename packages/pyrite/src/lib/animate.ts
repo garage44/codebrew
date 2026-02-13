@@ -21,21 +21,21 @@ export default function tween({
     const delta = to - from
     const startTime = performance.now()
 
-    function update(currentTime) {
+    function update(currentTime: number) {
         const elapsed = currentTime - startTime
         const progress = Math.min(elapsed / duration, 1)
         const latest = from + (ease(progress) * delta)
 
-        if (onUpdate) onUpdate(latest)
+        if (onUpdate) {onUpdate(latest)}
 
         if (progress < 1) {
             requestAnimationFrame(update)
-        } else if (onFinish) onFinish()
+        } else if (onFinish) {onFinish()}
     }
 
     requestAnimationFrame(update)
 }
 
-function easeOut(progress, power = 2) {
+function easeOut(progress: number, power = 2): number {
     return 1 - ((1 - progress) ** power)
 }
