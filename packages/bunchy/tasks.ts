@@ -311,7 +311,7 @@ tasks.code_frontend = new Task('code:frontend', async function taskCodeFrontend(
             }
         }
 
-        const result = await Bun.build({
+        const buildOptions: Parameters<typeof Bun.build>[0] = {
             define: {
                 'process.env.APP_COMMIT_HASH': `'${commitHash}'`,
                 'process.env.APP_VERSION': `'${version}'`,
@@ -332,7 +332,19 @@ tasks.code_frontend = new Task('code:frontend', async function taskCodeFrontend(
             naming: `[dir]/[name].${settings.buildId}.[ext]`,
             outdir: settings.dir.public,
             sourcemap: process.env.NODE_ENV === 'production' ? 'none' : 'linked',
-        })
+        }
+
+        if (settings.dir.workspace.includes('codebrew')) {
+            const workspaceRoot = path.resolve(settings.dir.workspace, '..', '..')
+            const codebrewApp = path.join(settings.dir.workspace, 'src', 'app.ts')
+            buildOptions.alias = {
+                [path.join(workspaceRoot, 'packages', 'nonlinear', 'src', 'app.ts')]: codebrewApp,
+                [path.join(workspaceRoot, 'packages', 'expressio', 'src', 'app.ts')]: codebrewApp,
+                [path.join(workspaceRoot, 'packages', 'pyrite', 'src', 'app.ts')]: codebrewApp,
+            }
+        }
+
+        const result = await Bun.build(buildOptions)
 
         if (!result.success) {
             // Broadcast error to client

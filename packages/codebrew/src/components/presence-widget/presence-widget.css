@@ -1,0 +1,27 @@
+.c-presence-widget {
+    align-items: center;
+    display: flex;
+    gap: var(--spacer-1);
+    padding: var(--spacer-1) var(--spacer-2);
+
+    .avatars {
+        display: flex;
+    }
+
+    .avatar {
+        border-radius: 50%;
+        height: 24px;
+        margin-left: -8px;
+        object-fit: cover;
+        width: 24px;
+
+        &:first-child {
+            margin-left: 0;
+        }
+    }
+
+    .count {
+        color: var(--grey-3);
+        font-size: var(--font-e);
+    }
+}
