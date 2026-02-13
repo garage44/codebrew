@@ -10,7 +10,7 @@ const state = deepSignal({
         path: '',
         workspace: null as string | null,
     },
-    directories: [] as Array<{is_workspace?: boolean; name: string; path: string}>,
+    directories: [] as {is_workspace?: boolean; name: string; path: string}[],
     loading: false,
     parentPath: '',
 })
@@ -31,7 +31,7 @@ async function loadDirectory(path: string | null = null) {
                 path: (response.current as {path?: string}).path ?? '',
                 workspace: (response.current as {workspace?: string | null}).workspace ?? null,
             },
-            directories: response.directories as Array<{is_workspace?: boolean; name: string; path: string}>,
+            directories: response.directories as {is_workspace?: boolean; name: string; path: string}[],
             parentPath: response.parent as string,
         })
     } catch (error) {

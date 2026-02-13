@@ -3,10 +3,10 @@
  * Reviews merge requests and provides feedback
  */
 
-import {type AgentContext, type AgentResponse, BaseAgent} from './base.ts'
-import {type Repository, getDb} from '../database.ts'
 import {logger} from '../../service.ts'
+import {type Repository, getDb} from '../database.ts'
 import {createGitPlatform} from '../git/index.ts'
+import {type AgentContext, type AgentResponse, BaseAgent} from './base.ts'
 import {addAgentComment} from './comments.ts'
 
 export class ReviewerAgent extends BaseAgent {
@@ -17,7 +17,8 @@ export class ReviewerAgent extends BaseAgent {
     async process(context: AgentContext): Promise<AgentResponse> {
         try {
             // Get a ticket in "review" status
-            const ticket = getDb().prepare(`
+            const ticket = getDb()
+                .prepare(`
                 SELECT t.*, r.path, r.platform, r.remote_url, r.config
                 FROM tickets t
                 JOIN repositories r ON t.repository_id = r.id
@@ -25,18 +26,21 @@ export class ReviewerAgent extends BaseAgent {
                   AND t.merge_request_id IS NOT NULL
                 ORDER BY t.updated_at ASC
                 LIMIT 1
-            `).get() as {
-                branch_name: string | null
-                config: string
-                description: string | null
-                id: string
-                merge_request_id: string | null
-                path: string
-                platform: 'github' | 'gitlab' | 'local'
-                remote_url: string | null
-                repository_id: string
-                title: string
-            } | undefined
+            `)
+                .get() as
+                | {
+                      branch_name: string | null
+                      config: string
+                      description: string | null
+                      id: string
+                      merge_request_id: string | null
+                      path: string
+                      platform: 'github' | 'gitlab' | 'local'
+                      remote_url: string | null
+                      repository_id: string
+                      title: string
+                  }
+                | undefined
 
             if (!ticket || !ticket.merge_request_id || !ticket.branch_name) {
                 this.log('No tickets in review status found')
@@ -49,9 +53,9 @@ export class ReviewerAgent extends BaseAgent {
             this.log(`Reviewing ticket ${ticket.id}: ${ticket.title}`)
 
             // Get repository details
-            const repository = getDb()
-                .prepare('SELECT * FROM repositories WHERE id = ?')
-                .get(ticket.repository_id) as Repository | undefined
+            const repository = getDb().prepare('SELECT * FROM repositories WHERE id = ?').get(ticket.repository_id) as
+                | Repository
+                | undefined
 
             if (!repository) {
                 this.log(`Repository ${ticket.repository_id} not found`, 'warn')
@@ -78,11 +82,13 @@ export class ReviewerAgent extends BaseAgent {
             }
 
             // Get ticket comments for context
-            const comments = getDb().prepare(`
+            const comments = getDb()
+                .prepare(`
                 SELECT * FROM comments
                 WHERE ticket_id = ?
                 ORDER BY created_at ASC
-            `).all(ticket.id) as {
+            `)
+                .all(ticket.id) as {
                 author_id: string
                 author_type: string
                 content: string
@@ -135,7 +141,7 @@ Please review the changes and provide feedback.`
                 const jsonMatch = response.match(/```json\n([\s\S]*?)\n```/) || response.match(/```\n([\s\S]*?)\n```/)
                 const jsonStr = jsonMatch ? jsonMatch[1] : response
                 review = JSON.parse(jsonStr)
-            } catch(error) {
+            } catch (error) {
                 this.log(`Failed to parse review response: ${error}`, 'error')
                 return {
                     error: String(error),
@@ -154,24 +160,28 @@ Please review the changes and provide feedback.`
             // Update ticket status
             if (review.approved) {
                 // Move to closed (pending human confirmation)
-                getDb().prepare(`
+                getDb()
+                    .prepare(`
                     UPDATE tickets
                     SET status = 'closed',
                         updated_at = ?
                     WHERE id = ?
-                `).run(Date.now(), ticket.id)
+                `)
+                    .run(Date.now(), ticket.id)
 
                 this.log(`Ticket ${ticket.id} approved and moved to closed`)
             } else {
                 // Move back to in_progress for fixes
-                getDb().prepare(`
+                getDb()
+                    .prepare(`
                     UPDATE tickets
                     SET status = 'in_progress',
                         assignee_type = NULL,
                         assignee_id = NULL,
                         updated_at = ?
                     WHERE id = ?
-                `).run(Date.now(), ticket.id)
+                `)
+                    .run(Date.now(), ticket.id)
 
                 this.log(`Ticket ${ticket.id} needs fixes, moved back to in_progress`)
             }
@@ -184,7 +194,7 @@ Please review the changes and provide feedback.`
                 message: review.approved ? 'MR approved' : 'MR needs fixes',
                 success: true,
             }
-        } catch(error) {
+        } catch (error) {
             this.log(`Error during review: ${error}`, 'error')
             return {
                 error: error instanceof Error ? error.message : String(error),
@@ -261,7 +271,7 @@ Provide constructive feedback and check for code quality, tests, and adherence t
                 message: response,
                 success: true,
             }
-        } catch(error) {
+        } catch (error) {
             const errorMsg = error instanceof Error ? error.message : String(error)
             return {
                 error: errorMsg,

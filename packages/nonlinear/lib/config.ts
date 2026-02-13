@@ -17,7 +17,7 @@ const defaultConfig = {
         },
         planner: {
             // 5 minutes
-            checkInterval: 300000,
+            checkInterval: 300_000,
             enabled: true,
         },
         reviewer: {
@@ -29,12 +29,12 @@ const defaultConfig = {
         apiKey: process.env.ANTHROPIC_API_KEY || '',
         model: 'claude-3-5-sonnet-20241022',
         // Default: 1M tokens per month
-        tokenLimit: parseInt(process.env.ANTHROPIC_TOKEN_LIMIT || '1000000', 10),
+        tokenLimit: Number.parseInt(process.env.ANTHROPIC_TOKEN_LIMIT || '1000000', 10),
     },
     ci: {
         maxFixAttempts: 3,
         // 10 minutes
-        timeout: 600000,
+        timeout: 600_000,
     },
     embeddings: {
         chunkOverlap: 200,

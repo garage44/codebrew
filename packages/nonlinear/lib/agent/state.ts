@@ -5,8 +5,9 @@
  */
 
 import type {WebSocketServerManager} from '@garage44/common/lib/ws-server'
-import {getDb} from '../database.ts'
+
 import {logger} from '../../service.ts'
+import {getDb} from '../database.ts'
 import {getAgentStatus} from './status.ts'
 import {getTaskStats} from './tasks.ts'
 
@@ -103,7 +104,7 @@ class AgentStateTracker {
             clearTimeout(this.operationTimeout)
         }
 
-        if (this.operationTimestamp === 0 || (now - this.operationTimestamp) > this.OPERATION_GROUPING_TIME) {
+        if (this.operationTimestamp === 0 || now - this.operationTimestamp > this.OPERATION_GROUPING_TIME) {
             // If we had pending changes from a previous operation, commit those first
             if (this.pendingChanges && this.operationTimestamp !== 0) {
                 onChange()
@@ -253,9 +254,11 @@ class AgentStateTracker {
              * Determine status - if service is offline, status should be 'offline'
              * Otherwise use the actual agent status (idle, working, error)
              */
-            let status: 'idle' | 'working' | 'error' | 'offline' = (
-                agentStatus?.status || 'idle'
-            ) as 'idle' | 'working' | 'error' | 'offline'
+            let status: 'idle' | 'working' | 'error' | 'offline' = (agentStatus?.status || 'idle') as
+                | 'idle'
+                | 'working'
+                | 'error'
+                | 'offline'
             if (!serviceOnline && status !== 'working') {
                 status = 'offline'
             }

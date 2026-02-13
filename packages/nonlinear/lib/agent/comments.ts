@@ -5,14 +5,10 @@
  */
 
 import type {WebSocketServerManager} from '@garage44/common/lib/ws-server'
-import {getDb} from '../database.ts'
+
 import {logger} from '../../service.ts'
-import {
-    createStreamingMessage,
-    finalizeStreamingMessage,
-    initStreaming,
-    updateStreamingMessage,
-} from './streaming.ts'
+import {getDb} from '../database.ts'
+import {createStreamingMessage, finalizeStreamingMessage, initStreaming, updateStreamingMessage} from './streaming.ts'
 
 let wsManager: WebSocketServerManager | null = null
 
@@ -46,11 +42,7 @@ export async function createAgentCommentPlaceholder(
  * Update agent comment content (for streaming)
  * Call this as content is generated
  */
-export async function updateAgentComment(
-    commentId: string,
-    content: string,
-    isFinal = false,
-): Promise<void> {
+export async function updateAgentComment(commentId: string, content: string, isFinal = false): Promise<void> {
     return updateStreamingMessage(commentId, content, isFinal)
 }
 
@@ -58,10 +50,7 @@ export async function updateAgentComment(
  * Finalize agent comment (mark as completed)
  * Call this when comment generation is complete
  */
-export async function finalizeAgentComment(
-    commentId: string,
-    content: string,
-): Promise<void> {
+export async function finalizeAgentComment(commentId: string, content: string): Promise<void> {
     return finalizeStreamingMessage(commentId, content)
 }
 
@@ -69,11 +58,7 @@ export async function finalizeAgentComment(
  * Add a comment to a ticket and broadcast it via WebSocket
  * Legacy function for non-streaming comments (backward compatibility)
  */
-export async function addAgentComment(
-    ticketId: string,
-    agentName: string,
-    content: string,
-): Promise<void> {
+export async function addAgentComment(ticketId: string, agentName: string, content: string): Promise<void> {
     // Use streaming infrastructure but mark as completed immediately
     const commentId = await createAgentCommentPlaceholder(ticketId, agentName)
     await finalizeAgentComment(commentId, content)

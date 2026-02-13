@@ -1,7 +1,7 @@
 import type {LanguageUI} from '@garage44/common/types'
 import type {DeepSignal} from 'deepsignal'
 
-import workspace from '@/.expressio.json'
+import type workspace from '@/.expressio.json'
 
 import type {EnolaConfig} from '../lib/enola/types.ts'
 

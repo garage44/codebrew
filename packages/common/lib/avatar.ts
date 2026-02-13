@@ -12,7 +12,7 @@ function hashString(str: string): number {
         const char = str.codePointAt(i) ?? 0
         hash = (hash << 5) - hash + char
         // Convert to 32bit integer
-        hash = hash & hash
+        hash &= hash
     }
     return Math.abs(hash)
 }

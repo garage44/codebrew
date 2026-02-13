@@ -3,15 +3,17 @@
  * Search ADRs, rules, and project documentation semantically
  */
 
-import {logger} from '../../../service.ts'
-import type {Tool, ToolContext, ToolResult} from './types.ts'
-import {searchDocs} from '../../docs/search.ts'
 import type {DocFilters} from '../../docs/search.ts'
+import type {Tool, ToolContext, ToolResult} from './types.ts'
+
+import {logger} from '../../../service.ts'
+import {searchDocs} from '../../docs/search.ts'
 
 export const documentationTools: Record<string, Tool> = {
     search_documentation: {
-        description: 'Search ADRs, rules, and project documentation semantically. Use this to find architectural decisions, patterns, and project guidelines.',
-        execute: async(params: Record<string, unknown>, _context: ToolContext): Promise<ToolResult> => {
+        description:
+            'Search ADRs, rules, and project documentation semantically. Use this to find architectural decisions, patterns, and project guidelines.',
+        execute: async (params: Record<string, unknown>, _context: ToolContext): Promise<ToolResult> => {
             const {labels, limit: limitParam, query} = params as {labels?: string[]; limit?: number; query: string}
             try {
                 const filters: DocFilters = {}
@@ -50,7 +52,7 @@ export const documentationTools: Record<string, Tool> = {
                     data: formatted,
                     success: true,
                 }
-            } catch(error) {
+            } catch (error) {
                 logger.error('[DocumentationTool] Failed to search documentation:', error)
                 return {
                     error: error instanceof Error ? error.message : String(error),
@@ -61,7 +63,8 @@ export const documentationTools: Record<string, Tool> = {
         name: 'search_documentation',
         parameters: [
             {
-                description: 'What to search for (e.g., "how to handle WebSocket connections", "CSS styling patterns", "authentication flow")',
+                description:
+                    'What to search for (e.g., "how to handle WebSocket connections", "CSS styling patterns", "authentication flow")',
                 name: 'query',
                 required: true,
                 type: 'string',

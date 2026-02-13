@@ -2,24 +2,29 @@
  * Code analysis tools using vector search
  */
 
-import {logger} from '../../../service.ts'
 import type {Tool, ToolContext, ToolResult} from './types.ts'
+
+import {logger} from '../../../service.ts'
 import {searchCode, findSimilarCode} from '../../docs/code-embeddings.ts'
 
 export const codeTools: Record<string, Tool> = {
     find_similar_code: {
         description: 'Find code similar to given code snippet',
-        execute: async(params: Record<string, unknown>, _context: ToolContext): Promise<ToolResult> => {
+        execute: async (params: Record<string, unknown>, _context: ToolContext): Promise<ToolResult> => {
             const {code, repositoryId, limit} = params as {code: string; limit?: number; repositoryId: string}
             try {
                 const results = await findSimilarCode(code, repositoryId, limit || 5)
 
                 return {
                     context: {
-                        fileTypes: [...new Set(results.map((r) => {
-                            const ext = r.file_path.split('.').pop()
-                            return ext || 'unknown'
-                        }))],
+                        fileTypes: [
+                            ...new Set(
+                                results.map((r) => {
+                                    const ext = r.file_path.split('.').pop()
+                                    return ext || 'unknown'
+                                }),
+                            ),
+                        ],
                         similarityScores: results.map((r) => ({
                             chunk: r.chunk_name,
                             file: r.file_path,
@@ -29,7 +34,7 @@ export const codeTools: Record<string, Tool> = {
                     data: results,
                     success: true,
                 }
-            } catch(error) {
+            } catch (error) {
                 logger.error('[CodeTool] Failed to find similar code:', error)
                 return {
                     error: error instanceof Error ? error.message : String(error),
@@ -62,8 +67,13 @@ export const codeTools: Record<string, Tool> = {
 
     search_code: {
         description: 'Semantic code search - find similar functions, classes, or patterns',
-        execute: async(params: Record<string, unknown>, _context: ToolContext): Promise<ToolResult> => {
-            const {fileType, limit, query, repositoryId} = params as {fileType?: string; limit?: number; query: string; repositoryId: string}
+        execute: async (params: Record<string, unknown>, _context: ToolContext): Promise<ToolResult> => {
+            const {fileType, limit, query, repositoryId} = params as {
+                fileType?: string
+                limit?: number
+                query: string
+                repositoryId: string
+            }
             try {
                 const results = await searchCode(query, repositoryId, {
                     fileType,
@@ -78,7 +88,7 @@ export const codeTools: Record<string, Tool> = {
                     data: results,
                     success: true,
                 }
-            } catch(error) {
+            } catch (error) {
                 logger.error('[CodeTool] Failed to search code:', error)
                 return {
                     error: error instanceof Error ? error.message : String(error),

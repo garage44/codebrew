@@ -89,7 +89,7 @@ export function TranslationGroup({
     const groupItselfMatches = filter ? groupMatchesFilter(group, group._id || path.at(-1) || '', filter) : true
 
     // At each level, only show entries that match or have matching descendants
-    let entries: [string, unknown][] = Object.entries(group)
+    const entries: [string, unknown][] = Object.entries(group)
         .filter(([id, subGroup]) => {
             if (id.startsWith('_')) {
                 return false
@@ -109,7 +109,7 @@ export function TranslationGroup({
         })
 
     // If filter is active, auto-expand groups with matches
-    const autoExpand = !!filter
+    const autoExpand = Boolean(filter)
     const collapsed = autoExpand ? false : group._collapsed
 
     return (

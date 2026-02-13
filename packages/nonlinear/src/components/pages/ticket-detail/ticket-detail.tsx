@@ -14,8 +14,8 @@ import {renderMarkdown} from '@/lib/markdown.ts'
 // Load label definitions on component mount
 const loadLabelDefinitions = async () => {
     try {
-        const result = await ws.get('/api/labels')
-        if (result.labels) {
+        const result = (await ws.get('/api/labels')) as {labels?: typeof $s.labelDefinitions} | null
+        if (result?.labels) {
             $s.labelDefinitions = result.labels as typeof $s.labelDefinitions
         }
     } catch {
@@ -168,8 +168,8 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
     const loadTicket = async (id: string) => {
         setLoading(true)
         try {
-            const result = await ws.get(`/api/tickets/${id}`)
-            if (result.ticket) {
+            const result = (await ws.get(`/api/tickets/${id}`)) as {comments?: Comment[]; ticket?: Ticket} | null
+            if (result?.ticket) {
                 setTicket(result.ticket as Ticket)
                 // Update edit state when ticket loads
                 editState.title = (result.ticket as Ticket).title
@@ -180,7 +180,7 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
                 // Update labels state
                 labelsState.labels = (result.ticket as Ticket).labels || []
             }
-            if (result.comments) {
+            if (result?.comments) {
                 setComments(result.comments as Comment[])
             }
         } catch (error) {
@@ -370,11 +370,11 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
         if (!labelDef) {
             // Create new label definition with default color
             try {
-                const result = await ws.post('/api/labels', {
+                const result = (await ws.post('/api/labels', {
                     color: 'var(--info-6)',
                     name: labelToAdd,
-                })
-                if (result.label) {
+                })) as {label?: {color: string; created_at: number; id: string; name: string; updated_at: number}} | null
+                if (result?.label) {
                     $s.labelDefinitions = [...$s.labelDefinitions, result.label]
                     labelDef = result.label
                 }
@@ -387,7 +387,8 @@ export const TicketDetail = ({ticketId}: TicketDetailProps) => {
             }
         }
 
-        const labelNameToAdd = labelDef.name
+        const labelNameToAdd = labelDef?.name
+        if (!labelNameToAdd) return
         if (labelsState.labels.includes(labelNameToAdd)) {
             notifier.notify({
                 message: 'Label already added',

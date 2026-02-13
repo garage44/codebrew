@@ -1,9 +1,10 @@
-import {$s} from '@/app'
 import {api} from '@garage44/common/app'
 import {mergeDeep} from '@garage44/common/lib/utils'
 
+import {$s} from '@/app'
+
 export async function loadConfig(): Promise<void> {
-    const config = await api.get('/api/config') as {
+    const config = (await api.get('/api/config')) as {
         enola: unknown
         language_ui: string
         logger: unknown

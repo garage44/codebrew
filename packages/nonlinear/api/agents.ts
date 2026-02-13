@@ -5,7 +5,7 @@
 import type {WebSocketServerManager} from '@garage44/common/lib/ws-server'
 
 import {randomId} from '@garage44/common/lib/utils'
-import path from 'path'
+import path from 'node:path'
 
 import {DEFAULT_AVATARS} from '../lib/agent/avatars.ts'
 import {getAgentState, setAgentState, updateAgentState} from '../lib/agent/state.ts'
@@ -103,7 +103,7 @@ export async function startAgentService(
     try {
         const agentConfig = JSON.parse(agent.config || '{}') as Record<string, unknown>
         if (agentConfig.wsUrl && typeof agentConfig.wsUrl === 'string') {
-            wsUrl = agentConfig.wsUrl
+            ;({wsUrl} = agentConfig)
         } else if (agentConfig.websocket_url && typeof agentConfig.websocket_url === 'string') {
             wsUrl = agentConfig.websocket_url
         }
@@ -167,11 +167,11 @@ export async function autostartAgents(wsManager: WebSocketServerManager, overrid
         WHERE enabled = 1
         ORDER BY type, name
     `)
-        .all() as Array<{
+        .all() as {
         id: string
         name: string
         type: 'planner' | 'developer' | 'reviewer'
-    }>
+    }[]
 
     if (agents.length === 0) {
         logger.info('[Autostart] No enabled agents found')
@@ -179,7 +179,7 @@ export async function autostartAgents(wsManager: WebSocketServerManager, overrid
     }
 
     // Determine which agents to start
-    let agentsToStart: Array<{id: string; name: string}>
+    let agentsToStart: {id: string; name: string}[]
     if (autostartConfig === true) {
         // Start all enabled agents
         agentsToStart = agents.map((a) => ({id: a.id, name: a.name}))
@@ -239,7 +239,7 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
             SELECT * FROM agents
             ORDER BY type, name
         `)
-            .all() as Array<{
+            .all() as {
             avatar: string | null
             config: string
             created_at: number
@@ -249,7 +249,7 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
             name: string
             status: string
             type: 'planner' | 'developer' | 'reviewer'
-        }>
+        }[]
 
         // Enrich with status information, stats, and service status
         const enrichedAgents = agents.map((agent) => {
@@ -481,7 +481,7 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
             SET ${fields.join(', ')}
             WHERE id = ?
         `)
-            .run(...(values as Array<string | number>))
+            .run(...(values as (string | number)[]))
 
         const agent = getDb().prepare('SELECT * FROM agents WHERE id = ?').get(params.id) as
             | {
@@ -755,8 +755,8 @@ export function registerAgentsWebSocketApiRoutes(wsManager: WebSocketServerManag
             if (limitHeader && remainingHeader) {
                 const {updateUsageFromHeaders} = await import('../lib/agent/token-usage.ts')
                 updateUsageFromHeaders({
-                    limit: parseInt(limitHeader, 10),
-                    remaining: parseInt(remainingHeader, 10),
+                    limit: Number.parseInt(limitHeader, 10),
+                    remaining: Number.parseInt(remainingHeader, 10),
                     reset: resetHeader || undefined,
                 })
             }

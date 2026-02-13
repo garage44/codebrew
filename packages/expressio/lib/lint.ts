@@ -11,12 +11,12 @@ import {translate_tag} from './translate.ts'
 
 export async function lintWorkspace(
     workspace: {
-        config: {languages: {target: Array<{id: string}>}; source_file: string; sync: {dir: string; suggestions?: boolean}}
+        config: {languages: {target: {id: string}[]}; source_file: string; sync: {dir: string; suggestions?: boolean}}
         i18n: Record<string, unknown>
     },
     lintMode: 'sync' | 'lint',
 ): Promise<
-    | {create_tags: Array<{file: string; groups: unknown[]}>; delete_tags: Array<{group: string; tags: unknown[]}>}
+    | {create_tags: {file: string; groups: unknown[]}[]; delete_tags: {group: string; tags: unknown[]}[]}
     | {create_tags: unknown[]; delete_tags: unknown[]; modify_tags: unknown[]}
     | false
 > {
@@ -29,7 +29,7 @@ export async function lintWorkspace(
     const pattern = firstGlobChar === -1 ? '**/*' : scan_target.slice(baseDir.length + 1)
 
     const glob = new Glob(pattern)
-    const files = Array.from(glob.scanSync(baseDir)).map((f) => path.join(baseDir, f))
+    const files = [...glob.scanSync(baseDir)].map((f) => path.join(baseDir, f))
 
     const files_content = await Promise.all(files.map((file) => fs.readFile(file, 'utf8')))
     const tagRegex = /\$t\('([^']+)'(?:\s*,\s*{[^}]*})?\)/g
@@ -39,7 +39,9 @@ export async function lintWorkspace(
 
     const redundantTags = new Set<string>()
     keyMod(workspace.i18n, (ref: Record<string, unknown>, key: string | null, refPath: string[]): void => {
-        if (!key) return
+        if (!key) {
+            return
+        }
         if (ref && 'source' in ref) {
             // First add everything to the set.
             redundantTags.add(refPath.join('.'))
@@ -81,12 +83,12 @@ export async function lintWorkspace(
                         target: {},
                     } as {cache?: string; source: string; target: Record<string, string>},
                     (
-                        workspace.config.languages.target as Array<{
+                        workspace.config.languages.target as {
                             engine: 'anthropic' | 'deepl'
                             formality?: 'default' | 'more' | 'less'
                             id: string
                             name: string
-                        }>
+                        }[]
                     )
                         .map((lang) => ({
                             engine: lang.engine,
@@ -105,7 +107,7 @@ export async function lintWorkspace(
                 ;({id, ref} = await translate_tag(
                     workspace as unknown as {
                         broadcastI18nState: () => void
-                        config: {languages: {target: Array<{engine: string; id: string}>}}
+                        config: {languages: {target: {engine: string; id: string}[]}}
                         i18n: Record<string, unknown>
                     },
                     tagPath,
@@ -195,7 +197,7 @@ export async function lintWorkspace(
                 delete_tags: Object.entries(groupedDeleteTags)
                     .toSorted(([first], [second]) => first.split('.').length - second.split('.').length)
                     .map(([group, tags]) => ({group, tags: tags as unknown[]})),
-            } as {create_tags: Array<{file: string; groups: unknown[]}>; delete_tags: Array<{group: string; tags: unknown[]}>}
+            } as {create_tags: {file: string; groups: unknown[]}[]; delete_tags: {group: string; tags: unknown[]}[]}
         }
 
         return {

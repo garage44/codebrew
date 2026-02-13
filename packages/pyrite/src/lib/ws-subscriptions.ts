@@ -3,10 +3,12 @@
  * Uses Expressio's REST-like WebSocket API pattern (ws.post/get + ws.on for broadcasts)
  */
 
-import {$s} from '@/app'
 import {events, logger, ws} from '@garage44/common/app'
 import {effect} from '@preact/signals'
+
 import type {PyriteState} from '@/types'
+
+import {$s} from '@/app'
 
 // Flag to prevent infinite loops in reactive deduplication
 let isDeduplicating = false
@@ -18,8 +20,12 @@ let isDeduplicating = false
  */
 function deduplicateUsers(): void {
     // Prevent re-entry to avoid infinite loops
-    if (isDeduplicating) {return}
-    if (!$s.users || $s.users.length === 0) {return}
+    if (isDeduplicating) {
+        return
+    }
+    if (!$s.users || $s.users.length === 0) {
+        return
+    }
 
     isDeduplicating = true
     try {
@@ -33,7 +39,9 @@ function deduplicateUsers(): void {
                 if (normalizedId) {
                     if (seenIds.has(normalizedId)) {
                         duplicateCount += 1
-                        logger.debug(`[deduplicateUsers] Removing duplicate user: ${normalizedId} (${user.username || 'unknown'})`)
+                        logger.debug(
+                            `[deduplicateUsers] Removing duplicate user: ${normalizedId} (${user.username || 'unknown'})`,
+                        )
                     } else {
                         seenIds.add(normalizedId)
                         uniqueUsers.push(user)
@@ -44,7 +52,9 @@ function deduplicateUsers(): void {
 
         // Only update if we found duplicates (prevents unnecessary reactivity triggers)
         if (duplicateCount > 0) {
-            logger.info(`[deduplicateUsers] Removed ${duplicateCount} duplicate(s) from users list (${$s.users.length} -> ${uniqueUsers.length})`)
+            logger.info(
+                `[deduplicateUsers] Removed ${duplicateCount} duplicate(s) from users list (${$s.users.length} -> ${uniqueUsers.length})`,
+            )
             $s.users = uniqueUsers
         }
     } finally {
@@ -90,7 +100,9 @@ const initChatSubscriptions = (): void => {
          * we use the generic message handler but with better pattern matching
          */
         ws.on('message', (message): void => {
-            if (!message || !message.url) {return}
+            if (!message || !message.url) {
+                return
+            }
 
             /*
              * Check if this is a channel message broadcast
@@ -461,7 +473,9 @@ const initGroupSubscriptions = (): void => {
             const {action, actionData, targetUserId, timestamp} = data
             const {groupId} = data
 
-            if ($s.sfu.channel.name !== groupId) {return}
+            if ($s.sfu.channel.name !== groupId) {
+                return
+            }
 
             logger.debug(`Operator action in group ${groupId}: ${action}`)
 
@@ -470,7 +484,7 @@ const initGroupSubscriptions = (): void => {
             const targetUser = $s.users.find((u): boolean => u && u.id && String(u.id).trim() === normalizedTargetUserId)
 
             switch (action) {
-                case 'kick':       
+                case 'kick': 
                     // Remove kicked user
                     if (targetUserId === $s.profile.id) {
                         // Current user was kicked, disconnect
@@ -485,79 +499,63 @@ const initGroupSubscriptions = (): void => {
                         }
                     } else if (targetUser) {
                         // Another user was kicked
-                        const userIndex = $s.users.findIndex((u): boolean => u && u.id && String(u.id).trim() === normalizedTargetUserId)
+                        const userIndex = $s.users.findIndex(
+                            (u): boolean => u && u.id && String(u.id).trim() === normalizedTargetUserId,
+                        )
                         if (userIndex !== -1) {
                             $s.users.splice(userIndex, 1)
                         }
                     }
                     break
                 
-                
-                
-                
-                
-                
-                
 
-                case 'mute':       
+                case 'mute': 
                     // Mute user's microphone
                     if (targetUserId === $s.profile.id) {
                         $s.devices.mic.enabled = false
                     } else if (targetUser && 'data' in targetUser && targetUser.data && typeof targetUser.data === 'object') {
-                        (targetUser.data as {mic?: boolean}).mic = false
+                        ;(targetUser.data as {mic?: boolean}).mic = false
                     }
                     break
                 
-                
-                
-                
-                
-                
-                
 
                 case 'op':
-                case 'unop':       
+                case 'unop': 
                     // Update operator permissions
-                    if (targetUser && 'permissions' in targetUser && targetUser.permissions && typeof targetUser.permissions === 'object') {
-                        (targetUser.permissions as {op?: boolean}).op = action === 'op'
+                    if (
+                        targetUser &&
+                        'permissions' in targetUser &&
+                        targetUser.permissions &&
+                        typeof targetUser.permissions === 'object'
+                    ) {
+                        ;(targetUser.permissions as {op?: boolean}).op = action === 'op'
                     }
                     if (targetUserId === $s.profile.id) {
                         $s.permissions.op = action === 'op'
                     }
                     break
                 
-                
-                
-                
-                
-                
-                
 
                 case 'present':
-                case 'unpresent':       
+                case 'unpresent': 
                     // Update presenter permissions
-                    if (targetUser && 'permissions' in targetUser && targetUser.permissions && typeof targetUser.permissions === 'object') {
-                        (targetUser.permissions as {present?: boolean}).present = action === 'present'
+                    if (
+                        targetUser &&
+                        'permissions' in targetUser &&
+                        targetUser.permissions &&
+                        typeof targetUser.permissions === 'object'
+                    ) {
+                        ;(targetUser.permissions as {present?: boolean}).present = action === 'present'
                     }
                     if (targetUserId === $s.profile.id) {
                         $s.permissions.present = action === 'present'
                     }
                     break
                 
-                
-                
-                
-                
-                
-                
-                default:      
+
+                default: 
                     logger.warn(`[handleGroupAction] Unknown action: ${action}`)
                     break
-                
-                
-                
-                
-                
                 
             }
         })
@@ -568,7 +566,9 @@ const initGroupSubscriptions = (): void => {
  * Send chat message via WebSocket (using REST-like API)
  */
 export const sendChatMessage = (message: string, kind = 'message'): void => {
-    if (!$s.sfu.channel.name) {return}
+    if (!$s.sfu.channel.name) {
+        return
+    }
 
     ws.post(`/api/chat/${$s.sfu.channel.name}/message`, {
         kind,
@@ -581,7 +581,9 @@ export const sendChatMessage = (message: string, kind = 'message'): void => {
  * Send typing indicator
  */
 export const sendTypingIndicator = (typing: boolean): void => {
-    if (!$s.sfu.channel.name || !$s.profile.id) {return}
+    if (!$s.sfu.channel.name || !$s.profile.id) {
+        return
+    }
 
     ws.post(`/api/chat/${$s.sfu.channel.name}/typing`, {
         typing,
@@ -592,8 +594,10 @@ export const sendTypingIndicator = (typing: boolean): void => {
 /**
  * Join a group (announce presence)
  */
-export const joinGroup = async(groupId: string): Promise<void> => {
-    if (!$s.profile.id || !$s.profile.username) {return}
+export const joinGroup = async (groupId: string): Promise<void> => {
+    if (!$s.profile.id || !$s.profile.username) {
+        return
+    }
 
     const response = await ws.post(`/api/presence/${groupId}/join`, {
         userId: $s.profile.id,
@@ -617,7 +621,9 @@ export const joinGroup = async(groupId: string): Promise<void> => {
 
             // Filter out users not in current members list
             $s.users = $s.users.filter((u): boolean => {
-                if (!u || !u.id) {return false}
+                if (!u || !u.id) {
+                    return false
+                }
                 const normalizedId = String(u.id).trim()
                 return memberIds.has(normalizedId)
             })
@@ -627,27 +633,27 @@ export const joinGroup = async(groupId: string): Promise<void> => {
                 // Normalize member.id to string for consistent comparison
                 if (member && member.id) {
                     const normalizedMemberId = String(member.id).trim()
-                const userIndex = $s.users.findIndex((u): boolean => u && u.id && String(u.id).trim() === normalizedMemberId)
-                if (userIndex === -1) {
-                    // User doesn't exist, add it
-                    $s.users.push({
-                        data: {
-                            availability: {id: 'available'},
-                            mic: true,
-                            raisehand: false,
-                        },
-                        id: normalizedMemberId,
-                        permissions: {
-                            op: false,
-                            present: false,
-                            record: false,
-                        },
-                        username: member.username,
-                    })
-                } else if (member.username && $s.users[userIndex].username !== member.username) {
-                    // User exists, update username if changed
-                    $s.users[userIndex].username = member.username
-                }
+                    const userIndex = $s.users.findIndex((u): boolean => u && u.id && String(u.id).trim() === normalizedMemberId)
+                    if (userIndex === -1) {
+                        // User doesn't exist, add it
+                        $s.users.push({
+                            data: {
+                                availability: {id: 'available'},
+                                mic: true,
+                                raisehand: false,
+                            },
+                            id: normalizedMemberId,
+                            permissions: {
+                                op: false,
+                                present: false,
+                                record: false,
+                            },
+                            username: member.username,
+                        })
+                    } else if (member.username && $s.users[userIndex].username !== member.username) {
+                        // User exists, update username if changed
+                        $s.users[userIndex].username = member.username
+                    }
                 } else {
                     logger.warn('[joinGroup] Skipping member: invalid member data')
                 }
@@ -662,7 +668,9 @@ export const joinGroup = async(groupId: string): Promise<void> => {
  * Leave a group (remove presence)
  */
 export const leaveGroup = (groupId: string): void => {
-    if (!$s.profile.id) {return}
+    if (!$s.profile.id) {
+        return
+    }
 
     ws.post(`/api/presence/${groupId}/leave`, {
         userId: $s.profile.id,
@@ -672,7 +680,9 @@ export const leaveGroup = (groupId: string): void => {
 /**
  * Query presence for a group
  */
-export const queryGroupPresence = async(groupId: string): Promise<unknown[]> => {
+export const queryGroupPresence = async (groupId: string): Promise<unknown[]> => {
     const response = await ws.get(`/api/presence/${groupId}/members`, {})
-    return (response && typeof response === 'object' && 'members' in response && Array.isArray(response.members)) ? response.members : []
+    return response && typeof response === 'object' && 'members' in response && Array.isArray(response.members)
+        ? response.members
+        : []
 }

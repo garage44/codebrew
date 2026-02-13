@@ -3,19 +3,19 @@
  */
 
 import pc from 'picocolors'
+
 import type {AgentContext, AgentResponse, BaseAgent} from '../agent/base.ts'
-import {REPL, type REPLOptions} from './repl.ts'
-import {executeToolCommand, getToolsHelp, getToolsList} from './command-parser.ts'
-import {getPendingTasks, markTaskCompleted, markTaskFailed, markTaskProcessing} from '../agent/tasks.ts'
+
 import {runAgent as runAgentScheduler} from '../agent/scheduler.ts'
+import {getPendingTasks, markTaskCompleted, markTaskFailed, markTaskProcessing} from '../agent/tasks.ts'
 import {getDb} from '../database.ts'
+import {executeToolCommand, getToolsHelp, getToolsList} from './command-parser.ts'
+import {REPL, type REPLOptions} from './repl.ts'
 
 /**
  * Create a writable stream for agent reasoning output
  */
-function createReasoningStream(
-    onMessage: (message: string) => void,
-): WritableStream<string> {
+function createReasoningStream(onMessage: (message: string) => void): WritableStream<string> {
     return new WritableStream({
         close(): void {
             // Stream closed
@@ -63,24 +63,28 @@ export async function runAgentInteractive(options: InteractiveCLIOptions): Promi
     let pendingTasksMessage = ''
     try {
         // Get agent ID from database
-        const agentRecord = getDb().prepare(`
+        const agentRecord = getDb()
+            .prepare(`
             SELECT id FROM agents
             WHERE name = ? OR id = ?
             LIMIT 1
-        `).get(agentName, agentName) as {id: string} | undefined
+        `)
+            .get(agentName, agentName) as {id: string} | undefined
 
         if (agentRecord) {
             const pendingTasks = getPendingTasks(agentRecord.id)
             if (pendingTasks.length > 0) {
-                pendingTasksMessage = `\n${pc.yellow(`⚠️  Found ${pendingTasks.length} pending task(s) in queue.`)}\n` +
+                pendingTasksMessage =
+                    `\n${pc.yellow(`⚠️  Found ${pendingTasks.length} pending task(s) in queue.`)}\n` +
                     `Type ${pc.yellow('process-pending')} or ${pc.yellow('catch-up')} to process them.\n`
             }
         }
-    } catch{
+    } catch {
         // Silently fail - database might not be initialized or agent not found
     }
 
-    const welcomeMessage = `\n${pc.bold(pc.cyan(`${agentName} Interactive Mode`))}\n` +
+    const welcomeMessage =
+        `\n${pc.bold(pc.cyan(`${agentName} Interactive Mode`))}\n` +
         `Type ${pc.yellow('help')} for available commands, ${pc.yellow('exit')} to quit.${pendingTasksMessage}\n`
 
     // Agent-specific help messages
@@ -155,11 +159,13 @@ export async function runAgentInteractive(options: InteractiveCLIOptions): Promi
                 if (trimmed === 'process-pending' || trimmed === 'catch-up' || trimmed === 'pending') {
                     try {
                         // Get agent ID from database
-                        const agentRecord = getDb().prepare(`
+                        const agentRecord = getDb()
+                            .prepare(`
                             SELECT id FROM agents
                             WHERE name = ? OR id = ?
                             LIMIT 1
-                        `).get(agentName, agentName) as {id: string} | undefined
+                        `)
+                            .get(agentName, agentName) as {id: string} | undefined
 
                         if (!agentRecord) {
                             // eslint-disable-next-line no-console
@@ -197,7 +203,7 @@ export async function runAgentInteractive(options: InteractiveCLIOptions): Promi
                                 markTaskCompleted(task.id)
                                 // eslint-disable-next-line no-console
                                 console.log(pc.green(`✅ Completed task ${task.id}\n`))
-                            } catch(error: unknown) {
+                            } catch (error: unknown) {
                                 const errorMsg = error instanceof Error ? error.message : String(error)
                                 markTaskFailed(task.id, errorMsg)
                                 // eslint-disable-next-line no-console
@@ -207,7 +213,7 @@ export async function runAgentInteractive(options: InteractiveCLIOptions): Promi
 
                         // eslint-disable-next-line no-console
                         console.log(pc.green('\n✅ Finished processing pending tasks\n'))
-                    } catch(error: unknown) {
+                    } catch (error: unknown) {
                         const errorMsg = error instanceof Error ? error.message : String(error)
                         // eslint-disable-next-line no-console
                         console.log(pc.red(`\n❌ Error processing pending tasks: ${errorMsg}\n`))
@@ -269,7 +275,7 @@ export async function runAgentInteractive(options: InteractiveCLIOptions): Promi
                 }
                 // eslint-disable-next-line no-console
                 console.log('') // Blank line for readability
-            } catch(error: unknown) {
+            } catch (error: unknown) {
                 const errorMsg = error instanceof Error ? error.message : String(error)
                 // eslint-disable-next-line no-console
                 console.error(pc.red(`\nError processing instruction: ${errorMsg}\n`))
@@ -287,11 +293,7 @@ export async function runAgentInteractive(options: InteractiveCLIOptions): Promi
  * Run agent in one-shot mode (non-interactive)
  * Processes a single instruction and exits
  */
-export async function runAgentOneShot(
-    agent: BaseAgent,
-    instruction: string,
-    context?: AgentContext,
-): Promise<AgentResponse> {
+export async function runAgentOneShot(agent: BaseAgent, instruction: string, context?: AgentContext): Promise<AgentResponse> {
     const agentContext = context || agent.buildToolContext({})
 
     const stream = createReasoningStream((message): void => {
@@ -322,7 +324,7 @@ export async function runAgentOneShot(
         }
 
         return response
-    } catch(error: unknown) {
+    } catch (error: unknown) {
         const errorMsg = error instanceof Error ? error.message : String(error)
         // eslint-disable-next-line no-console
         console.error(pc.red(`\nFatal error: ${errorMsg}`))

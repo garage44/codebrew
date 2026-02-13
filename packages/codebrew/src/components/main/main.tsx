@@ -15,8 +15,12 @@ export const Main = () => {
 
             $s.profile.admin = context.admin || false
             $s.profile.authenticated = isAuthenticated || false
-            if (context.id) $s.profile.id = context.id
-            if (context.username) $s.profile.username = context.username
+            if (context.id) {
+                $s.profile.id = context.id
+            }
+            if (context.username) {
+                $s.profile.username = context.username
+            }
             if (context.profile) {
                 $s.profile.avatar = context.profile.avatar || 'placeholder-1.png'
                 $s.profile.displayName = context.profile.displayName || context.username || 'User'
@@ -40,8 +44,12 @@ export const Main = () => {
                     if (isAuthenticated) {
                         $s.profile.authenticated = true
                         $s.profile.admin = result.admin || false
-                        if (result.id) $s.profile.id = result.id
-                        if (result.username) $s.profile.username = result.username
+                        if (result.id) {
+                            $s.profile.id = result.id
+                        }
+                        if (result.username) {
+                            $s.profile.username = result.username
+                        }
                         if (result.profile) {
                             $s.profile.avatar = result.profile.avatar || 'placeholder-1.png'
                             $s.profile.displayName = result.profile.displayName || result.username || 'User'

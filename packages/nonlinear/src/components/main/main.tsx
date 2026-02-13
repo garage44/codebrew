@@ -1,3 +1,5 @@
+import type {Notification} from '@garage44/common/lib/notifier'
+
 import {api, logger, store, ws} from '@garage44/common/app'
 import {
     AppLayout,
@@ -13,6 +15,8 @@ import {copyObject, mergeDeep} from '@garage44/common/lib/utils'
 import {Link, Route, Router, route} from 'preact-router'
 import {useEffect} from 'preact/hooks'
 
+import type {FrontendAgent} from '@/types'
+
 import {$s} from '@/app'
 import {TicketForm} from '@/components/elements/ticket-form/ticket-form'
 import {Board, Docs, Settings, TicketDetail} from '@/components/pages'
@@ -21,17 +25,23 @@ import {Login} from '@/components/pages/login/login'
 export const Main = () => {
     useEffect(() => {
         ;(async () => {
-            const context = await api.get('/api/context')
+            const context = (await api.get('/api/context')) as {
+                admin?: boolean
+                authenticated?: boolean
+                id?: string
+                profile?: {avatar?: string; displayName?: string}
+                username?: string
+            }
 
             /*
              * Check if user was authenticated - the response should have authenticated: true
              * Also check if we have user data (id, username) as an alternative indicator
              * This handles cases where authenticated might not be set but user data is present
              */
-            const isAuthenticated = context.authenticated || (context.id && context.username)
+            const isAuthenticated = Boolean(context.authenticated || (context.id && context.username))
 
-            $s.profile.admin = context.admin || false
-            $s.profile.authenticated = isAuthenticated || false
+            $s.profile.admin = Boolean(context.admin)
+            $s.profile.authenticated = isAuthenticated
             if (context.id) {
                 $s.profile.id = context.id
             }
@@ -72,20 +82,21 @@ export const Main = () => {
                  * This should be loaded BEFORE the API call so we can merge it
                  */
                 const bootstrapState =
-                    typeof window !== 'undefined' &&
-                    (
-                        window as {
-                            __NONLINEAR_BOOTSTRAP_STATE__?: {
-                                agents: Record<
-                                    string,
-                                    {
-                                        stats?: {completed: number; failed: number; pending: number; processing: number}
-                                        status: 'idle' | 'working' | 'error' | 'offline'
-                                    }
-                                >
-                            }
-                        }
-                    ).__NONLINEAR_BOOTSTRAP_STATE__
+                    typeof window !== 'undefined'
+                        ? (
+                              window as {
+                                  __NONLINEAR_BOOTSTRAP_STATE__?: {
+                                      agents: Record<
+                                          string,
+                                          {
+                                              stats?: {completed: number; failed: number; pending: number; processing: number}
+                                              status: 'idle' | 'working' | 'error' | 'offline'
+                                          }
+                                      >
+                                  }
+                              }
+                          ).__NONLINEAR_BOOTSTRAP_STATE__
+                        : null
 
                 if (bootstrapState?.agents) {
                     const agentIds = Object.keys(bootstrapState.agents)
@@ -98,7 +109,22 @@ export const Main = () => {
                     }
                 }
 
-                const agentsResult = (await ws.get('/api/agents')) as {agents?: unknown[]}
+                const agentsResult = (await ws.get('/api/agents')) as {
+                    agents?: Array<{
+                        avatar: string | null
+                        created_at: number
+                        currentTicketId: string | null
+                        display_name: string | null
+                        enabled: number
+                        id: string
+                        lastActivity: number
+                        name: string
+                        serviceOnline?: boolean
+                        stats?: {completed: number; failed: number; pending: number; processing: number}
+                        status: string
+                        type: 'developer' | 'planner' | 'reviewer'
+                    }>
+                }
                 if (agentsResult.agents) {
                     $s.agents = agentsResult.agents.map(
                         (agent: {
@@ -264,7 +290,7 @@ export const Main = () => {
                     if (data.type === 'agent:created' || data.type === 'agent:updated') {
                         const {agent} = data
                         const index = $s.agents.findIndex((a) => a.id === agent.id)
-                        const transformedAgent = {
+                        const transformedAgent: FrontendAgent = {
                             avatar: agent.avatar || 'placeholder-2.png',
                             config: agent.config || '',
                             created_at: agent.created_at,
@@ -276,6 +302,7 @@ export const Main = () => {
                             lastActivity: Date.now(),
                             name: agent.name,
                             serviceOnline: false,
+                            stats: agent.stats || {completed: 0, failed: 0, pending: 0, processing: 0},
                             status: (agent.status || 'idle') as 'idle' | 'working' | 'error' | 'offline',
                             type: agent.type,
                             username: agent.name,
@@ -399,16 +426,19 @@ export const Main = () => {
                                 <UserMenu
                                     collapsed={$s.panels.menu.collapsed}
                                     onLogout={async () => {
-                                        const result = await api.get('/api/logout')
+                                        const result = (await api.get('/api/logout')) as {
+                                            admin?: boolean
+                                            authenticated?: boolean
+                                        }
                                         $s.profile.authenticated = result.authenticated || false
                                         $s.profile.admin = result.admin || false
                                         route('/docs')
                                     }}
                                     settingsHref='/settings'
                                     user={{
-                                        id: $s.profile.id || null,
+                                        id: $s.profile.id ?? undefined,
                                         profile: {
-                                            avatar: $s.profile.avatar || null,
+                                            avatar: $s.profile.avatar ?? undefined,
                                             displayName: $s.profile.displayName || $s.profile.username || 'User',
                                         },
                                     }}
@@ -484,7 +514,7 @@ export const Main = () => {
                     </Router>
                 </div>
             </AppLayout>
-            <Notifications notifications={$s.notifications} />
+            <Notifications notifications={$s.notifications as Notification[]} />
         </>
     )
 }

@@ -12,11 +12,11 @@ const _BUN_ENV = process.env.BUN_ENV || 'production'
 
 // Simple HTTP router for Bun.serve that mimics Express pattern
 class Router {
-    routes: Array<{
+    routes: {
         handler: (req: Request, params: Record<string, string>, session?: unknown) => Promise<Response>
         method: string
         path: RegExp
-    }> = []
+    }[] = []
 
     get(path: string, handler: (req: Request, params: Record<string, string>, session?: unknown) => Promise<Response>) {
         this.add('GET', path, handler)
@@ -50,7 +50,7 @@ class Router {
 
     async route(req: Request, session?: unknown): Promise<Response | null> {
         const url = new URL(req.url)
-        const pathname = url.pathname
+        const {pathname} = url
         for (const {handler, method, path} of this.routes) {
             if (req.method === method && path.test(pathname)) {
                 // Extract params
@@ -176,7 +176,7 @@ async function initMiddleware(_bunchyConfig: unknown) {
                     > = {}
                     for (const [agentId, state] of Object.entries(agentStates)) {
                         const agentStatus = getAgentStatus(agentId)
-                        const serviceOnline = state.serviceOnline
+                        const {serviceOnline} = state
 
                         /*
                          * Determine status - if service is offline, status should be 'offline'

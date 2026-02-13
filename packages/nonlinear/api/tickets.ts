@@ -7,6 +7,8 @@ import type {WebSocketServerManager} from '@garage44/common/lib/ws-server'
 import {randomId} from '@garage44/common/lib/utils'
 import {z} from 'zod'
 
+import type {EnrichedTicketSchema} from '../lib/schemas/tickets.ts'
+
 import {createTask} from '../lib/agent/tasks.ts'
 import {validateRequest} from '../lib/api/validate.ts'
 import {parseMentions, validateMentions} from '../lib/comments/mentions.ts'
@@ -24,7 +26,6 @@ import {
     CommentSchema,
     CreateCommentRequestSchema,
     CreateTicketRequestSchema,
-    EnrichedTicketSchema,
     TicketCommentParamsSchema,
     TicketParamsSchema,
     TicketWithRepositorySchema,
@@ -109,7 +110,7 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
             LEFT JOIN repositories r ON t.repository_id = r.id
             ORDER BY t.created_at DESC
         `)
-            .all() as Array<{
+            .all() as {
             assignee_id: string | null
             assignee_type: 'agent' | 'human' | null
             branch_name: string | null
@@ -124,7 +125,7 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
             status: 'backlog' | 'todo' | 'in_progress' | 'review' | 'closed'
             title: string
             updated_at: number
-        }>
+        }[]
 
         const validatedTickets = tickets.map((ticket) => {
             const validated = validateRequest(TicketWithRepositorySchema, ticket)
@@ -187,7 +188,7 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
             WHERE ticket_id = ?
             ORDER BY created_at ASC
         `)
-            .all(params.id) as Array<{
+            .all(params.id) as {
             author_id: string
             author_type: 'agent' | 'human'
             content: string
@@ -198,7 +199,7 @@ export function registerTicketsWebSocketApiRoutes(wsManager: WebSocketServerMana
             status: 'generating' | 'completed' | 'failed'
             ticket_id: string
             updated_at?: number
-        }>
+        }[]
 
         const validatedComments = comments.map((comment) => validateRequest(CommentSchema, comment))
 

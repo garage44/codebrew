@@ -2,18 +2,23 @@
  * Shell operation tools using Bun Shell
  */
 
-import {logger} from '../../../service.ts'
-import type {Tool, ToolContext, ToolResult} from './types.ts'
 import {$} from 'bun'
 import path from 'node:path'
+
+import type {Tool, ToolContext, ToolResult} from './types.ts'
+
+import {logger} from '../../../service.ts'
 
 export const shellTools: Record<string, Tool> = {
     lint_code: {
         description: 'Run linter with optional auto-fix',
-        execute: async(params: {
-            fix?: boolean
-            path?: string
-        }, context: ToolContext): Promise<ToolResult> => {
+        execute: async (
+            params: {
+                fix?: boolean
+                path?: string
+            },
+            context: ToolContext,
+        ): Promise<ToolResult> => {
             try {
                 if (!context.repositoryPath) {
                     return {
@@ -22,14 +27,11 @@ export const shellTools: Record<string, Tool> = {
                     }
                 }
 
-                const lintCmd = params.fix ?
-                    $`bun run lint:ts --fix ${params.path || ''}` :
-                    $`bun run lint:ts ${params.path || ''}`
+                const lintCmd = params.fix
+                    ? $`bun run lint:ts --fix ${params.path || ''}`
+                    : $`bun run lint:ts ${params.path || ''}`
 
-                const result = await lintCmd
-                    .cwd(context.repositoryPath)
-                    .quiet()
-                    .nothrow()
+                const result = await lintCmd.cwd(context.repositoryPath).quiet().nothrow()
 
                 return {
                     context: {
@@ -41,7 +43,7 @@ export const shellTools: Record<string, Tool> = {
                     },
                     success: result.exitCode === 0,
                 }
-            } catch(error) {
+            } catch (error) {
                 logger.error('[ShellTool] Failed to lint code:', error)
                 return {
                     error: error instanceof Error ? error.message : String(error),
@@ -68,8 +70,13 @@ export const shellTools: Record<string, Tool> = {
 
     run_command: {
         description: 'Execute shell command with Bun Shell',
-        execute: async(params: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
-            const {args: cmdArgs, command, cwd, env} = params as {args?: string[]; command: string; cwd?: string; env?: Record<string, string>}
+        execute: async (params: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
+            const {
+                args: cmdArgs,
+                command,
+                cwd,
+                env,
+            } = params as {args?: string[]; command: string; cwd?: string; env?: Record<string, string>}
             try {
                 if (!context.repositoryPath) {
                     return {
@@ -78,9 +85,7 @@ export const shellTools: Record<string, Tool> = {
                     }
                 }
 
-                const workDir = cwd ?
-                        path.join(context.repositoryPath, cwd) :
-                    context.repositoryPath
+                const workDir = cwd ? path.join(context.repositoryPath, cwd) : context.repositoryPath
 
                 /*
                  * Build command using Bun Shell template literal
@@ -93,9 +98,7 @@ export const shellTools: Record<string, Tool> = {
                  * Construct command string - Bun Shell will parse it correctly
                  * (supports pipes, redirects, etc. natively)
                  */
-                const cmdString = args.length > 0 ?
-                    `${command} ${args.join(' ')}` :
-                    command
+                const cmdString = args.length > 0 ? `${command} ${args.join(' ')}` : command
 
                 /*
                  * Use Bun Shell template literal - it handles shell operators natively
@@ -119,7 +122,7 @@ export const shellTools: Record<string, Tool> = {
                     },
                     success: result.exitCode === 0,
                 }
-            } catch(error) {
+            } catch (error) {
                 logger.error('[ShellTool] Failed to run command:', error)
                 return {
                     error: error instanceof Error ? error.message : String(error),
@@ -158,10 +161,13 @@ export const shellTools: Record<string, Tool> = {
 
     run_tests: {
         description: 'Run test suite with Bun',
-        execute: async(params: {
-            filter?: string
-            path?: string
-        }, context: ToolContext): Promise<ToolResult> => {
+        execute: async (
+            params: {
+                filter?: string
+                path?: string
+            },
+            context: ToolContext,
+        ): Promise<ToolResult> => {
             try {
                 if (!context.repositoryPath) {
                     return {
@@ -170,14 +176,11 @@ export const shellTools: Record<string, Tool> = {
                     }
                 }
 
-                const testCmd = params.filter ?
-                    $`bun test ${params.path || '.'} --filter ${params.filter}` :
-                    $`bun test ${params.path || '.'}`
+                const testCmd = params.filter
+                    ? $`bun test ${params.path || '.'} --filter ${params.filter}`
+                    : $`bun test ${params.path || '.'}`
 
-                const result = await testCmd
-                    .cwd(context.repositoryPath)
-                    .quiet()
-                    .nothrow()
+                const result = await testCmd.cwd(context.repositoryPath).quiet().nothrow()
 
                 return {
                     context: {
@@ -190,7 +193,7 @@ export const shellTools: Record<string, Tool> = {
                     },
                     success: result.exitCode === 0,
                 }
-            } catch(error) {
+            } catch (error) {
                 logger.error('[ShellTool] Failed to run tests:', error)
                 return {
                     error: error instanceof Error ? error.message : String(error),

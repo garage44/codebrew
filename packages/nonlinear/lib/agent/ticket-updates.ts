@@ -4,8 +4,9 @@
  */
 
 import type {WebSocketServerManager} from '@garage44/common/lib/ws-server'
-import {getDb} from '../database.ts'
+
 import {logger} from '../../service.ts'
+import {getDb} from '../database.ts'
 
 let wsManager: WebSocketServerManager | null = null
 
@@ -22,27 +23,31 @@ export function initAgentTicketUpdateBroadcasting(manager: WebSocketServerManage
  * Used by both updateTicketFromAgent and update_ticket tool
  */
 function broadcastTicketUpdate(ticketId: string): void {
-    const ticket = getDb().prepare(`
+    const ticket = getDb()
+        .prepare(`
         SELECT t.*, r.name as repository_name
         FROM tickets t
         LEFT JOIN repositories r ON t.repository_id = r.id
         WHERE t.id = ?
-    `).get(ticketId) as {
-        assignee_id: string | null
-        assignee_type: string | null
-        branch_name: string | null
-        created_at: number
-        description: string | null
-        id: string
-        merge_request_id: string | null
-        priority: number | null
-        repository_id: string
-        repository_name: string | null
-        solution_plan: string | null
-        status: string
-        title: string
-        updated_at: number
-    } | undefined
+    `)
+        .get(ticketId) as
+        | {
+              assignee_id: string | null
+              assignee_type: string | null
+              branch_name: string | null
+              created_at: number
+              description: string | null
+              id: string
+              merge_request_id: string | null
+              priority: number | null
+              repository_id: string
+              repository_name: string | null
+              solution_plan: string | null
+              status: string
+              title: string
+              updated_at: number
+          }
+        | undefined
 
     if (!ticket) {
         logger.warn(`[Agent Ticket Updates] Ticket ${ticketId} not found after update`)
@@ -96,11 +101,13 @@ export async function updateTicketFromAgent(
     values.push(Date.now())
     values.push(ticketId)
 
-    getDb().prepare(`
+    getDb()
+        .prepare(`
         UPDATE tickets
         SET ${fields.join(', ')}
         WHERE id = ?
-    `).run(...values)
+    `)
+        .run(...values)
 
     broadcastTicketUpdate(ticketId)
 }
@@ -184,11 +191,13 @@ export async function updateTicketFields(
     values.push(ticketId)
 
     try {
-        getDb().prepare(`
+        getDb()
+            .prepare(`
             UPDATE tickets
             SET ${fields.join(', ')}
             WHERE id = ?
-        `).run(...values)
+        `)
+            .run(...values)
 
         // Regenerate ticket embedding if title or description changed
         if ('title' in updates || 'description' in updates) {
@@ -198,7 +207,7 @@ export async function updateTicketFields(
                     ticketId,
                     type: 'ticket',
                 })
-            } catch(error) {
+            } catch (error) {
                 logger.warn(`[Agent Ticket Updates] Failed to regenerate embedding for ticket ${ticketId}:`, error)
             }
         }
@@ -206,7 +215,7 @@ export async function updateTicketFields(
         broadcastTicketUpdate(ticketId)
 
         return {success: true}
-    } catch(error) {
+    } catch (error) {
         logger.error(`[Agent Ticket Updates] Failed to update ticket ${ticketId}:`, error)
         return {
             error: error instanceof Error ? error.message : String(error),

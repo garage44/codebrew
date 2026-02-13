@@ -1,10 +1,12 @@
-import {useEffect, useRef, useState} from 'preact/hooks'
-import {Icon} from '@/components'
-import type {Instance as TippyInstance} from 'tippy.js'
 import type {ComponentChildren} from 'preact'
+import type {Instance as TippyInstance} from 'tippy.js'
+
 import classnames from 'classnames'
-import tippy from 'tippy.js'
 import {Link} from 'preact-router'
+import {useEffect, useRef, useState} from 'preact/hooks'
+import tippy from 'tippy.js'
+
+import {Icon} from '@/components'
 
 export interface ButtonContextConfig {
     enabled: boolean
@@ -33,7 +35,9 @@ export interface ButtonProps {
 // Helper function to get DOM element from Preact ref
 // Handles both direct DOM elements and Preact component instances
 function getDOMElement(ref: unknown): HTMLElement | null {
-    if (!ref) return null
+    if (!ref) {
+        return null
+    }
 
     if (ref instanceof HTMLElement) {
         // Direct DOM element (from <button>)
@@ -42,7 +46,7 @@ function getDOMElement(ref: unknown): HTMLElement | null {
 
     if (ref && typeof ref === 'object' && 'base' in ref) {
         // Preact component instance (from <Link>)
-        const base = (ref as {base?: HTMLElement}).base
+        const {base} = ref as {base?: HTMLElement}
         if (base instanceof HTMLElement) {
             return base
         }
@@ -77,7 +81,9 @@ export function Button({
         // Initialize or update tippy when tip changes or component mounts
         const domElement = getDOMElement(buttonRef.current)
 
-        if (!domElement) return
+        if (!domElement) {
+            return
+        }
 
         if (tippyInstanceRef.current) {
             // Update existing tippy instance
@@ -85,7 +91,7 @@ export function Button({
                 tippyInstanceRef.current.setContent(tip)
                 tippyInstanceRef.current.enable()
                 // Update zIndex in case it changed
-                tippyInstanceRef.current.setProps({zIndex: 1000000})
+                tippyInstanceRef.current.setProps({zIndex: 1_000_000})
             } else {
                 tippyInstanceRef.current.disable()
             }
@@ -96,8 +102,8 @@ export function Button({
             // Set zIndex to ensure tooltips appear above panels (panel z-index: 100001)
             tippyInstanceRef.current = tippy(domElement, {
                 allowHTML: true,
-                arrow: true,
                 appendTo: () => document.body,
+                arrow: true,
                 content: tip,
                 zIndex: 1000000,
             })
@@ -120,7 +126,14 @@ export function Button({
             return
         }
 
-        console.log('[Button] handleClick called, onClick exists:', !!currentOnClick, 'onClick type:', typeof currentOnClick, 'context:', !!context)
+        console.log(
+            '[Button] handleClick called, onClick exists:',
+            Boolean(currentOnClick),
+            'onClick type:',
+            typeof currentOnClick,
+            'context:',
+            Boolean(context),
+        )
         console.log('[Button] onClick function:', currentOnClick?.toString().slice(0, 100))
 
         // Handle context menu
@@ -156,23 +169,15 @@ export function Button({
         }
     }
 
-    const finalClassName = classnames(
-        'c-button',
-        `type-${type}`,
-        `variant-${variant}`,
-        `size-${size}`,
-        className,
-        classProp,
-        {
-            active,
-            disabled,
-        },
-    )
+    const finalClassName = classnames('c-button', `type-${type}`, `variant-${variant}`, `size-${size}`, className, classProp, {
+        active,
+        disabled,
+    })
 
     const buttonContent = (
         <>
-            {icon && <Icon name={icon} type="unset" {...iconProps} />}
-            {label && <span class="label">{label}</span>}
+            {icon && <Icon name={icon} type='unset' {...iconProps} />}
+            {label && <span class='label'>{label}</span>}
             {children}
 
             {context && (
@@ -185,14 +190,11 @@ export function Button({
                         }
                     }}
                 >
-                    <button
-                        class="btn-context-submit"
-                        onClick={handleContextSubmit}
-                    >
-                        <Icon name="check" type="unset" />
+                    <button class='btn-context-submit' onClick={handleContextSubmit}>
+                        <Icon name='check' type='unset' />
                     </button>
                     <textarea
-                        class="context-input"
+                        class='context-input'
                         placeholder={context.placeholder}
                         value={contextText}
                         onInput={(e) => setContextText((e.target as HTMLTextAreaElement).value)}
@@ -206,11 +208,7 @@ export function Button({
     if (route) {
         // Preact-router Link accepts href but TypeScript types may not reflect this
         return (
-            <Link
-                ref={buttonRef}
-                class={finalClassName}
-                {...({href: route, onClick: handleClick} as Record<string, unknown>)}
-            >
+            <Link ref={buttonRef} class={finalClassName} {...({href: route, onClick: handleClick} as Record<string, unknown>)}>
                 {buttonContent}
             </Link>
         )
@@ -218,12 +216,7 @@ export function Button({
 
     // Otherwise, render as button
     return (
-        <button
-            ref={buttonRef}
-            class={finalClassName}
-            disabled={disabled}
-            onClick={handleClick}
-        >
+        <button ref={buttonRef} class={finalClassName} disabled={disabled} onClick={handleClick}>
             {buttonContent}
         </button>
     )

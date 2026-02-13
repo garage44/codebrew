@@ -19,11 +19,11 @@ import {enola} from '../service.ts'
  * @returns {Promise<Object>} An object containing arrays of added and removed translations.
  */
 export async function syncLanguage(
-    workspace: {config: {languages: {target: Array<{engine: string; id: string}>}}; i18n: Record<string, unknown>},
+    workspace: {config: {languages: {target: {engine: string; id: string}[]}}; i18n: Record<string, unknown>},
     language: {engine: string; id: string},
     action: 'remove' | 'update',
-): Promise<Array<[{source: string; target: Record<string, string>}, string]>> {
-    const syncTags: Array<[{source: string; target: Record<string, string>}, string]> = []
+): Promise<[{source: string; target: Record<string, string>}, string][]> {
+    const syncTags: [{source: string; target: Record<string, string>}, string][] = []
 
     keyMod(workspace.i18n, (ref: Record<string, unknown>, key: string | null, refPath: string[], _nestingLevel: number) => {
         const {id, ref: refObj} = pathRef(workspace.i18n, refPath)

@@ -49,7 +49,7 @@ export default function apiConfig(router: {
             for (const [engineName, engine] of Object.entries(config.enola.engines)) {
                 const engineConfig: {api_key?: string; base_url?: string} = engine
                 if (engineConfig.api_key && enola.engines[engineName] && typeof enola.engines[engineName].init === 'function') {
-                    // init requires base_url, so provide a default if missing
+                    // Init requires base_url, so provide a default if missing
                     const initConfig: {api_key: string; base_url: string} = {
                         api_key: engineConfig.api_key,
                         base_url: engineConfig.base_url || '',
@@ -61,10 +61,10 @@ export default function apiConfig(router: {
             config.language_ui = body.language_ui
 
             // Get workspace names from request
-            const requestedWorkspaceIds = body.workspaces.map((w) => w.workspace_id)
+            const requestedWorkspaceIds = new Set(body.workspaces.map((w) => w.workspace_id))
             // Find workspaces that need to be removed
             const redundantWorkspaces = workspaces.workspaces.filter(
-                (workspace) => !requestedWorkspaceIds.includes(workspace.config.workspace_id),
+                (workspace) => !requestedWorkspaceIds.has(workspace.config.workspace_id),
             )
 
             // Remove redundant workspaces

@@ -4,8 +4,9 @@
  */
 
 import type {WebSocketServerManager} from '@garage44/common/lib/ws-server'
-import {config} from '../config.ts'
+
 import {logger} from '../../service.ts'
+import {config} from '../config.ts'
 
 interface TokenUsageState {
     count: number
@@ -33,11 +34,7 @@ export function initTokenUsageTracking(manager: WebSocketServerManager): void {
  * Update usage from API response headers
  * Called when we receive rate limit headers from API responses
  */
-export function updateUsageFromHeaders(headers: {
-    limit?: number
-    remaining?: number
-    reset?: string
-}): void {
+export function updateUsageFromHeaders(headers: {limit?: number; remaining?: number; reset?: string}): void {
     logger.debug(`[Token Usage] updateUsageFromHeaders called with: ${JSON.stringify(headers)}`)
 
     if (typeof headers.limit === 'number' && typeof headers.remaining === 'number') {
@@ -51,7 +48,7 @@ export function updateUsageFromHeaders(headers: {
 
         logger.info(
             `[Token Usage] Updated: ${oldCount}/${oldLimit} -> ${tokenUsage.count}/${tokenUsage.limit} ` +
-            `(${headers.remaining} remaining)`,
+                `(${headers.remaining} remaining)`,
         )
 
         // Broadcast usage update

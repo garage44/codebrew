@@ -4,10 +4,19 @@ import {route} from 'preact-router'
 
 import {$s} from '@/app'
 
+interface LoginResponse {
+    admin?: boolean
+    authenticated?: boolean
+    error?: string
+    id?: string
+    profile?: {avatar?: string; displayName?: string}
+    username?: string
+}
+
 export const Login = () => {
     const handleLogin = async (username: string, password: string) => {
         try {
-            const result = await api.post('/api/login', {
+            const result = await api.post<LoginResponse>('/api/login', {
                 password,
                 username,
             })

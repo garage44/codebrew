@@ -1,8 +1,9 @@
-import {copyFile, readFile, unlink, writeFile} from 'node:fs/promises'
 import {$} from 'bun'
+import {copyFile, readFile, unlink, writeFile} from 'node:fs/promises'
 import {join} from 'node:path'
-import {extractWorkspacePackages, findWorkspaceRoot} from './workspace'
+
 import {takeScreenshots} from './screenshot'
+import {extractWorkspacePackages, findWorkspaceRoot} from './workspace'
 
 // Topological sort to determine publish order
 function topologicalSort(graph: Record<string, string[]>): string[] {
@@ -86,7 +87,7 @@ async function buildDependencyGraph(workspaceRoot: string, packages: string[]): 
             }
 
             graph[packageName] = deps
-        } catch(error) {
+        } catch (error) {
             // eslint-disable-next-line no-console
             console.warn(`Failed to read package.json for ${pkg}:`, error)
         }
@@ -129,7 +130,7 @@ export async function publish(): Promise<void> {
             await takeScreenshots()
             // eslint-disable-next-line no-console
             console.log('✅ Screenshots updated\n')
-        } catch(error: unknown) {
+        } catch (error: unknown) {
             // eslint-disable-next-line no-console
             console.warn('⚠️ Screenshot generation failed:', error instanceof Error ? error.message : String(error))
             // eslint-disable-next-line unicorn/no-process-exit
@@ -185,7 +186,7 @@ export async function publish(): Promise<void> {
                         // eslint-disable-next-line no-console
                         console.log('📄 Copied root README.md to expressio package')
                         readmeCopied = true
-                    } catch(error: unknown) {
+                    } catch (error: unknown) {
                         // eslint-disable-next-line no-console
                         console.warn('⚠️ Could not copy README.md:', error instanceof Error ? error.message : String(error))
                     }
@@ -201,7 +202,7 @@ export async function publish(): Promise<void> {
                     await $`cd ${packagePath} && bun publish`
                     // eslint-disable-next-line no-console
                     console.log(`✅ ${packageName} published successfully`)
-                } catch(error: unknown) {
+                } catch (error: unknown) {
                     // eslint-disable-next-line no-console
                     console.error(`❌ Failed to publish ${packageName}:`, error instanceof Error ? error.message : String(error))
                     throw error
@@ -213,9 +214,12 @@ export async function publish(): Promise<void> {
                             await unlink(join(packagePath, 'README.md'))
                             // eslint-disable-next-line no-console
                             console.log('🧹 Removed copied README.md from expressio package')
-                        } catch(error: unknown) {
+                        } catch (error: unknown) {
                             // eslint-disable-next-line no-console
-                            console.warn('⚠️ Could not remove copied README.md:', error instanceof Error ? error.message : String(error))
+                            console.warn(
+                                '⚠️ Could not remove copied README.md:',
+                                error instanceof Error ? error.message : String(error),
+                            )
                         }
                     }
                 }
@@ -242,9 +246,7 @@ export async function publish(): Promise<void> {
             await $`git add .github/screenshot-*.png`
 
             // Create commit message with all version changes
-            const versionChanges = publishOrder
-                .map((name): string => `${name}@${packageVersions[name]}`)
-                .join(', ')
+            const versionChanges = publishOrder.map((name): string => `${name}@${packageVersions[name]}`).join(', ')
 
             await $`git commit -m "chore: bump versions and update screenshots - ${versionChanges}"`
             // eslint-disable-next-line no-console
@@ -256,13 +258,13 @@ export async function publish(): Promise<void> {
             await $`git push`
             // eslint-disable-next-line no-console
             console.log('✅ Changes pushed to remote repository')
-        } catch(error) {
+        } catch (error) {
             // eslint-disable-next-line no-console
             console.warn('⚠️ Could not commit/push to git:', error instanceof Error ? error.message : String(error))
             // eslint-disable-next-line no-console
             console.warn('📝 Please manually commit and push the version changes')
         }
-    } catch(error) {
+    } catch (error) {
         // eslint-disable-next-line no-console
         console.error('❌ Publish failed:', error instanceof Error ? error.message : String(error))
         // eslint-disable-next-line unicorn/no-process-exit

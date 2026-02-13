@@ -2,11 +2,12 @@
  * Agent factory and exports
  */
 
-import {PlannerAgent} from './planner.ts'
-import {DeveloperAgent} from './developer.ts'
-import {ReviewerAgent} from './reviewer.ts'
 import type {BaseAgent} from './base.ts'
+
 import {getDb} from '../database.ts'
+import {DeveloperAgent} from './developer.ts'
+import {PlannerAgent} from './planner.ts'
+import {ReviewerAgent} from './reviewer.ts'
 
 // Agent instances cache (by ID)
 const agentInstances = new Map<string, BaseAgent>()
@@ -22,17 +23,21 @@ export function getAgentById(agentId: string): BaseAgent | null {
     }
 
     // Load agent from database
-    const agentRecord = getDb().prepare(`
+    const agentRecord = getDb()
+        .prepare(`
         SELECT id, name, type, config, enabled
         FROM agents
         WHERE id = ?
-    `).get(agentId) as {
-        config: string
-        enabled: number
-        id: string
-        name: string
-        type: 'planner' | 'developer' | 'reviewer'
-    } | undefined
+    `)
+        .get(agentId) as
+        | {
+              config: string
+              enabled: number
+              id: string
+              name: string
+              type: 'planner' | 'developer' | 'reviewer'
+          }
+        | undefined
 
     if (!agentRecord) {
         return null
@@ -56,14 +61,17 @@ export function getAgentById(agentId: string): BaseAgent | null {
             agent = new PlannerAgent(agentConfig)
             break
         
+
         case 'developer': 
             agent = new DeveloperAgent(agentConfig)
             break
         
+
         case 'reviewer': 
             agent = new ReviewerAgent(agentConfig)
             break
         
+
         default: 
             return null
         
@@ -81,12 +89,14 @@ export function getAgentById(agentId: string): BaseAgent | null {
  */
 export function getAgent(type: 'planner' | 'developer' | 'reviewer'): BaseAgent | null {
     // Find first agent of this type
-    const agentRecord = getDb().prepare(`
+    const agentRecord = getDb()
+        .prepare(`
         SELECT id
         FROM agents
         WHERE type = ? AND enabled = 1
         LIMIT 1
-    `).get(type) as {id: string} | undefined
+    `)
+        .get(type) as {id: string} | undefined
 
     if (!agentRecord) {
         return null

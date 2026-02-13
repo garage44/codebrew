@@ -19,9 +19,9 @@ function collectSource(
     source: Record<string, unknown>,
     path: string[],
     ignore_cache = false,
-): {cached: Tag[]; targets: Array<[Tag, string[]]>} {
+): {cached: Tag[]; targets: [Tag, string[]][]} {
     const cachedValues: Tag[] = []
-    const sourceValues: Array<[Tag, string[]]> = []
+    const sourceValues: [Tag, string[]][] = []
 
     function traverse(current: unknown, path: string[]): void {
         if (typeof current !== 'object' || current === null) {

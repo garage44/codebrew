@@ -27,8 +27,12 @@ export function FieldUpload({
 }: FieldUploadProps) {
     return (
         <div class={classnames('c-field-upload', 'field', className)}>
-            {!!label && <label for="" class="label">{label}</label>}
-            <div class="upload-wrapper">
+            {Boolean(label) && (
+                <label for='' class='label'>
+                    {label}
+                </label>
+            )}
+            <div class='upload-wrapper'>
                 <input
                     disabled={disabled}
                     onClick={(event) => {
@@ -52,18 +56,14 @@ export function FieldUpload({
                         }
                     }}
                     placeholder={placeholder}
-                    type="file"
+                    type='file'
                     accept={accept}
                 />
-                <div
-                    class="file-path"
-                    data-placeholder={placeholder}
-                    data-empty={!model[0][model[1]] ? 'true' : 'false'}
-                >
+                <div class='file-path' data-placeholder={placeholder} data-empty={!model[0][model[1]] ? 'true' : 'false'}>
                     {model[0][model[1]] || ''}
                 </div>
             </div>
-            {help && <div class="help">{help}</div>}
+            {help && <div class='help'>{help}</div>}
         </div>
     )
 }

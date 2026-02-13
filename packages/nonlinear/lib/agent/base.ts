@@ -4,19 +4,21 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk'
+
+import type {Skill} from '../fixtures/skills/types.ts'
+import type {Tool, ToolContext, ToolResult} from '../fixtures/tools/types.ts'
+
 import {logger} from '../../service.ts'
 import {config} from '../config.ts'
-import {updateUsageFromHeaders} from './token-usage.ts'
 import {
     type DocFilters,
     searchDocs as searchDocsVector,
     searchTickets as searchTicketsVector,
     unifiedVectorSearch,
 } from '../docs/search.ts'
-import {loadTools, toolToAnthropic} from '../fixtures/tools/index.ts'
-import type {Tool, ToolContext, ToolResult} from '../fixtures/tools/types.ts'
 import {buildSkillSystemPrompt, loadSkills} from '../fixtures/skills/index.ts'
-import type {Skill} from '../fixtures/skills/types.ts'
+import {loadTools, toolToAnthropic} from '../fixtures/tools/index.ts'
+import {updateUsageFromHeaders} from './token-usage.ts'
 
 export interface AgentContext {
     [key: string]: unknown
@@ -50,7 +52,11 @@ export abstract class BaseAgent {
 
     protected apiKey: string
 
-    constructor(name: string, type: 'planner' | 'developer' | 'reviewer' | 'prioritizer', agentConfig?: {skills?: string[]; tools?: string[]}) {
+    constructor(
+        name: string,
+        type: 'planner' | 'developer' | 'reviewer' | 'prioritizer',
+        agentConfig?: {skills?: string[]; tools?: string[]},
+    ) {
         this.name = name
         this.type = type
         this.model = config.anthropic.model || 'claude-3-5-sonnet-20241022'
@@ -59,7 +65,7 @@ export abstract class BaseAgent {
         if (!apiKey) {
             throw new Error(
                 `Anthropic API key not configured for agent ${name}. ` +
-                'Set ANTHROPIC_API_KEY environment variable or configure in .nonlinearrc',
+                    'Set ANTHROPIC_API_KEY environment variable or configure in .nonlinearrc',
             )
         }
 
@@ -107,14 +113,20 @@ export abstract class BaseAgent {
             filters?: DocFilters
             limit?: number
         } = {},
-    ): Promise<{docs: {chunk: {index: number; score: number; text: string}; doc: {content: string; id: string; path: string; title: string}}[]; tickets: {score: number; ticket: {description: string | null; id: string; title: string}}[]}> {
+    ): Promise<{
+        docs: {
+            chunk: {index: number; score: number; text: string}
+            doc: {content: string; id: string; path: string; title: string}
+        }[]
+        tickets: {score: number; ticket: {description: string | null; id: string; title: string}}[]
+    }> {
         try {
             return await unifiedVectorSearch(query, {
                 contentType: options.contentType || 'both',
                 filters: options.filters,
                 limit: options.limit || 5,
             })
-        } catch(error: unknown) {
+        } catch (error: unknown) {
             logger.warn(`[${this.name}] Semantic search failed:`, error)
             return {docs: [], tickets: []}
         }
@@ -123,10 +135,16 @@ export abstract class BaseAgent {
     /**
      * Search only documentation
      */
-    protected async searchDocs(query: string, filters?: DocFilters, limit = 5): Promise<{chunk: {index: number; score: number; text: string}; doc: {content: string; id: string; path: string; title: string}}[]> {
+    protected async searchDocs(
+        query: string,
+        filters?: DocFilters,
+        limit = 5,
+    ): Promise<
+        {chunk: {index: number; score: number; text: string}; doc: {content: string; id: string; path: string; title: string}}[]
+    > {
         try {
             return await searchDocsVector(query, filters, limit)
-        } catch(error: unknown) {
+        } catch (error: unknown) {
             logger.warn(`[${this.name}] Doc search failed:`, error)
             return []
         }
@@ -135,10 +153,14 @@ export abstract class BaseAgent {
     /**
      * Search only tickets
      */
-    protected async searchTickets(query: string, filters?: DocFilters, limit = 5): Promise<{score: number; ticket: {description: string | null; id: string; title: string}}[]> {
+    protected async searchTickets(
+        query: string,
+        filters?: DocFilters,
+        limit = 5,
+    ): Promise<{score: number; ticket: {description: string | null; id: string; title: string}}[]> {
         try {
             return await searchTicketsVector(query, filters, limit)
-        } catch(error: unknown) {
+        } catch (error: unknown) {
             logger.warn(`[${this.name}] Ticket search failed:`, error)
             return []
         }
@@ -148,20 +170,31 @@ export abstract class BaseAgent {
      * Get relevant documentation for a query
      * Formats results for inclusion in agent context
      */
-    protected async getRelevantDocs(query: string, filters?: DocFilters, // eslint-disable-next-line @typescript-eslint/no-inferrable-types
- limit: number = 5): Promise<string> {
+    protected async getRelevantDocs(
+        query: string,
+        filters?: DocFilters, // eslint-disable-next-line @typescript-eslint/no-inferrable-types
+        limit: number = 5,
+    ): Promise<string> {
         const results = await this.searchDocs(query, filters, limit)
 
         if (results.length === 0) {
             return 'No relevant documentation found.'
         }
 
-        const formatted = results.map((result: {chunk: {index: number; score: number; text: string}; doc: {content: string; path: string; title: string}}, idx: number): string => {
-            const excerptLength = 500
-            const hasMore = result.chunk.text.length > excerptLength
-            const excerpt = hasMore ? `${result.chunk.text.slice(0, excerptLength)}...` : result.chunk.text
-            const scorePercent = (result.chunk.score * 100).toFixed(1)
-            return `[Doc ${idx + 1}] ${result.doc.title} (${result.doc.path})
+        const formatted = results
+            .map(
+                (
+                    result: {
+                        chunk: {index: number; score: number; text: string}
+                        doc: {content: string; path: string; title: string}
+                    },
+                    idx: number,
+                ): string => {
+                    const excerptLength = 500
+                    const hasMore = result.chunk.text.length > excerptLength
+                    const excerpt = hasMore ? `${result.chunk.text.slice(0, excerptLength)}...` : result.chunk.text
+                    const scorePercent = (result.chunk.score * 100).toFixed(1)
+                    return `[Doc ${idx + 1}] ${result.doc.title} (${result.doc.path})
 Score: ${scorePercent}%
 Relevant excerpt:
 ${excerpt}
@@ -169,7 +202,9 @@ ${excerpt}
 Full content:
 ${result.doc.content}
 `
-        }).join('\n\n -= 1-\n\n')
+                },
+            )
+            .join('\n\n -= 1-\n\n')
 
         return `Relevant Documentation (${results.length} results):\n\n${formatted}`
     }
@@ -214,13 +249,15 @@ ${result.doc.content}
         }
 
         // Queue writes to prevent concurrent access to the stream
-        this.streamWriteQueue = this.streamWriteQueue.then(async(): Promise<void> => {
+        this.streamWriteQueue = this.streamWriteQueue.then(async (): Promise<void> => {
             try {
-                if (!this.stream) {return}
+                if (!this.stream) {
+                    return
+                }
                 const writer = this.stream.getWriter()
                 await writer.write(`REASONING: ${message}\n`)
                 writer.releaseLock()
-            } catch(error: unknown) {
+            } catch (error: unknown) {
                 /*
                  * If stream is locked or closed, ignore silently
                  * This prevents errors from breaking the agent flow
@@ -265,10 +302,7 @@ ${result.doc.content}
     /**
      * Execute a tool
      */
-    protected async executeTool(
-        toolName: string,
-        params: Record<string, unknown>,
-    ): Promise<ToolResult> {
+    protected async executeTool(toolName: string, params: Record<string, unknown>): Promise<ToolResult> {
         const tool = this.tools[toolName]
         if (!tool) {
             throw new Error(`Tool not found: ${toolName}`)
@@ -276,9 +310,7 @@ ${result.doc.content}
 
         const paramsStr = Object.entries(params)
             .map(([key, value]): string => {
-                const valStr = typeof value === 'string' && value.length > 50 ?
-                    `${value.slice(0, 50)}...` :
-                        String(value)
+                const valStr = typeof value === 'string' && value.length > 50 ? `${value.slice(0, 50)}...` : String(value)
                 return `${key}=${valStr}`
             })
             .join(', ')
@@ -309,16 +341,13 @@ ${result.doc.content}
     ): Promise<string> {
         // Build enhanced system prompt with skills
         const skillPrompt = buildSkillSystemPrompt(this.skills)
-        const enhancedSystemPrompt = skillPrompt ?
-            `${systemPrompt}\n\n${skillPrompt}` :
-            systemPrompt
+        const enhancedSystemPrompt = skillPrompt ? `${systemPrompt}\n\n${skillPrompt}` : systemPrompt
 
         const anthropicTools = Object.values(this.tools).map((tool): unknown => toolToAnthropic(tool))
-        const messages: {content: unknown; role: 'user' | 'assistant'}[] = [
-            {content: userMessage, role: 'user'},
-        ]
+        const messages: {content: unknown; role: 'user' | 'assistant'}[] = [{content: userMessage, role: 'user'}]
 
-        while (true) { // eslint-disable-line no-constant-condition
+        while (true) {
+            // eslint-disable-line no-constant-condition
             // eslint-disable-next-line no-await-in-loop
             await this.streamReasoning('🤔 Thinking...')
 
@@ -346,7 +375,15 @@ ${result.doc.content}
             }
 
             // eslint-disable-next-line no-await-in-loop
-            const data = await response.json() as {content: {type: string; text?: string}[]; id: string; model: string; role: string; stop_reason: string; type: string; usage: {completion_tokens: number; prompt_tokens: number}}
+            const data = (await response.json()) as {
+                content: {type: string; text?: string}[]
+                id: string
+                model: string
+                role: string
+                stop_reason: string
+                type: string
+                usage: {completion_tokens: number; prompt_tokens: number}
+            }
 
             // Extract rate limit headers
             const limitHeader = response.headers.get('anthropic-ratelimit-tokens-limit')
@@ -369,10 +406,19 @@ ${result.doc.content}
             }
 
             // Handle tool_use content blocks
-            const toolUses = (data.content as {id?: string; input?: Record<string, unknown>; name?: string; type: string}[]).filter((c): boolean => c.type === 'tool_use') as {id: string; input: Record<string, unknown>; name: string; type: string}[]
+            const toolUses = (
+                data.content as {id?: string; input?: Record<string, unknown>; name?: string; type: string}[]
+            ).filter((c): boolean => c.type === 'tool_use') as {
+                id: string
+                input: Record<string, unknown>
+                name: string
+                type: string
+            }[]
             if (toolUses.length === 0) {
                 // Final text response
-                const textContent = (data.content as {type: string; text?: string}[]).find((c: {type: string; text?: string}): boolean => c.type === 'text')
+                const textContent = (data.content as {type: string; text?: string}[]).find(
+                    (c: {type: string; text?: string}): boolean => c.type === 'text',
+                )
                 if (textContent) {
                     // eslint-disable-next-line no-await-in-loop
                     await this.streamReasoning('✅ Completed')
@@ -391,61 +437,66 @@ ${result.doc.content}
 
             // eslint-disable-next-line no-await-in-loop
             const toolResults = await Promise.all(
-                toolUses.map(async(toolUse: {id: string; input: Record<string, unknown>; name: string}): Promise<{content: string; tool_use_id: string; type: string}> => {
-                    const tool = this.tools[toolUse.name]
-                    if (!tool) {
+                toolUses.map(
+                    async (toolUse: {
+                        id: string
+                        input: Record<string, unknown>
+                        name: string
+                    }): Promise<{content: string; tool_use_id: string; type: string}> => {
+                        const tool = this.tools[toolUse.name]
+                        if (!tool) {
+                            // eslint-disable-next-line no-await-in-loop
+                            await this.streamReasoning(`❌ ERROR: Tool "${toolUse.name}" not found`)
+                            return {
+                                content: 'Tool not found',
+                                tool_use_id: toolUse.id,
+                                type: 'tool_result',
+                            }
+                        }
+
+                        // Format tool parameters for display
+                        const paramsStr = Object.entries(toolUse.input)
+                            .map(([key, value]): string => {
+                                const valStr =
+                                    typeof value === 'string' && value.length > 50 ? `${value.slice(0, 50)}...` : String(value)
+                                return `${key}=${valStr}`
+                            })
+                            .join(', ')
+
                         // eslint-disable-next-line no-await-in-loop
-                        await this.streamReasoning(`❌ ERROR: Tool "${toolUse.name}" not found`)
+                        await this.streamReasoning(`🔧 Using ${toolUse.name}(${paramsStr || 'no params'})`)
+                        const toolContext = this.buildToolContext(agentContext)
+                        // eslint-disable-next-line no-await-in-loop
+                        const result = await tool.execute(toolUse.input, toolContext)
+
+                        // eslint-disable-next-line max-depth
+                        if (result.success) {
+                            // eslint-disable-next-line no-await-in-loop
+                            await this.streamReasoning(`✅ ${toolUse.name} completed successfully`)
+                        } else {
+                            // eslint-disable-next-line no-await-in-loop
+                            await this.streamReasoning(`❌ ${toolUse.name} failed: ${result.error || 'Unknown error'}`)
+                        }
+
+                        // Format result as JSON string for tool result content
+                        const resultContent = result.success
+                            ? JSON.stringify({
+                                  context: result.context,
+                                  data: result.data,
+                                  success: true,
+                              })
+                            : JSON.stringify({
+                                  error: result.error,
+                                  success: false,
+                              })
+
                         return {
-                            content: 'Tool not found',
+                            content: resultContent,
                             tool_use_id: toolUse.id,
                             type: 'tool_result',
                         }
-                    }
-
-                    // Format tool parameters for display
-                    const paramsStr = Object.entries(toolUse.input)
-                        .map(([key, value]): string => {
-                            const valStr = typeof value === 'string' && value.length > 50 ?
-                                `${value.slice(0, 50)}...` :
-                                    String(value)
-                            return `${key}=${valStr}`
-                        })
-                        .join(', ')
-
-                    // eslint-disable-next-line no-await-in-loop
-                    await this.streamReasoning(`🔧 Using ${toolUse.name}(${paramsStr || 'no params'})`)
-                    const toolContext = this.buildToolContext(agentContext)
-                    // eslint-disable-next-line no-await-in-loop
-                    const result = await tool.execute(toolUse.input, toolContext)
-
-                    // eslint-disable-next-line max-depth
-                    if (result.success) {
-                        // eslint-disable-next-line no-await-in-loop
-                        await this.streamReasoning(`✅ ${toolUse.name} completed successfully`)
-                    } else {
-                        // eslint-disable-next-line no-await-in-loop
-                        await this.streamReasoning(`❌ ${toolUse.name} failed: ${result.error || 'Unknown error'}`)
-                    }
-
-                    // Format result as JSON string for tool result content
-                    const resultContent = result.success ?
-                            JSON.stringify({
-                                context: result.context,
-                                data: result.data,
-                                success: true,
-                            }) :
-                            JSON.stringify({
-                                error: result.error,
-                                success: false,
-                            })
-
-                    return {
-                        content: resultContent,
-                        tool_use_id: toolUse.id,
-                        type: 'tool_result',
-                    }
-                }),
+                    },
+                ),
             )
 
             // Add assistant message with tool uses
@@ -516,10 +567,13 @@ ${result.doc.content}
             let buffer = ''
             let fullResponse = ''
 
-            while (true) { // eslint-disable-line no-constant-condition
+            while (true) {
+                // eslint-disable-line no-constant-condition
                 // eslint-disable-next-line no-await-in-loop
                 const {done, value} = await reader.read()
-                if (done) {break}
+                if (done) {
+                    break
+                }
 
                 buffer += decoder.decode(value, {stream: true})
                 const lines = buffer.split('\n')
@@ -548,7 +602,7 @@ ${result.doc.content}
                                         await onChunk(chunk)
                                     }
                                 }
-                            } catch{
+                            } catch {
                                 // Ignore parse errors for non-JSON lines
                             }
                         }
@@ -576,7 +630,7 @@ ${result.doc.content}
             }
 
             return fullResponse
-        } catch(error: unknown) {
+        } catch (error: unknown) {
             logger.error(`[Agent ${this.name}] Error calling Anthropic streaming API: ${error}`)
             throw error
         }
@@ -620,7 +674,15 @@ ${result.doc.content}
                 throw new Error(error.error?.message || `API error: ${response.status}`)
             }
 
-            const data = await response.json() as {content: {type: string; text?: string}[]; id: string; model: string; role: string; stop_reason: string; type: string; usage: {completion_tokens: number; prompt_tokens: number}}
+            const data = (await response.json()) as {
+                content: {type: string; text?: string}[]
+                id: string
+                model: string
+                role: string
+                stop_reason: string
+                type: string
+                usage: {completion_tokens: number; prompt_tokens: number}
+            }
 
             // Extract rate limit headers
             const limitHeader = response.headers.get('anthropic-ratelimit-tokens-limit')
@@ -656,7 +718,7 @@ ${result.doc.content}
             }
 
             throw new Error('Unexpected response type from Anthropic API')
-        } catch(error: unknown) {
+        } catch (error: unknown) {
             logger.error(`[Agent ${this.name}] Error calling Anthropic API: ${error}`)
             throw error
         }
@@ -668,24 +730,21 @@ ${result.doc.content}
     protected log(message: string, level: 'info' | 'warn' | 'error' = 'info'): void {
         const logMessage = `[Agent ${this.name}] ${message}`
         switch (level) {
-            case 'info':   
+            case 'info': 
                 logger.info(logMessage)
                 break
             
-            
-            
-            
-            case 'warn':   
+
+            case 'warn': 
                 logger.warn(logMessage)
                 break
             
-            
-            
-            
-            case 'error':   
+
+            case 'error': 
                 logger.error(logMessage)
                 break
             
+
             default: 
                 logger.info(logMessage)
                 break
@@ -696,24 +755,24 @@ ${result.doc.content}
     /**
      * Retry a function with exponential backoff
      */
-    protected async retry<T>(
-        fn: () => Promise<T>,
-        maxAttempts = 3,
-        delay = 1000,
-    ): Promise<T> {
+    protected async retry<T>(fn: () => Promise<T>, maxAttempts = 3, delay = 1000): Promise<T> {
         let lastError: Error | null = null
 
         for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
             try {
                 // eslint-disable-next-line no-await-in-loop
                 return await fn()
-            } catch(error: unknown) {
+            } catch (error: unknown) {
                 lastError = error instanceof Error ? error : new Error(String(error))
                 if (attempt < maxAttempts) {
                     const waitTime = delay * 2 ** (attempt - 1)
                     this.log(`Attempt ${attempt} failed, retrying in ${waitTime}ms...`, 'warn')
                     // eslint-disable-next-line no-await-in-loop
-                    await new Promise<void>((resolve): void => { setTimeout((): void => { resolve() }, waitTime) })
+                    await new Promise<void>((resolve): void => {
+                        setTimeout((): void => {
+                            resolve()
+                        }, waitTime)
+                    })
                 }
             }
         }

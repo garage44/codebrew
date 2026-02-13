@@ -1,6 +1,7 @@
 import {useRef, useState, useEffect} from 'preact/hooks'
-import {Icon} from '@/components'
+
 import {api, notifier, logger} from '@/app'
+import {Icon} from '@/components'
 import {getAvatarUrl} from '@/lib/avatar'
 
 interface AvatarUploadProps {
@@ -78,11 +79,11 @@ export function AvatarUpload({
 
     // Load current user info on mount if profile is not set
     useEffect(() => {
-        (async () => {
+        ;(async () => {
             const userId = state ? getUserId(state) : null
             if (!userId) {
                 try {
-                    const user = await api.get(userEndpoint) as {id?: string}
+                    const user = (await api.get(userEndpoint)) as {id?: string}
                     logger.debug('[AvatarUpload] Received user from API:', user)
                     if (user?.id && state) {
                         setProfile(state, user)
@@ -111,7 +112,9 @@ export function AvatarUpload({
     const handleFileSelect = async (e: Event) => {
         const input = e.target as HTMLInputElement
         const file = input.files?.[0]
-        if (!file) return
+        if (!file) {
+            return
+        }
 
         // Validate file type
         const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
@@ -251,26 +254,31 @@ export function AvatarUpload({
     const currentAvatarUrl = `${baseAvatarUrl}${baseAvatarUrl.includes('?') ? '&' : '?'}v=${avatarVersion}`
 
     return (
-        <div class="c-avatar-upload">
-            <label class="avatar-label">Profile Picture</label>
+        <div class='c-avatar-upload'>
+            <label class='avatar-label'>Profile Picture</label>
 
-            <div class="avatar-preview-section">
-                <div class="avatar-preview">
-                    <img src={currentAvatarUrl} alt="Current avatar" class="avatar-preview-img" key={`${currentAvatar}-${avatarVersion}`} />
+            <div class='avatar-preview-section'>
+                <div class='avatar-preview'>
+                    <img
+                        src={currentAvatarUrl}
+                        alt='Current avatar'
+                        class='avatar-preview-img'
+                        key={`${currentAvatar}-${avatarVersion}`}
+                    />
                 </div>
 
-                <div class="avatar-actions">
+                <div class='avatar-actions'>
                     <input
                         ref={fileInputRef}
-                        type="file"
-                        accept="image/jpeg,image/jpg,image/png,image/webp"
+                        type='file'
+                        accept='image/jpeg,image/jpg,image/png,image/webp'
                         onChange={handleFileSelect}
-                        class="avatar-file-input"
+                        class='avatar-file-input'
                         disabled={uploading}
-                        id="avatar-file-input"
+                        id='avatar-file-input'
                     />
                     <button
-                        type="button"
+                        type='button'
                         onClick={(e) => {
                             e.preventDefault()
                             e.stopPropagation()
@@ -279,16 +287,16 @@ export function AvatarUpload({
                             }
                         }}
                         disabled={uploading}
-                        class="btn btn-secondary"
+                        class='btn btn-secondary'
                     >
                         {uploading ? (
                             <>
-                                <Icon name="loading" type="info" />
+                                <Icon name='loading' type='info' />
                                 Uploading...
                             </>
                         ) : (
                             <>
-                                <Icon name="upload" type="info" />
+                                <Icon name='upload' type='info' />
                                 Change Picture
                             </>
                         )}
@@ -296,9 +304,7 @@ export function AvatarUpload({
                 </div>
             </div>
 
-            <p class="avatar-help">
-                Supported formats: JPEG, PNG, WebP. Maximum size: 2MB.
-            </p>
+            <p class='avatar-help'>Supported formats: JPEG, PNG, WebP. Maximum size: 2MB.</p>
         </div>
     )
 }

@@ -45,7 +45,7 @@ class Router {
 
     async route(req: Request, session?: Session): Promise<Response | null> {
         const url = new URL(req.url)
-        const pathname = url.pathname
+        const {pathname} = url
         for (const {handler, method, path} of this.routes) {
             if (req.method === method && path.test(pathname)) {
                 const paramValues = pathname.match(path)?.slice(1) || []

@@ -1,4 +1,5 @@
 import type {EnolaEngine, EnolaEngineConfig, EnolaLogger, EnolaTag, TargetLanguage} from '../types.ts'
+
 import {target} from '../languages.ts'
 
 interface FetchOptions extends RequestInit {
@@ -30,13 +31,13 @@ interface AnthropicResponse {
 export default class Anthropic implements EnolaEngine {
     base_url = 'https://api.anthropic.com/v1'
 
-    config:EnolaEngineConfig = {
+    config: EnolaEngineConfig = {
         active: false,
         api_key: '',
 
         name: 'anthropic',
         usage: {
-            count: 0,  // Will store total tokens used
+            count: 0, // Will store total tokens used
             limit: 1_000_000, // Example limit - adjust as needed
         },
     }
@@ -56,7 +57,7 @@ export default class Anthropic implements EnolaEngine {
         this.logger.info('[enola-anthropic] activating...')
         try {
             this.logger.info('[enola-anthropic] initializing...')
-            const response = await this.fetch('/messages', {method: 'GET'}) as AnthropicResponse
+            const response = (await this.fetch('/messages', {method: 'GET'})) as AnthropicResponse
 
             if (response.headers) {
                 this.config.usage.limit = response.headers.limit
@@ -103,24 +104,28 @@ export default class Anthropic implements EnolaEngine {
         return {
             ...json,
             headers: {
-                limit: parseInt(response.headers.get('anthropic-ratelimit-tokens-limit') || '100000', 10),
-                remaining: parseInt(response.headers.get('anthropic-ratelimit-tokens-remaining') || '100000', 10),
+                limit: Number.parseInt(response.headers.get('anthropic-ratelimit-tokens-limit') || '100000', 10),
+                remaining: Number.parseInt(response.headers.get('anthropic-ratelimit-tokens-remaining') || '100000', 10),
                 reset: response.headers.get('anthropic-ratelimit-tokens-reset') || '',
             },
         }
     }
 
-    async suggestion(tagPath:string[], sourceText:string, similarTranslations: {path:string[]; source:string}[]) {
+    async suggestion(tagPath: string[], sourceText: string, similarTranslations: {path: string[]; source: string}[]) {
         this.logger.info(`[enola-anthropic] requesting suggestion for: ${sourceText}...`)
         // Build examples section if we have existing translations
         let examplesSection = ''
         if (similarTranslations?.length) {
             examplesSection = `
 EXISTING TRANSLATION EXAMPLES:
-${similarTranslations.slice(0, 5).map((example) =>
-    `Key: ${example.path.join('.')}
+${similarTranslations
+    .slice(0, 5)
+    .map(
+        (example) =>
+            `Key: ${example.path.join('.')}
 Source text: ${example.source}`,
-).join('\n\n')}
+    )
+    .join('\n\n')}
 
 Use these examples to maintain a consistent style and tone.
 `
@@ -148,10 +153,12 @@ SUGGESTED SOURCE TEXT:`
         const response = await this.fetch('/messages', {
             data: {
                 max_tokens: 1024,
-                messages: [{
-                    content: prompt,
-                    role: 'user',
-                }],
+                messages: [
+                    {
+                        content: prompt,
+                        role: 'user',
+                    },
+                ],
                 model: 'claude-sonnet-4-20250514',
             },
         })
@@ -169,7 +176,9 @@ SUGGESTED SOURCE TEXT:`
         if (response.usage) {
             const totalTokens = response.usage.input_tokens + response.usage.output_tokens
             this.config.usage.count += totalTokens
-            this.logger.info(`[enola-anthropic] Used ${totalTokens} tokens for context analysis (${this.config.usage.count} total)`)
+            this.logger.info(
+                `[enola-anthropic] Used ${totalTokens} tokens for context analysis (${this.config.usage.count} total)`,
+            )
         }
 
         this.logger.info(`[enola-anthropic] suggestion: ${suggestedText}`)
@@ -182,7 +191,7 @@ SUGGESTED SOURCE TEXT:`
      * @param targetLanguage The target language configuration
      * @returns The translated text
      */
-    async translate(tag:EnolaTag, targetLanguage:TargetLanguage) {
+    async translate(tag: EnolaTag, targetLanguage: TargetLanguage) {
         const language = target.find((lang) => lang.id === targetLanguage.id)
         if (!language) {
             throw new Error(`Language ${targetLanguage.id} not found`)
@@ -207,10 +216,12 @@ TRANSLATE THE SENTENCE HERE:`
         const response = await this.fetch('/messages', {
             data: {
                 max_tokens: 1024,
-                messages: [{
-                    content: prompt,
-                    role: 'user',
-                }],
+                messages: [
+                    {
+                        content: prompt,
+                        role: 'user',
+                    },
+                ],
                 model: 'claude-3-sonnet-20240229',
             },
         })
@@ -239,7 +250,9 @@ TRANSLATE THE SENTENCE HERE:`
     async usage() {
         // Return current usage statistics
         const percentage = (this.config.usage.count / this.config.usage.limit) * 100
-        this.logger.info(`[enola-anthropic] usage: ${this.config.usage.count} of ${this.config.usage.limit} tokens (${percentage.toFixed(2)}%)`)
+        this.logger.info(
+            `[enola-anthropic] usage: ${this.config.usage.count} of ${this.config.usage.limit} tokens (${percentage.toFixed(2)}%)`,
+        )
         return this.config.usage
     }
 
@@ -272,10 +285,12 @@ TRANSLATIONS:`
         const response = await this.fetch('/messages', {
             data: {
                 max_tokens: 2048,
-                messages: [{
-                    content: prompt,
-                    role: 'user',
-                }],
+                messages: [
+                    {
+                        content: prompt,
+                        role: 'user',
+                    },
+                ],
                 model: 'claude-3-sonnet-20240229',
             },
         })
@@ -288,7 +303,9 @@ TRANSLATIONS:`
         if (response.usage) {
             const totalTokens = response.usage.input_tokens + response.usage.output_tokens
             this.config.usage.count += totalTokens
-            this.logger.info(`[enola-anthropic] Used ${totalTokens} tokens for batch translation (${this.config.usage.count} total)`)
+            this.logger.info(
+                `[enola-anthropic] Used ${totalTokens} tokens for batch translation (${this.config.usage.count} total)`,
+            )
         }
 
         // Parse the numbered list response and clean up each translation

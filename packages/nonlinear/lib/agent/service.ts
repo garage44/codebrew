@@ -5,19 +5,14 @@
  * Runs independently from the main Nonlinear service
  */
 
+import {WebSocketClient} from '@garage44/common/lib/ws-client'
+import {loggerTransports} from '@garage44/common/service'
+
 import {config, initConfig} from '../config.ts'
 import {getDb, initDatabase} from '../database.ts'
-import {loggerTransports} from '@garage44/common/service'
-import {WebSocketClient} from '@garage44/common/lib/ws-client'
 import {runAgent as runAgentScheduler} from './scheduler.ts'
-import {
-    type TaskData,
-    getPendingTasks,
-    markTaskCompleted,
-    markTaskFailed,
-    markTaskProcessing,
-} from './tasks.ts'
 import {setBroadcastWebSocketClient} from './streaming.ts'
+import {type TaskData, getPendingTasks, markTaskCompleted, markTaskFailed, markTaskProcessing} from './tasks.ts'
 
 export interface AgentStatusState {
     agentId: string
@@ -48,14 +43,18 @@ class AgentService {
     constructor(agentId: string) {
         this.agentId = agentId
         // Load agent config from DB
-        const agentRecord = getDb().prepare(`
+        const agentRecord = getDb()
+            .prepare(`
             SELECT type, enabled
             FROM agents
             WHERE id = ?
-        `).get(agentId) as {
-            enabled: number
-            type: 'planner' | 'developer' | 'reviewer'
-        } | undefined
+        `)
+            .get(agentId) as
+            | {
+                  enabled: number
+                  type: 'planner' | 'developer' | 'reviewer'
+              }
+            | undefined
 
         if (!agentRecord) {
             throw new Error(`Agent ${agentId} not found`)
@@ -136,48 +135,53 @@ class AgentService {
      * Initialize WebSocket client and subscribe to task events
      */
     private initWebSocket(): void {
-        if (!this.logger) {return}
+        if (!this.logger) {
+            return
+        }
 
         this.wsClient = new WebSocketClient(this.wsUrl)
 
         // Subscribe to agent-specific task topic
         const taskTopic = `/agents/${this.agentId}/tasks`
-        this.wsClient.onRoute(taskTopic, async(data: {
-            task_data?: TaskData
-            task_id?: string
-            task_type?: string
-        }): Promise<void> => {
-            if (!this.logger) {return}
+        this.wsClient.onRoute(
+            taskTopic,
+            async (data: {task_data?: TaskData; task_id?: string; task_type?: string}): Promise<void> => {
+                if (!this.logger) {
+                    return
+                }
 
-            const taskId = data.task_id as string
-            const taskType = data.task_type as string
-            const taskData = (data.task_data || data) as TaskData
+                const taskId = data.task_id as string
+                const taskType = data.task_type as string
+                const taskData = (data.task_data || data) as TaskData
 
-            if (!taskId) {
-                this.logger.warn('[AgentService] Received task event without task_id, ignoring')
-                return
-            }
+                if (!taskId) {
+                    this.logger.warn('[AgentService] Received task event without task_id, ignoring')
+                    return
+                }
 
-            this.logger.info(`[AgentService] Received task ${taskId} (type: ${taskType})`)
+                this.logger.info(`[AgentService] Received task ${taskId} (type: ${taskType})`)
 
-            // Add to queue
-            this.taskQueue.push({
-                taskData: {
-                    ...taskData,
-                    task_id: taskId,
-                    task_type: taskType,
-                },
-                taskId,
-            })
+                // Add to queue
+                this.taskQueue.push({
+                    taskData: {
+                        ...taskData,
+                        task_id: taskId,
+                        task_type: taskType,
+                    },
+                    taskId,
+                })
 
-            // Process if not busy
-            this.processNextTask()
-        })
+                // Process if not busy
+                this.processNextTask()
+            },
+        )
 
         // Subscribe to stop topic
         const stopTopic = `/agents/${this.agentId}/stop`
-        this.wsClient.onRoute(stopTopic, async(): Promise<void> => {
-            if (!this.logger) {return}
+        this.wsClient.onRoute(stopTopic, async (): Promise<void> => {
+            if (!this.logger) {
+                return
+            }
 
             this.logger.info(`[AgentService] Received stop command for agent ${this.agentId}`)
 
@@ -187,7 +191,7 @@ class AgentService {
                 // Poll until task is done (max 30 seconds)
                 const maxWait = 30_000
                 const startTime = Date.now()
-                while (this.processingTask && (Date.now() - startTime) < maxWait) {
+                while (this.processingTask && Date.now() - startTime < maxWait) {
                     // eslint-disable-next-line no-await-in-loop
                     await new Promise<void>((resolve): void => {
                         setTimeout((): void => {
@@ -206,7 +210,7 @@ class AgentService {
         })
 
         // Handle reconnection
-        this.wsClient.on('open', async(): Promise<void> => {
+        this.wsClient.on('open', async (): Promise<void> => {
             this.logger?.info(`[AgentService] WebSocket connected to ${this.wsUrl}`)
 
             // Set WebSocket client for comment broadcasting
@@ -220,7 +224,7 @@ class AgentService {
                     await this.wsClient.post(`/api/agents/${this.agentId}/subscribe`, {})
                 }
                 this.logger?.info(`[AgentService] Subscribed to /agents/${this.agentId}/tasks`)
-            } catch(error: unknown) {
+            } catch (error: unknown) {
                 this.logger?.warn(`[AgentService] Failed to subscribe to task topic: ${error}`)
             }
 
@@ -235,7 +239,7 @@ class AgentService {
             if (attempt >= 5) {
                 this.logger?.error(
                     `[AgentService] WebSocket connection failed after ${attempt} attempts. ` +
-                    `Make sure the Nonlinear service is running on ${this.wsUrl}`,
+                        `Make sure the Nonlinear service is running on ${this.wsUrl}`,
                 )
             }
         })
@@ -258,7 +262,9 @@ class AgentService {
      * Catch up on missed tasks from database
      */
     private async catchUpOnTasks(): Promise<void> {
-        if (!this.logger) {return}
+        if (!this.logger) {
+            return
+        }
 
         const pendingTasks = getPendingTasks(this.agentId)
 
@@ -290,7 +296,9 @@ class AgentService {
      * Process next task in queue
      */
     private async processNextTask(): Promise<void> {
-        if (!this.logger) {return}
+        if (!this.logger) {
+            return
+        }
 
         // Don't process if already processing or queue is empty
         if (this.processingTask || this.taskQueue.length === 0) {
@@ -299,7 +307,9 @@ class AgentService {
 
         // Get next task from queue
         const task = this.taskQueue.shift()
-        if (!task) {return}
+        if (!task) {
+            return
+        }
 
         this.processingTask = true
 
@@ -323,7 +333,7 @@ class AgentService {
             this.lastRun = Date.now()
             this.lastError = null
             this.logger.info(`[AgentService] Completed task ${taskId}`)
-        } catch(error: unknown) {
+        } catch (error: unknown) {
             const errorMsg = error instanceof Error ? error.message : String(error)
             this.lastError = errorMsg
             this.logger.error(`[AgentService] Error processing task ${task.taskId}: ${errorMsg}`)
@@ -371,7 +381,7 @@ if (import.meta.main) {
 
     /* Declare logger here */
     let logger: ReturnType<typeof loggerTransports> | null = null
-    ;(async(): Promise<void> => {
+    ;(async (): Promise<void> => {
         await initConfig(config)
         initDatabase()
 

@@ -121,9 +121,15 @@ export const Main = () => {
             $s.profile.admin = context.admin || false
             $s.profile.authenticated = context.authenticated || false
             // Set profile data from context
-            if (context.id) $s.profile.id = context.id
-            if (context.username) $s.profile.username = context.username
-            if (context.password) $s.profile.password = context.password
+            if (context.id) {
+                $s.profile.id = context.id
+            }
+            if (context.username) {
+                $s.profile.username = context.username
+            }
+            if (context.password) {
+                $s.profile.password = context.password
+            }
             if (context.profile) {
                 $s.profile.avatar = context.profile.avatar || 'placeholder-1.png'
                 $s.profile.displayName = context.profile.displayName || context.username || 'User'
@@ -133,7 +139,7 @@ export const Main = () => {
                 ws.connect()
                 const config = (await api.get('/api/config')) as {
                     enola?: unknown
-                    workspaces?: Array<{workspace_id: string}>
+                    workspaces?: {workspace_id: string}[]
                 }
 
                 $s.profile.authenticated = true
@@ -343,7 +349,7 @@ export const Main = () => {
                         }
                         collapsed={$s.panels.menu.collapsed}
                         footer={
-                            !!Object.values($s.enola.engines).length && (
+                            Boolean(Object.values($s.enola.engines).length) && (
                                 <div class='engines'>
                                     {Object.values($s.enola.engines)
                                         .filter((engine) => {

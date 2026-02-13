@@ -40,7 +40,7 @@ export const Docs = () => {
         try {
             state.loading = true
             const apiClient = getApi()
-            const result = await apiClient.get('/api/docs')
+            const result = (await apiClient.get('/api/docs')) as {docs?: Doc[]}
             if (result.docs) {
                 state.docs = result.docs
             }
@@ -63,7 +63,7 @@ export const Docs = () => {
                 path,
                 url,
             })
-            const result = await apiClient.get(url)
+            const result = (await apiClient.get(url)) as {doc?: Doc; error?: string} | null
             // eslint-disable-next-line no-console
             console.log('[Docs] Result:', result)
             if (result?.doc) {
@@ -92,10 +92,10 @@ export const Docs = () => {
         }
 
         try {
-            const result = await ws.put(`/api/docs/${state.selectedDoc.id}`, {
+            const result = (await ws.put(`/api/docs/${state.selectedDoc.id}`, {
                 content,
                 tags,
-            })
+            })) as {doc?: Doc}
             if (result.doc) {
                 state.selectedDoc = result.doc as Doc
                 state.editing = false
@@ -178,21 +178,21 @@ export const Docs = () => {
     if (state.searchQuery) {
         const query = state.searchQuery.toLowerCase()
         filteredItems = filteredItems.filter((item) => {
-            if (item.type === 'doc') {
+            if (item.type === 'doc' && item.doc) {
                 return (
                     item.doc.title.toLowerCase().includes(query) ||
                     item.doc.path.toLowerCase().includes(query) ||
                     item.doc.content.toLowerCase().includes(query)
                 )
             }
-            return item.name.toLowerCase().includes(query)
+            return (item.name ?? '').toLowerCase().includes(query)
         })
     }
 
     if (state.filterTags.length > 0) {
         filteredItems = filteredItems.filter((item) => {
-            if (item.type === 'doc') {
-                return state.filterTags.some((tag) => item.doc.tags?.includes(tag))
+            if (item.type === 'doc' && item.doc) {
+                return state.filterTags.some((tag) => item.doc!.tags?.includes(tag))
             }
             return true
         })
@@ -222,21 +222,24 @@ export const Docs = () => {
                                     return (
                                         <li class='dir' key={item.path} style={`padding-left: ${item.depth * 16}px`}>
                                             <Icon name='folder' type='info' />
-                                            <span>{item.name}</span>
+                                            <span>{item.name ?? ''}</span>
                                         </li>
                                     )
                                 }
 
-                                const isSelected = state.selectedDoc?.path === item.doc.path
+                                const doc = item.doc
+                                if (!doc) return null
+
+                                const isSelected = state.selectedDoc?.path === doc.path
                                 return (
                                     <li
                                         class={isSelected ? 'selected' : ''}
-                                        key={item.doc.id}
-                                        onClick={() => handleDocSelect(item.doc.path)}
+                                        key={doc.id}
+                                        onClick={() => handleDocSelect(doc.path)}
                                         style={`padding-left: ${item.depth * 16}px`}
                                     >
                                         <Icon name='description' type='info' />
-                                        <span>{item.doc.title}</span>
+                                        <span>{doc.title}</span>
                                     </li>
                                 )
                             })}

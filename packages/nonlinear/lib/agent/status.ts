@@ -4,8 +4,9 @@
  */
 
 import type {WebSocketServerManager} from '@garage44/common/lib/ws-server'
-import {getDb} from '../database.ts'
+
 import {logger} from '../../service.ts'
+import {getDb} from '../database.ts'
 
 export type AgentStatus = 'idle' | 'working' | 'error' | 'offline'
 
@@ -45,12 +46,7 @@ export function initAgentStatusTracking(manager: WebSocketServerManager): void {
 /**
  * Update agent status
  */
-export function updateAgentStatus(
-    agentId: string,
-    status: AgentStatus,
-    ticketId?: string | null,
-    error?: string | null,
-): void {
+export function updateAgentStatus(agentId: string, status: AgentStatus, ticketId?: string | null, error?: string | null): void {
     const currentState = agentStatuses.get(agentId) || {
         agentId,
         currentTicketId: null,
@@ -74,11 +70,13 @@ export function updateAgentStatus(
     const agentName = agent?.name || agentId
 
     // Update database
-    getDb().prepare(`
+    getDb()
+        .prepare(`
         UPDATE agents
         SET status = ?
         WHERE id = ?
-    `).run(status, agentId)
+    `)
+        .run(status, agentId)
 
     // Broadcast status change
     if (wsManager) {

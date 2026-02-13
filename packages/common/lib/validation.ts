@@ -75,7 +75,7 @@ function createValidator<TValidations extends Record<string, ValidationEntry>>(v
 
         for (const [field, [modelRef, ...rules]] of Object.entries(validations)) {
             const fieldErrors: string[] = []
-            const value = modelRef.value
+            const {value} = modelRef
 
             // Check if the field is dirty by comparing with initial value
             const isDirty = value !== initialValues.get(modelRef)

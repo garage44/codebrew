@@ -11,7 +11,7 @@ const LANGUAGE_PROCESSING_DELAY = 100
 async function translate_tag(
     workspace: {
         broadcastI18nState: () => void
-        config: {languages: {target: Array<{engine: string; id: string}>}}
+        config: {languages: {target: {engine: string; id: string}[]}}
         i18n: Record<string, unknown>
     },
     tagPath: string[],
@@ -93,7 +93,7 @@ async function translate_tag(
 async function translate_path(
     workspace: {
         broadcastI18nState: () => void
-        config: {languages: {target: Array<{engine: string; id: string}>}}
+        config: {languages: {target: {engine: string; id: string}[]}}
         i18n: Record<string, unknown>
     },
     tagPath: string[],
@@ -126,7 +126,7 @@ async function translate_path(
             const errorData = error as {response?: {headers?: Record<string, string>; status?: number}}
             if (errorData.response?.status === 429) {
                 const retryAfter = errorData.response.headers?.['retry-after'] || '60'
-                await new Promise((resolve) => setTimeout(resolve, parseInt(retryAfter, 10) * 1000))
+                await new Promise((resolve) => setTimeout(resolve, Number.parseInt(retryAfter, 10) * 1000))
                 const retryTranslation = await enola.translateBatch(language.engine, tags, {
                     ...language,
                     formality: (language as {formality?: string}).formality ?? 'default',

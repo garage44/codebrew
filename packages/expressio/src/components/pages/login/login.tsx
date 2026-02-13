@@ -30,7 +30,7 @@ export const Login = () => {
             if (isAuthenticated) {
                 const config = (await api.get('/api/config')) as {
                     enola?: unknown
-                    workspaces?: Array<{workspace_id: string}>
+                    workspaces?: {workspace_id: string}[]
                 }
 
                 /*
@@ -38,9 +38,15 @@ export const Login = () => {
                  * result from login already includes full profile from /api/context
                  */
                 $s.profile.admin = result.admin || false
-                if (result.id) $s.profile.id = result.id
-                if (result.username) $s.profile.username = result.username
-                if (result.password) $s.profile.password = result.password
+                if (result.id) {
+                    $s.profile.id = result.id
+                }
+                if (result.username) {
+                    $s.profile.username = result.username
+                }
+                if (result.password) {
+                    $s.profile.password = result.password
+                }
                 if (result.profile) {
                     $s.profile.avatar = result.profile.avatar || 'placeholder-1.png'
                     $s.profile.displayName = result.profile.displayName || result.username || 'User'
@@ -49,7 +55,7 @@ export const Login = () => {
                 // Load workspaces config
                 const configTyped = config as {
                     enola?: unknown
-                    workspaces?: Array<{workspace_id: string}>
+                    workspaces?: {workspace_id: string}[]
                 }
                 mergeDeep(
                     $s as Record<string, unknown>,
@@ -136,5 +142,5 @@ export const Login = () => {
         }
     }
 
-    return <CommonLogin animated={true} logo='/public/img/logo.svg' onLogin={handleLogin} title='Expressio' />
+    return <CommonLogin animated logo='/public/img/logo.svg' onLogin={handleLogin} title='Expressio' />
 }

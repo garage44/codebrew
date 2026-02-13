@@ -13,7 +13,7 @@ import {copyObject, keyMod, keyPath} from './utils'
  */
 export const I18N_PATH_SYMBOL = Symbol('i18n.path')
 
-function i18nFormat(i18n: Record<string, unknown>, targetLanguages: Array<{id: string}>) {
+function i18nFormat(i18n: Record<string, unknown>, targetLanguages: {id: string}[]) {
     const _i18n = copyObject(i18n)
     const i18nextFormatted: Record<string, {translation: Record<string, unknown>}> = {}
     for (const language of targetLanguages) {

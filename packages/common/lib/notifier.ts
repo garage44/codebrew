@@ -30,9 +30,7 @@ export class Notifier {
 
         if (timeout) {
             setTimeout(() => {
-                const findFn = (_notification: Notification) => {
-                    return _notification.id === notification.id
-                }
+                const findFn = (_notification: Notification) => _notification.id === notification.id
                 const index = this.notifications.findIndex(findFn)
                 this.notifications.splice(index, 1)
             }, timeout)

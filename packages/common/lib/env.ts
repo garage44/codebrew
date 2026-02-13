@@ -71,12 +71,12 @@ export default function env(env: Record<string, unknown>, _storeParam: Store | n
     const originalPushState = history.pushState
     const originalReplaceState = history.replaceState
 
-    history.pushState = function (...args) {
+    history.pushState = function pushState(...args) {
         originalPushState.apply(history, args)
         updateUrl()
     }
 
-    history.replaceState = function (...args) {
+    history.replaceState = function replaceState(...args) {
         originalReplaceState.apply(history, args)
         updateUrl()
     }
@@ -118,7 +118,7 @@ export default function env(env: Record<string, unknown>, _storeParam: Store | n
 
         // Watch for theme changes and update HTML class
         effect(() => {
-            const theme = store.state.theme
+            const {theme} = store.state
             applyTheme(theme)
         })
     }

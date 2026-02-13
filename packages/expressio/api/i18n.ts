@@ -36,12 +36,12 @@ export function registerI18nWebSocketApiRoutes(wsManager: WebSocketServerManager
             workspace.i18n,
             path,
             value as {cache?: string; source: string; target: Record<string, string>},
-            targetLanguages as unknown as Array<{
+            targetLanguages as unknown as {
                 engine: 'anthropic' | 'deepl'
                 formality: 'default' | 'more' | 'less'
                 id: string
                 name: string
-            }>,
+            }[],
         )
         workspace.save()
     })

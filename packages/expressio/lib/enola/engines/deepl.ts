@@ -1,13 +1,14 @@
-import type {EnolaEngine, EnolaEngineConfig, EnolaLogger, EnolaTag, TargetLanguage} from '../types.ts'
 import {decode} from 'html-entities'
-import {toIso6391} from '../iso-codes.ts'
 
+import type {EnolaEngine, EnolaEngineConfig, EnolaLogger, EnolaTag, TargetLanguage} from '../types.ts'
+
+import {toIso6391} from '../iso-codes.ts'
 
 const ignoreXTagRegex = /<x>[\w]*<\/x>/g
 const ignoreITagRegex = /<i>[\w]*<\/i>/g
 // The <x> tag is used to label {{placeholders}} as untranslatable for Deepl.
 // These are replaced afterwards with the correct i18n format. The <i> tag
-// is used to mark text to ignore; it will be stripped from the translation.
+// Is used to mark text to ignore; it will be stripped from the translation.
 const placeholderRegex = /{{[\w]*}}/g
 
 interface FetchOptions extends RequestInit {
@@ -23,8 +24,7 @@ interface FetchOptions extends RequestInit {
 }
 
 export default class Deepl implements EnolaEngine {
-
-    config:EnolaEngineConfig = {
+    config: EnolaEngineConfig = {
         active: false,
         api_key: '',
         base_url: 'https://api-free.deepl.com/v2',
@@ -64,7 +64,11 @@ export default class Deepl implements EnolaEngine {
         this.config.active = false
     }
 
-    async suggestion(_tagPath: string[], _sourceText: string, _similarTranslations: Array<{path: string[]; source: string}>): Promise<string> {
+    async suggestion(
+        _tagPath: string[],
+        _sourceText: string,
+        _similarTranslations: {path: string[]; source: string}[],
+    ): Promise<string> {
         throw new Error('Deepl does not support LLM queries for context')
     }
 
@@ -76,7 +80,7 @@ export default class Deepl implements EnolaEngine {
 
         const headers = {
             Authorization: `DeepL-Auth-Key ${this.config.api_key}`,
-            ...(options.method === 'GET' ?  {} : {'Content-Type': 'application/json'}),
+            ...(options.method === 'GET' ? {} : {'Content-Type': 'application/json'}),
             ...options.headers,
         }
 
@@ -99,19 +103,19 @@ export default class Deepl implements EnolaEngine {
         return await response.json()
     }
 
-    prepareSource(tag:EnolaTag) {
+    prepareSource(tag: EnolaTag) {
         const srcPrepped = tag.source.replaceAll(placeholderRegex, (res) => res.replace('{{', '<x>').replace('}}', '</x>'))
         return srcPrepped
     }
 
-    async translate(tag:EnolaTag, targetLanguage:TargetLanguage) {
+    async translate(tag: EnolaTag, targetLanguage: TargetLanguage) {
         const sourceString = this.prepareSource(tag)
         try {
             const isoCode = toIso6391(targetLanguage.id)
             if (!isoCode) {
                 throw new Error(`Unable to convert language ${targetLanguage.id} to ISO 639-1`)
             }
-            const response = await this.fetch('/translate', {
+            const response = (await this.fetch('/translate', {
                 data: {
                     formality: targetLanguage.formality ? targetLanguage.formality : 'default',
                     ignore_tags: ['i', 'x'],
@@ -121,7 +125,7 @@ export default class Deepl implements EnolaEngine {
                     text: [sourceString],
                 },
                 method: 'POST',
-            }) as {translations: Array<{text: string}>}
+            })) as {translations: {text: string}[]}
 
             const translation = response.translations[0]?.text
             if (!translation) {
@@ -141,7 +145,7 @@ export default class Deepl implements EnolaEngine {
         }
     }
 
-    async translateBatch(batch:EnolaTag[], targetLanguage:TargetLanguage) {
+    async translateBatch(batch: EnolaTag[], targetLanguage: TargetLanguage) {
         const sourceStrings = batch.map((tag) => this.prepareSource(tag))
         this.logger.info(`[enola-deepl] Converting ${targetLanguage.id} to ISO 639-1`)
         try {
@@ -149,7 +153,7 @@ export default class Deepl implements EnolaEngine {
             if (!batchIsoCode) {
                 throw new Error(`Unable to convert language ${targetLanguage.id} to ISO 639-1`)
             }
-            const response = await this.fetch('/translate', {
+            const response = (await this.fetch('/translate', {
                 data: {
                     formality: targetLanguage.formality ? targetLanguage.formality : 'default',
                     ignore_tags: ['i', 'x'],
@@ -159,12 +163,13 @@ export default class Deepl implements EnolaEngine {
                     text: sourceStrings,
                 },
                 method: 'POST',
-            }) as {translations: Array<{text: string}>}
+            })) as {translations: {text: string}[]}
 
             const translations = response.translations.map((translation: {text: string}) => {
-                const translatedText = decode(translation.text
-                    .replaceAll(ignoreXTagRegex, (res: string) => res.replace('<x>', '{{').replace('</x>', '}}'))
-                    .replaceAll(ignoreITagRegex, (res: string) => res.replace('<i>', '').replace('</i>', '')),
+                const translatedText = decode(
+                    translation.text
+                        .replaceAll(ignoreXTagRegex, (res: string) => res.replace('<x>', '{{').replace('</x>', '}}'))
+                        .replaceAll(ignoreITagRegex, (res: string) => res.replace('<i>', '').replace('</i>', '')),
                 )
                 this.logger.info(`[enola-deepl] ${targetLanguage.id}: ${translatedText}`)
                 return translatedText
@@ -182,7 +187,9 @@ export default class Deepl implements EnolaEngine {
 
         if (usage.character_count) {
             const percentage = (usage.character_count / usage.character_limit) * 100
-            this.logger.info(`[enola-deepl] usage: ${usage.character_count} of ${usage.character_limit} characters (${percentage.toFixed(2)}%)`)
+            this.logger.info(
+                `[enola-deepl] usage: ${usage.character_count} of ${usage.character_limit} characters (${percentage.toFixed(2)}%)`,
+            )
         }
 
         Object.assign(this.config, {

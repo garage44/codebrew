@@ -25,15 +25,19 @@ export function parseMentions(content: string): ParsedMention[] {
         const original = match[0]
 
         // Check if it's an agent (case-insensitive match)
-        const agent = getDb().prepare(`
+        const agent = getDb()
+            .prepare(`
             SELECT id, name, enabled
             FROM agents
             WHERE LOWER(name) = LOWER(?) OR LOWER(id) = LOWER(?)
-        `).get(name, name) as {
-            enabled: number
-            id: string
-            name: string
-        } | undefined
+        `)
+            .get(name, name) as
+            | {
+                  enabled: number
+                  id: string
+                  name: string
+              }
+            | undefined
 
         if (agent && agent.enabled === 1) {
             mentions.push({
@@ -66,15 +70,19 @@ export function validateMentions(mentions: ParsedMention[]): {
 
     for (const mention of mentions) {
         if (mention.type === 'agent') {
-            const agent = getDb().prepare(`
+            const agent = getDb()
+                .prepare(`
                 SELECT id, name, enabled
                 FROM agents
                 WHERE LOWER(name) = LOWER(?) OR LOWER(id) = LOWER(?)
-            `).get(mention.name, mention.name) as {
-                enabled: number
-                id: string
-                name: string
-            } | undefined
+            `)
+                .get(mention.name, mention.name) as
+                | {
+                      enabled: number
+                      id: string
+                      name: string
+                  }
+                | undefined
 
             if (agent && agent.enabled === 1) {
                 valid.push(mention)

@@ -19,11 +19,11 @@ export interface CodebrewAppPlugin {
     icon: string
     id: 'expressio' | 'nonlinear' | 'pyrite'
     menuComponent?: ComponentType
-    menuItems?: Array<{
+    menuItems?: {
         href: string
         icon: string
         text: string
-    }>
+    }[]
     name: string
     routes: CodebrewRoute[]
     wsRoutes?: (wsManager: WebSocketServerManager) => void
@@ -45,7 +45,7 @@ export function getApp(id: string): CodebrewAppPlugin | undefined {
 }
 
 export function getApps(): CodebrewAppPlugin[] {
-    return Array.from(plugins.values())
+    return [...plugins.values()]
 }
 
 export function registerApp(plugin: CodebrewAppPlugin): void {

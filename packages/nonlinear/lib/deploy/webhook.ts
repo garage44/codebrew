@@ -1,17 +1,13 @@
 import {$} from 'bun'
-import {homedir} from 'node:os'
 import {existsSync, unlinkSync} from 'node:fs'
+import {homedir} from 'node:os'
 import {join as pathJoin} from 'node:path'
-import {extractWorkspacePackages, findWorkspaceRoot, isApplicationPackage} from './workspace'
+
+import {type HealthCheckResult, waitForHttpEndpoint, waitForPort, waitForService} from './health-check'
 import {cleanupPRDeployment} from './pr-cleanup'
 import {type PRMetadata, deployPR, updateAllPRDeploymentsWithMain} from './pr-deploy'
 import {getPRDeployment, updatePRDeployment} from './pr-registry'
-import {
-    type HealthCheckResult,
-    waitForHttpEndpoint,
-    waitForPort,
-    waitForService,
-} from './health-check'
+import {extractWorkspacePackages, findWorkspaceRoot, isApplicationPackage} from './workspace'
 
 interface PullRequestWebhookEvent {
     action?: string
@@ -56,18 +52,10 @@ export async function validateSignature(payload: string, signature: string, secr
     const keyData = encoder.encode(secret)
     const payloadData = encoder.encode(payload)
 
-    const key = await crypto.subtle.importKey(
-        'raw',
-        keyData,
-        {hash: 'SHA-256', name: 'HMAC'},
-        false,
-        ['sign'],
-    )
+    const key = await crypto.subtle.importKey('raw', keyData, {hash: 'SHA-256', name: 'HMAC'}, false, ['sign'])
 
     const hmacSignature = await crypto.subtle.sign('HMAC', key, payloadData)
-    const calculatedHash = [...new Uint8Array(hmacSignature)]
-        .map((b): string => b.toString(16).padStart(2, '0'))
-        .join('')
+    const calculatedHash = [...new Uint8Array(hmacSignature)].map((b): string => b.toString(16).padStart(2, '0')).join('')
 
     // Use constant-time comparison to prevent timing attacks
     if (calculatedHash.length !== sigHash.length) {
@@ -92,10 +80,7 @@ function removeDatabases(): void {
     // eslint-disable-next-line no-console
     console.log('[deploy] Removing database files...')
 
-    const dbFiles = [
-        `${homedir()}/.pyrite.db`,
-        `${homedir()}/.expressio.db`,
-    ]
+    const dbFiles = [`${homedir()}/.pyrite.db`, `${homedir()}/.expressio.db`]
 
     // Also remove WAL and SHM files if they exist
     const walShmFiles = [
@@ -111,7 +96,7 @@ function removeDatabases(): void {
                 unlinkSync(file)
                 // eslint-disable-next-line no-console
                 console.log(`[deploy] Removed ${file}`)
-            } catch(error: unknown) {
+            } catch (error: unknown) {
                 const message = error instanceof Error ? error.message : String(error)
                 // eslint-disable-next-line no-console
                 console.warn(`[deploy] Failed to remove ${file}: ${message}`)
@@ -146,7 +131,7 @@ export async function deploy(): Promise<{message: string; success: boolean}> {
             process.chdir(REPO_PATH)
             // eslint-disable-next-line no-console
             console.log(`[deploy] Changed to repository directory: ${process.cwd()}`)
-        } catch(error: unknown) {
+        } catch (error: unknown) {
             const message = error instanceof Error ? error.message : String(error)
             throw new Error(`Failed to change to repository directory: ${message}`, {cause: error})
         }
@@ -185,7 +170,7 @@ export async function deploy(): Promise<{message: string; success: boolean}> {
             const bunVersion = bunVersionResult.stdout?.toString().trim() || 'unknown'
             // eslint-disable-next-line no-console
             console.log(`[deploy] Bun version: ${bunVersion}`)
-        } catch(error: unknown) {
+        } catch (error: unknown) {
             const message = error instanceof Error ? error.message : String(error)
             throw new Error(`Failed to verify bun installation: ${message}`, {cause: error})
         }
@@ -300,7 +285,7 @@ export async function deploy(): Promise<{message: string; success: boolean}> {
                     // eslint-disable-next-line no-console
                     console.warn(`[deploy] ${packageName} restart stdout: ${stdout}`)
                 }
-            } catch(error: unknown) {
+            } catch (error: unknown) {
                 const message = error instanceof Error ? error.message : String(error)
                 // eslint-disable-next-line no-console
                 console.warn(`[deploy] Error restarting ${packageName}: ${message}`)
@@ -313,7 +298,7 @@ export async function deploy(): Promise<{message: string; success: boolean}> {
         if (nonlinearPackage) {
             // eslint-disable-next-line no-console
             console.log('[deploy] Scheduling nonlinear service restart (after function returns)...')
-            queueMicrotask(async(): Promise<void> => {
+            queueMicrotask(async (): Promise<void> => {
                 try {
                     // eslint-disable-next-line no-console
                     console.log('[deploy] Restarting nonlinear service...')
@@ -331,7 +316,7 @@ export async function deploy(): Promise<{message: string; success: boolean}> {
                         // eslint-disable-next-line no-console
                         console.error(`[deploy] ${nonlinearPackage} restart stdout: ${stdout}`)
                     }
-                } catch(error: unknown) {
+                } catch (error: unknown) {
                     const errorMessage = error instanceof Error ? error.message : String(error)
                     // eslint-disable-next-line no-console
                     console.error(`[deploy] ❌ Error restarting ${nonlinearPackage}: ${errorMessage}`)
@@ -340,7 +325,7 @@ export async function deploy(): Promise<{message: string; success: boolean}> {
         }
 
         return {message: 'Deployment completed successfully', success: true}
-    } catch(error: unknown) {
+    } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error)
         const stack = error instanceof Error ? error.stack || null : null
         // eslint-disable-next-line no-console
@@ -356,7 +341,8 @@ export async function deploy(): Promise<{message: string; success: boolean}> {
 /**
  * Handle pull request events
  */
-async function handlePullRequestEvent(event: PullRequestWebhookEvent): Promise<Response> { // eslint-disable-line @typescript-eslint/explicit-function-return-type
+async function handlePullRequestEvent(event: PullRequestWebhookEvent): Promise<Response> {
+    // eslint-disable-line @typescript-eslint/explicit-function-return-type
     const {action} = event
     const pullRequest = event.pull_request
     const prNumber = pullRequest?.number
@@ -420,27 +406,33 @@ async function handlePullRequestEvent(event: PullRequestWebhookEvent): Promise<R
                     })
                 }
 
-                return new Response(JSON.stringify({
-                    message: `Deployment failed: ${deployResult.message}`,
-                    prNumber,
-                    success: false,
-                    timestamp: new Date().toISOString(),
-                }), {
-                    headers: {'Content-Type': 'application/json'},
-                    status: 500,
-                })
+                return new Response(
+                    JSON.stringify({
+                        message: `Deployment failed: ${deployResult.message}`,
+                        prNumber,
+                        success: false,
+                        timestamp: new Date().toISOString(),
+                    }),
+                    {
+                        headers: {'Content-Type': 'application/json'},
+                        status: 500,
+                    },
+                )
             }
 
             if (!deployResult.deployment) {
-                return new Response(JSON.stringify({
-                    message: 'Deployment completed but no deployment record was created',
-                    prNumber,
-                    success: false,
-                    timestamp: new Date().toISOString(),
-                }), {
-                    headers: {'Content-Type': 'application/json'},
-                    status: 500,
-                })
+                return new Response(
+                    JSON.stringify({
+                        message: 'Deployment completed but no deployment record was created',
+                        prNumber,
+                        success: false,
+                        timestamp: new Date().toISOString(),
+                    }),
+                    {
+                        headers: {'Content-Type': 'application/json'},
+                        status: 500,
+                    },
+                )
             }
 
             // eslint-disable-next-line no-console
@@ -449,15 +441,18 @@ async function handlePullRequestEvent(event: PullRequestWebhookEvent): Promise<R
             // Get the deployment record to check packages
             const deployment = await getPRDeployment(prNumber)
             if (!deployment) {
-                return new Response(JSON.stringify({
-                    message: 'Deployment completed but deployment record not found',
-                    prNumber,
-                    success: false,
-                    timestamp: new Date().toISOString(),
-                }), {
-                    headers: {'Content-Type': 'application/json'},
-                    status: 500,
-                })
+                return new Response(
+                    JSON.stringify({
+                        message: 'Deployment completed but deployment record not found',
+                        prNumber,
+                        success: false,
+                        timestamp: new Date().toISOString(),
+                    }),
+                    {
+                        headers: {'Content-Type': 'application/json'},
+                        status: 500,
+                    },
+                )
             }
 
             // Discover packages to verify
@@ -514,61 +509,91 @@ async function handlePullRequestEvent(event: PullRequestWebhookEvent): Promise<R
 
             // Combine all checks
             const allChecks = [...serviceChecks, ...httpChecks]
-            const allHealthy = allChecks.every((check: {name: string; result: {healthy: boolean; message: string; details?: unknown}}): boolean => check.result.healthy)
-            const failedChecks = allChecks.filter((check: {name: string; result: {healthy: boolean; message: string; details?: unknown}}): boolean => !check.result.healthy)
+            const allHealthy = allChecks.every(
+                (check: {name: string; result: {healthy: boolean; message: string; details?: unknown}}): boolean =>
+                    check.result.healthy,
+            )
+            const failedChecks = allChecks.filter(
+                (check: {name: string; result: {healthy: boolean; message: string; details?: unknown}}): boolean =>
+                    !check.result.healthy,
+            )
 
             if (!allHealthy) {
                 // eslint-disable-next-line no-console
-                console.error(`[webhook] PR #${prNumber} health checks failed:`, failedChecks.map((c: {name: string}): string => c.name))
+                console.error(
+                    `[webhook] PR #${prNumber} health checks failed:`,
+                    failedChecks.map((c: {name: string}): string => c.name),
+                )
                 // eslint-disable-next-line no-await-in-loop
                 await updatePRDeployment(prNumber, {status: 'failed'}).catch((error: unknown): void => {
                     // eslint-disable-next-line no-console
                     console.error('[webhook] Failed to update deployment status:', error)
                 })
 
-                return new Response(JSON.stringify({
-                    allChecks: allChecks.map((c: {name: string; result: {healthy: boolean; message: string}}): {healthy: boolean; message: string; name: string} => ({
-                        healthy: c.result.healthy,
-                        message: c.result.message,
-                        name: c.name,
-                    })),
-                    failedChecks: failedChecks.map((c: {name: string; result: {details?: unknown; message: string}}): {details?: unknown; message: string; name: string} => ({
-                        details: c.result.details,
-                        message: c.result.message,
-                        name: c.name,
-                    })),
-                    message: 'Deployment completed but health checks failed',
-                    prNumber,
-                    success: false,
-                    timestamp: new Date().toISOString(),
-                }), {
-                    headers: {'Content-Type': 'application/json'},
-                    status: 500,
-                })
+                return new Response(
+                    JSON.stringify({
+                        allChecks: allChecks.map(
+                            (c: {
+                                name: string
+                                result: {healthy: boolean; message: string}
+                            }): {healthy: boolean; message: string; name: string} => ({
+                                healthy: c.result.healthy,
+                                message: c.result.message,
+                                name: c.name,
+                            }),
+                        ),
+                        failedChecks: failedChecks.map(
+                            (c: {
+                                name: string
+                                result: {details?: unknown; message: string}
+                            }): {details?: unknown; message: string; name: string} => ({
+                                details: c.result.details,
+                                message: c.result.message,
+                                name: c.name,
+                            }),
+                        ),
+                        message: 'Deployment completed but health checks failed',
+                        prNumber,
+                        success: false,
+                        timestamp: new Date().toISOString(),
+                    }),
+                    {
+                        headers: {'Content-Type': 'application/json'},
+                        status: 500,
+                    },
+                )
             }
 
             // eslint-disable-next-line no-console
             console.log(`[webhook] PR #${prNumber} deployment successful and healthy`)
-            return new Response(JSON.stringify({
-                deployment: {
-                    packages: packagesToDeploy,
-                    ports: deployment.ports,
-                    url: `https://pr-${prNumber}-nonlinear.${baseDomain}`,
+            return new Response(
+                JSON.stringify({
+                    deployment: {
+                        packages: packagesToDeploy,
+                        ports: deployment.ports,
+                        url: `https://pr-${prNumber}-nonlinear.${baseDomain}`,
+                    },
+                    healthChecks: allChecks.map(
+                        (c: {
+                            name: string
+                            result: {healthy: boolean; message: string}
+                        }): {healthy: boolean; message: string; name: string} => ({
+                            healthy: c.result.healthy,
+                            message: c.result.message,
+                            name: c.name,
+                        }),
+                    ),
+                    message: `PR #${prNumber} deployed successfully and verified`,
+                    prNumber,
+                    success: true,
+                    timestamp: new Date().toISOString(),
+                }),
+                {
+                    headers: {'Content-Type': 'application/json'},
+                    status: 200,
                 },
-                healthChecks: allChecks.map((c: {name: string; result: {healthy: boolean; message: string}}): {healthy: boolean; message: string; name: string} => ({
-                    healthy: c.result.healthy,
-                    message: c.result.message,
-                    name: c.name,
-                })),
-                message: `PR #${prNumber} deployed successfully and verified`,
-                prNumber,
-                success: true,
-                timestamp: new Date().toISOString(),
-            }), {
-                headers: {'Content-Type': 'application/json'},
-                status: 200,
-            })
-        } catch(error) {
+            )
+        } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error)
             const errorStack = error instanceof Error ? error.stack || null : null
             // eslint-disable-next-line no-console
@@ -585,26 +610,32 @@ async function handlePullRequestEvent(event: PullRequestWebhookEvent): Promise<R
                 console.error('[webhook] Failed to update deployment status:', error)
             })
 
-            return new Response(JSON.stringify({
-                error: errorMessage,
-                message: `Deployment error: ${errorMessage}`,
-                prNumber,
-                success: false,
-                timestamp: new Date().toISOString(),
-            }), {
-                headers: {'Content-Type': 'application/json'},
-                status: 500,
-            })
+            return new Response(
+                JSON.stringify({
+                    error: errorMessage,
+                    message: `Deployment error: ${errorMessage}`,
+                    prNumber,
+                    success: false,
+                    timestamp: new Date().toISOString(),
+                }),
+                {
+                    headers: {'Content-Type': 'application/json'},
+                    status: 500,
+                },
+            )
         }
     }
 
     // Ignore other actions
-    return new Response(JSON.stringify({
-        message: `Ignored PR action: ${action}`,
-    }), {
-        headers: {'Content-Type': 'application/json'},
-        status: 200,
-    })
+    return new Response(
+        JSON.stringify({
+            message: `Ignored PR action: ${action}`,
+        }),
+        {
+            headers: {'Content-Type': 'application/json'},
+            status: 200,
+        },
+    )
 }
 
 /**
@@ -700,22 +731,27 @@ export async function handleWebhook(req: Request): Promise<Response> {
      */
     // eslint-disable-next-line no-console
     console.log('[webhook] Updating active PR deployments with main branch changes...')
-    updateAllPRDeploymentsWithMain().then((result: {message: string}): void => {
-        // eslint-disable-next-line no-console
-        console.log(`[webhook] PR deployments update: ${result.message}`)
-    }).catch((error: unknown): void => {
-        const errorMessage = error instanceof Error ? error.message : String(error)
-        // eslint-disable-next-line no-console
-        console.error(`[webhook] Error updating PR deployments: ${errorMessage}`)
-    })
+    updateAllPRDeploymentsWithMain()
+        .then((result: {message: string}): void => {
+            // eslint-disable-next-line no-console
+            console.log(`[webhook] PR deployments update: ${result.message}`)
+        })
+        .catch((error: unknown): void => {
+            const errorMessage = error instanceof Error ? error.message : String(error)
+            // eslint-disable-next-line no-console
+            console.error(`[webhook] Error updating PR deployments: ${errorMessage}`)
+        })
 
     // Return deployment result immediately (before nonlinear restart)
-    return new Response(JSON.stringify({
-        message: deploymentResult.message,
-        success: deploymentResult.success,
-        timestamp: new Date().toISOString(),
-    }), {
-        headers: {'Content-Type': 'application/json'},
-        status: deploymentResult.success ? 200 : 500,
-    })
+    return new Response(
+        JSON.stringify({
+            message: deploymentResult.message,
+            success: deploymentResult.success,
+            timestamp: new Date().toISOString(),
+        }),
+        {
+            headers: {'Content-Type': 'application/json'},
+            status: deploymentResult.success ? 200 : 500,
+        },
+    )
 }

@@ -4,7 +4,7 @@
  * import classnames from 'classnames'
  */
 
-// const classes = classnames
+// Const classes = classnames
 
 function copyObject<T>(obj: T): T {
     return JSON.parse(JSON.stringify(obj))
@@ -121,7 +121,9 @@ function keyPath<T extends Record<string, unknown>>(obj: T, refPath: string[], c
     let _obj: unknown = obj
     while (_refPath.length) {
         const key = _refPath.shift()
-        if (!key) break
+        if (!key) {
+            break
+        }
         if (typeof _obj === 'object' && _obj !== null && key in (_obj as Record<string, unknown>)) {
             _obj = (_obj as Record<string, unknown>)[key]
         } else if (create && typeof _obj === 'object' && _obj !== null) {

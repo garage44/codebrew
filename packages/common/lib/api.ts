@@ -1,5 +1,5 @@
 export class Api {
-    async delete(endpoint: string, data: unknown): Promise<unknown> {
+    async delete<T = unknown>(endpoint: string, data: unknown): Promise<T> {
         const response = await fetch(endpoint, {
             body: JSON.stringify(data),
             credentials: 'same-origin',
@@ -8,10 +8,10 @@ export class Api {
             },
             method: 'DELETE',
         })
-        return await response.json()
+        return (await response.json()) as T
     }
 
-    async get(endpoint: string, params: Record<string, unknown> | null = null): Promise<unknown> {
+    async get<T = unknown>(endpoint: string, params: Record<string, unknown> | null = null): Promise<T> {
         const url = new URL(endpoint, globalThis.location.origin)
         if (params) {
             Object.entries(params).forEach(([key, value]) => {
@@ -31,12 +31,12 @@ export class Api {
         })
 
         if (res.status === 401) {
-            return {status: 'unauthorized'}
+            return {status: 'unauthorized'} as T
         }
-        return await res.json()
+        return (await res.json()) as T
     }
 
-    async post(endpoint: string, data: unknown): Promise<unknown> {
+    async post<T = unknown>(endpoint: string, data: unknown): Promise<T> {
         const response = await fetch(endpoint, {
             body: JSON.stringify(data),
             credentials: 'same-origin',
@@ -45,10 +45,10 @@ export class Api {
             },
             method: 'POST',
         })
-        return await response.json()
+        return (await response.json()) as T
     }
 
-    async put(endpoint: string, data: unknown): Promise<unknown> {
+    async put<T = unknown>(endpoint: string, data: unknown): Promise<T> {
         const response = await fetch(endpoint, {
             body: JSON.stringify(data),
             credentials: 'same-origin',
@@ -57,6 +57,6 @@ export class Api {
             },
             method: 'PUT',
         })
-        return await response.json()
+        return (await response.json()) as T
     }
 }

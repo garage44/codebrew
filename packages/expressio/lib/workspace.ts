@@ -237,7 +237,7 @@ export class Workspace {
                 const sourceRefData = sourceRef as Record<string, unknown>
                 // The _id field is a copy of the key, used to buffer a key rename.
                 sourceRefData._id = key || 'root'
-                sourceRefData._collapsed = !!key
+                sourceRefData._collapsed = Boolean(key)
                 Boolean(key)
                 /*
                  * Attach path symbol for type-safe translation references
@@ -324,7 +324,7 @@ export class Workspace {
         const pattern = firstGlobChar === -1 ? '**/*' : scan_target.slice(baseDir.length + 1)
 
         const glob = new Glob(pattern)
-        const files = Array.from(glob.scanSync(baseDir)).map((f) => path.join(baseDir, f))
+        const files = [...glob.scanSync(baseDir)].map((f) => path.join(baseDir, f))
 
         logger.info(`[workspace-${this.config.workspace_id}] watching ${files.length} files`)
 

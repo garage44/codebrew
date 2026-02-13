@@ -16,7 +16,7 @@ const state = deepSignal({
         {id: 'less', name: 'Less formal'},
         {id: 'more', name: 'More formal'},
     ],
-    target_languages: [] as Array<{
+    target_languages: [] as {
         $engine?: Signal<string>
         $formality?: Signal<string>
         $selected?: Signal<boolean>
@@ -28,7 +28,7 @@ const state = deepSignal({
         name: string
         selected: boolean
         transcription: null
-    }>,
+    }[],
 })
 
 export function WorkspaceSettings() {
@@ -43,7 +43,7 @@ export function WorkspaceSettings() {
                 const selected = $s.workspace.config.languages.target.find((i) => i.id === language.id)
 
                 /*
-                 * formality_supported should be an array of engine names that support formality
+                 * Formality_supported should be an array of engine names that support formality
                  * If language.formality is true, use all available engine names
                  * Note: This is a simplification - ideally we'd check which specific engines support formality for each language
                  */
@@ -54,7 +54,7 @@ export function WorkspaceSettings() {
                 const formalitySupported = language.formality ? availableEngineNames : []
                 const engineValue = selected ? selected.engine : ''
                 const formalityValue = selected ? selected.formality || 'less' : 'less'
-                const selectedValue = !!selected
+                const selectedValue = Boolean(selected)
                 return {
                     $engine: signal(engineValue),
                     $formality: signal(formalityValue),
@@ -86,7 +86,7 @@ export function WorkspaceSettings() {
                         language.$engine,
                         {
                             message: `Translation engine required for ${language.name}`,
-                            test: (v) => !language.selected || (language.selected && !!v),
+                            test: (v) => !language.selected || (language.selected && Boolean(v)),
                         },
                     ],
                 ],
@@ -99,7 +99,7 @@ export function WorkspaceSettings() {
                             test: (v) =>
                                 !language.selected ||
                                 !language.formality_supported.includes(language.engine) ||
-                                (language.selected && language.formality_supported.includes(language.engine) && !!v),
+                                (language.selected && language.formality_supported.includes(language.engine) && Boolean(v)),
                         },
                     ],
                 ],
@@ -130,63 +130,61 @@ export function WorkspaceSettings() {
                         <div className='options'>
                             {state.target_languages
                                 .toSorted((a, b) => a.name.localeCompare(b.name))
-                                .map((language) => {
-                                    return (
-                                        <div
-                                            class={classnames('option', {
-                                                'is-invalid':
-                                                    !validation.value[`target_${language.id}_engine`].isValid ||
-                                                    !validation.value[`target_${language.id}_formality`].isValid,
-                                                'is-touched':
-                                                    validation.value[`target_${language.id}_engine`].isTouched ||
-                                                    validation.value[`target_${language.id}_formality`].isTouched,
-                                            })}
-                                            key={language.id}
-                                        >
-                                            <div class='field-wrapper'>
-                                                <FieldCheckbox
-                                                    label={language.name}
-                                                    model={language.$selected as Signal<boolean> | undefined}
-                                                    onInput={(value) => {
-                                                        if (!value && language.$engine) {
-                                                            language.$engine.value = ''
-                                                        }
-                                                    }}
-                                                />
+                                .map((language) => (
+                                    <div
+                                        class={classnames('option', {
+                                            'is-invalid':
+                                                !validation.value[`target_${language.id}_engine`].isValid ||
+                                                !validation.value[`target_${language.id}_formality`].isValid,
+                                            'is-touched':
+                                                validation.value[`target_${language.id}_engine`].isTouched ||
+                                                validation.value[`target_${language.id}_formality`].isTouched,
+                                        })}
+                                        key={language.id}
+                                    >
+                                        <div class='field-wrapper'>
+                                            <FieldCheckbox
+                                                label={language.name}
+                                                model={language.$selected as Signal<boolean> | undefined}
+                                                onInput={(value) => {
+                                                    if (!value && language.$engine) {
+                                                        language.$engine.value = ''
+                                                    }
+                                                }}
+                                            />
+                                            <FieldSelect
+                                                disabled={!language.selected}
+                                                model={language.$engine as Signal<string>}
+                                                options={Object.values($s.enola.engines).map((engine) => {
+                                                    const engineConfig = engine as {name: string}
+                                                    return {
+                                                        id: engineConfig.name || '',
+                                                        name: engineConfig.name || '',
+                                                    }
+                                                })}
+                                                placeholder={$t(i18n.settings.placeholder.translation)}
+                                            />
+                                        </div>
+                                        {language.formality_supported.includes(language.engine) && (
+                                            <div class='language-options'>
                                                 <FieldSelect
                                                     disabled={!language.selected}
-                                                    model={language.$engine as Signal<string>}
-                                                    options={Object.values($s.enola.engines).map((engine) => {
-                                                        const engineConfig = engine as {name: string}
-                                                        return {
-                                                            id: engineConfig.name || '',
-                                                            name: engineConfig.name || '',
-                                                        }
-                                                    })}
-                                                    placeholder={$t(i18n.settings.placeholder.translation)}
+                                                    label={$t(i18n.settings.label.formality)}
+                                                    model={language.$formality as Signal<string>}
+                                                    options={state.formality}
+                                                    placeholder={$t(i18n.settings.placeholder.formality)}
                                                 />
                                             </div>
-                                            {language.formality_supported.includes(language.engine) && (
-                                                <div class='language-options'>
-                                                    <FieldSelect
-                                                        disabled={!language.selected}
-                                                        label={$t(i18n.settings.label.formality)}
-                                                        model={language.$formality as Signal<string>}
-                                                        options={state.formality}
-                                                        placeholder={$t(i18n.settings.placeholder.formality)}
-                                                    />
-                                                </div>
-                                            )}
-                                            {(!validation.value[`target_${language.id}_engine`].isValid ||
-                                                !validation.value[`target_${language.id}_formality`].isValid) && (
-                                                <div class='validation'>
-                                                    {validation.value[`target_${language.id}_engine`].errors.join(', ')}
-                                                    {validation.value[`target_${language.id}_formality`].errors.join(', ')}
-                                                </div>
-                                            )}
-                                        </div>
-                                    )
-                                })}
+                                        )}
+                                        {(!validation.value[`target_${language.id}_engine`].isValid ||
+                                            !validation.value[`target_${language.id}_formality`].isValid) && (
+                                            <div class='validation'>
+                                                {validation.value[`target_${language.id}_engine`].errors.join(', ')}
+                                                {validation.value[`target_${language.id}_formality`].errors.join(', ')}
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
                         </div>
                     </div>
                 </div>
@@ -236,14 +234,12 @@ export function WorkspaceSettings() {
                         store.save()
                         const selectedLanguages = state.target_languages
                             .filter((language) => language.selected)
-                            .map((language) => {
-                                return {
-                                    engine: language.engine as 'anthropic' | 'deepl',
-                                    formality: (language.formality ?? 'default') as 'default' | 'less' | 'more',
-                                    id: language.id,
-                                    name: language.name ?? language.id,
-                                }
-                            })
+                            .map((language) => ({
+                                engine: language.engine as 'anthropic' | 'deepl',
+                                formality: (language.formality ?? 'default') as 'default' | 'less' | 'more',
+                                id: language.id,
+                                name: language.name ?? language.id,
+                            }))
                         // Merge the selected languages state back to the workspace config.
                         $s.workspace.config.languages.target.splice(
                             0,

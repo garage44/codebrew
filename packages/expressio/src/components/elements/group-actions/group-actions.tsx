@@ -134,9 +134,9 @@ export function GroupActions({className, group, path}: {className?: string; grou
                                     type: 'error',
                                 })
                             }
-                        } catch (err) {
+                        } catch (error) {
                             notifier.notify({
-                                message: `Translation error: ${err instanceof Error ? err.message : String(err)}`,
+                                message: `Translation error: ${error instanceof Error ? error.message : String(error)}`,
                                 type: 'error',
                             })
                         }

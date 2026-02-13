@@ -1,12 +1,15 @@
-import {Logger} from './lib/logger.ts'
-import type {LoggerConfig} from './types.ts'
-import {UserManager} from './lib/user-manager.ts'
-import {WebSocketServerManager} from './lib/ws-server.ts'
 import type {Database} from 'bun:sqlite'
+
 import figlet from 'figlet'
 import fs from 'fs-extra'
 import path from 'node:path'
 import pc from 'picocolors'
+
+import type {LoggerConfig} from './types.ts'
+
+import {Logger} from './lib/logger.ts'
+import {UserManager} from './lib/user-manager.ts'
+import {WebSocketServerManager} from './lib/ws-server.ts'
 
 function serviceLogger(logger_config: LoggerConfig): InstanceType<typeof Logger> {
     return new Logger(logger_config)
@@ -33,7 +36,6 @@ function loggerTransports(logger_config: LoggerConfig, type: 'cli' | 'service'):
 }
 
 interface StaticFileServerOptions {
-
     /** Base directory for the service */
     baseDir: string
 
@@ -55,18 +57,23 @@ async function tryPublicFile(baseDir: string, pathname: string, logger: unknown)
     const publicPath = path.join(baseDir, 'public', pathname)
     const publicFile = Bun.file(publicPath)
     if (await publicFile.exists()) {
-        (logger as {debug?: (msg: string) => void})?.debug?.(`[Static] Serving from public: ${publicPath}`)
+        ;(logger as {debug?: (msg: string) => void})?.debug?.(`[Static] Serving from public: ${publicPath}`)
         return new Response(publicFile)
     }
     return null
 }
 
-async function tryFallbackDirs(baseDir: string, pathname: string, fallbackDirs: string[], logger: unknown): Promise<Response | null> {
-    const checks = fallbackDirs.map(async(fallbackDir: string): Promise<Response | null> => {
+async function tryFallbackDirs(
+    baseDir: string,
+    pathname: string,
+    fallbackDirs: string[],
+    logger: unknown,
+): Promise<Response | null> {
+    const checks = fallbackDirs.map(async (fallbackDir: string): Promise<Response | null> => {
         const fallbackPath = path.join(baseDir, fallbackDir, pathname)
         const fallbackFile = Bun.file(fallbackPath)
         if (await fallbackFile.exists()) {
-            (logger as {debug?: (msg: string) => void})?.debug?.(`[Static] Serving from ${fallbackDir}: ${fallbackPath}`)
+            ;(logger as {debug?: (msg: string) => void})?.debug?.(`[Static] Serving from ${fallbackDir}: ${fallbackPath}`)
             return new Response(fallbackFile)
         }
         return null
@@ -93,11 +100,13 @@ async function trySpaFallback(baseDir: string, pathname: string, spaFallback: bo
     return null
 }
 
-function createStaticFileHandler(options: StaticFileServerOptions): (request: Request, pathname: string) => Promise<Response | null> {
+function createStaticFileHandler(
+    options: StaticFileServerOptions,
+): (request: Request, pathname: string) => Promise<Response | null> {
     const {baseDir, fallbackDirs = [], logger, spaFallback = true} = options
 
     // eslint-disable-next-line max-statements
-    return async(request: Request, pathname: string): Promise<Response | null> => {
+    return async (request: Request, pathname: string): Promise<Response | null> => {
         // Default to index.html for root
         const normalizedPathname = pathname === '/' ? '/index.html' : pathname
 
@@ -144,10 +153,7 @@ async function withSpaFallback(originalResponse: Response, request: Request, bas
      * - File extensions (assets)
      * - WebSocket endpoints
      */
-    if (pathname.startsWith('/api') ||
-        pathname.includes('.') ||
-        pathname.startsWith('/bunchy') ||
-        pathname.startsWith('/ws')) {
+    if (pathname.startsWith('/api') || pathname.includes('.') || pathname.startsWith('/bunchy') || pathname.startsWith('/ws')) {
         return originalResponse
     }
 
@@ -189,14 +195,15 @@ export interface BunchyConfigOptions {
     version: string
 }
 
-export function setupBunchyConfig(options: BunchyConfigOptions): {common: string; logPrefix: string; reload_ignore: string[]; separateAssets?: string[]; version: string; workspace: string} {
-    const {
-        logPrefix,
-        reloadIgnore = [],
-        separateAssets,
-        serviceDir,
-        version,
-    } = options
+export function setupBunchyConfig(options: BunchyConfigOptions): {
+    common: string
+    logPrefix: string
+    reload_ignore: string[]
+    separateAssets?: string[]
+    version: string
+    workspace: string
+} {
+    const {logPrefix, reloadIgnore = [], separateAssets, serviceDir, version} = options
 
     return {
         common: path.resolve(serviceDir, '../', 'common'),
@@ -239,9 +246,4 @@ export const service = {
     },
 }
 
-export {
-    createStaticFileHandler,
-    loggerTransports,
-    serviceLogger,
-    withSpaFallback,
-}
+export {createStaticFileHandler, loggerTransports, serviceLogger, withSpaFallback}

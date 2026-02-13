@@ -1,6 +1,6 @@
 import {RingBuffer} from './ring-buffer'
 
-type HttpEvent = {
+interface HttpEvent {
     method: string
     ms?: number
     status?: number
@@ -8,7 +8,7 @@ type HttpEvent = {
     url: string
 }
 
-type WsEvent = {
+interface WsEvent {
     dataPreview?: string
     endpoint: string
     ts: number
@@ -16,7 +16,7 @@ type WsEvent = {
     url?: string
 }
 
-type LogEvent = {
+interface LogEvent {
     level: string
     message: string
     ts: number

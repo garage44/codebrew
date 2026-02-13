@@ -104,18 +104,14 @@ class WebSocketServerManager extends EventEmitter {
     ]
 
     api = {
-        delete: (route: string, handler: ApiHandler, middlewares?: Middleware[]) => {
-            return this.registerApi('DELETE', route, handler, middlewares)
-        },
-        get: (route: string, handler: ApiHandler, middlewares?: Middleware[]) => {
-            return this.registerApi('GET', route, handler, middlewares)
-        },
-        post: (route: string, handler: ApiHandler, middlewares?: Middleware[]) => {
-            return this.registerApi('POST', route, handler, middlewares)
-        },
-        put: (route: string, handler: ApiHandler, middlewares?: Middleware[]) => {
-            return this.registerApi('PUT', route, handler, middlewares)
-        },
+        delete: (route: string, handler: ApiHandler, middlewares?: Middleware[]) =>
+            this.registerApi('DELETE', route, handler, middlewares),
+        get: (route: string, handler: ApiHandler, middlewares?: Middleware[]) =>
+            this.registerApi('GET', route, handler, middlewares),
+        post: (route: string, handler: ApiHandler, middlewares?: Middleware[]) =>
+            this.registerApi('POST', route, handler, middlewares),
+        put: (route: string, handler: ApiHandler, middlewares?: Middleware[]) =>
+            this.registerApi('PUT', route, handler, middlewares),
     }
 
     constructor(options: WebSocketServerOptions) {
@@ -301,7 +297,7 @@ class WebSocketServerManager extends EventEmitter {
         // Verify user exists if users list is provided
         if (this.authOptions.users && this.authOptions.users.length > 0) {
             const user = this.authOptions.users.find((u) => u.name === request.session?.userid)
-            return !!user
+            return Boolean(user)
         }
 
         return true
@@ -402,7 +398,7 @@ class WebSocketServerManager extends EventEmitter {
             pathname = urlObj.pathname
             // URLSearchParams automatically decodes values
             queryParams = Object.fromEntries(urlObj.searchParams.entries())
-        } catch (_error) {
+        } catch {
             // If URL parsing fails, try to extract query string manually
             const queryMatch = url.match(/^([^?]+)(\?.+)?$/)
             if (queryMatch) {
@@ -543,7 +539,7 @@ function createBunWebSocketHandler(managers: Map<string, WebSocketServerManager>
         open: (ws: WebSocketConnection & {data?: {endpoint?: string; proxy?: boolean; upstream?: WebSocket}}) => {
             // Handle proxy connections (set up bidirectional forwarding)
             if (ws.data?.proxy && ws.data?.upstream) {
-                const upstream = ws.data.upstream
+                const {upstream} = ws.data
 
                 // Forward messages from upstream to client
                 upstream.onmessage = (event: MessageEvent) => {
@@ -562,7 +558,7 @@ function createBunWebSocketHandler(managers: Map<string, WebSocketServerManager>
                     logger.error(`[WS Proxy] Upstream connection error: ${error}`)
                     try {
                         ws.close(1011, 'Upstream Error')
-                    } catch (_e) {
+                    } catch {
                         // Connection may already be closed
                     }
                 }
@@ -571,7 +567,7 @@ function createBunWebSocketHandler(managers: Map<string, WebSocketServerManager>
                     logger.debug(`[WS Proxy] Upstream connection closed: ${event.code} ${event.reason}`)
                     try {
                         ws.close(event.code || 1000, event.reason || 'Upstream Closed')
-                    } catch (_e) {
+                    } catch {
                         // Connection may already be closed
                     }
                 }

@@ -1,14 +1,14 @@
 import path from 'node:path'
 
-import {UserManager} from './user-manager'
+import type {UserManager} from './user-manager'
 
 // Configuration interface for package-specific middleware behavior
 export interface MiddlewareConfig {
     configPath: string
-    customWebSocketHandlers?: Array<{
+    customWebSocketHandlers?: {
         handler: (request: Request, server: unknown) => Promise<Response | undefined>
         path: string
-    }>
+    }[]
     endpointAllowList: string[]
     packageName: string
     sessionCookieName: string
@@ -62,7 +62,9 @@ const sessionMiddleware = (request: Request, sessionCookieName: string) => {
  */
 const populateNoSecuritySession = async (session: unknown, sessionId: string, userManager: UserManager): Promise<void> => {
     const noSecurityValue = process.env.GARAGE44_NO_SECURITY
-    if (!noSecurityValue) return
+    if (!noSecurityValue) {
+        return
+    }
 
     // If GARAGE44_NO_SECURITY is set to a specific username (not '1' or 'true'), use that user
     if (noSecurityValue !== '1' && noSecurityValue.toLowerCase() !== 'true') {
@@ -78,8 +80,12 @@ const populateNoSecuritySession = async (session: unknown, sessionId: string, us
 
     // Sort users: admin first, then others by creation order
     const sortedUsers = users.toSorted((a, b) => {
-        if (a.permissions?.admin && !b.permissions?.admin) return -1
-        if (!a.permissions?.admin && b.permissions?.admin) return 1
+        if (a.permissions?.admin && !b.permissions?.admin) {
+            return -1
+        }
+        if (!a.permissions?.admin && b.permissions?.admin) {
+            return 1
+        }
         return a.createdAt.localeCompare(b.createdAt)
     })
 
@@ -191,68 +197,66 @@ const handleWebSocket = (_ws: unknown, _request: Request) => {
 }
 
 // Create unified middleware with package-specific configuration
-export const createMiddleware = (config: MiddlewareConfig, userManager: UserManager) => {
-    return {
-        handleRequest: async (
-            request: Request,
-            server?: unknown,
-            _logger?: unknown,
-            _bunchyConfig?: unknown,
-        ): Promise<Response | undefined> => {
-            const url = new URL(request.url)
+export const createMiddleware = (config: MiddlewareConfig, userManager: UserManager) => ({
+    handleRequest: async (
+        request: Request,
+        server?: unknown,
+        _logger?: unknown,
+        _bunchyConfig?: unknown,
+    ): Promise<Response | undefined> => {
+        const url = new URL(request.url)
 
-            // Handle custom WebSocket handlers first
-            if (config.customWebSocketHandlers) {
-                for (const handler of config.customWebSocketHandlers) {
-                    if (url.pathname.startsWith(handler.path)) {
-                        return await handler.handler(request, server)
-                    }
+        // Handle custom WebSocket handlers first
+        if (config.customWebSocketHandlers) {
+            for (const handler of config.customWebSocketHandlers) {
+                if (url.pathname.startsWith(handler.path)) {
+                    return await handler.handler(request, server)
                 }
             }
+        }
 
-            // Handle WebSocket upgrade requests
-            if (url.pathname === '/ws' || url.pathname === '/bunchy') {
-                if (server && typeof (server as {upgrade?: unknown}).upgrade === 'function') {
-                    // Get session before upgrade so it's available in WebSocket handlers
-                    const {session, sessionId} = sessionMiddleware(request, config.sessionCookieName)
+        // Handle WebSocket upgrade requests
+        if (url.pathname === '/ws' || url.pathname === '/bunchy') {
+            if (server && typeof (server as {upgrade?: unknown}).upgrade === 'function') {
+                // Get session before upgrade so it's available in WebSocket handlers
+                const {session, sessionId} = sessionMiddleware(request, config.sessionCookieName)
 
-                    // Populate session with user if GARAGE44_NO_SECURITY is enabled
-                    if (process.env.GARAGE44_NO_SECURITY && !(session as {userid?: string}).userid) {
-                        await populateNoSecuritySession(session, sessionId, userManager)
-                        sessions.set(sessionId, session)
-                    }
-
-                    const success = (server as {upgrade: (req: Request, data: unknown) => boolean}).upgrade(request, {
-                        data: {
-                            endpoint: url.pathname,
-                            session,
-                        },
-                    })
-                    if (success) {
-                        return
-                    }
-                    return new Response('WebSocket upgrade failed', {status: 400})
+                // Populate session with user if GARAGE44_NO_SECURITY is enabled
+                if (process.env.GARAGE44_NO_SECURITY && !(session as {userid?: string}).userid) {
+                    await populateNoSecuritySession(session, sessionId, userManager)
+                    sessions.set(sessionId, session)
                 }
-                return new Response('WebSocket server not available', {status: 500})
+
+                const success = (server as {upgrade: (req: Request, data: unknown) => boolean}).upgrade(request, {
+                    data: {
+                        endpoint: url.pathname,
+                        session,
+                    },
+                })
+                if (success) {
+                    return
+                }
+                return new Response('WebSocket upgrade failed', {status: 400})
             }
+            return new Response('WebSocket server not available', {status: 500})
+        }
 
-            // Handle session and auth
-            const {session, sessionId} = sessionMiddleware(request, config.sessionCookieName)
+        // Handle session and auth
+        const {session, sessionId} = sessionMiddleware(request, config.sessionCookieName)
 
-            if (!(await authMiddleware(request, session, sessionId, userManager, config.endpointAllowList))) {
-                return new Response('Unauthorized', {status: 401})
-            }
+        if (!(await authMiddleware(request, session, sessionId, userManager, config.endpointAllowList))) {
+            return new Response('Unauthorized', {status: 401})
+        }
 
-            // Return undefined to indicate no handler matched - let the package handle routing
-            return undefined
-        },
-        handleWebSocket,
-        sessionMiddleware: (request: Request) => sessionMiddleware(request, config.sessionCookieName),
-        setSessionCookie: (response: Response, sessionId: string, request?: Request) =>
-            setSessionCookie(response, sessionId, config.sessionCookieName, request),
-        userManager,
-    }
-}
+        // Return undefined to indicate no handler matched - let the package handle routing
+        return undefined
+    },
+    handleWebSocket,
+    sessionMiddleware: (request: Request) => sessionMiddleware(request, config.sessionCookieName),
+    setSessionCookie: (response: Response, sessionId: string, request?: Request) =>
+        setSessionCookie(response, sessionId, config.sessionCookieName, request),
+    userManager,
+})
 
 // Create unified final request handler with common patterns
 export const createFinalHandler = (config: {
@@ -262,10 +266,10 @@ export const createFinalHandler = (config: {
         deniedContext: () => unknown
         userContext: () => unknown
     }
-    customWebSocketHandlers?: Array<{
+    customWebSocketHandlers?: {
         handler: (request: Request, server: unknown) => Promise<Response | undefined>
         path: string
-    }>
+    }[]
     devContext: {
         addHttp: (data: unknown) => void
     }
@@ -300,7 +304,7 @@ export const createFinalHandler = (config: {
         config.devContext.addHttp({method: request.method, ts: Date.now(), url: url.pathname})
 
         // Get session early
-        let {session, sessionId} = unifiedMiddleware.sessionMiddleware(request)
+        const {session, sessionId} = unifiedMiddleware.sessionMiddleware(request)
 
         /*
          * Handle ?debug_user=<username> override (only when GARAGE44_NO_SECURITY is set)
@@ -464,8 +468,8 @@ export const createFinalHandler = (config: {
 
         if (url.pathname === '/api/login' && request.method === 'POST') {
             const body = await request.json()
-            const username = body.username
-            const password = body.password
+            const {username} = body
+            const {password} = body
 
             let context = await Promise.resolve(config.contextFunctions.deniedContext())
             const user = await config.userManager.authenticate(username, password)
@@ -578,7 +582,7 @@ export const createFinalHandler = (config: {
                 return unifiedMiddleware.setSessionCookie(response, sessionId, request)
             }
         } catch (error) {
-            // index.html doesn't exist
+            // Index.html doesn't exist
             config.logger.debug(`[HTTP] SPA fallback index.html not found: ${error}`)
         }
 

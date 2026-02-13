@@ -1,3 +1,5 @@
+import type {Signal} from '@preact/signals'
+
 import {ws, notifier} from '@garage44/common/app'
 import {Button, FieldSelect, FieldText, FieldTextarea} from '@garage44/common/components'
 import {createValidator, required} from '@garage44/common/lib/validation'
@@ -12,14 +14,21 @@ interface TicketFormProps {
     onSuccess: () => void
 }
 
+interface FormState {
+    description: string
+    priority: string
+    repository_id: string
+    title: string
+}
+
 // State defined outside component for stability
-const createFormState = () =>
+const createFormState = (): FormState & {[K in keyof FormState as `$${K}`]: Signal<FormState[K]>} =>
     deepSignal({
         description: '',
         priority: '',
         repository_id: '',
         title: '',
-    })
+    }) as FormState & {[K in keyof FormState as `$${K}`]: Signal<FormState[K]>}
 
 export const TicketForm = ({initialStatus, onClose, onSuccess}: TicketFormProps) => {
     const stateRef = useRef(createFormState())

@@ -3,8 +3,9 @@
  * Handles creation, retrieval, and status updates for agent tasks
  */
 
-import {getDb, type AgentTask} from '../database.ts'
 import {randomId} from '@garage44/common/lib/utils'
+
+import {getDb, type AgentTask} from '../database.ts'
 
 export type TaskType = 'mention' | 'assignment' | 'manual' | 'refinement'
 
@@ -17,28 +18,18 @@ export interface TaskData {
 /**
  * Create a new agent task
  */
-export function createTask(
-    agentId: string,
-    taskType: TaskType,
-    taskData: TaskData,
-    priority = 0,
-): string {
+export function createTask(agentId: string, taskType: TaskType, taskData: TaskData, priority = 0): string {
     const taskId = randomId()
     const now = Date.now()
 
-    getDb().prepare(`
+    getDb()
+        .prepare(`
         INSERT INTO agent_tasks (
             id, agent_id, task_type, task_data, status, priority, created_at
         )
         VALUES (?, ?, ?, ?, 'pending', ?, ?)
-    `).run(
-        taskId,
-        agentId,
-        taskType,
-        JSON.stringify(taskData),
-        priority,
-        now,
-    )
+    `)
+        .run(taskId, agentId, taskType, JSON.stringify(taskData), priority, now)
 
     return taskId
 }
@@ -47,53 +38,59 @@ export function createTask(
  * Get all pending tasks for an agent, ordered by priority and creation time
  */
 export function getPendingTasks(agentId: string): AgentTask[] {
-    return getDb().prepare(`
+    return getDb()
+        .prepare(`
         SELECT *
         FROM agent_tasks
         WHERE agent_id = ? AND status = 'pending'
         ORDER BY priority DESC, created_at ASC
-    `).all(agentId) as AgentTask[]
+    `)
+        .all(agentId) as AgentTask[]
 }
 
 /**
  * Get a task by ID
  */
 export function getTask(taskId: string): AgentTask | undefined {
-    return getDb().prepare(`
+    return getDb()
+        .prepare(`
         SELECT *
         FROM agent_tasks
         WHERE id = ?
-    `).get(taskId) as AgentTask | undefined
+    `)
+        .get(taskId) as AgentTask | undefined
 }
 
 /**
  * Update task status
  */
-export function updateTaskStatus(
-    taskId: string,
-    status: TaskStatus,
-    error?: string | null,
-): void {
+export function updateTaskStatus(taskId: string, status: TaskStatus, error?: string | null): void {
     const now = Date.now()
 
     if (status === 'processing') {
-        getDb().prepare(`
+        getDb()
+            .prepare(`
             UPDATE agent_tasks
             SET status = ?, started_at = ?
             WHERE id = ?
-        `).run(status, now, taskId)
+        `)
+            .run(status, now, taskId)
     } else if (status === 'completed' || status === 'failed') {
-        getDb().prepare(`
+        getDb()
+            .prepare(`
             UPDATE agent_tasks
             SET status = ?, completed_at = ?, error = ?
             WHERE id = ?
-        `).run(status, now, error || null, taskId)
+        `)
+            .run(status, now, error || null, taskId)
     } else {
-        getDb().prepare(`
+        getDb()
+            .prepare(`
             UPDATE agent_tasks
             SET status = ?
             WHERE id = ?
-        `).run(status, taskId)
+        `)
+            .run(status, taskId)
     }
 }
 
@@ -127,12 +124,14 @@ export function getTaskStats(agentId: string): {
     pending: number
     processing: number
 } {
-    const stats = getDb().prepare(`
+    const stats = getDb()
+        .prepare(`
         SELECT status, COUNT(*) as count
         FROM agent_tasks
         WHERE agent_id = ?
         GROUP BY status
-    `).all(agentId) as {count: number; status: string}[]
+    `)
+        .all(agentId) as {count: number; status: string}[]
 
     const result = {
         completed: 0,

@@ -1,8 +1,9 @@
-import {useEffect} from 'preact/hooks'
 import {route} from 'preact-router'
+import {useEffect} from 'preact/hooks'
+
+import {api} from '@/app'
 import {FieldText, Button} from '@/components'
 import {useCollectionManager} from '@/lib/collection-manager'
-import {api} from '@/app'
 
 export interface Channel {
     created_at: number
@@ -28,18 +29,27 @@ export interface ChannelsFormProps {
 /**
  * Channels Form Component - Create or edit a channel
  */
-export function ChannelsForm({
-    $t = (key: string) => key,
-    channelId,
-}: ChannelsFormProps) {
+export function ChannelsForm({$t = (key: string) => key, channelId}: ChannelsFormProps) {
     const manager = useCollectionManager<Channel, {name: string; slug: string; description: string}>({
-        listEndpoint: '/api/channels',
         createEndpoint: '/api/channels',
-        updateEndpoint: (id) => `/api/channels/${id}`,
-        updateMethod: 'PUT',
         deleteEndpoint: (id) => `/api/channels/${id}`,
         getId: (channel) => channel.id,
         initialFormData: {name: '', slug: '', description: ''},
+        listEndpoint: '/api/channels',
+        messages: {
+            loadFailed: $t('channel.management.error.load_failed') || 'Failed to load channels',
+            createSuccess: $t('channel.management.success.created') || 'Channel created and synced with Galene',
+            createFailed: $t('channel.management.error.create_failed') || 'Failed to create channel',
+            updateSuccess: $t('channel.management.success.updated') || 'Channel updated and synced with Galene',
+            updateFailed: $t('channel.management.error.update_failed') || 'Failed to update channel',
+            deleteSuccess: $t('channel.management.success.deleted') || 'Channel deleted and Galene group removed',
+            deleteFailed: $t('channel.management.error.delete_failed') || 'Failed to delete channel',
+        },
+        populateFormData: (channel) => ({
+            description: channel.description || '',
+            name: channel.name,
+            slug: channel.slug,
+        }),
         transformCreateData: (data) => ({
             description: data.description,
             name: data.name,
@@ -50,47 +60,37 @@ export function ChannelsForm({
             name: data.name,
             slug: data.slug,
         }),
-        populateFormData: (channel) => ({
-            description: channel.description || '',
-            name: channel.name,
-            slug: channel.slug,
-        }),
-        messages: {
-            loadFailed: $t('channel.management.error.load_failed') || 'Failed to load channels',
-            createSuccess: $t('channel.management.success.created') || 'Channel created and synced with Galene',
-            createFailed: $t('channel.management.error.create_failed') || 'Failed to create channel',
-            updateSuccess: $t('channel.management.success.updated') || 'Channel updated and synced with Galene',
-            updateFailed: $t('channel.management.error.update_failed') || 'Failed to update channel',
-            deleteSuccess: $t('channel.management.success.deleted') || 'Channel deleted and Galene group removed',
-            deleteFailed: $t('channel.management.error.delete_failed') || 'Failed to delete channel',
-        },
+        updateEndpoint: (id) => `/api/channels/${id}`,
+        updateMethod: 'PUT',
     })
 
-    const isEditing = !!channelId
+    const isEditing = Boolean(channelId)
 
     useEffect(() => {
         if (isEditing && channelId) {
             // Load the specific channel for editing
-            api.get(`/api/channels/${channelId}`).then((channel: unknown) => {
-                manager.startEdit(channel as Channel)
-            }).catch(() => {
-                // Channel not found, redirect back to list
-                route('/settings/channels')
-            })
+            api.get(`/api/channels/${channelId}`)
+                .then((channel: unknown) => {
+                    manager.startEdit(channel as Channel)
+                })
+                .catch(() => {
+                    // Channel not found, redirect back to list
+                    route('/settings/channels')
+                })
         } else {
             // For creating, just load the list to ensure we have the latest data
             manager.loadItems()
         }
     }, [channelId])
 
-    const handleSubmit = async() => {
+    const handleSubmit = async () => {
         if (!manager.state.formData.name || !manager.state.formData.slug) {
             return
         }
 
         try {
             if (isEditing && channelId) {
-                await manager.updateItem(parseInt(channelId))
+                await manager.updateItem(Number.parseInt(channelId))
             } else {
                 await manager.createItem()
             }
@@ -106,19 +106,23 @@ export function ChannelsForm({
 
     if (isEditing && !manager.state.formData.name) {
         return (
-            <section class="c-channels-form">
+            <section class='c-channels-form'>
                 <div>Loading channel...</div>
             </section>
         )
     }
 
     return (
-        <section class="c-channels-form">
-            <div class="header">
-                <h2>{isEditing ? ($t('channel.management.action.edit') || 'Edit Channel') : ($t('channel.management.action.add_channel') || 'Add Channel')}</h2>
+        <section class='c-channels-form'>
+            <div class='header'>
+                <h2>
+                    {isEditing
+                        ? $t('channel.management.action.edit') || 'Edit Channel'
+                        : $t('channel.management.action.add_channel') || 'Add Channel'}
+                </h2>
             </div>
 
-            <div class="form">
+            <div class='form'>
                 <FieldText
                     model={manager.state.formData.$name}
                     label={$t('channel.management.field.name') || 'Channel Name'}
@@ -135,18 +139,22 @@ export function ChannelsForm({
                     label={$t('channel.management.field.description') || 'Description'}
                     placeholder={$t('channel.management.placeholder.description') || 'Enter channel description'}
                 />
-                <div class="actions">
+                <div class='actions'>
                     <Button
-                        icon="save"
-                        label={isEditing ? ($t('channel.management.action.save') || 'Save') : ($t('channel.management.action.create') || 'Create')}
+                        icon='save'
+                        label={
+                            isEditing
+                                ? $t('channel.management.action.save') || 'Save'
+                                : $t('channel.management.action.create') || 'Create'
+                        }
                         onClick={handleSubmit}
-                        type="success"
+                        type='success'
                     />
                     <Button
-                        icon="close"
+                        icon='close'
                         label={$t('channel.management.action.cancel') || 'Cancel'}
                         onClick={handleCancel}
-                        type="default"
+                        type='default'
                     />
                 </div>
             </div>

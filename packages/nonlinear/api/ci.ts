@@ -21,7 +21,7 @@ export function registerCIWebSocketApiRoutes(wsManager: WebSocketServerManager) 
             WHERE ticket_id = ?
             ORDER BY started_at DESC
         `)
-            .all(params.ticketId) as Array<{
+            .all(params.ticketId) as {
             completed_at: number | null
             fixes_applied: string | null
             id: string
@@ -29,7 +29,7 @@ export function registerCIWebSocketApiRoutes(wsManager: WebSocketServerManager) 
             started_at: number
             status: 'running' | 'success' | 'failed' | 'fixed'
             ticket_id: string
-        }>
+        }[]
 
         const validatedRuns = runs.map((run) => validateRequest(CIRunSchema, run))
 

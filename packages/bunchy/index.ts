@@ -1,10 +1,12 @@
-import {URL, fileURLToPath} from 'node:url'
-import {generateRandomId, showConfig} from './utils'
-import {Logger} from '@garage44/common/lib/logger'
 import type {MessageData} from '@garage44/common/lib/ws-server'
-import path from 'node:path'
-import {tasks} from './tasks'
+
 import {devContext} from '@garage44/common/lib/dev-context'
+import {Logger} from '@garage44/common/lib/logger'
+import path from 'node:path'
+import {URL, fileURLToPath} from 'node:url'
+
+import {tasks} from './tasks'
+import {generateRandomId, showConfig} from './utils'
 
 const logger = new Logger()
 
@@ -34,7 +36,9 @@ interface Settings {
 }
 
 const settings = {} as Settings
-const tooling = {} as {css: (options: {entrypoint: string; minify?: boolean; outFile: string; sourcemap?: boolean}) => Promise<string>}
+const tooling = {} as {
+    css: (options: {entrypoint: string; minify?: boolean; outFile: string; sourcemap?: boolean}) => Promise<string>
+}
 
 interface Config {
     common: string
@@ -101,40 +105,51 @@ async function bunchyService(server: unknown, config: Config, wsManager?: WsMana
 interface YargsInstance {
     argv: {minify?: boolean; sourcemap?: boolean}
     command: (command: string, description: string, handler: (yargs: YargsInstance) => void) => YargsInstance
-    option: (name: string, options: {default: boolean | string; description?: string; describe?: string; type: string}) => YargsInstance
+    option: (
+        name: string,
+        options: {default: boolean | string; description?: string; describe?: string; type: string},
+    ) => YargsInstance
 }
 
 function bunchyArgs(yargs: YargsInstance, config: Config): YargsInstance {
     applySettings(config)
 
-    yargs.option('minify', {
-        default: false,
-        description: '[Bunchy] Minify output',
-        type: 'boolean',
-    }).option('sourcemap', {
-        default: true,
-        description: '[Bunchy] Include source mapping',
-        type: 'boolean',
-    }).option('builddir', {
-        default: '',
-        describe: '[Bunchy] Directory to build to',
-        type: 'string',
-    }).command('build', '[Bunchy] build application', (yargs: YargsInstance): void => {
-        applySettings({...config, minify: yargs.argv.minify, sourcemap: yargs.argv.sourcemap})
-        tasks.build.start({minify: true, sourcemap: true})
-    }).command('code_backend', '[Bunchy] bundle backend javascript', (yargs: YargsInstance): void => {
-        applySettings({...config, minify: yargs.argv.minify, sourcemap: yargs.argv.sourcemap})
-        tasks.code_backend.start({minify: true, sourcemap: true})
-    }).command('code_frontend', '[Bunchy] bundle frontend javascript', (yargs: YargsInstance): void => {
-        applySettings({...config, minify: yargs.argv.minify, sourcemap: yargs.argv.sourcemap})
-        tasks.code_frontend.start({minify: true, sourcemap: true})
-    }).command('html', '[Bunchy] build html file', (yargs: YargsInstance): void => {
-        applySettings({...config, minify: yargs.argv.minify, sourcemap: yargs.argv.sourcemap})
-        tasks.html.start({minify: true, sourcemap: true})
-    }).command('styles', '[Bunchy] bundle styles', (yargs: YargsInstance): void => {
-        applySettings({...config, minify: yargs.argv.minify, sourcemap: yargs.argv.sourcemap})
-        tasks.styles.start({minify: true, sourcemap: true})
-    })
+    yargs
+        .option('minify', {
+            default: false,
+            description: '[Bunchy] Minify output',
+            type: 'boolean',
+        })
+        .option('sourcemap', {
+            default: true,
+            description: '[Bunchy] Include source mapping',
+            type: 'boolean',
+        })
+        .option('builddir', {
+            default: '',
+            describe: '[Bunchy] Directory to build to',
+            type: 'string',
+        })
+        .command('build', '[Bunchy] build application', (yargs: YargsInstance): void => {
+            applySettings({...config, minify: yargs.argv.minify, sourcemap: yargs.argv.sourcemap})
+            tasks.build.start({minify: true, sourcemap: true})
+        })
+        .command('code_backend', '[Bunchy] bundle backend javascript', (yargs: YargsInstance): void => {
+            applySettings({...config, minify: yargs.argv.minify, sourcemap: yargs.argv.sourcemap})
+            tasks.code_backend.start({minify: true, sourcemap: true})
+        })
+        .command('code_frontend', '[Bunchy] bundle frontend javascript', (yargs: YargsInstance): void => {
+            applySettings({...config, minify: yargs.argv.minify, sourcemap: yargs.argv.sourcemap})
+            tasks.code_frontend.start({minify: true, sourcemap: true})
+        })
+        .command('html', '[Bunchy] build html file', (yargs: YargsInstance): void => {
+            applySettings({...config, minify: yargs.argv.minify, sourcemap: yargs.argv.sourcemap})
+            tasks.html.start({minify: true, sourcemap: true})
+        })
+        .command('styles', '[Bunchy] bundle styles', (yargs: YargsInstance): void => {
+            applySettings({...config, minify: yargs.argv.minify, sourcemap: yargs.argv.sourcemap})
+            tasks.styles.start({minify: true, sourcemap: true})
+        })
 
     return yargs
 }
@@ -188,46 +203,38 @@ function setupLogForwarding(wsManager: WsManager): void {
             // Ignore errors in dev context logging
         }
         switch (level) {
-            case 'error':   
+            case 'error': 
                 logger.remote(formattedMessage, ...formattedArgs)
                 break
             
-            
-            
-            case 'warn':   
+
+            case 'warn': 
                 logger.remote(formattedMessage, ...formattedArgs)
                 break
             
-            
-            
-            case 'info':   
+
+            case 'info': 
                 logger.remote(formattedMessage, ...formattedArgs)
                 break
             
-            
-            
-            case 'success':   
+
+            case 'success': 
                 logger.remote(formattedMessage, ...formattedArgs)
                 break
             
-            
-            
-            case 'verbose':   
+
+            case 'verbose': 
                 logger.remote(formattedMessage, ...formattedArgs)
                 break
             
-            
-            
-            case 'debug':   
+
+            case 'debug': 
                 logger.remote(formattedMessage, ...formattedArgs)
                 break
             
-            
-            
-            default:   
+
+            default: 
                 logger.remote(formattedMessage, ...formattedArgs)
-            
-            
             
         }
 
@@ -243,7 +250,9 @@ interface Server {
     upgrade?: (request: Request, options: {data: {endpoint: string}}) => boolean
 }
 
-function wrapFetchHandler(fetchHandler: (request: Request, server: Server) => Response | Promise<Response>): (request: Request, server: Server) => Promise<Response> {
+function wrapFetchHandler(
+    fetchHandler: (request: Request, server: Server) => Response | Promise<Response>,
+): (request: Request, server: Server) => Promise<Response> {
     return async (request: Request, server: Server): Promise<Response> => {
         try {
             const url = new URL(request.url)
@@ -271,13 +280,4 @@ function wrapFetchHandler(fetchHandler: (request: Request, server: Server) => Re
     }
 }
 
-export {
-    bunchyArgs,
-    bunchyService,
-    broadcast,
-    connections,
-    logger,
-    settings,
-    tooling,
-    wrapFetchHandler,
-}
+export {bunchyArgs, bunchyService, broadcast, connections, logger, settings, tooling, wrapFetchHandler}

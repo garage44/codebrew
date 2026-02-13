@@ -3,12 +3,13 @@
  * Runs Bun-specific CI commands and automatically fixes issues
  */
 
+import {randomId} from '@garage44/common/lib/utils'
+import {$} from 'bun'
+
 import {logger} from '../../service.ts'
+import {updateUsageFromHeaders} from '../agent/token-usage.ts'
 import {config} from '../config.ts'
 import {getDb} from '../database.ts'
-import {randomId} from '@garage44/common/lib/utils'
-import {updateUsageFromHeaders} from '../agent/token-usage.ts'
-import {$} from 'bun'
 
 export interface CIRunResult {
     error?: string
@@ -44,10 +45,12 @@ export class CIRunner {
         const startedAt = Date.now()
 
         // Create CI run record
-        getDb().prepare(`
+        getDb()
+            .prepare(`
             INSERT INTO ci_runs (id, ticket_id, status, started_at)
             VALUES (?, ?, 'running', ?)
-        `).run(runId, ticketId, startedAt)
+        `)
+            .run(runId, ticketId, startedAt)
 
         logger.info(`[CI] Starting CI run ${runId} for ticket ${ticketId}`)
 
@@ -127,7 +130,7 @@ export class CIRunner {
                 output,
                 success: false,
             }
-        } catch(error: unknown) {
+        } catch (error: unknown) {
             const errorMsg = error instanceof Error ? error.message : String(error)
             logger.error(`[CI] Error during CI run: ${errorMsg}`)
             this.completeRun(runId, 'failed', `Error: ${errorMsg}`, fixesApplied)
@@ -265,7 +268,7 @@ Generate a command to fix this issue.`
             }
             logger.warn(`[CI] Fix command failed: ${fixOutput}`)
             return null
-        } catch(error: unknown) {
+        } catch (error: unknown) {
             logger.error(`[CI] Error attempting fix: ${error}`)
             return null
         }
@@ -277,19 +280,15 @@ Generate a command to fix this issue.`
         output: string,
         fixesApplied: {command: string; output: string}[],
     ): void {
-        getDb().prepare(`
+        getDb()
+            .prepare(`
             UPDATE ci_runs
             SET status = ?,
                 output = ?,
                 fixes_applied = ?,
                 completed_at = ?
             WHERE id = ?
-        `).run(
-            status,
-            output,
-            JSON.stringify(fixesApplied),
-            Date.now(),
-            runId,
-        )
+        `)
+            .run(status, output, JSON.stringify(fixesApplied), Date.now(), runId)
     }
 }

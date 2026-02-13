@@ -150,16 +150,17 @@ cli.usage('Usage: $0 [task]')
             })
 
             if (BUN_ENV === 'development' && bunchyConfig) {
-                await bunchyService(server, bunchyConfig, bunchyManager)
+                await bunchyService(server, bunchyConfig, bunchyManager as Parameters<typeof bunchyService>[2])
             }
 
             logger.info(`Nonlinear service started on http://${argv.host}:${argv.port}`)
 
             // Autostart agents if configured (command-line option takes precedence)
             const {autostartAgents} = await import('./api/agents.ts')
+            // eslint-disable-next-line init-declarations -- set in conditional below
             let autostartValue: boolean | string[] | undefined
             const autostartOpt = argv.autostart
-            if (autostartOpt !== undefined && autostartOpt !== null) {
+            if ('autostart' in argv && autostartOpt !== null) {
                 if (autostartOpt === 'true' || autostartOpt === '1') {
                     autostartValue = true
                 } else if (autostartOpt === 'false' || autostartOpt === '0') {
@@ -329,7 +330,7 @@ cli.usage('Usage: $0 [task]')
             }),
         async (argv): Promise<void> => {
             const {generateNginx} = await import('./lib/deploy/deploy/nginx')
-            const output = generateNginx(argv.domain)
+            const output = generateNginx(argv.domain as string)
             // eslint-disable-next-line no-console
             console.log(output)
         },
@@ -479,8 +480,9 @@ cli.usage('Usage: $0 [task]')
             initDatabase()
 
             const {AgentService} = await import('./lib/agent/service.ts')
+            const agentId = argv.agentId as string
             const {loggerTransports} = await import('@garage44/common/service')
-            const service = new AgentService(argv.agentId)
+            const service = new AgentService(agentId)
 
             // Initialize logger after config is loaded
             const loggerInstance = loggerTransports(config.logger as LoggerConfig, 'service')
@@ -488,13 +490,13 @@ cli.usage('Usage: $0 [task]')
 
             // Handle graceful shutdown
             process.on('SIGINT', (): void => {
-                loggerInstance.info(`[AgentService] Received SIGINT, shutting down agent ${argv.agentId}...`)
+                loggerInstance.info(`[AgentService] Received SIGINT, shutting down agent ${agentId}...`)
                 service.stop()
                 process.exit(0)
             })
 
             process.on('SIGTERM', (): void => {
-                loggerInstance.info(`[AgentService] Received SIGTERM, shutting down agent ${argv.agentId}...`)
+                loggerInstance.info(`[AgentService] Received SIGTERM, shutting down agent ${agentId}...`)
                 service.stop()
                 process.exit(0)
             })
@@ -543,7 +545,8 @@ cli.usage('Usage: $0 [task]')
             const {runAgentInteractive, runAgentOneShot} = await import('./lib/cli/interactive.ts')
             const {runAgent} = await import('./lib/agent/scheduler.ts')
 
-            const agent = getAgentById(argv.agentId)
+            const agentId = argv.agentId as string
+            const agent = getAgentById(agentId)
 
             if (!agent) {
                 // eslint-disable-next-line no-console
@@ -552,8 +555,9 @@ cli.usage('Usage: $0 [task]')
             }
 
             const context: Record<string, unknown> = {}
-            if (argv.ticketId) {
-                context.ticketId = argv.ticketId
+            const ticketId = argv.ticketId as string | undefined
+            if (ticketId) {
+                context.ticketId = ticketId
             }
 
             if (argv.interactive) {
@@ -564,11 +568,11 @@ cli.usage('Usage: $0 [task]')
                 })
             } else if (argv.instruction) {
                 // One-shot mode - execute single instruction
-                const response = await runAgentOneShot(agent, argv.instruction, context)
+                const response = await runAgentOneShot(agent, argv.instruction as string, context)
                 process.exit(response.success ? 0 : 1)
             } else {
                 // Legacy mode - run agent.process() once
-                await runAgent(argv.agentId, context)
+                await runAgent(agentId, context)
             }
         },
     )
@@ -576,8 +580,8 @@ cli.usage('Usage: $0 [task]')
         await initConfig(config)
         await initDatabase()
 
-        const {db} = await import('./lib/database.ts')
-        const agents = db.prepare('SELECT * FROM agents ORDER BY type, name').all() as {
+        const {getDb} = await import('./lib/database.ts')
+        const agents = getDb().prepare('SELECT * FROM agents ORDER BY type, name').all() as {
             enabled: number
             id: string
             name: string
@@ -622,14 +626,15 @@ cli.usage('Usage: $0 [task]')
             await initConfig(config)
             await initDatabase()
 
-            const {db} = await import('./lib/database.ts')
+            const {getDb} = await import('./lib/database.ts')
+            const agentIdArg = argv.agentId as string
             // Try to find agent by ID first, then by name (case-insensitive)
-            const agent = db
+            const agent = getDb()
                 .prepare(`
             SELECT * FROM agents
             WHERE id = ? OR LOWER(name) = LOWER(?)
         `)
-                .get(argv.agentId, argv.agentId) as
+                .get(agentIdArg, agentIdArg) as
                 | {
                       enabled: number
                       id: string
@@ -660,8 +665,9 @@ cli.usage('Usage: $0 [task]')
             }
 
             const context: Record<string, unknown> = {}
-            if (argv.ticketId) {
-                context.ticketId = argv.ticketId
+            const ticketIdArg = argv.ticketId as string | undefined
+            if (ticketIdArg) {
+                context.ticketId = ticketIdArg
             }
 
             if (argv.interactive) {

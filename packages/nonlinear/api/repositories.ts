@@ -29,7 +29,7 @@ export function registerRepositoriesWebSocketApiRoutes(wsManager: WebSocketServe
             SELECT * FROM repositories
             ORDER BY name ASC
         `)
-            .all() as Array<{
+            .all() as {
             config: string
             created_at: number
             id: string
@@ -38,7 +38,7 @@ export function registerRepositoriesWebSocketApiRoutes(wsManager: WebSocketServe
             platform: 'github' | 'gitlab' | 'local'
             remote_url: string | null
             updated_at: number
-        }>
+        }[]
 
         // Validate all repositories match schema
         const validatedRepositories = repositories.map((repo) => validateRequest(RepositorySchema, repo))
@@ -81,11 +81,13 @@ export function registerRepositoriesWebSocketApiRoutes(wsManager: WebSocketServe
         const data = validateRequest(DiscoverRepositoriesRequestSchema, req.data)
 
         const searchDir = data.searchPath || process.cwd()
-        const discovered: Array<{name: string; path: string}> = []
+        const discovered: {name: string; path: string}[] = []
 
         // Limit depth to avoid scanning too deep
         async function scanDirectory(dir: string, depth = 0) {
-            if (depth > 3) return
+            if (depth > 3) {
+                return
+            }
 
             try {
                 const entries = await fs.readdir(dir, {withFileTypes: true})
@@ -301,7 +303,7 @@ export default function apiRepositories(router: unknown) {
             SELECT * FROM repositories
             ORDER BY name ASC
         `)
-            .all() as Array<{
+            .all() as {
             config: string
             created_at: number
             id: string
@@ -310,7 +312,7 @@ export default function apiRepositories(router: unknown) {
             platform: 'github' | 'gitlab' | 'local'
             remote_url: string | null
             updated_at: number
-        }>
+        }[]
 
         const validatedRepositories = repositories.map((repo) => validateRequest(RepositorySchema, repo))
 

@@ -5,9 +5,10 @@
  * Runs independently from the main Nonlinear service
  */
 
+import {loggerTransports} from '@garage44/common/service'
+
 import {config, initConfig} from '../config.ts'
 import {getDb, initDatabase} from '../database.ts'
-import {loggerTransports} from '@garage44/common/service'
 import {indexCodeFile} from '../docs/code-embeddings.ts'
 import {generateDocEmbeddings, generateTicketEmbedding} from '../docs/embeddings.ts'
 
@@ -107,7 +108,8 @@ class IndexingService {
              * Get pending jobs (limit to maxConcurrent)
              * Map snake_case column names to camelCase for TypeScript interface
              */
-            const rows = getDb().prepare(`
+            const rows = getDb()
+                .prepare(`
                 SELECT
                     id,
                     type,
@@ -124,7 +126,8 @@ class IndexingService {
                 WHERE status = 'pending'
                 ORDER BY created_at ASC
                 LIMIT ?
-            `).all(this.maxConcurrent) as IndexingJob[]
+            `)
+                .all(this.maxConcurrent) as IndexingJob[]
 
             const pendingJobs = rows
 
@@ -139,7 +142,7 @@ class IndexingService {
             await Promise.all(pendingJobs.map((job): Promise<void> => this.processJob(job)))
 
             this.processing = false
-        } catch(error: unknown) {
+        } catch (error: unknown) {
             if (this.logger) {
                 this.logger.error('[IndexingService] Error processing jobs:', error)
             }
@@ -153,11 +156,13 @@ class IndexingService {
     private async processJob(job: IndexingJob): Promise<void> {
         try {
             // Update status to processing
-            getDb().prepare(`
+            getDb()
+                .prepare(`
                 UPDATE indexing_jobs
                 SET status = 'processing', started_at = ?
                 WHERE id = ?
-            `).run(Date.now(), job.id)
+            `)
+                .run(Date.now(), job.id)
 
             if (this.logger) {
                 this.logger.info(`[IndexingService] Processing job ${job.id} (${job.type})`)
@@ -167,19 +172,23 @@ class IndexingService {
             if (job.type === 'code' && job.repositoryId && job.filePath) {
                 await indexCodeFile(job.repositoryId, job.filePath)
             } else if (job.type === 'doc' && job.docId) {
-                const doc = getDb().prepare('SELECT * FROM documentation WHERE id = ?').get(job.docId) as {
-                    content: string
-                } | undefined
+                const doc = getDb().prepare('SELECT * FROM documentation WHERE id = ?').get(job.docId) as
+                    | {
+                          content: string
+                      }
+                    | undefined
                 if (doc) {
                     await generateDocEmbeddings(job.docId, doc.content)
                 } else {
                     throw new Error(`Document not found: ${job.docId}`)
                 }
             } else if (job.type === 'ticket' && job.ticketId) {
-                const ticket = getDb().prepare('SELECT * FROM tickets WHERE id = ?').get(job.ticketId) as {
-                    description: string | null
-                    title: string
-                } | undefined
+                const ticket = getDb().prepare('SELECT * FROM tickets WHERE id = ?').get(job.ticketId) as
+                    | {
+                          description: string | null
+                          title: string
+                      }
+                    | undefined
                 if (ticket) {
                     await generateTicketEmbedding(job.ticketId, ticket.title, ticket.description)
                 } else {
@@ -190,27 +199,31 @@ class IndexingService {
             }
 
             // Mark complete
-            getDb().prepare(`
+            getDb()
+                .prepare(`
                 UPDATE indexing_jobs
                 SET status = 'completed', completed_at = ?
                 WHERE id = ?
-            `).run(Date.now(), job.id)
+            `)
+                .run(Date.now(), job.id)
 
             if (this.logger) {
                 this.logger.info(`[IndexingService] Completed job ${job.id} (${job.type})`)
             }
-        } catch(error: unknown) {
+        } catch (error: unknown) {
             const errorMsg = error instanceof Error ? error.message : String(error)
             if (this.logger) {
                 this.logger.error(`[IndexingService] Failed job ${job.id}:`, errorMsg)
             }
 
             // Mark failed
-            getDb().prepare(`
+            getDb()
+                .prepare(`
                 UPDATE indexing_jobs
                 SET status = 'failed', error = ?, completed_at = ?
                 WHERE id = ?
-            `).run(errorMsg, Date.now(), job.id)
+            `)
+                .run(errorMsg, Date.now(), job.id)
         }
     }
 
@@ -224,17 +237,23 @@ class IndexingService {
         processingJobs: number
         running: boolean
     } {
-        const pending = getDb().prepare(`
+        const pending = getDb()
+            .prepare(`
             SELECT COUNT(*) as count FROM indexing_jobs WHERE status = 'pending'
-        `).get() as {count: number}
+        `)
+            .get() as {count: number}
 
-        const processing = getDb().prepare(`
+        const processing = getDb()
+            .prepare(`
             SELECT COUNT(*) as count FROM indexing_jobs WHERE status = 'processing'
-        `).get() as {count: number}
+        `)
+            .get() as {count: number}
 
-        const failed = getDb().prepare(`
+        const failed = getDb()
+            .prepare(`
             SELECT COUNT(*) as count FROM indexing_jobs WHERE status = 'failed'
-        `).get() as {count: number}
+        `)
+            .get() as {count: number}
 
         return {
             failedJobs: failed.count,
@@ -248,10 +267,10 @@ class IndexingService {
 
 // Main entry point
 if (import.meta.main) {
-    const service = new IndexingService();
+    const service = new IndexingService()
 
     // Initialize and start
-    (async(): Promise<void> => {
+    ;(async (): Promise<void> => {
         await initConfig(config)
         initDatabase()
 
@@ -283,7 +302,7 @@ if (import.meta.main) {
             const status = service.getStatus()
             loggerInstance.info(
                 `[IndexingService] Status: ${status.pendingJobs} pending, ` +
-                `${status.processingJobs} processing, ${status.failedJobs} failed`,
+                    `${status.processingJobs} processing, ${status.failedJobs} failed`,
             )
         }, 60_000)
     })()

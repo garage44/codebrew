@@ -4,10 +4,12 @@
  * The indexing service processes these jobs
  */
 
-import {getDb} from '../database.ts'
-import {loggerTransports} from '@garage44/common/service'
 import type {LoggerConfig} from '@garage44/common/types'
+
+import {loggerTransports} from '@garage44/common/service'
+
 import {config} from '../config.ts'
+import {getDb} from '../database.ts'
 
 // Initialize logger
 const logger = loggerTransports(config.logger as LoggerConfig, 'service')
@@ -28,25 +30,27 @@ export async function queueIndexingJob(job: IndexingJobInput): Promise<string> {
     const jobId = crypto.randomUUID()
 
     try {
-        getDb().prepare(`
+        getDb()
+            .prepare(`
             INSERT INTO indexing_jobs (
                 id, type, repository_id, file_path, doc_id, ticket_id,
                 status, created_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(
-            jobId,
-            job.type,
-            job.repositoryId || null,
-            job.filePath || null,
-            job.docId || null,
-            job.ticketId || null,
-            'pending',
-            Date.now(),
-        )
+        `)
+            .run(
+                jobId,
+                job.type,
+                job.repositoryId || null,
+                job.filePath || null,
+                job.docId || null,
+                job.ticketId || null,
+                'pending',
+                Date.now(),
+            )
 
         logger.debug(`[IndexingQueue] Queued job ${jobId} (${job.type})`)
         return jobId
-    } catch(error: unknown) {
+    } catch (error: unknown) {
         logger.error('[IndexingQueue] Failed to queue job:', error)
         throw error
     }
@@ -56,11 +60,14 @@ export async function queueIndexingJob(job: IndexingJobInput): Promise<string> {
  * Queue multiple code files for indexing
  */
 export async function queueCodeFiles(repositoryId: string, filePaths: string[]): Promise<string[]> {
-    const jobPromises = filePaths.map(async(filePath): Promise<string> => queueIndexingJob({
-            filePath,
-            repositoryId,
-            type: 'code',
-        }))
+    const jobPromises = filePaths.map(
+        async (filePath): Promise<string> =>
+            queueIndexingJob({
+                filePath,
+                repositoryId,
+                type: 'code',
+            }),
+    )
 
     const jobIds = await Promise.all(jobPromises)
 
@@ -78,10 +85,12 @@ export function getIndexingStatus(repositoryId: string): {
     processing: number
     total: number
 } {
-    const jobs = getDb().prepare(`
+    const jobs = getDb()
+        .prepare(`
         SELECT status FROM indexing_jobs
         WHERE repository_id = ?
-    `).all(repositoryId) as {status: string}[]
+    `)
+        .all(repositoryId) as {status: string}[]
 
     return {
         completed: jobs.filter((j): boolean => j.status === 'completed').length,

@@ -3,9 +3,9 @@
  */
 
 import type {WebSocketServerManager} from '@garage44/common/lib/ws-server'
+import type {z} from 'zod'
 
 import {randomId} from '@garage44/common/lib/utils'
-import {z} from 'zod'
 
 import type {DocFilters} from '../lib/docs/search.ts'
 
@@ -25,7 +25,7 @@ function enrichDoc(doc: {[key: string]: unknown; id: string}): z.infer<typeof En
         .prepare(`
         SELECT label FROM documentation_labels WHERE doc_id = ?
     `)
-        .all(doc.id) as Array<{label: string}>
+        .all(doc.id) as {label: string}[]
 
     const tags = labels.map((l) => l.label)
     const labelDefinitions = tags
@@ -83,7 +83,7 @@ export default function apiDocs(router: {
 
         const docs = getDb()
             .prepare(query)
-            .all(...params) as Array<{
+            .all(...params) as {
             author_id: string
             content: string
             created_at: number
@@ -91,7 +91,7 @@ export default function apiDocs(router: {
             path: string
             title: string
             updated_at: number
-        }>
+        }[]
 
         return new Response(JSON.stringify({docs: docs.map(enrichDoc)}), {
             headers: {'Content-Type': 'application/json'},
@@ -138,7 +138,7 @@ export default function apiDocs(router: {
     router.get('/api/docs/search', async (_req: Request, _params: Record<string, string>, _session: unknown) => {
         const url = new URL(_req.url)
         const query = url.searchParams.get('query') || ''
-        const limit = parseInt(url.searchParams.get('limit') || '10', 10)
+        const limit = Number.parseInt(url.searchParams.get('limit') || '10', 10)
         const tags = url.searchParams.get('tags') ? url.searchParams.get('tags')!.split(',') : undefined
         const workspace = url.searchParams.get('workspace') || undefined
 
@@ -152,8 +152,12 @@ export default function apiDocs(router: {
         try {
             const {searchDocs} = await import('../lib/docs/search.ts')
             const filters: {tags?: string[]; workspace?: string} = {}
-            if (tags) filters.tags = tags
-            if (workspace) filters.workspace = workspace
+            if (tags) {
+                filters.tags = tags
+            }
+            if (workspace) {
+                filters.workspace = workspace
+            }
 
             const results = await searchDocs(query, filters, limit)
 
@@ -172,7 +176,7 @@ export default function apiDocs(router: {
     router.get('/api/search', async (_req: Request, _params: Record<string, string>, _session: unknown) => {
         const url = new URL(_req.url)
         const query = url.searchParams.get('query') || ''
-        const limit = parseInt(url.searchParams.get('limit') || '10', 10)
+        const limit = Number.parseInt(url.searchParams.get('limit') || '10', 10)
         const contentType = (url.searchParams.get('contentType') || 'both') as 'doc' | 'ticket' | 'both'
         const tags = url.searchParams.get('tags') ? url.searchParams.get('tags')!.split(',') : undefined
         const workspace = url.searchParams.get('workspace') || undefined
@@ -187,8 +191,12 @@ export default function apiDocs(router: {
         try {
             const {unifiedVectorSearch} = await import('../lib/docs/search.ts')
             const filters: {tags?: string[]; workspace?: string} = {}
-            if (tags) filters.tags = tags
-            if (workspace) filters.workspace = workspace
+            if (tags) {
+                filters.tags = tags
+            }
+            if (workspace) {
+                filters.workspace = workspace
+            }
 
             const results = await unifiedVectorSearch(query, {
                 contentType,
@@ -239,7 +247,7 @@ export function registerDocsWebSocketApiRoutes(wsManager: WebSocketServerManager
 
         const docs = getDb()
             .prepare(query)
-            .all(...params) as Array<{
+            .all(...params) as {
             author_id: string
             content: string
             created_at: number
@@ -247,7 +255,7 @@ export function registerDocsWebSocketApiRoutes(wsManager: WebSocketServerManager
             path: string
             title: string
             updated_at: number
-        }>
+        }[]
 
         return {
             docs: docs.map(enrichDoc),
@@ -508,7 +516,7 @@ export function registerDocsWebSocketApiRoutes(wsManager: WebSocketServerManager
         const contentType = q.contentType as 'doc' | 'ticket' | 'both' | undefined
         const workspace = q.workspace as string | undefined
         const tags = q.tags ? (q.tags as string).split(',') : undefined
-        const limit = q.limit ? parseInt(q.limit as string, 10) : 10
+        const limit = q.limit ? Number.parseInt(q.limit as string, 10) : 10
 
         if (!query) {
             return {error: 'Query parameter required'}
@@ -548,7 +556,7 @@ export function registerDocsWebSocketApiRoutes(wsManager: WebSocketServerManager
         const query = q.q as string | undefined
         const workspace = q.workspace as string | undefined
         const tags = q.tags ? (q.tags as string).split(',') : undefined
-        const limit = q.limit ? parseInt(q.limit as string, 10) : 10
+        const limit = q.limit ? Number.parseInt(q.limit as string, 10) : 10
 
         if (!query) {
             return {error: 'Query parameter required'}

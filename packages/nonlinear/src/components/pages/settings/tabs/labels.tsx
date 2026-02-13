@@ -65,8 +65,8 @@ export function Labels() {
 
     const loadLabels = async () => {
         try {
-            const result = await ws.get('/api/labels')
-            if (result.labels) {
+            const result = (await ws.get('/api/labels')) as {labels?: LabelDefinition[]} | null
+            if (result?.labels) {
                 setLabels(result.labels as LabelDefinition[])
             }
         } catch (error) {

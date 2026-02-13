@@ -1,9 +1,11 @@
-import {useEffect, useState, useCallback, useMemo} from 'preact/hooks'
 import type {JSX} from 'preact'
-import {Button, FieldText} from '@/components'
+
 import {deepSignal} from 'deepsignal'
-import {createValidator, required} from '@/lib/validation'
+import {useEffect, useState, useCallback, useMemo} from 'preact/hooks'
+
 import {$t} from '@/app'
+import {Button, FieldText} from '@/components'
+import {createValidator, required} from '@/lib/validation'
 
 const TRANSLATIONS = [
     'Expression', // English
@@ -159,7 +161,7 @@ export const Login = ({animated = true, logo, LogoIcon, onLogin, title = 'Login'
         state.timeoutIds = [...state.timeoutIds, timeoutId]
     }
 
-    const handleLogin = useCallback(async() => {
+    const handleLogin = useCallback(async () => {
         resetTouched()
 
         if (!isValid.value) {
@@ -179,18 +181,21 @@ export const Login = ({animated = true, logo, LogoIcon, onLogin, title = 'Login'
                 state.username = ''
                 state.password = ''
             }
-        } catch(err) {
+        } catch {
             setError('Login failed. Please try again.')
         } finally {
             setLoading(false)
         }
     }, [isValid, onLogin, resetTouched])
 
-    const handleKeyPress = useCallback((e: KeyboardEvent) => {
-        if (e.key === 'Enter' && !loading) {
-            handleLogin()
-        }
-    }, [loading, handleLogin])
+    const handleKeyPress = useCallback(
+        (e: KeyboardEvent) => {
+            if (e.key === 'Enter' && !loading) {
+                handleLogin()
+            }
+        },
+        [loading, handleLogin],
+    )
 
     useEffect(() => {
         if (animated) {
@@ -209,73 +214,68 @@ export const Login = ({animated = true, logo, LogoIcon, onLogin, title = 'Login'
         }
     }, [animated])
 
-    return <div class='c-login' onKeyPress={handleKeyPress}>
-        <div style={{position: 'absolute', visibility: 'hidden'}}>
-            {$t('direction_helper')}
-        </div>
-        {animated && <div class='words-container'>
-            {state.activeWords.map((word) => <div
-                class='floating-translation fade-in'
-                key={word.id}
-                style={{
-                    '--angle': `${word.angle}rad`,
-                    left: `${word.position.x}px`,
-                    top: `${word.position.y}px`,
-                }}
-            >
-                    {word.text}
-            </div>)}
-        </div>}
+    return (
+        <div class='c-login' onKeyPress={handleKeyPress}>
+            <div style={{position: 'absolute', visibility: 'hidden'}}>{$t('direction_helper')}</div>
+            {animated && (
+                <div class='words-container'>
+                    {state.activeWords.map((word) => (
+                        <div
+                            class='floating-translation fade-in'
+                            key={word.id}
+                            style={{
+                                '--angle': `${word.angle}rad`,
+                                left: `${word.position.x}px`,
+                                top: `${word.position.y}px`,
+                            }}
+                        >
+                            {word.text}
+                        </div>
+                    ))}
+                </div>
+            )}
 
-        <div class='login-container'>
+            <div class='login-container'>
+                <div class='logo'>
+                    {LogoIcon ? (
+                        <svg class='icon logo-animated' viewBox='0 0 24 24'>
+                            <LogoIcon />
+                        </svg>
+                    ) : logo ? (
+                        <img alt='Logo' src={logo} />
+                    ) : null}
+                    <div class='logo-text'>{title}</div>
+                </div>
 
-            <div class='logo'>
-                {LogoIcon ?
-                    <svg class='icon logo-animated' viewBox='0 0 24 24'>
-                        <LogoIcon />
-                    </svg> :
-                    logo ?
-                    <img alt='Logo' src={logo} /> :
-                        null}
-                <div class='logo-text'>{title}</div>
-            </div>
+                <div class='field'>
+                    <FieldText
+                        help='Enter your username'
+                        label='Username'
+                        model={state.$username}
+                        placeholder='Enter your username'
+                        validation={validation.value.username}
+                    />
+                </div>
 
-            <div class='field'>
-                <FieldText
-                    help='Enter your username'
-                    label='Username'
-                    model={state.$username}
-                    placeholder='Enter your username'
-                    validation={validation.value.username}
-                />
-            </div>
+                <div class='field'>
+                    <FieldText
+                        help='Enter your password'
+                        label='Password'
+                        model={state.$password}
+                        placeholder='Enter your password'
+                        type='password'
+                        validation={validation.value.password}
+                    />
+                </div>
 
-            <div class='field'>
-                <FieldText
-                    help='Enter your password'
-                    label='Password'
-                    model={state.$password}
-                    placeholder='Enter your password'
-                    type='password'
-                    validation={validation.value.password}
-                />
-            </div>
+                {error && <div class='error-message'>{error}</div>}
 
-            {error && <div class='error-message'>
-                {error}
-            </div>}
-
-            <div class='actions'>
-                <Button
-                    disabled={loading || !isValid.value}
-                    icon='login'
-                    onClick={handleLogin}
-                    tip='Login'
-                    variant='menu'
-                >
-                    {loading ? 'Logging in...' : 'Login'}
-                </Button>
+                <div class='actions'>
+                    <Button disabled={loading || !isValid.value} icon='login' onClick={handleLogin} tip='Login' variant='menu'>
+                        {loading ? 'Logging in...' : 'Login'}
+                    </Button>
+                </div>
             </div>
         </div>
-    </div>
+    )
 }

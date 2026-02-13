@@ -41,21 +41,23 @@ class IndexingWorker {
         }
 
         // Store in database
-        getDb().prepare(`
+        getDb()
+            .prepare(`
             INSERT INTO indexing_jobs (
                 id, type, repository_id, file_path, doc_id, ticket_id,
                 status, created_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(
-            indexingJob.id,
-            indexingJob.type,
-            indexingJob.repositoryId || null,
-            indexingJob.filePath || null,
-            indexingJob.docId || null,
-            indexingJob.ticketId || null,
-            indexingJob.status,
-            indexingJob.created_at,
-        )
+        `)
+            .run(
+                indexingJob.id,
+                indexingJob.type,
+                indexingJob.repositoryId || null,
+                indexingJob.filePath || null,
+                indexingJob.docId || null,
+                indexingJob.ticketId || null,
+                indexingJob.status,
+                indexingJob.created_at,
+            )
 
         this.queue.push(indexingJob)
         this.processQueue() // Start processing if not already running
@@ -87,29 +89,35 @@ class IndexingWorker {
     private async processJob(job: IndexingJob): Promise<void> {
         try {
             // Update status to processing
-            getDb().prepare(`
+            getDb()
+                .prepare(`
                 UPDATE indexing_jobs
                 SET status = 'processing', started_at = ?
                 WHERE id = ?
-            `).run(Date.now(), job.id)
+            `)
+                .run(Date.now(), job.id)
 
             // Process based on type
             if (job.type === 'code' && job.repositoryId && job.filePath) {
                 await indexCodeFile(job.repositoryId, job.filePath)
             } else if (job.type === 'doc' && job.docId) {
-                const doc = getDb().prepare('SELECT * FROM documentation WHERE id = ?').get(job.docId) as {
-                    content: string
-                } | undefined
+                const doc = getDb().prepare('SELECT * FROM documentation WHERE id = ?').get(job.docId) as
+                    | {
+                          content: string
+                      }
+                    | undefined
                 if (doc) {
                     await generateDocEmbeddings(job.docId, doc.content)
                 } else {
                     throw new Error(`Document not found: ${job.docId}`)
                 }
             } else if (job.type === 'ticket' && job.ticketId) {
-                const ticket = getDb().prepare('SELECT * FROM tickets WHERE id = ?').get(job.ticketId) as {
-                    description: string | null
-                    title: string
-                } | undefined
+                const ticket = getDb().prepare('SELECT * FROM tickets WHERE id = ?').get(job.ticketId) as
+                    | {
+                          description: string | null
+                          title: string
+                      }
+                    | undefined
                 if (ticket) {
                     await generateTicketEmbedding(job.ticketId, ticket.title, ticket.description)
                 } else {
@@ -120,23 +128,27 @@ class IndexingWorker {
             }
 
             // Mark complete
-            getDb().prepare(`
+            getDb()
+                .prepare(`
                 UPDATE indexing_jobs
                 SET status = 'completed', completed_at = ?
                 WHERE id = ?
-            `).run(Date.now(), job.id)
+            `)
+                .run(Date.now(), job.id)
 
             logger.info(`[IndexingWorker] Completed job ${job.id} (${job.type})`)
-        } catch(error: unknown) {
+        } catch (error: unknown) {
             const errorMsg = error instanceof Error ? error.message : String(error)
             logger.error(`[IndexingWorker] Failed job ${job.id}:`, errorMsg)
 
             // Mark failed
-            getDb().prepare(`
+            getDb()
+                .prepare(`
                 UPDATE indexing_jobs
                 SET status = 'failed', error = ?, completed_at = ?
                 WHERE id = ?
-            `).run(errorMsg, Date.now(), job.id)
+            `)
+                .run(errorMsg, Date.now(), job.id)
         }
     }
 
@@ -150,10 +162,12 @@ class IndexingWorker {
         processing: number
         total: number
     } {
-        const jobs = getDb().prepare(`
+        const jobs = getDb()
+            .prepare(`
             SELECT status FROM indexing_jobs
             WHERE repository_id = ?
-        `).all(repositoryId) as {status: string}[]
+        `)
+            .all(repositoryId) as {status: string}[]
 
         return {
             completed: jobs.filter((j): boolean => j.status === 'completed').length,

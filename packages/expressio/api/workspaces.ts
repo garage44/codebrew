@@ -1,6 +1,6 @@
 import type {WebSocketServerManager} from '@garage44/common/lib/ws-server'
 
-import fs from 'fs/promises'
+import fs from 'node:fs/promises'
 import {homedir} from 'node:os'
 import path from 'node:path'
 import {z} from 'zod'
@@ -100,7 +100,7 @@ function validateBrowsePath(requestedPath: string | null | undefined): string {
 
 export function registerWorkspacesWebSocketApiRoutes(wsManager: WebSocketServerManager) {
     // WebSocket API routes (unchanged) - these are for real-time features
-    const api = wsManager.api
+    const {api} = wsManager
     api.get('/api/workspaces/browse', async (context, request) => {
         // Ensure browse root exists
         try {
@@ -132,7 +132,7 @@ export function registerWorkspacesWebSocketApiRoutes(wsManager: WebSocketServerM
         const resolvedRoot = path.resolve(browseRoot)
 
         // List directories
-        let entries: Array<{is_workspace: boolean; name: string; path: string}> = []
+        let entries: {is_workspace: boolean; name: string; path: string}[] = []
         try {
             const dirents = await fs.readdir(absPath, {withFileTypes: true})
             entries = await Promise.all(
@@ -220,7 +220,7 @@ export function registerWorkspacesWebSocketApiRoutes(wsManager: WebSocketServerM
                         ...lang,
                         // Convert empty string formality to undefined
                         formality: formality === '' || formality === undefined ? undefined : formality,
-                        // name is optional in response schema
+                        // Name is optional in response schema
                     }
                 }),
             },
@@ -282,12 +282,12 @@ export default function apiWorkspaces(router: {
             // The languages we have selected in the new situation.
             const selectedLanguages = workspace_data.workspace.config.languages.target
 
-            const currentLanguageIds = target_languages.map((language) => language.id)
+            const currentLanguageIds = new Set(target_languages.map((language) => language.id))
             const selectedLanguageIds = selectedLanguages.map((language) => language.id)
             // The languages not yet in our settings
-            const addLanguages = selectedLanguages.filter((language) => !currentLanguageIds.includes(language.id))
+            const addLanguages = selectedLanguages.filter((language) => !currentLanguageIds.has(language.id))
             const updateLanguages = selectedLanguages
-                .filter((language) => currentLanguageIds.includes(language.id))
+                .filter((language) => currentLanguageIds.has(language.id))
                 .filter((language) => {
                     const currentLanguage = target_languages.find((targetLang) => targetLang.id === language.id)
                     // Both formality values are 'default' | 'more' | 'less' after validation

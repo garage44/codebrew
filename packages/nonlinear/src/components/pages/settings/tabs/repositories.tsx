@@ -34,7 +34,7 @@ export function Repositories() {
 
         formState.loading = true
         try {
-            const result = await api.post('/api/repositories', {
+            const result = await api.post<{repository?: unknown}>('/api/repositories', {
                 name: formState.name,
                 path: formState.path,
                 platform: formState.platform,
@@ -43,7 +43,7 @@ export function Repositories() {
 
             if (result.repository) {
                 // Reload repositories list to ensure UI updates
-                const reposResult = await api.get('/api/repositories')
+                const reposResult = (await api.get('/api/repositories')) as {repositories?: typeof $s.repositories}
                 if (reposResult.repositories) {
                     $s.repositories = reposResult.repositories
                 }
@@ -78,7 +78,7 @@ export function Repositories() {
         try {
             await api.delete(`/api/repositories/${repoId}`, {})
             // Reload repositories list to ensure UI updates
-            const reposResult = await api.get('/api/repositories')
+            const reposResult = (await api.get('/api/repositories')) as {repositories?: typeof $s.repositories}
             if (reposResult.repositories) {
                 $s.repositories = reposResult.repositories
             }
@@ -102,15 +102,15 @@ export function Repositories() {
         setDiscoveredRepos([])
 
         try {
-            const result = await ws.post('/api/repositories/discover', {
+            const result = (await ws.post('/api/repositories/discover', {
                 searchPath: searchPath || undefined,
-            })
+            })) as {discovered?: Array<{name: string; path: string}>} | null
 
-            if (result.discovered) {
-                setDiscoveredRepos(result.discovered as Array<{name: string; path: string}>)
+            if (result?.discovered) {
+                setDiscoveredRepos(result.discovered)
                 notifier.notify({
                     icon: 'check_circle',
-                    message: `Found ${(result.discovered as Array<unknown>).length} repositories`,
+                    message: `Found ${result.discovered.length} repositories`,
                     type: 'success',
                 })
             }

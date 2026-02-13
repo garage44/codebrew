@@ -1,3 +1,5 @@
+import type {ComponentChild} from 'preact'
+
 import {App, store, $t, api, notifier, logger, events, ws, i18n} from '@garage44/common/app'
 import {type DeepSignal} from 'deepsignal'
 import {h, render} from 'preact'
@@ -28,7 +30,13 @@ if (process.env.NODE_ENV !== 'production' || process.env.BUN_ENV === 'developmen
 const app = new App()
 
 // No i18n for now
-app.init(Main, render, h, {}, {enableBunchy: process.env.NODE_ENV !== 'production'})
+app.init(
+    Main,
+    (vnode: unknown, container: HTMLElement) => render(vnode as ComponentChild, container),
+    h as (...args: unknown[]) => unknown,
+    {},
+    {enableBunchy: process.env.NODE_ENV !== 'production'},
+)
 
 // Re-export common app exports so @/app resolves correctly for common components
 export {$s, app, $t, api, notifier, logger, store, events, ws, i18n}

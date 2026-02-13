@@ -1,8 +1,10 @@
-import type {EnolaConfig, EnolaEngine, EnolaEngineConfig, EnolaLogger, EnolaTag, TargetLanguage} from './types.ts'
 import {copyObject, keyMod} from '@garage44/common/lib/utils.ts'
-import {source, target} from './languages.ts'
+
+import type {EnolaConfig, EnolaEngine, EnolaEngineConfig, EnolaLogger, EnolaTag, TargetLanguage} from './types.ts'
+
 import Anthropic from './engines/anthropic.ts'
 import Deepl from './engines/deepl.ts'
+import {source, target} from './languages.ts'
 
 /**
  * Enola is a wrapper around translation services like Deepl and Claude;
@@ -29,12 +31,12 @@ export class Enola {
 
     async init(enolaConfig: EnolaConfig, logger: EnolaLogger): Promise<void> {
         this.logger = logger
-        const available_services: Record<string, new() => EnolaEngine> = {
+        const available_services: Record<string, new () => EnolaEngine> = {
             anthropic: Anthropic,
             deepl: Deepl,
         }
 
-        const initPromises = Object.entries(enolaConfig.engines).map(async([engine, options]): Promise<void> => {
+        const initPromises = Object.entries(enolaConfig.engines).map(async ([engine, options]): Promise<void> => {
             this.engines[engine] = new available_services[engine]()
             await this.engines[engine].init(options as {api_key: string; base_url: string}, this.logger)
             this.config.engines[engine] = this.engines[engine].config
@@ -66,13 +68,15 @@ export class Enola {
         const similarTranslations: {path: string[]; source: string}[] = []
         keyMod(i18n, (ref: Record<string, unknown>, key: string | null, refPath: string[], _nestingLevel: number): void => {
             const refGroup = refPath.slice(0, -1).join('.')
-            if (ref &&
+            if (
+                ref &&
                 typeof ref === 'object' &&
                 ref !== null &&
                 'source' in ref &&
                 typeof (ref as Record<string, unknown>)._redundant !== 'boolean' &&
                 typeof (ref as Record<string, unknown>)._soft !== 'boolean' &&
-                refGroup === parentGroup) {
+                refGroup === parentGroup
+            ) {
                 const refRecord = ref as Record<string, unknown>
                 if (typeof refRecord.source === 'string') {
                     similarTranslations.push({

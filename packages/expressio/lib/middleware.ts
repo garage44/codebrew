@@ -17,11 +17,11 @@ import {logger, runtime} from '../service.ts'
 type Session = Record<string, string> | undefined
 
 class Router {
-    routes: Array<{
+    routes: {
         handler: (req: Request, params: Record<string, string>, session?: Session) => Promise<Response>
         method: string
         path: RegExp
-    }> = []
+    }[] = []
 
     get(path: string, handler: (req: Request, params: Record<string, string>, session?: Session) => Promise<Response>) {
         this.add('GET', path, handler)
@@ -55,7 +55,7 @@ class Router {
 
     async route(req: Request, session?: Record<string, string>): Promise<Response | null> {
         const url = new URL(req.url)
-        const pathname = url.pathname
+        const {pathname} = url
         for (const {handler, method, path} of this.routes) {
             if (req.method === method && path.test(pathname)) {
                 // Extract params

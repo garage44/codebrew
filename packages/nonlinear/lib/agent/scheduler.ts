@@ -3,11 +3,12 @@
  * Automatically runs agents based on configuration and database state
  */
 
-import {getDb} from '../database.ts'
-import {logger} from '../../service.ts'
-import {getAgentStatus, updateAgentStatus} from './status.ts'
 import type {AgentContext} from './base.ts'
+
+import {logger} from '../../service.ts'
+import {getDb} from '../database.ts'
 import {getAgentById} from './index.ts'
+import {getAgentStatus, updateAgentStatus} from './status.ts'
 
 /**
  * Initialize agent scheduler
@@ -25,17 +26,21 @@ export async function initAgentScheduler(): Promise<void> {
  */
 export async function runAgent(agentId: string, context: Record<string, unknown> = {}): Promise<void> {
     // Load agent from database
-    const agentRecord = getDb().prepare(`
+    const agentRecord = getDb()
+        .prepare(`
         SELECT id, name, type, enabled, status
         FROM agents
         WHERE id = ?
-    `).get(agentId) as {
-        enabled: number
-        id: string
-        name: string
-        status: string
-        type: 'planner' | 'developer' | 'reviewer'
-    } | undefined
+    `)
+        .get(agentId) as
+        | {
+              enabled: number
+              id: string
+              name: string
+              status: string
+              type: 'planner' | 'developer' | 'reviewer'
+          }
+        | undefined
 
     if (!agentRecord) {
         throw new Error(`Agent ${agentId} not found`)
@@ -56,9 +61,11 @@ export async function runAgent(agentId: string, context: Record<string, unknown>
      * before calling the scheduler, and AgentService ensures single-task processing
      */
     if (isTaskTrigger && taskId) {
-        const task = getDb().prepare(`
+        const task = getDb()
+            .prepare(`
             SELECT status FROM agent_tasks WHERE id = ?
-        `).get(taskId) as {status: string} | undefined
+        `)
+            .get(taskId) as {status: string} | undefined
 
         if (task && (task.status === 'completed' || task.status === 'failed')) {
             logger.debug(`[Agent Scheduler] Task ${taskId} is already ${task.status}, skipping`)
@@ -101,7 +108,7 @@ export async function runAgent(agentId: string, context: Record<string, unknown>
             updateAgentStatus(agentId, 'error', null, result.error || 'Unknown error')
             logger.error(`[Agent Scheduler] Agent ${agentRecord.name} failed: ${result.message}`)
         }
-    } catch(error) {
+    } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error)
         updateAgentStatus(agentId, 'error', null, errorMsg)
         logger.error(`[Agent Scheduler] Agent ${agentRecord.name} error: ${error}`)
@@ -109,21 +116,24 @@ export async function runAgent(agentId: string, context: Record<string, unknown>
     }
 }
 
-
 /**
  * Manually trigger an agent
  */
 export async function triggerAgent(agentId: string, context: Record<string, unknown> = {}): Promise<void> {
     // Load agent from database
-    const agentRecord = getDb().prepare(`
+    const agentRecord = getDb()
+        .prepare(`
         SELECT id, name, enabled
         FROM agents
         WHERE id = ?
-    `).get(agentId) as {
-        enabled: number
-        id: string
-        name: string
-    } | undefined
+    `)
+        .get(agentId) as
+        | {
+              enabled: number
+              id: string
+              name: string
+          }
+        | undefined
 
     if (!agentRecord) {
         throw new Error(`Agent ${agentId} not found`)

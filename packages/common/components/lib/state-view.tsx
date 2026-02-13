@@ -1,4 +1,5 @@
 import type {h, JSX} from 'preact'
+
 import {useState} from 'preact/hooks'
 
 interface StateViewProps {
@@ -9,7 +10,7 @@ interface StateViewProps {
 const renderString = (value: string): string => `"${value}"`
 const renderBoolean = (value: boolean): string => value.toString()
 const renderNumber = (value: number): string => value.toString()
-const renderArray = (value: unknown[]): string => value.length === 0 ? '[]' : `[${value.length} items]`
+const renderArray = (value: unknown[]): string => (value.length === 0 ? '[]' : `[${value.length} items]`)
 const renderObject = (value: object): string => {
     try {
         return JSON.stringify(value, null, 2)
@@ -48,14 +49,12 @@ export const StateView = ({state, title = 'Component State'}: StateViewProps): R
         return null
     }
 
-    const renderStateEntry = (key: string, value: unknown): JSX.Element => <div class='entry' key={key}>
-            <span class='key'>
-{key}
-:
-            </span>
+    const renderStateEntry = (key: string, value: unknown): JSX.Element => (
+        <div class='entry' key={key}>
+            <span class='key'>{key}:</span>
             <span class='value'>{renderValue(value)}</span>
-    </div>
-
+        </div>
+    )
 
     return (
         <div class={`c-state-view ${isOpen ? 'open' : ''}`}>
@@ -71,14 +70,17 @@ export const StateView = ({state, title = 'Component State'}: StateViewProps): R
                     {title}
                 </h4>
             </button>
-            {isOpen &&
+            {isOpen && (
                 <div class='content'>
-                    {typeof state === 'object' && state !== null ?
-                            Object.entries(state).map(([key, value]): JSX.Element => renderStateEntry(key, value)) :
+                    {typeof state === 'object' && state !== null ? (
+                        Object.entries(state).map(([key, value]): JSX.Element => renderStateEntry(key, value))
+                    ) : (
                         <div class='entry'>
                             <span class='value'>{renderValue(state)}</span>
-                        </div>}
-                </div>}
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     )
 }

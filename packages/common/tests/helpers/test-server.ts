@@ -44,7 +44,10 @@ export class TestServer {
                 const port = this.port || 0
 
                 this.server = Bun.serve({
-                    fetch: (req: Request, server: {upgrade: (req: Request, opts: {data: {endpoint: string}}) => boolean}): Response | void => {
+                    fetch: (
+                        req: Request,
+                        server: {upgrade: (req: Request, opts: {data: {endpoint: string}}) => boolean},
+                    ): Response | void => {
                         // Handle WebSocket upgrade
                         if (server.upgrade(req, {data: {endpoint: this.endpoint}})) {
                             return
@@ -59,7 +62,7 @@ export class TestServer {
                 this.port = this.server.port || this.port
 
                 resolve()
-            } catch(error) {
+            } catch (error) {
                 reject(error)
             }
         })

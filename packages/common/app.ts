@@ -1,13 +1,15 @@
-import {create$t, init as i18nInit} from './lib/i18n'
-import {Api} from './lib/api'
-import type {CommonState} from './types'
 import {EventEmitter} from 'node:events'
-import {Notifier, type Notification} from './lib/notifier'
-import {Store} from './lib/store'
+
+import type {CommonState} from './types'
+
+import {Api} from './lib/api'
 import env from './lib/env'
+import {create$t, init as i18nInit} from './lib/i18n'
 import {logger} from './lib/logger'
-import {WebSocketClient} from './lib/ws-client'
+import {Notifier, type Notification} from './lib/notifier'
 import {persistentState, volatileState} from './lib/state'
+import {Store} from './lib/store'
+import {WebSocketClient} from './lib/ws-client'
 logger.setLevel('debug')
 
 const notifier = new Notifier()
@@ -43,10 +45,15 @@ interface InitOptions {
     enableBunchy?: boolean
 }
 
-
 class App {
     // eslint-disable-next-line max-statements, class-methods-use-this
-    async init(Main: unknown, renderFn: (vnode: unknown, container: HTMLElement) => void, hFn: (component: unknown, props: Record<string, unknown>) => unknown, translations: unknown, options: InitOptions = {}): Promise<void> {
+    async init(
+        Main: unknown,
+        renderFn: (vnode: unknown, container: HTMLElement) => void,
+        hFn: (...args: unknown[]) => unknown,
+        translations: unknown,
+        options: InitOptions = {},
+    ): Promise<void> {
         const globalState = globalThis as unknown as {
             __HMR_UPDATING__?: boolean
             __HMR_MAIN_COMPONENT__?: unknown
@@ -66,7 +73,7 @@ class App {
              * This ensures any changes in non-component files are picked up
              */
             env(store.state.env, store)
-            await i18n.init(translations as Record<string, unknown> | null | undefined || null, api, store)
+            await i18n.init((translations as Record<string, unknown> | null | undefined) || null, api, store)
             notifier.init(store.state.notifications as Notification[])
 
             // Update Main component reference
@@ -136,7 +143,7 @@ class App {
                         newViewElement.scrollTop = scrollPosition
                     }
                 })
-            } catch(error) {
+            } catch (error) {
                 // oxlint-disable-next-line no-console
                 console.error('[HMR] Error re-rendering Main component:', error)
                 // Fall back to full reload on error
@@ -169,17 +176,17 @@ class App {
         // oxlint-disable-next-line no-console
         console.log('[App] Normal initialization path')
 
-            // Normal initialization (not HMR)
-            env(store.state.env, store)
-            await i18n.init(translations as Record<string, unknown> | null | undefined || null, api, store)
-            notifier.init(store.state.notifications as Notification[])
+        // Normal initialization (not HMR)
+        env(store.state.env, store)
+        await i18n.init((translations as Record<string, unknown> | null | undefined) || null, api, store)
+        notifier.init(store.state.notifications as Notification[])
 
         // Store Main component reference for HMR re-rendering
         globalState.__HMR_MAIN_COMPONENT__ = Main
 
         try {
             renderFn(hFn(Main, {}), document.body)
-        } catch(error) {
+        } catch (error) {
             // oxlint-disable-next-line no-console
             console.error('Error rendering Main component:', error)
         }
@@ -188,14 +195,4 @@ class App {
     }
 }
 
-export {
-    $t,
-    api,
-    App,
-    events,
-    logger,
-    i18n,
-    notifier,
-    store,
-    ws,
-}
+export {$t, api, App, events, logger, i18n, notifier, store, ws}

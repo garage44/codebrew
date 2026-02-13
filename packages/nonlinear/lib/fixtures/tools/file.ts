@@ -2,15 +2,20 @@
  * File operation tools
  */
 
-import {logger} from '../../../service.ts'
-import type {Tool, ToolContext, ToolResult} from './types.ts'
 import path from 'node:path'
+
+import type {Tool, ToolContext, ToolResult} from './types.ts'
+
+import {logger} from '../../../service.ts'
 // Bun is a global in Bun runtime
 
 /**
  * Get file context (imports, exports, related files)
  */
-async function getFileContext(filePath: string, content: string): Promise<{
+async function getFileContext(
+    filePath: string,
+    content: string,
+): Promise<{
     exports: string[]
     imports: string[]
     relatedFiles: string[]
@@ -18,13 +23,16 @@ async function getFileContext(filePath: string, content: string): Promise<{
     type: string
 }> {
     const ext = path.extname(filePath)
-    const type = ext === '.ts' || ext === '.tsx' ?
-        'typescript' :
-        ext === '.js' || ext === '.jsx' ?
-            'javascript' :
-            ext === '.css' ?
-                'css' :
-                ext === '.json' ? 'json' : 'unknown'
+    const type =
+        ext === '.ts' || ext === '.tsx'
+            ? 'typescript'
+            : ext === '.js' || ext === '.jsx'
+              ? 'javascript'
+              : ext === '.css'
+                ? 'css'
+                : ext === '.json'
+                  ? 'json'
+                  : 'unknown'
 
     // Extract imports (simple regex for now, can be enhanced with AST)
     const importRegex = /import\s+.*?\s+from\s+['"](.+?)['"]/g
@@ -66,7 +74,7 @@ async function getFileContext(filePath: string, content: string): Promise<{
 export const fileTools: Record<string, Tool> = {
     read_file: {
         description: 'Read file with syntax context and related file hints',
-        execute: async(params: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
+        execute: async (params: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
             const {path: filePath} = params as {path: string}
             try {
                 if (!context.repositoryPath) {
@@ -102,7 +110,7 @@ export const fileTools: Record<string, Tool> = {
                     data: content,
                     success: true,
                 }
-            } catch(error) {
+            } catch (error) {
                 logger.error(`[FileTool] Failed to read file ${filePath}:`, error)
                 return {
                     error: error instanceof Error ? error.message : String(error),
@@ -123,7 +131,7 @@ export const fileTools: Record<string, Tool> = {
 
     search_files: {
         description: 'Search files by pattern or content',
-        execute: async(params: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
+        execute: async (params: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
             const {content, directory, pattern} = params as {content?: string; directory?: string; pattern?: string}
             const repoPath = context.repositoryPath
             try {
@@ -134,9 +142,7 @@ export const fileTools: Record<string, Tool> = {
                     }
                 }
 
-                const searchDir = directory ?
-                        path.join(repoPath, directory) :
-                    repoPath
+                const searchDir = directory ? path.join(repoPath, directory) : repoPath
 
                 // Use Bun Shell for file search
                 const {$} = await import('bun')
@@ -145,18 +151,11 @@ export const fileTools: Record<string, Tool> = {
 
                 if (pattern) {
                     // Search by pattern
-                    const result = await $`find ${searchDir} -name ${pattern}`
-                        .cwd(repoPath)
-                        .quiet()
-                        .text()
+                    const result = await $`find ${searchDir} -name ${pattern}`.cwd(repoPath).quiet().text()
                     results = result.split('\n').filter(Boolean)
                 } else if (content) {
                     // Search by content (grep)
-                    const result = await $`grep -r -l ${content} ${searchDir}`
-                        .cwd(repoPath)
-                        .quiet()
-                        .nothrow()
-                        .text()
+                    const result = await $`grep -r -l ${content} ${searchDir}`.cwd(repoPath).quiet().nothrow().text()
                     results = result.split('\n').filter(Boolean)
                 } else {
                     return {
@@ -167,9 +166,11 @@ export const fileTools: Record<string, Tool> = {
 
                 // Enrich with file metadata
                 const enriched = await Promise.all(
-                    results.map(async(resultPath) => {
+                    results.map(async (resultPath) => {
                         const absPath = path.isAbsolute(resultPath) ? resultPath : path.join(repoPath, resultPath)
-                        const stat = await Bun.file(absPath).stat().catch(() => null)
+                        const stat = await Bun.file(absPath)
+                            .stat()
+                            .catch(() => null)
                         return {
                             modified: stat?.mtime || null,
                             path: path.relative(repoPath, absPath),
@@ -185,7 +186,7 @@ export const fileTools: Record<string, Tool> = {
                     data: enriched,
                     success: true,
                 }
-            } catch(error) {
+            } catch (error) {
                 logger.error('[FileTool] Failed to search files:', error)
                 return {
                     error: error instanceof Error ? error.message : String(error),
@@ -218,8 +219,13 @@ export const fileTools: Record<string, Tool> = {
 
     write_file: {
         description: 'Write file using AST-based editing when possible, otherwise full replacement',
-        execute: async(params: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
-            const {content, edits, mode, path: writePath} = params as {content?: string; edits?: unknown[]; mode?: 'replace' | 'ast' | 'patch'; path: string}
+        execute: async (params: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
+            const {
+                content,
+                edits,
+                mode,
+                path: writePath,
+            } = params as {content?: string; edits?: unknown[]; mode?: 'replace' | 'ast' | 'patch'; path: string}
             try {
                 if (!context.repositoryPath) {
                     return {
@@ -259,7 +265,7 @@ export const fileTools: Record<string, Tool> = {
                     error: 'Either content or edits must be provided',
                     success: false,
                 }
-            } catch(error) {
+            } catch (error) {
                 logger.error(`[FileTool] Failed to write file ${(params as {path?: string})?.path ?? 'unknown'}:`, error)
                 return {
                     error: error instanceof Error ? error.message : String(error),

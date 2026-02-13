@@ -456,11 +456,4 @@ function getRegionCode(code: string): string | null {
     return parts.length > 1 ? parts[1] : null
 }
 
-export {
-    EXTENDED_LANGUAGE_CODES,
-    ISO_639_2_TO_1,
-    getRegionCode,
-    iso6391ToIso6392,
-    toIso6391,
-    toIso6392,
-}
+export {EXTENDED_LANGUAGE_CODES, ISO_639_2_TO_1, getRegionCode, iso6391ToIso6392, toIso6391, toIso6392}

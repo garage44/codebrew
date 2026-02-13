@@ -1,6 +1,7 @@
-import {useCallback, useEffect, useRef, useState} from 'preact/hooks'
 import type {ComponentChildren} from 'preact'
+
 import classnames from 'classnames'
+import {useCallback, useEffect, useRef, useState} from 'preact/hooks'
 
 export interface AutocompleteItem<T = unknown> {
     id: string
@@ -36,7 +37,7 @@ export interface AutocompleteProps<T = unknown> {
     /**
      * Function to filter items based on query
      */
-    filterItems: (items: Array<AutocompleteItem<T>>, query: string) => Array<AutocompleteItem<T>>
+    filterItems: (items: AutocompleteItem<T>[], query: string) => AutocompleteItem<T>[]
 
     /**
      * Function to render each suggestion item
@@ -90,7 +91,7 @@ export function Autocomplete<T = unknown>({
     triggerPattern,
 }: AutocompleteProps<T>) {
     const [showSuggestions, setShowSuggestions] = useState(false)
-    const [suggestions, setSuggestions] = useState<Array<AutocompleteItem<T>>>([])
+    const [suggestions, setSuggestions] = useState<AutocompleteItem<T>[]>([])
     const [selectedIndex, setSelectedIndex] = useState(0)
     const [matchStart, setMatchStart] = useState(0)
     const [query, setQuery] = useState('')
@@ -100,16 +101,18 @@ export function Autocomplete<T = unknown>({
     // Check for trigger pattern and show suggestions
     useEffect(() => {
         const input = inputRef.current
-        if (!input) return
+        if (!input) {
+            return
+        }
 
         const handleInput = () => {
             const cursorPos = input.selectionStart || 0
-            const textBeforeCursor = content.substring(0, cursorPos)
+            const textBeforeCursor = content.slice(0, cursorPos)
 
             // Find the last trigger pattern match before cursor
             let match: RegExpMatchArray | null = null
             if (typeof triggerPattern === 'string') {
-                const escaped = triggerPattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+                const escaped = triggerPattern.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`)
                 const regex = new RegExp(`${escaped}(\\w*)$`)
                 match = textBeforeCursor.match(regex)
             } else {
@@ -155,35 +158,44 @@ export function Autocomplete<T = unknown>({
         }
     }, [content, inputRef, items, filterItems, triggerPattern])
 
-    const insertItem = useCallback((item: AutocompleteItem<T>) => {
-        const input = inputRef.current
-        if (!input) return
+    const insertItem = useCallback(
+        (item: AutocompleteItem<T>) => {
+            const input = inputRef.current
+            if (!input) {
+                return
+            }
 
-        const triggerLength = typeof triggerPattern === 'string' ? triggerPattern.length : 1
-        const before = content.substring(0, matchStart)
-        const after = content.substring(matchStart + triggerLength + query.length)
-        const insertText = getInsertText(item)
-        const newContent = `${before}${insertText} ${after}`
+            const triggerLength = typeof triggerPattern === 'string' ? triggerPattern.length : 1
+            const before = content.slice(0, matchStart)
+            const after = content.slice(matchStart + triggerLength + query.length)
+            const insertText = getInsertText(item)
+            const newContent = `${before}${insertText} ${after}`
 
-        onContentChange(newContent)
-        setShowSuggestions(false)
+            onContentChange(newContent)
+            setShowSuggestions(false)
 
-        // Set cursor position after the inserted text
-        setTimeout(() => {
-            const newCursorPos = matchStart + insertText.length + 1 // +1 for space
-            input.setSelectionRange(newCursorPos, newCursorPos)
-            input.focus()
-        }, 0)
-    }, [content, matchStart, query, triggerPattern, getInsertText, onContentChange])
+            // Set cursor position after the inserted text
+            setTimeout(() => {
+                const newCursorPos = matchStart + insertText.length + 1 // +1 for space
+                input.setSelectionRange(newCursorPos, newCursorPos)
+                input.focus()
+            }, 0)
+        },
+        [content, matchStart, query, triggerPattern, getInsertText, onContentChange],
+    )
 
     // Handle keyboard navigation
     useEffect(() => {
         const input = inputRef.current
-        if (!input || !showSuggestions) return
+        if (!input || !showSuggestions) {
+            return
+        }
 
         const handleKeyDown = (e: Event) => {
             const keyEvent = e as KeyboardEvent
-            if (!showSuggestions || suggestions.length === 0) return
+            if (!showSuggestions || suggestions.length === 0) {
+                return
+            }
 
             if (keyEvent.key === 'ArrowDown') {
                 keyEvent.preventDefault()
@@ -228,7 +240,7 @@ export function Autocomplete<T = unknown>({
     }, [selectedIndex, showSuggestions])
 
     // Calculate position for autocomplete dropdown
-    const [position, setPosition] = useState({top: 0, left: 0})
+    const [position, setPosition] = useState({left: 0, top: 0})
 
     useEffect(() => {
         if (!showSuggestions || !inputRef.current) {
@@ -236,7 +248,7 @@ export function Autocomplete<T = unknown>({
         }
 
         const input = inputRef.current
-        const textBeforeCursor = content.substring(0, matchStart)
+        const textBeforeCursor = content.slice(0, matchStart)
 
         // Create a temporary div to measure text position
         const measureDiv = document.createElement('div')
@@ -260,17 +272,27 @@ export function Autocomplete<T = unknown>({
         // Add a span to mark the end position
         const marker = document.createElement('span')
         marker.textContent = '|'
-        measureDiv.appendChild(marker)
+        measureDiv.append(marker)
 
-        document.body.appendChild(measureDiv)
+        document.body.append(measureDiv)
 
         const inputRect = input.getBoundingClientRect()
         const markerRect = marker.getBoundingClientRect()
         const measureDivRect = measureDiv.getBoundingClientRect()
 
         // Calculate position relative to the marker
-        const top = markerRect.top - measureDivRect.top + inputRect.top + parseInt(inputStyle.paddingTop || '0') + parseInt(inputStyle.borderTopWidth || '0')
-        const left = markerRect.left - measureDivRect.left + inputRect.left + parseInt(inputStyle.paddingLeft || '0') + parseInt(inputStyle.borderLeftWidth || '0')
+        const top =
+            markerRect.top -
+            measureDivRect.top +
+            inputRect.top +
+            Number.parseInt(inputStyle.paddingTop || '0') +
+            Number.parseInt(inputStyle.borderTopWidth || '0')
+        const left =
+            markerRect.left -
+            measureDivRect.left +
+            inputRect.left +
+            Number.parseInt(inputStyle.paddingLeft || '0') +
+            Number.parseInt(inputStyle.borderLeftWidth || '0')
 
         document.body.removeChild(measureDiv)
 
@@ -289,10 +311,10 @@ export function Autocomplete<T = unknown>({
             class={classnames('c-autocomplete', className)}
             ref={suggestionsRef}
             style={{
+                left: `${position.left}px`,
                 maxHeight: `${maxHeight}px`,
                 position: 'fixed',
                 top: `${position.top}px`,
-                left: `${position.left}px`,
             }}
         >
             {suggestions.map((item, index) => (

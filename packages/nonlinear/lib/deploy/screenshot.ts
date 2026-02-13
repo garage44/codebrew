@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
-import {type Browser, type Page, chromium} from 'playwright'
-import {join} from 'node:path'
 import {mkdir} from 'node:fs/promises'
+import {join} from 'node:path'
+import {type Browser, type Page, chromium} from 'playwright'
 
 interface ScreenshotConfig {
     actions?: (page: Page) => Promise<void>
@@ -13,7 +13,7 @@ interface ScreenshotConfig {
 
 const SCREENSHOTS: ScreenshotConfig[] = [
     {
-        actions: async(page: Page): Promise<void> => {
+        actions: async (page: Page): Promise<void> => {
             await page.goto('http://localhost:3030')
             await page.waitForSelector('.c-login')
             await page.fill('.c-field-text input[type="text"]', 'admin')
@@ -24,7 +24,7 @@ const SCREENSHOTS: ScreenshotConfig[] = [
         waitForSelector: '.c-login',
     },
     {
-        actions: async(page: Page): Promise<void> => {
+        actions: async (page: Page): Promise<void> => {
             // Login first
             await page.goto('http://localhost:3030')
             await page.waitForSelector('.c-login')
@@ -43,7 +43,7 @@ const SCREENSHOTS: ScreenshotConfig[] = [
         url: 'http://localhost:3030',
     },
     {
-        actions: async(page: Page): Promise<void> => {
+        actions: async (page: Page): Promise<void> => {
             // Login first
             await page.goto('http://localhost:3030')
             await page.waitForSelector('.c-login')
@@ -63,7 +63,7 @@ const SCREENSHOTS: ScreenshotConfig[] = [
         url: 'http://localhost:3030',
     },
     {
-        actions: async(page: Page): Promise<void> => {
+        actions: async (page: Page): Promise<void> => {
             // Login first
             await page.goto('http://localhost:3030')
             await page.waitForSelector('.c-login')
@@ -115,7 +115,7 @@ async function takeScreenshot(browser: Browser, config: ScreenshotConfig): Promi
     const page = await browser.newPage()
 
     try {
-    // Set viewport for consistent screenshots
+        // Set viewport for consistent screenshots
         await page.setViewportSize({height: 800, width: 1200})
 
         // Enable console logging for debugging
@@ -159,7 +159,7 @@ async function takeScreenshot(browser: Browser, config: ScreenshotConfig): Promi
 
         // eslint-disable-next-line no-console
         console.log(`✅ Screenshot saved: ${config.name}`)
-    } catch(error: unknown) {
+    } catch (error: unknown) {
         // eslint-disable-next-line no-console
         console.error(`❌ Failed to take screenshot ${config.name}:`, error instanceof Error ? error.message : String(error))
 
@@ -168,7 +168,7 @@ async function takeScreenshot(browser: Browser, config: ScreenshotConfig): Promi
             const currentUrl = page.url()
             // eslint-disable-next-line no-console
             console.log(`  📍 Current URL: ${currentUrl}`)
-        } catch{
+        } catch {
             // Ignore if page is closed
         }
 
@@ -189,7 +189,7 @@ export async function takeScreenshots(): Promise<void> {
     let browser: Browser | null = null
 
     try {
-    // Start the server
+        // Start the server
         // eslint-disable-next-line no-console
         console.log('🚀 Starting Expressio server...')
         serverProcess = Bun.spawn(['bun', 'run', 'dev'], {
@@ -211,11 +211,7 @@ export async function takeScreenshots(): Promise<void> {
         // eslint-disable-next-line no-console
         console.log('🌐 Launching browser...')
         browser = await chromium.launch({
-            args: [
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--hide-scrollbars',
-            ],
+            args: ['--no-sandbox', '--disable-setuid-sandbox', '--hide-scrollbars'],
             // Show browser window for debugging
             headless: false,
             // Slow down actions by 1 second each
@@ -232,12 +228,12 @@ export async function takeScreenshots(): Promise<void> {
 
         // eslint-disable-next-line no-console
         console.log('\n🎉 All screenshots captured successfully!')
-    } catch(error: unknown) {
+    } catch (error: unknown) {
         // eslint-disable-next-line no-console
         console.error('❌ Screenshot capture failed:', error instanceof Error ? error.message : String(error))
         throw error
     } finally {
-    // Cleanup
+        // Cleanup
         if (browser) {
             await browser.close()
             // eslint-disable-next-line no-console

@@ -3,9 +3,9 @@
  * Analyzes backlog tickets and moves high-priority ones to "todo"
  */
 
-import {type AgentContext, type AgentResponse, BaseAgent} from './base.ts'
-import {addTicketLabel, getDb} from '../database.ts'
 import {logger} from '../../service.ts'
+import {addTicketLabel, getDb} from '../database.ts'
+import {type AgentContext, type AgentResponse, BaseAgent} from './base.ts'
 import {addAgentComment} from './comments.ts'
 import {updateTicketFromAgent} from './ticket-updates.ts'
 
@@ -21,19 +21,23 @@ export class PrioritizerAgent extends BaseAgent {
             const ticketId = context.ticket_id as string | undefined
             if (ticketId) {
                 this.log(`Processing ticket ${ticketId}`)
-                const ticket = getDb().prepare(`
+                const ticket = getDb()
+                    .prepare(`
                     SELECT t.*, r.name as repository_name, r.path as repository_path
                     FROM tickets t
                     LEFT JOIN repositories r ON t.repository_id = r.id
                     WHERE t.id = ?
-                `).get(ticketId) as {
-                    description: string | null
-                    id: string
-                    repository_id: string
-                    repository_name: string | null
-                    repository_path: string | null
-                    title: string
-                } | undefined
+                `)
+                    .get(ticketId) as
+                    | {
+                          description: string | null
+                          id: string
+                          repository_id: string
+                          repository_name: string | null
+                          repository_path: string | null
+                          title: string
+                      }
+                    | undefined
 
                 if (ticket) {
                     // Check if this was triggered via mention (has comment_id and comment_content)
@@ -56,25 +60,26 @@ export class PrioritizerAgent extends BaseAgent {
                             success: true,
                         }
                     }
-                        // Regular refinement (automatic or manual trigger)
-                        this.log('Regular refinement trigger (no mention)')
-                        if (ticket.repository_path) {
-                            await this.refineTicket(ticket)
-                        } else {
-                            this.log(`Skipping refinement - no repository_path for ticket ${ticketId}`)
-                        }
-
+                    // Regular refinement (automatic or manual trigger)
+                    this.log('Regular refinement trigger (no mention)')
+                    if (ticket.repository_path) {
+                        await this.refineTicket(ticket)
+                    } else {
+                        this.log(`Skipping refinement - no repository_path for ticket ${ticketId}`)
+                    }
                 } else {
                     this.log(`Ticket ${ticketId} not found`)
                 }
             }
 
             // Get all backlog tickets
-            const backlogTickets = getDb().prepare(`
+            const backlogTickets = getDb()
+                .prepare(`
                 SELECT * FROM tickets
                 WHERE status = 'backlog'
                 ORDER BY created_at ASC
-            `).all() as {
+            `)
+                .all() as {
                 created_at: number
                 description: string | null
                 id: string
@@ -97,9 +102,9 @@ export class PrioritizerAgent extends BaseAgent {
             const repositories = new Map<string, {name: string; path: string}>()
             for (const ticket of backlogTickets) {
                 if (!repositories.has(ticket.repository_id)) {
-                    const repo = getDb()
-                        .prepare('SELECT name, path FROM repositories WHERE id = ?')
-                        .get(ticket.repository_id) as {name: string; path: string} | undefined
+                    const repo = getDb().prepare('SELECT name, path FROM repositories WHERE id = ?').get(ticket.repository_id) as
+                        | {name: string; path: string}
+                        | undefined
                     if (repo) {
                         repositories.set(ticket.repository_id, repo)
                     }
@@ -107,26 +112,30 @@ export class PrioritizerAgent extends BaseAgent {
             }
 
             // Build context for LLM
-            const ticketsContext = backlogTickets.map((ticket): {
-                created_at: string
-                current_priority: number | null
-                description: string
-                id: string
-                repository: string
-                repository_name: string
-                title: string
-            } => {
-                const repo = repositories.get(ticket.repository_id)
-                return {
-                    created_at: new Date(ticket.created_at).toISOString(),
-                    current_priority: ticket.priority,
-                    description: ticket.description || '',
-                    id: ticket.id,
-                    repository: repo?.name || 'Unknown',
-                    repository_name: repo?.name || 'Unknown',
-                    title: ticket.title,
-                }
-            })
+            const ticketsContext = backlogTickets.map(
+                (
+                    ticket,
+                ): {
+                    created_at: string
+                    current_priority: number | null
+                    description: string
+                    id: string
+                    repository: string
+                    repository_name: string
+                    title: string
+                } => {
+                    const repo = repositories.get(ticket.repository_id)
+                    return {
+                        created_at: new Date(ticket.created_at).toISOString(),
+                        current_priority: ticket.priority,
+                        description: ticket.description || '',
+                        id: ticket.id,
+                        repository: repo?.name || 'Unknown',
+                        repository_name: repo?.name || 'Unknown',
+                        title: ticket.title,
+                    }
+                },
+            )
 
             // Get relevant prioritization documentation
             const prioritizationDocs = await this.getRelevantDocs(
@@ -177,7 +186,7 @@ ${JSON.stringify(ticketsContext, null, 2)}`
                 const jsonMatch = response.match(/```json\n([\s\S]*?)\n```/) || response.match(/```\n([\s\S]*?)\n```/)
                 const jsonStr = jsonMatch ? jsonMatch[1] : response
                 prioritizations = JSON.parse(jsonStr)
-            } catch(error) {
+            } catch (error) {
                 this.log(`Failed to parse LLM response: ${error}`, 'error')
                 return {
                     error: String(error),
@@ -212,7 +221,7 @@ ${JSON.stringify(ticketsContext, null, 2)}`
 
             this.log(
                 `Prioritization complete: ${movedCount} tickets moved to todo, ` +
-                `${prioritizations.length - movedCount} remain in backlog`,
+                    `${prioritizations.length - movedCount} remain in backlog`,
             )
 
             return {
@@ -223,7 +232,7 @@ ${JSON.stringify(ticketsContext, null, 2)}`
                 message: `Prioritized ${prioritizations.length} tickets, moved ${movedCount} to todo`,
                 success: true,
             }
-        } catch(error) {
+        } catch (error) {
             this.log(`Error during prioritization: ${error}`, 'error')
             return {
                 error: error instanceof Error ? error.message : String(error),
@@ -330,7 +339,7 @@ Provide a refined description and analysis.`
                 const jsonMatch = response.match(/```json\n([\s\S]*?)\n```/) || response.match(/```\n([\s\S]*?)\n```/)
                 const jsonStr = jsonMatch ? jsonMatch[1] : response
                 refinement = JSON.parse(jsonStr)
-            } catch(error) {
+            } catch (error) {
                 // If parsing fails, use the response as analysis and keep original description
                 this.log(`Failed to parse refinement response, using as analysis: ${error}`)
                 refinement = {
@@ -366,7 +375,7 @@ Provide a refined description and analysis.`
             this.log(`Added "refined" label to ticket ${ticket.id}`)
 
             this.log(`Refined ticket ${ticket.id}`)
-        } catch(error) {
+        } catch (error) {
             this.log(`Error refining ticket ${ticket.id}: ${error}`, 'error')
             // Don't throw - refinement failure shouldn't block prioritization
         }
@@ -403,7 +412,7 @@ Provide a refined description and analysis.`
              * TODO: Add intelligent intent analysis and streaming LLM responses
              */
             await this.refineTicketFromMention(ticket, mention, responseCommentId)
-        } catch(error) {
+        } catch (error) {
             const errorMsg = error instanceof Error ? error.message : String(error)
             await finalizeAgentComment(responseCommentId, `I encountered an error while processing your request: ${errorMsg}`)
             throw error
@@ -455,13 +464,15 @@ Provide a refined description and analysis.`
             }
 
             // Get recent comments for context
-            const recentComments = getDb().prepare(`
+            const recentComments = getDb()
+                .prepare(`
                 SELECT author_type, author_id, content, created_at
                 FROM comments
                 WHERE ticket_id = ?
                 ORDER BY created_at DESC
                 LIMIT 10
-            `).all(ticket.id) as {
+            `)
+                .all(ticket.id) as {
                 author_id: string
                 author_type: string
                 content: string
@@ -539,84 +550,86 @@ Please respond to the user's request and refine the ticket as requested.`
             let lastBroadcastTime = 0
             const {updateAgentComment} = await import('./comments.ts')
 
-            const response = await this.respondStreaming(
-                systemPrompt,
-                userMessage,
-                async(chunk: string): Promise<void> => {
-                    accumulatedResponse += chunk
+            const response = await this.respondStreaming(systemPrompt, userMessage, async (chunk: string): Promise<void> => {
+                accumulatedResponse += chunk
 
-                    /*
-                     * Try to extract response_comment value incrementally
-                     * Find the start of the field value
-                     */
-                    const startIdx = accumulatedResponse.indexOf('"response_comment"')
-                    // eslint-disable-next-line no-negated-condition
-                    if (startIdx !== -1) {
-                        // Find the colon and opening quote after "response_comment"
-                        const afterField = accumulatedResponse.slice(startIdx + '"response_comment"'.length)
-                        const colonQuoteMatch = afterField.match(/^\s*:\s*"/)
-                        if (colonQuoteMatch) {
-                            const valueStart = startIdx + '"response_comment"'.length + colonQuoteMatch[0].length
-                            const valueText = accumulatedResponse.slice(valueStart)
+                /*
+                 * Try to extract response_comment value incrementally
+                 * Find the start of the field value
+                 */
+                const startIdx = accumulatedResponse.indexOf('"response_comment"')
+                // eslint-disable-next-line no-negated-condition
+                if (startIdx !== -1) {
+                    // Find the colon and opening quote after "response_comment"
+                    const afterField = accumulatedResponse.slice(startIdx + '"response_comment"'.length)
+                    const colonQuoteMatch = afterField.match(/^\s*:\s*"/)
+                    if (colonQuoteMatch) {
+                        const valueStart = startIdx + '"response_comment"'.length + colonQuoteMatch[0].length
+                        const valueText = accumulatedResponse.slice(valueStart)
 
-                            // Find the end of the string (unescaped quote followed by comma/brace)
-                            let endIdx = -1
-                            let escaped = false
-                            for (let i = 0; i < valueText.length; i += 1) {
-                                if (escaped) {
-                                    escaped = false
-                                } else if (valueText[i] === '\\') {
-                                    escaped = true
-                                } else if (valueText[i] === '"') {
-                                    // Check if followed by comma or closing brace
-                                    const nextChar = valueText[i + 1]
-                                    if (nextChar === ',' || nextChar === '}' || !nextChar) {
-                                        endIdx = i
-                                        break
-                                    }
-                                }
-                            }
-
-                            if (endIdx >= 0) {
-                                // Complete string - extract and unescape
-                                const rawValue = valueText.slice(0, endIdx)
-                                try {
-                                    const extracted = JSON.parse(`"${rawValue}"`)
-                                    if (extracted !== lastBroadcast && responseCommentId) {
-                                        lastBroadcast = extracted
-                                        await updateAgentComment(responseCommentId, extracted, false)
-                                        lastBroadcastTime = Date.now()
-                                    }
-                                } catch {
-                                    // Fallback unescaping
-                                    const unescaped = rawValue.replaceAll(String.raw`\n`, '\n').replaceAll(String.raw`\"`, '"').replaceAll(String.raw`\\`, '\\')
-                                    if (unescaped !== lastBroadcast && responseCommentId) {
-                                        lastBroadcast = unescaped
-                                        await updateAgentComment(responseCommentId, unescaped, false)
-                                        lastBroadcastTime = Date.now()
-                                    }
-                                }
-                            } else {
-                                // Incomplete - show partial with basic unescaping
-                                const partial = valueText.replaceAll(String.raw`\n`, '\n').replaceAll(String.raw`\"`, '"').replaceAll(String.raw`\\`, '\\')
-                                const now = Date.now()
-                                if (partial !== lastBroadcast && now - lastBroadcastTime > 100 && responseCommentId) {
-                                    lastBroadcast = partial
-                                    await updateAgentComment(responseCommentId, partial, false)
-                                    lastBroadcastTime = now
+                        // Find the end of the string (unescaped quote followed by comma/brace)
+                        let endIdx = -1
+                        let escaped = false
+                        for (let i = 0; i < valueText.length; i += 1) {
+                            if (escaped) {
+                                escaped = false
+                            } else if (valueText[i] === '\\') {
+                                escaped = true
+                            } else if (valueText[i] === '"') {
+                                // Check if followed by comma or closing brace
+                                const nextChar = valueText[i + 1]
+                                if (nextChar === ',' || nextChar === '}' || !nextChar) {
+                                    endIdx = i
+                                    break
                                 }
                             }
                         }
-                    } else {
-                        // Field not found yet
-                        const now = Date.now()
-                        if (accumulatedResponse.length > 30 && now - lastBroadcastTime > 500 && responseCommentId) {
-                            await updateAgentComment(responseCommentId, 'Generating response...', false)
-                            lastBroadcastTime = now
+
+                        if (endIdx >= 0) {
+                            // Complete string - extract and unescape
+                            const rawValue = valueText.slice(0, endIdx)
+                            try {
+                                const extracted = JSON.parse(`"${rawValue}"`)
+                                if (extracted !== lastBroadcast && responseCommentId) {
+                                    lastBroadcast = extracted
+                                    await updateAgentComment(responseCommentId, extracted, false)
+                                    lastBroadcastTime = Date.now()
+                                }
+                            } catch {
+                                // Fallback unescaping
+                                const unescaped = rawValue
+                                    .replaceAll(String.raw`\n`, '\n')
+                                    .replaceAll(String.raw`\"`, '"')
+                                    .replaceAll(String.raw`\\`, '\\')
+                                if (unescaped !== lastBroadcast && responseCommentId) {
+                                    lastBroadcast = unescaped
+                                    await updateAgentComment(responseCommentId, unescaped, false)
+                                    lastBroadcastTime = Date.now()
+                                }
+                            }
+                        } else {
+                            // Incomplete - show partial with basic unescaping
+                            const partial = valueText
+                                .replaceAll(String.raw`\n`, '\n')
+                                .replaceAll(String.raw`\"`, '"')
+                                .replaceAll(String.raw`\\`, '\\')
+                            const now = Date.now()
+                            if (partial !== lastBroadcast && now - lastBroadcastTime > 100 && responseCommentId) {
+                                lastBroadcast = partial
+                                await updateAgentComment(responseCommentId, partial, false)
+                                lastBroadcastTime = now
+                            }
                         }
                     }
-                },
-            )
+                } else {
+                    // Field not found yet
+                    const now = Date.now()
+                    if (accumulatedResponse.length > 30 && now - lastBroadcastTime > 500 && responseCommentId) {
+                        await updateAgentComment(responseCommentId, 'Generating response...', false)
+                        lastBroadcastTime = now
+                    }
+                }
+            })
 
             this.log(`Response received (${Math.round(response.length / 1024)}KB)`)
 
@@ -645,7 +658,7 @@ Please respond to the user's request and refine the ticket as requested.`
                 if ((!lastBroadcast || lastBroadcast !== refinement.response_comment) && responseCommentId) {
                     await updateAgentComment(responseCommentId, refinement.response_comment || 'I received your mention.', false)
                 }
-            } catch{
+            } catch {
                 // If parsing fails, use what we streamed or create a simple response
                 this.log('Failed to parse response JSON', 'error')
 
@@ -668,8 +681,10 @@ Please respond to the user's request and refine the ticket as requested.`
              * When refinement is explicitly requested (via mention), always update if refined_description exists
              */
             const hasRefinedDescription = refinement.refined_description && refinement.refined_description.trim()
-            const shouldUpdate = refinement.should_update_description === true ||
-                (!ticket.description || ticket.description.trim() === '') ||
+            const shouldUpdate =
+                refinement.should_update_description === true ||
+                !ticket.description ||
+                ticket.description.trim() === '' ||
                 (hasRefinedDescription && refinement.refined_description.trim() !== ticket.description?.trim())
 
             if (shouldUpdate && hasRefinedDescription) {
@@ -709,7 +724,7 @@ Please respond to the user's request and refine the ticket as requested.`
             this.log(`Added "refined" label to ticket ${ticket.id}`)
 
             this.log('Mention response completed')
-        } catch(error) {
+        } catch (error) {
             this.log(`Error responding to mention for ticket ${ticket.id}: ${error}`, 'error')
             // Add error comment so user knows something went wrong
             const errorMessage = error instanceof Error ? error.message : String(error)
@@ -771,7 +786,7 @@ Be helpful and provide clear feedback about what you're doing.`
                 message: response,
                 success: true,
             }
-        } catch(error) {
+        } catch (error) {
             const errorMsg = error instanceof Error ? error.message : String(error)
             return {
                 error: errorMsg,

@@ -137,6 +137,7 @@ function process(data: Data) {
 - Add type assertions everywhere instead of fixing interfaces
 - Prefix unused variables with `_` - remove them or use `catch {}`
 - Omit return types on functions (always required by linting rules)
+- Use inline type imports (e.g. `as import('pkg').Type`) - add proper import at top of file
 
 ✅ **Do:**
 - Fix interface definitions to match actual usage
@@ -146,6 +147,7 @@ function process(data: Data) {
 - Prefer inference for variables and other type annotations when possible
 - Use `catch {}` for unused catch variables
 - Remove unused variables entirely
+- Use proper imports at top of file - never inline `import('pkg').Type` in type assertions
 
 ## Quick Reference
 
@@ -159,3 +161,4 @@ function process(data: Data) {
 | Missing return type | Always add explicit return type to functions |
 | Unused catch variable | Use `catch {}` instead of `catch (_error)` |
 | Unused variable | Remove entirely, don't prefix with `_` |
+| Inline import in assertion | Add `import type {Type} from 'pkg'` at top |

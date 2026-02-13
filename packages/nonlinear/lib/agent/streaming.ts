@@ -3,11 +3,13 @@
  * Reusable streaming functions for comments, chat, and other message types
  */
 
-import type {WebSocketServerManager} from '@garage44/common/lib/ws-server'
-import {getDb} from '../database.ts'
-import {randomId} from '@garage44/common/lib/utils'
-import {logger} from '../../service.ts'
 import type {WebSocketClient} from '@garage44/common/lib/ws-client'
+import type {WebSocketServerManager} from '@garage44/common/lib/ws-server'
+
+import {randomId} from '@garage44/common/lib/utils'
+
+import {logger} from '../../service.ts'
+import {getDb} from '../database.ts'
 
 export type StreamingMessageType = 'comment' | 'chat'
 
@@ -40,9 +42,11 @@ async function broadcastCommentUpdate(
     ticketId: string,
     type: 'created' | 'updated' | 'completed',
 ): Promise<void> {
-    const comment = getDb().prepare('SELECT * FROM comments WHERE id = ?').get(commentId) as {
-        [key: string]: unknown
-    } | undefined
+    const comment = getDb().prepare('SELECT * FROM comments WHERE id = ?').get(commentId) as
+        | {
+              [key: string]: unknown
+          }
+        | undefined
 
     if (!comment) {
         logger.warn(`[Streaming] Comment ${commentId} not found for broadcast`)
@@ -62,7 +66,7 @@ async function broadcastCommentUpdate(
             await wsClientForBroadcast.post(`/api/tickets/${ticketId}/comments/${commentId}/broadcast`, {
                 type,
             })
-        } catch(error) {
+        } catch (error) {
             logger.warn(`[Streaming] Failed to request broadcast: ${error}`)
         }
     } else {
@@ -87,22 +91,15 @@ export async function createStreamingMessage(
         const authorId = metadata.author_id as string
         const respondingTo = metadata.responding_to as string | undefined
 
-        getDb().prepare(`
+        getDb()
+            .prepare(`
             INSERT INTO comments (
                 id, ticket_id, author_type, author_id, content,
                 status, responding_to, created_at, updated_at
             )
             VALUES (?, ?, ?, ?, ?, 'generating', ?, ?, ?)
-        `).run(
-            messageId,
-            ticketId,
-            authorType,
-            authorId,
-            initialContent,
-            respondingTo || null,
-            now,
-            now,
-        )
+        `)
+            .run(messageId, ticketId, authorType, authorId, initialContent, respondingTo || null, now, now)
 
         // Broadcast comment creation
         await broadcastCommentUpdate(messageId, ticketId, 'created')
@@ -117,26 +114,26 @@ export async function createStreamingMessage(
 /**
  * Update streaming message content
  */
-export async function updateStreamingMessage(
-    messageId: string,
-    content: string,
-    isFinal = false,
-): Promise<void> {
+export async function updateStreamingMessage(messageId: string, content: string, isFinal = false): Promise<void> {
     const now = Date.now()
     const status: StreamingMessageStatus = isFinal ? 'completed' : 'generating'
 
     // Determine message type from database
-    const comment = getDb().prepare('SELECT * FROM comments WHERE id = ?').get(messageId) as {
-        ticket_id: string
-    } | undefined
+    const comment = getDb().prepare('SELECT * FROM comments WHERE id = ?').get(messageId) as
+        | {
+              ticket_id: string
+          }
+        | undefined
 
     if (comment) {
         // Update comment
-        getDb().prepare(`
+        getDb()
+            .prepare(`
             UPDATE comments
             SET content = ?, status = ?, updated_at = ?
             WHERE id = ?
-        `).run(content, status, now, messageId)
+        `)
+            .run(content, status, now, messageId)
 
         // Broadcast update
         await broadcastCommentUpdate(messageId, comment.ticket_id, 'updated')
@@ -149,24 +146,25 @@ export async function updateStreamingMessage(
 /**
  * Finalize streaming message
  */
-export async function finalizeStreamingMessage(
-    messageId: string,
-    content: string,
-): Promise<void> {
+export async function finalizeStreamingMessage(messageId: string, content: string): Promise<void> {
     const now = Date.now()
 
     // Determine message type from database
-    const comment = getDb().prepare('SELECT * FROM comments WHERE id = ?').get(messageId) as {
-        ticket_id: string
-    } | undefined
+    const comment = getDb().prepare('SELECT * FROM comments WHERE id = ?').get(messageId) as
+        | {
+              ticket_id: string
+          }
+        | undefined
 
     if (comment) {
         // Update comment to final state
-        getDb().prepare(`
+        getDb()
+            .prepare(`
             UPDATE comments
             SET content = ?, status = 'completed', updated_at = ?
             WHERE id = ?
-        `).run(content, now, messageId)
+        `)
+            .run(content, now, messageId)
 
         // Broadcast completion
         await broadcastCommentUpdate(messageId, comment.ticket_id, 'completed')
@@ -185,11 +183,13 @@ export function getStreamingMessage(messageId: string): {
     status: StreamingMessageStatus
     type: StreamingMessageType
 } | null {
-    const comment = getDb().prepare('SELECT * FROM comments WHERE id = ?').get(messageId) as {
-        content: string
-        id: string
-        status: string
-    } | undefined
+    const comment = getDb().prepare('SELECT * FROM comments WHERE id = ?').get(messageId) as
+        | {
+              content: string
+              id: string
+              status: string
+          }
+        | undefined
 
     if (comment) {
         return {
