@@ -730,29 +730,25 @@ ${result.doc.content}
     protected log(message: string, level: 'info' | 'warn' | 'error' = 'info'): void {
         const logMessage = `[Agent ${this.name}] ${message}`
         switch (level) {
-            case 'info': { 
+            case 'info': {
                 logger.info(logMessage)
                 break
             }
-            
 
-            case 'warn': { 
+            case 'warn': {
                 logger.warn(logMessage)
                 break
             }
-            
 
-            case 'error': { 
+            case 'error': {
                 logger.error(logMessage)
                 break
             }
-            
 
-            default: { 
+            default: {
                 logger.info(logMessage)
                 break
             }
-            
         }
     }
 
