@@ -29,6 +29,11 @@
     "access": "public"
   },
   "devDependencies": {
+    "@types/archy": "catalog:dev",
+    "@types/fs-extra": "catalog:dev",
+    "@types/lodash.template": "catalog:dev",
+    "@types/node-notifier": "catalog:dev",
+    "@types/ws": "catalog:dev",
     "oxfmt": "catalog:dev",
     "oxlint": "catalog:dev"
   },

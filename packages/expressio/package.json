@@ -25,7 +25,10 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@types/fs-extra": "catalog:dev",
     "@types/node": "catalog:dev",
+    "@types/rc": "catalog:dev",
+    "@types/yargs": "catalog:dev",
     "bun-types": "catalog:dev",
     "oxfmt": "catalog:dev",
     "oxlint": "catalog:dev",

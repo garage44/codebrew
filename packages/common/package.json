@@ -48,5 +48,9 @@
     "preact-transitioning": "^1.5.2",
     "tippy.js": "catalog:",
     "yargs": "catalog:"
+  },
+  "devDependencies": {
+    "@types/fs-extra": "catalog:dev",
+    "@types/yargs": "catalog:dev"
   }
 }
