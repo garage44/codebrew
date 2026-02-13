@@ -8,10 +8,8 @@ jobs:
   deploy:
     name: Deploy or Cleanup PR
     runs-on: ubuntu-latest
-
-    # SECURITY: Only deploy PRs from main repo (no forks)
-    # This ensures only contributors can trigger deployments
-    if: github.event.pull_request.head.repo.full_name == github.repository
+    # Disabled - change to: github.event.pull_request.head.repo.full_name == github.repository
+    if: false
 
     permissions:
       contents: read

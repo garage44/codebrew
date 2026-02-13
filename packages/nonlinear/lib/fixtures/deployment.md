@@ -120,6 +120,8 @@ cd /home/garage44/codebrew
 # Copy service files for your application packages
 sudo cp deploy/<projectName>.service /etc/systemd/system/
 sudo cp deploy/nonlinear.service /etc/systemd/system/
+# Fill in webhook secret
+vim /etc/systemd/system/nonlinear.service
 ```
 
 Reload systemd and enable services:
