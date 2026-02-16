@@ -4,6 +4,8 @@ import type {DeepSignal} from 'deepsignal'
 import {App, api, logger, notifier, store, $t} from '@garage44/common/app'
 import {h, render, type ComponentChild} from 'preact'
 
+import '../lib/plugins'
+
 import {Main} from '@/components/main/main'
 
 import type {CodebrewState} from './types'

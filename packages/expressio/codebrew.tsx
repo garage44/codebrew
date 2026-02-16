@@ -9,6 +9,7 @@ const Placeholder = ({name}: {name: string}) => (
 )
 
 registerApp({
+    basePath: '/expressio',
     defaultRoute: '/expressio/translations',
     icon: 'translate',
     id: 'expressio',

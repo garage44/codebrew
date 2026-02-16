@@ -1,4 +1,4 @@
-import {api, logger, store, ws} from '@garage44/common/app'
+import {api, events, store, ws} from '@garage44/common/app'
 import {AppLayout, Icon, MenuGroup, MenuItem, Notifications, PanelMenu, UserMenu} from '@garage44/common/components'
 import {Login} from '@garage44/common/components'
 import {getApps} from '@garage44/common/lib/codebrew-registry'
@@ -28,6 +28,21 @@ interface LoginResult {
 
 export const Main = () => {
     useEffect(() => {
+        events.on('app:init', () => {
+            ws.on('/users/presence', (data: {userid?: string; status?: string}) => {
+                if (!$s.chat) return
+                if (!($s.chat as {users?: Record<string, unknown>}).users) {
+                    ;($s.chat as {users: Record<string, unknown>}).users = {}
+                }
+                const users = ($s.chat as {users: Record<string, unknown>}).users
+                if (data.status === 'offline' && data.userid) {
+                    delete users[data.userid]
+                }
+            })
+        })
+    }, [])
+
+    useEffect(() => {
         ;(async () => {
             const context = (await api.get('/api/context')) as ApiContext
             const isAuthenticated = context.authenticated || (context.id && context.username)
@@ -46,6 +61,18 @@ export const Main = () => {
 
             if (isAuthenticated) {
                 ws.connect()
+                ws.get('/api/presence/users')
+                    .then((res) => {
+                        if (res && typeof res === 'object' && 'users' in res) {
+                            const users = (res as {users?: Record<string, {avatar?: string; username?: string}>}).users
+                            if (users && $s.chat) {
+                                $s.chat.users = users
+                            }
+                        }
+                    })
+                    .catch(() => {
+                        /* Presence may not be available */
+                    })
             }
         })()
     }, [])
@@ -86,7 +113,7 @@ export const Main = () => {
     }
 
     const currentPath = typeof window !== 'undefined' ? window.location.pathname : '/'
-    const activeApp = apps.find((a) => currentPath.startsWith(`/${a.id}`))?.id || apps[0]?.id
+    const activeApp = apps.find((a) => currentPath.startsWith(a.basePath))?.id || apps[0]?.id
     const activeAppPlugin = apps.find((a) => a.id === activeApp)
 
     return (
@@ -95,7 +122,14 @@ export const Main = () => {
                 menu={
                     <PanelMenu
                         actions={
-                            <UserMenu
+                            <>
+                                {apps
+                                    .filter((app) => app.presenceWidget)
+                                    .map((app) => {
+                                        const Widget = app.presenceWidget!
+                                        return <Widget key={app.id} />
+                                    })}
+                                <UserMenu
                                 collapsed={$s.panels.menu.collapsed}
                                 onLogout={async () => {
                                     await api.get('/api/logout')
@@ -110,6 +144,7 @@ export const Main = () => {
                                     },
                                 }}
                             />
+                            </>
                         }
                         collapsed={$s.panels.menu.collapsed}
                         LinkComponent={Link}
