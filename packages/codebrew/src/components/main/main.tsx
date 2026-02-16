@@ -113,7 +113,7 @@ export const Main = () => {
     }
 
     const currentPath = typeof window !== 'undefined' ? window.location.pathname : '/'
-    const activeApp = apps.find((a) => currentPath.startsWith(`/${a.id}`))?.id || apps[0]?.id
+    const activeApp = apps.find((a) => currentPath.startsWith(a.basePath))?.id || apps[0]?.id
     const activeAppPlugin = apps.find((a) => a.id === activeApp)
 
     return (

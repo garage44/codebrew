@@ -62,6 +62,7 @@ AI Decision Records (ADRs) are structured documents that capture important archi
 | [032](./032-zod-api-typing.md) | Zod-Based API Typing and Validation for Nonlinear | Architecture | Accepted | 2026-02-04 |
 | [033](./033-zod-api-typing-expressio.md) | Zod-Based API Typing and Validation for Expressio | Architecture | Proposed | 2026-02-05 |
 | [034](./034-codebrew-package-reuse-optimization.md) | Codebrew Package Reuse Optimization | Architecture | Proposed | 2026-02-12 |
+| [035](./035-codebrew-plugin-architecture.md) | Codebrew Plugin Architecture | Architecture | Accepted | 2026-02-13 |
 
 ### ADRs by Decision Type
 
@@ -95,6 +96,7 @@ AI Decision Records (ADRs) are structured documents that capture important archi
 - [ADR-032](./032-zod-api-typing.md): Zod-Based API Typing and Validation for Nonlinear
 - [ADR-033](./033-zod-api-typing-expressio.md): Zod-Based API Typing and Validation for Expressio
 - [ADR-034](./034-codebrew-package-reuse-optimization.md): Codebrew Package Reuse Optimization
+- [ADR-035](./035-codebrew-plugin-architecture.md): Codebrew Plugin Architecture
 - Pattern: [Architecture Pattern](./guide/PATTERNS.md#architecture-pattern)
 
 **Tool Adoption/Replacement** (Developer Tooling):

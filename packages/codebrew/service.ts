@@ -83,7 +83,7 @@ void cli
             const configPath = process.env.CONFIG_PATH || '~/.codebrewrc'
             await service.init({appName: 'codebrew', configPath, useBcrypt: false}, database)
 
-            const {handleRequest, sessionMiddleware} = await initMiddleware(bunchyConfig)
+            const {handleRequest, sessionMiddleware} = await initMiddleware({bunchyConfig, database})
 
             const {bunchyManager, wsManager} = createWebSocketManagers(undefined, sessionMiddleware)
 

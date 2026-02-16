@@ -45,6 +45,7 @@ const Placeholder = ({name}: {name: string}) => (
 )
 
 registerApp({
+    basePath: '/pyrite',
     defaultRoute: '/pyrite',
     icon: 'video_call',
     id: 'pyrite',

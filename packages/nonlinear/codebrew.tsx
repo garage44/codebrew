@@ -13,6 +13,7 @@ import {registerTicketsWebSocketApiRoutes} from './api/tickets'
 import {Board, Docs, Settings, TicketDetail} from './src/components/pages'
 
 registerApp({
+    basePath: '/nonlinear',
     apiRoutes: (router) => {
         apiDocs(router)
         apiRepositories(router)

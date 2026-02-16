@@ -7,6 +7,8 @@ import {createFinalHandler, createMiddleware} from '@garage44/common/lib/middlew
 import {userManager} from '@garage44/common/service'
 import path from 'node:path'
 
+import {createPluginContext} from './plugin-context'
+import {config} from './config'
 import {logger, runtime} from '../service.ts'
 
 type Session = Record<string, string> | undefined
@@ -60,11 +62,19 @@ class Router {
     }
 }
 
-async function initMiddleware(_bunchyConfig: unknown): Promise<{
+interface InitMiddlewareOptions {
+    bunchyConfig?: unknown
+    database: unknown
+}
+
+async function initMiddleware(options: InitMiddlewareOptions | unknown): Promise<{
     handleRequest: (req: Request, server?: unknown) => Promise<Response | undefined>
     handleWebSocket: () => void
     sessionMiddleware: (request: Request) => {session: {userid?: string}; sessionId: string}
 }> {
+    const opts = (options as InitMiddlewareOptions) ?? {}
+    const database = opts.database
+
     const router = new Router()
 
     const avatarRoutes = createAvatarRoutes({
@@ -75,8 +85,17 @@ async function initMiddleware(_bunchyConfig: unknown): Promise<{
     avatarRoutes.registerPlaceholderRoute(router as {get: (path: string, handler: unknown) => void})
     avatarRoutes.registerAvatarRoute(router as {get: (path: string, handler: unknown) => void})
 
-    // Register API routes from each plugin
+    const pluginContext = createPluginContext({
+        config: config as Record<string, unknown>,
+        database: database ?? null,
+        logger,
+        router: router as ApiRouter,
+    })
+
     for (const plugin of getApps()) {
+        if (plugin.init) {
+            await plugin.init(pluginContext)
+        }
         if (plugin.apiRoutes) {
             plugin.apiRoutes(router as ApiRouter)
         }
