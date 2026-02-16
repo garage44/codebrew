@@ -9,7 +9,6 @@ jobs:
   deploy:
     name: Deploy code
     runs-on: ubuntu-latest
-    if: false  # Disabled - remove to re-enable
 
     steps:
       - name: Trigger webhook

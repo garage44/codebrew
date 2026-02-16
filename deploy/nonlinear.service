@@ -6,7 +6,7 @@ After=network.target
 Type=simple
 User=garage44
 Group=garage44
-WorkingDirectory=/home/garage44/garage44/packages/nonlinear
+WorkingDirectory=/home/garage44/codebrew/packages/nonlinear
 Environment="NODE_ENV=production"
 Environment="BUN_ENV=production"
 Environment="PATH=/home/garage44/.bun/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"

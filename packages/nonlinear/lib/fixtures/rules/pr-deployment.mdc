@@ -118,7 +118,7 @@ This will:
 
 ```bash
 # Remove deployments older than 7 days
-bun run malkovich cleanup-stale-prs --max-age-days 7
+bun run nonlinear cleanup-stale-prs --max-age-days 7
 ```
 
 ## Agent Workflow Examples

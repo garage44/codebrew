@@ -124,32 +124,39 @@ server {
     }
 }
 
-# Styleguide service - styleguide.garage44.org
-# HTTP to HTTPS redirect
+# Nonlinear - nonlinear.garage44.org (app + webhook)
 server {
     listen 80;
-    server_name styleguide.garage44.org;
+    server_name nonlinear.garage44.org;
     return 301 https://$server_name$request_uri;
 }
 
-# HTTPS server
 server {
     listen 443 ssl;
     http2 on;
-    server_name styleguide.garage44.org;
+    server_name nonlinear.garage44.org;
 
-    # SSL certificates (Let's Encrypt wildcard certificate)
     ssl_certificate /etc/letsencrypt/live/garage44.org/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/garage44.org/privkey.pem;
 
-    # SSL configuration
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_ciphers HIGH:!aNULL:!MD5;
     ssl_prefer_server_ciphers on;
     ssl_session_cache shared:SSL:10m;
     ssl_session_timeout 10m;
 
-    # WebSocket endpoint
+    location /webhook {
+        proxy_pass http://localhost:3032;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+
     location /ws {
         proxy_pass http://localhost:3032;
         proxy_http_version 1.1;
@@ -159,8 +166,6 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-
-        # WebSocket timeouts
         proxy_read_timeout 86400;
         proxy_send_timeout 86400;
     }
@@ -177,60 +182,27 @@ server {
     }
 }
 
-# Webhook endpoint - can be on any subdomain or main domain
-# HTTP to HTTPS redirect
+# garage44.org - reserved for codebrew (placeholder)
 server {
     listen 80;
     server_name garage44.org www.garage44.org;
     return 301 https://$server_name$request_uri;
 }
 
-# HTTPS server
 server {
     listen 443 ssl;
     http2 on;
     server_name garage44.org www.garage44.org;
 
-    # SSL certificates (Let's Encrypt)
     ssl_certificate /etc/letsencrypt/live/garage44.org/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/garage44.org/privkey.pem;
 
-    # SSL configuration
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_ciphers HIGH:!aNULL:!MD5;
     ssl_prefer_server_ciphers on;
-    ssl_session_cache shared:SSL:10m;
-    ssl_session_timeout 10m;
 
-    # Webhook endpoint
-    location /webhook {
-        # Optional: Restrict to GitHub Actions IP ranges
-        # allow 140.82.112.0/20;
-        # allow 143.55.64.0/20;
-        # allow 185.199.108.0/22;
-        # allow 192.30.252.0/22;
-        # deny all;
-
-        proxy_pass http://localhost:3032;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-
-        # Increase timeouts for deployment
-        proxy_connect_timeout 60s;
-        proxy_send_timeout 60s;
-        proxy_read_timeout 60s;
-    }
-
-    # All other routes to nonlinear
     location / {
-        proxy_pass http://localhost:3032;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        default_type text/plain;
+        return 200 'garage44.org - coming soon';
     }
 }
