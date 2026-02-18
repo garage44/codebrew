@@ -21,7 +21,7 @@ Lint entire workspace or specific package.
 cd packages/{package}
 
 # Auto-fix
-bun run lint:ts  # Runs lint:ts-style (auto-fixes), lint:ts-syntax (auto-fixes), lint:ts-types
+bun run lint:ts  # Runs lint:ts-format (auto-fixes), lint:ts-syntax (auto-fixes), lint:ts-types
 bun run lint:css -- --fix
 
 # Check remaining errors (run ONCE, read output)

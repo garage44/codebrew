@@ -14,7 +14,7 @@ priority: 1
 
 This project uses automated linting via hooks:
 
-1. **After file edits**: `.cursor/hooks/format.sh` auto-formats files with oxlint/eslint/stylelint
+1. **After file edits**: `.cursor/hooks/format.sh` auto-formats files with oxlint/oxfmt/stylelint
 2. **Before commits**: Lefthook runs `lint-staged` which auto-fixes staged files
 3. **Commit messages**: Commitlint validates conventional commit format
 
@@ -33,12 +33,12 @@ bun run lint:css
 
 # Individual checks
 bun run lint:ts-syntax   # oxlint
-bun run lint:ts-style    # eslint
+bun run lint:ts-format    # oxfmt
 bun run lint:ts-types    # TypeScript type checking
 ```
 
 **Auto-fixing:**
-- oxlint/eslint/stylelint support `--fix` flags
+- oxlint/oxfmt/stylelint support `--fix` flags
 - Lefthook's lint-staged automatically fixes issues before commit
 
 ## TypeScript Fix Strategy
@@ -128,7 +128,7 @@ This project has **200+ strict stylistic rules** covering:
 - Object/array property sorting (perfectionist plugin)
 - Specific spacing rules for every construct
 
-See `eslint.config.js` for complete rule details.
+See `.oxlintrc.json` for complete rule details.
 
 ## Commands for Linting
 

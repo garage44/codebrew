@@ -281,6 +281,8 @@ Codebrew is the unified app (Expressio + Pyrite + Nonlinear) served at `garage44
 - Nonlinear, Expressio, and Pyrite already deployed (see Setup above)
 - `bun run codebrew` available in the monorepo
 
+The Codebrew `start` script builds assets before starting the server (same pattern as Nonlinear).
+
 ### 1. Install Codebrew Systemd Service
 
 ```bash

@@ -43,6 +43,7 @@ const tooling = {} as {
 interface Config {
     common: string
     minify?: boolean
+    quiet?: boolean
     reload_ignore: string[]
     separateAssets?: string[]
     sourcemap?: boolean
@@ -70,7 +71,9 @@ function applySettings(config: Config): void {
         version: config.version,
     })
 
-    showConfig(settings)
+    if (!config.quiet) {
+        showConfig(settings)
+    }
 }
 
 interface WsManager {
@@ -208,41 +211,34 @@ function setupLogForwarding(wsManager: WsManager): void {
                 break
             }
 
-
             case 'warn': {
                 logger.remote(formattedMessage, ...formattedArgs)
                 break
             }
-
 
             case 'info': {
                 logger.remote(formattedMessage, ...formattedArgs)
                 break
             }
 
-
             case 'success': {
                 logger.remote(formattedMessage, ...formattedArgs)
                 break
             }
-
 
             case 'verbose': {
                 logger.remote(formattedMessage, ...formattedArgs)
                 break
             }
 
-
             case 'debug': {
                 logger.remote(formattedMessage, ...formattedArgs)
                 break
             }
 
-
             default: {
                 logger.remote(formattedMessage, ...formattedArgs)
             }
-
         }
 
         return {status: 'ok'}

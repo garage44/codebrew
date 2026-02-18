@@ -1,65 +1,67 @@
 {
-    "name": "@garage44/codebrew",
-    "version": "0.1.0",
-    "description": "Codebrew - Unified application combining Pyrite, Nonlinear, and Expressio",
-    "author": "Garage44",
-    "main": "service.ts",
-    "bin": {
-        "codebrew": "./service.ts"
-    },
-    "type": "module",
-    "dependencies": {
-        "@garage44/bunchy": "workspace:*",
-        "@garage44/common": "workspace:*",
-        "@garage44/expressio": "workspace:*",
-        "@garage44/nonlinear": "workspace:*",
-        "@garage44/pyrite": "workspace:*",
-        "@preact/signals": "catalog:",
-        "classnames": "catalog:",
-        "deepsignal": "catalog:",
-        "figlet": "catalog:",
-        "fs-extra": "catalog:",
-        "i18next": "catalog:",
-        "picocolors": "catalog:",
-        "preact": "catalog:",
-        "preact-router": "catalog:",
-        "rc": "catalog:",
-        "yargs": "catalog:"
-    },
-    "devDependencies": {
-        "@types/fs-extra": "^11.0.4",
-        "@types/node": "catalog:dev",
-        "@types/rc": "^1.2.4",
-        "@types/yargs": "^17.0.35",
-        "bun-types": "catalog:dev",
-        "oxfmt": "catalog:dev",
-        "oxlint": "catalog:dev",
-        "stylelint": "catalog:dev",
-        "stylelint-order": "catalog:dev"
-    },
-    "exports": {
-        ".": "./index.ts"
-    },
-    "files": [
-        "api/*",
-        "lib/*",
-        "public/**/*",
-        "src/**/*",
-        "index.ts",
-        "LICENSE.md",
-        "service.ts"
-    ],
-    "license": "MIT",
-    "scripts": {
-        "build": "NODE_ENV=production BUN_ENV=development bun service.ts build",
-        "clean": "rm -rf dist node_modules",
-        "dev": "NODE_ENV=development BUN_ENV=development bun run --watch service.ts start",
-        "server": "NODE_ENV=production BUN_ENV=production bun service.ts start",
-        "lint:css": "stylelint src/**/*.css",
-        "lint:ts": "bun run lint:ts-syntax && bun run lint:ts-style && bun run lint:ts-types",
-        "lint:ts-syntax": "oxlint **/*.{ts,tsx} --config ../../.oxlintrc.json",
-        "lint:ts-style": "oxfmt --write **/*.{ts,tsx}",
-        "lint:ts-types": "bun tsgo --noEmit",
-        "test": "bun test"
-    }
+  "name": "@garage44/codebrew",
+  "version": "0.1.0",
+  "description": "Codebrew - Unified application combining Pyrite, Nonlinear, and Expressio",
+  "author": "Garage44",
+  "main": "service.ts",
+  "bin": {
+    "codebrew": "./service.ts"
+  },
+  "type": "module",
+  "dependencies": {
+    "@garage44/bunchy": "workspace:*",
+    "@garage44/common": "workspace:*",
+    "@garage44/expressio": "workspace:*",
+    "@garage44/nonlinear": "workspace:*",
+    "@garage44/pyrite": "workspace:*",
+    "@preact/signals": "catalog:",
+    "classnames": "catalog:",
+    "deepsignal": "catalog:",
+    "figlet": "catalog:",
+    "fs-extra": "catalog:",
+    "i18next": "catalog:",
+    "picocolors": "catalog:",
+    "preact": "catalog:",
+    "preact-router": "catalog:",
+    "react": "npm:preact@^10.0.0",
+    "rc": "catalog:",
+    "yargs": "catalog:"
+  },
+  "devDependencies": {
+    "@types/fs-extra": "^11.0.4",
+    "@types/node": "catalog:dev",
+    "@types/rc": "^1.2.4",
+    "@types/yargs": "^17.0.35",
+    "bun-types": "catalog:dev",
+    "oxfmt": "catalog:dev",
+    "oxlint": "catalog:dev",
+    "stylelint": "catalog:dev",
+    "stylelint-order": "catalog:dev"
+  },
+  "exports": {
+    ".": "./index.ts"
+  },
+  "files": [
+    "api/*",
+    "lib/*",
+    "public/**/*",
+    "src/**/*",
+    "index.ts",
+    "LICENSE.md",
+    "service.ts"
+  ],
+  "license": "MIT",
+  "scripts": {
+    "build": "NODE_ENV=production BUN_ENV=development bun service.ts build",
+    "clean": "rm -rf dist node_modules",
+    "dev": "NODE_ENV=development BUN_ENV=development bun run --watch service.ts start",
+    "server": "NODE_ENV=production BUN_ENV=production bun service.ts start",
+    "start": "bun run build && bun run server",
+    "lint:css": "stylelint src/**/*.css",
+    "lint:ts": "bun run lint:ts-syntax && bun run lint:ts-format && bun run lint:ts-types",
+    "lint:ts-syntax": "oxlint **/*.{ts,tsx} --config ../../.oxlintrc.json",
+    "lint:ts-format": "oxfmt --write **/*.{ts,tsx}",
+    "lint:ts-types": "bun tsgo --noEmit",
+    "test": "bun test"
+  }
 }

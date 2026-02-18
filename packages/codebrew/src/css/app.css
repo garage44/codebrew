@@ -1,4 +1,4 @@
-@import '@garage44/common/css/theme.css';
+@import '../../../common/css/theme.css';
 
 .app {
     min-height: 100vh;

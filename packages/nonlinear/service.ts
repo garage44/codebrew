@@ -83,7 +83,8 @@ cli.usage('Usage: $0 [task]')
             await initConfig(config)
 
             // Initialize database
-            const database = initDatabase()
+            // eslint-disable-next-line no-undefined -- pass undefined to use default db path while providing logger
+            const database = initDatabase(undefined, logger)
 
             /*
              * Initialize common service (including UserManager) with database
@@ -712,6 +713,10 @@ cli.usage('Usage: $0 [task]')
     .demandCommand()
     .help('help')
     .showHelpOnFail(true)
-    .parse()
+
+// When loaded as a dependency (e.g. by codebrew), don't run our CLI
+if (!process.argv[1]?.includes('codebrew')) {
+    cli.parse()
+}
 
 export {logger, runtime, service}

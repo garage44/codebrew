@@ -24,7 +24,7 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Lint TypeScript style (oxfmt)
-        run: bun run lint:ts-style
+        run: bun run lint:ts-format
 
       - name: Lint TypeScript syntax (oxlint)
         run: bun run lint:ts-syntax

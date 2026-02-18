@@ -4,7 +4,20 @@ import {homedir} from 'node:os'
 import path from 'node:path'
 import rc from 'rc'
 
-import {logger} from '../service.ts'
+const configLogger = {
+    error: (msg: string, ...args: unknown[]): void => {
+        // eslint-disable-next-line no-console
+        console.error(`[config] ${msg}`, ...args)
+    },
+    info: (msg: string, ...args: unknown[]): void => {
+        // eslint-disable-next-line no-console
+        console.info(`[config] ${msg}`, ...args)
+    },
+    warn: (msg: string, ...args: unknown[]): void => {
+        // eslint-disable-next-line no-console
+        console.warn(`[config] ${msg}`, ...args)
+    },
+}
 
 // Default config structure
 const defaultConfig = {
@@ -105,8 +118,8 @@ let config: typeof defaultConfig
 try {
     config = rc('nonlinear', defaultConfig)
 } catch (error) {
-    logger.error(`[config] Failed to load config file: ${error}`)
-    logger.warn('[config] Using default config. Fix the config file and restart.')
+    configLogger.error(`Failed to load config file: ${error}`)
+    configLogger.warn('Using default config. Fix the config file and restart.')
     // Use defaults if config file is invalid
     config = defaultConfig
     // Try to backup the bad config file (async, non-blocking)
@@ -118,7 +131,7 @@ try {
                 return fs
                     .copyFile(configPath, `${configPath}.backup.${Date.now()}`)
                     .then(() => {
-                        logger.info(`[config] Backed up invalid config to ${configPath}.backup.${Date.now()}`)
+                        configLogger.info(`Backed up invalid config to ${configPath}.backup.${Date.now()}`)
                     })
                     .catch(() => {
                         // Backup failed, ignore
@@ -157,12 +170,12 @@ async function saveConfig() {
         // Validate by parsing it back
         JSON.parse(jsonString)
     } catch (error) {
-        logger.error(`[config] Failed to serialize config: ${error}`)
+        configLogger.error(`Failed to serialize config: ${error}`)
         throw new Error(`Config serialization failed: ${error instanceof Error ? error.message : String(error)}`, {cause: error})
     }
 
     await fs.writeFile(configPath, jsonString)
-    logger.info(`[config] saved config to ${configPath}`)
+    configLogger.info(`saved config to ${configPath}`)
 }
 
 export {config, saveConfig, initConfig}

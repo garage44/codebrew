@@ -189,6 +189,7 @@ ${pc.cyan(figlet.textSync(title))}\n
 
 export interface BunchyConfigOptions {
     logPrefix: string
+    quiet?: boolean
     reloadIgnore?: string[]
     separateAssets?: string[]
     serviceDir: string
@@ -198,16 +199,18 @@ export interface BunchyConfigOptions {
 export function setupBunchyConfig(options: BunchyConfigOptions): {
     common: string
     logPrefix: string
+    quiet?: boolean
     reload_ignore: string[]
     separateAssets?: string[]
     version: string
     workspace: string
 } {
-    const {logPrefix, reloadIgnore = [], separateAssets, serviceDir, version} = options
+    const {logPrefix, quiet, reloadIgnore = [], separateAssets, serviceDir, version} = options
 
     return {
         common: path.resolve(serviceDir, '../', 'common'),
         logPrefix,
+        quiet,
         reload_ignore: reloadIgnore,
         separateAssets,
         version,

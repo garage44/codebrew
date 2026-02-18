@@ -16,6 +16,7 @@ export interface CodebrewRoute {
 export interface CodebrewAppPlugin {
     apiRoutes?: (router: ApiRouter) => void
     defaultRoute: string
+    description?: string
     icon: string
     id: 'expressio' | 'nonlinear' | 'pyrite'
     menuComponent?: ComponentType

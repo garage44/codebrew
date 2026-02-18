@@ -24,7 +24,7 @@ git diff --name-only HEAD | grep -E '\.(ts|tsx|css)$'
 
 # Auto-fix (in package directory)
 cd packages/{package}
-bun run lint:ts  # Runs lint:ts-style (auto-fixes), lint:ts-syntax (auto-fixes), lint:ts-types
+bun run lint:ts  # Runs lint:ts-format (auto-fixes), lint:ts-syntax (auto-fixes), lint:ts-types
 bun run lint:css -- --fix
 
 # Check errors (run ONCE)

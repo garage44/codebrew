@@ -22,9 +22,9 @@
   "scripts": {
     "clean": "rm -rf dist;rm -rf node_modules",
     "lint:css": "stylelint components/**/*.css",
-    "lint:ts": "bun run lint:ts-style && bun run lint:ts-syntax && bun run lint:ts-types",
+    "lint:ts": "bun run lint:ts-format && bun run lint:ts-syntax && bun run lint:ts-types",
     "lint:ts-syntax": "oxlint --fix components/**/*.{ts,tsx} lib/**/*.ts app.ts service.ts components.ts types.ts tests/**/*.ts --config ../../.oxlintrc.json",
-    "lint:ts-style": "oxfmt --write **/*.{ts,tsx}",
+    "lint:ts-format": "oxfmt --write **/*.{ts,tsx}",
     "lint:ts-types": "bun tsgo --noEmit",
     "test": "bun test"
   },

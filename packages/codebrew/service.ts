@@ -1,7 +1,9 @@
 #!/usr/bin/env bun
+import './lib/plugins'
 import type {LoggerConfig} from '@garage44/common/types'
 
 import {bunchyArgs, bunchyService} from '@garage44/bunchy'
+import {getApps} from '@garage44/common/lib/codebrew-registry'
 import {createBunWebSocketHandler} from '@garage44/common/lib/ws-server'
 import {
     createRuntime,
@@ -15,19 +17,24 @@ import {initDatabase} from '@garage44/nonlinear/lib/database'
 import {homedir} from 'node:os'
 import path from 'node:path'
 import {URL, fileURLToPath} from 'node:url'
+import pc from 'picocolors'
 import yargs from 'yargs'
 import {hideBin} from 'yargs/helpers'
 
 import {config, initConfig} from './lib/config'
 import {initMiddleware} from './lib/middleware'
-import './lib/plugins'
 
 export const serviceDir = fileURLToPath(new URL('.', import.meta.url))
 
 const runtime = createRuntime(serviceDir, path.join(serviceDir, 'package.json'))
 
-function welcomeBanner() {
-    return createWelcomeBanner('Codebrew', 'Pyrite, Nonlinear, Expressio - unified', runtime.version)
+function welcomeBanner(): string {
+    const plugins = getApps()
+    const lines = plugins.map((p): string => ` - ${p.name}${p.description ? ` - ${p.description}` : ''}`)
+    return `${createWelcomeBanner('Codebrew', 'Unified workspace', runtime.version).trimEnd()}
+ ${pc.gray('Plugins:')}
+${lines.map((l): string => ` ${pc.gray(l)}`).join('\n')}
+`
 }
 
 type BunchyConfig = ReturnType<typeof setupBunchyConfig>
@@ -43,6 +50,7 @@ cli.scriptName('codebrew')
 if (BUN_ENV === 'development') {
     bunchyConfig = setupBunchyConfig({
         logPrefix: 'C',
+        quiet: true,
         serviceDir: runtime.service_dir,
         version: runtime.version,
     })
@@ -57,10 +65,8 @@ void cli
         'start',
         'Start the Codebrew service',
         // @ts-expect-error - yargs overload resolution doesn't match builder function signature
-        (yargs) => {
-            // oxlint-disable-next-line no-console
-            console.log(welcomeBanner())
-            return yargs
+        (yargs) =>
+            yargs
                 .option('host', {
                     alias: 'h',
                     default: 'localhost',
@@ -72,18 +78,20 @@ void cli
                     default: 3033,
                     describe: 'port to run the Codebrew service on',
                     type: 'number',
-                })
-        },
+                }),
         async (argv: {host: string; port: number}) => {
             await initConfig()
 
             const dbPath = process.env.DB_PATH || path.join(homedir(), '.codebrew.db')
-            const database = initDatabase(dbPath)
+            const database = initDatabase(dbPath, logger)
 
             const configPath = process.env.CONFIG_PATH || '~/.codebrewrc'
             await service.init({appName: 'codebrew', configPath, useBcrypt: false}, database)
 
             const {handleRequest, sessionMiddleware} = await initMiddleware(bunchyConfig)
+
+            // oxlint-disable-next-line no-console
+            console.log(welcomeBanner())
 
             const {bunchyManager, wsManager} = createWebSocketManagers(undefined, sessionMiddleware)
 

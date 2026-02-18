@@ -1,14 +1,15 @@
+import type {ComponentType, VNode} from 'preact'
+
+/** @jsxImportSource preact */
 import {registerApp} from '@garage44/common/lib/codebrew-registry'
 import {h} from 'preact'
 
 import {registerAgentsWebSocketApiRoutes} from './api/agents'
 import {registerCIWebSocketApiRoutes} from './api/ci'
 import {registerDeployWebSocketApiRoutes} from './api/deploy'
-import apiDocs from './api/docs'
-import {registerDocsWebSocketApiRoutes} from './api/docs'
+import apiDocs, {registerDocsWebSocketApiRoutes} from './api/docs'
 import {registerLabelsWebSocketApiRoutes} from './api/labels'
-import apiRepositories from './api/repositories'
-import {registerRepositoriesWebSocketApiRoutes} from './api/repositories'
+import apiRepositories, {registerRepositoriesWebSocketApiRoutes} from './api/repositories'
 import {registerTicketsWebSocketApiRoutes} from './api/tickets'
 import {Board, Docs, Settings, TicketDetail} from './src/components/pages'
 
@@ -22,6 +23,7 @@ registerApp({
         })
     },
     defaultRoute: '/nonlinear/board',
+    description: 'Project management and workflow automation',
     icon: 'view_kanban',
     id: 'nonlinear',
     menuItems: [
@@ -33,16 +35,14 @@ registerApp({
         {component: Docs, path: '/nonlinear/docs'},
         {component: Board, default: true, path: '/nonlinear/board'},
         {
-            component: ((props: {ticketId?: string}) => (
-                <TicketDetail ticketId={props.ticketId ?? ''} />
-            )) as import('preact').ComponentType,
+            component: ((props: {ticketId?: string}) => <TicketDetail ticketId={props.ticketId ?? ''} />) as ComponentType,
             path: '/nonlinear/tickets/:ticketId',
         },
-        {component: () => <Settings />, path: '/nonlinear/settings'},
+        {component: (): VNode => <Settings />, path: '/nonlinear/settings'},
         {
             component: ((props: Record<string, unknown>) => (
                 <Settings tabId={(props as {tabId?: string}).tabId} />
-            )) as import('preact').ComponentType,
+            )) as ComponentType,
             path: '/nonlinear/settings/:tabId',
         },
     ],

@@ -1,0 +1,40 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="220" fill="oklch(0.16 0.030 230)" />
+
+  <!-- Border - same width as main curves -->
+  <circle cx="256" cy="256" r="220" fill="none" stroke="oklch(0.55 0.065 230)" stroke-width="18" />
+
+  <!-- Clean geometric infinity-loop pattern -->
+  <!-- Two interlocking loops -->
+
+  <!-- Left loop -->
+  <path d="M 130 256
+           C 130 180, 200 140, 256 180
+           C 312 220, 312 292, 256 332
+           C 200 372, 130 332, 130 256"
+        stroke="oklch(0.62 0.070 230)"
+        stroke-width="18"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        fill="none" />
+
+  <!-- Right loop -->
+  <path d="M 382 256
+           C 382 332, 312 372, 256 332
+           C 200 292, 200 220, 256 180
+           C 312 140, 382 180, 382 256"
+        stroke="oklch(0.62 0.070 230)"
+        stroke-width="18"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        fill="none" />
+
+  <!-- Central node -->
+  <circle cx="256" cy="256" r="14" fill="oklch(0.50 0.055 230)" />
+  <circle cx="256" cy="256" r="8" fill="oklch(0.72 0.070 230)" />
+
+  <!-- Endpoint markers -->
+  <circle cx="130" cy="256" r="7" fill="oklch(0.55 0.060 230)" />
+  <circle cx="382" cy="256" r="7" fill="oklch(0.55 0.060 230)" />
+</svg>

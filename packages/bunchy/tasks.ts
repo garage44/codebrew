@@ -383,7 +383,7 @@ tasks.code_bunchy = new Task('code:bunchy', async function taskCodeBunchy(...arg
             define: {
                 'process.env.NODE_ENV': `'${nodeEnv}'`,
             },
-            entrypoints: [path.join(settings.dir.bunchy, 'client.ts')],
+            entrypoints: [path.join(settings.dir.bunchy, 'bunchy.ts')],
             format: 'esm',
             minify: {
                 identifiers: false,
@@ -424,24 +424,7 @@ tasks.code_bunchy = new Task('code:bunchy', async function taskCodeBunchy(...arg
         }
 
         const output = result.outputs[0]
-        const originalFilename = path.basename(output.path)
         const expectedFilename = `bunchy.${settings.buildId}.js`
-
-        // Rename client.{buildId}.js to bunchy.{buildId}.js
-        if (originalFilename !== expectedFilename) {
-            const originalPath = path.join(settings.dir.public, originalFilename)
-            const newPath = path.join(settings.dir.public, expectedFilename)
-            await fs.move(originalPath, newPath, {overwrite: true})
-
-            // Also handle sourcemap if it exists
-            const originalSourceMap = originalFilename.replace('.js', '.js.map')
-            const newSourceMap = expectedFilename.replace('.js', '.js.map')
-            const originalSourceMapPath = path.join(settings.dir.public, originalSourceMap)
-            const newSourceMapPath = path.join(settings.dir.public, newSourceMap)
-            if (await fs.pathExists(originalSourceMapPath)) {
-                await fs.move(originalSourceMapPath, newSourceMapPath, {overwrite: true})
-            }
-        }
 
         return {
             filename: expectedFilename,
@@ -560,9 +543,13 @@ tasks.stylesApp = new Task('styles:app', async function taskStylesApp(...args: u
 > {
     const {minify, sourcemap} = args[0] as {minify: boolean; sourcemap: boolean}
     const filename = `app.${settings.buildId}.css`
-    const appCssPath = path.join(settings.dir.src, 'css', 'app.css')
+    const appCssPath = path.resolve(settings.dir.src, 'css', 'app.css')
 
     try {
+        if (!(await fs.pathExists(appCssPath))) {
+            return
+        }
+
         const {code, map} = bundle({
             filename: appCssPath,
             minify,

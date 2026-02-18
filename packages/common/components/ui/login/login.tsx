@@ -77,7 +77,7 @@ interface LoginProps {
 const state = deepSignal({
     activeWords: [] as AnimatedWord[],
     animationFrame: 0,
-    centerPosition: {x: window.innerWidth / 2, y: window.innerHeight / 2},
+    centerPosition: {x: 0, y: 0},
     nextWordId: 0,
     password: '',
     timeoutIds: [] as number[],
@@ -199,6 +199,7 @@ export const Login = ({animated = true, logo, LogoIcon, onLogin, title = 'Login'
 
     useEffect(() => {
         if (animated) {
+            updateCenter()
             document.addEventListener('keydown', handleKeyPress)
             window.addEventListener('resize', updateCenter)
             spawnWord() // Spawn first word immediately

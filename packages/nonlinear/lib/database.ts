@@ -4,8 +4,19 @@ import {initDatabase as initCommonDatabase} from '@garage44/common/lib/database'
 import {homedir} from 'node:os'
 import path from 'node:path'
 
-import {logger} from '../service.ts'
 import {config} from './config.ts'
+
+interface DatabaseLogger {
+    error(message: string, ...args: unknown[]): void
+    info(message: string, ...args: unknown[]): void
+    warn(message: string, ...args: unknown[]): void
+}
+
+const noopLogger: DatabaseLogger = {
+    error: (): void => {},
+    info: (): void => {},
+    warn: (): void => {},
+}
 
 /**
  * SQLite Database for Nonlinear
@@ -131,18 +142,24 @@ export interface Documentation {
 /**
  * Initialize the database connection and create tables if needed
  * Uses common database initialization for users table
+ * @param dbPath Path to database file
+ * @param logger Optional logger (avoids importing service.ts - required when used from codebrew)
  */
-export function initDatabase(dbPath?: string): Database {
+let dbLogger: DatabaseLogger = noopLogger
+
+export function initDatabase(dbPath?: string, logger?: DatabaseLogger): Database {
     if (db) {
         return db
     }
+
+    dbLogger = logger ?? noopLogger
 
     // Check for environment variable first (for PR deployments and isolated instances)
     const envDbPath = process.env.DB_PATH
     const finalPath = dbPath || envDbPath || path.join(homedir(), '.nonlinear.db')
 
     // Initialize common database (creates users table)
-    db = initCommonDatabase(finalPath, 'nonlinear', logger)
+    db = initCommonDatabase(finalPath, 'nonlinear', dbLogger)
 
     // Load sqlite-vec extension for vector search
     loadVecExtension(db)
@@ -161,14 +178,14 @@ export function initDatabase(dbPath?: string): Database {
             Promise.all([import('./fixtures.ts'), import('./workspace.ts')])
                 .then(([{initializeFixtures}, {findWorkspaceRoot}]) => {
                     const workspaceRoot = findWorkspaceRoot() || process.cwd()
-                    logger.info(`[Database] Initializing fixtures from ${workspaceRoot}`)
+                    dbLogger.info(`[Database] Initializing fixtures from ${workspaceRoot}`)
                     return initializeFixtures(db!, workspaceRoot)
                 })
                 .catch((error) => {
-                    logger.error('[Database] Failed to initialize fixtures:', error)
+                    dbLogger.error('[Database] Failed to initialize fixtures:', error)
                 })
         } else {
-            logger.info('[Database] Workspace already exists, skipping fixture initialization')
+            dbLogger.info('[Database] Workspace already exists, skipping fixture initialization')
         }
     }
 
@@ -189,24 +206,24 @@ function loadVecExtension(db: Database): void {
             try {
                 const {load} = require('sqlite-vec')
                 load(db)
-                logger.info('[Database] Loaded sqlite-vec extension')
+                dbLogger.info('[Database] Loaded sqlite-vec extension')
                 return
             } catch {
                 // Fallback to ES module import
                 import('sqlite-vec')
                     .then(({load}) => {
                         load(db)
-                        logger.info('[Database] Loaded sqlite-vec extension')
+                        dbLogger.info('[Database] Loaded sqlite-vec extension')
                     })
                     .catch((importError) => {
-                        logger.warn('[Database] Failed to load sqlite-vec extension via import:', importError)
+                        dbLogger.warn('[Database] Failed to load sqlite-vec extension via import:', importError)
                     })
             }
         } else {
-            logger.warn('[Database] Database does not support loadExtension')
+            dbLogger.warn('[Database] Database does not support loadExtension')
         }
     } catch (error) {
-        logger.warn('[Database] Failed to load sqlite-vec extension:', error)
+        dbLogger.warn('[Database] Failed to load sqlite-vec extension:', error)
         // Continue without vector search - can add embeddings later
     }
 }
@@ -504,7 +521,7 @@ function createNonlinearTables() {
              * Note: vec0 tables can't be altered, so we'd need to drop and recreate
              * For now, just log a warning if dimension might mismatch
              */
-            logger.info(`[Database] vec0 table already exists, using dimension: ${embeddingDim}`)
+            dbLogger.info(`[Database] vec0 table already exists, using dimension: ${embeddingDim}`)
         } else {
             // Create new table with correct dimension
             db.exec(`
@@ -517,10 +534,10 @@ function createNonlinearTables() {
                     metadata TEXT
                 )
             `)
-            logger.info(`[Database] Created vec0 virtual table for vector search (dimension: ${embeddingDim})`)
+            dbLogger.info(`[Database] Created vec0 virtual table for vector search (dimension: ${embeddingDim})`)
         }
     } catch (error) {
-        logger.warn('[Database] Failed to create vec0 table (sqlite-vec may not be loaded):', error)
+        dbLogger.warn('[Database] Failed to create vec0 table (sqlite-vec may not be loaded):', error)
     }
 
     /*
@@ -556,10 +573,10 @@ function createNonlinearTables() {
                     metadata TEXT
                 )
             `)
-            logger.info(`[Database] Created code_embeddings vec0 table (dimension: ${embeddingDim})`)
+            dbLogger.info(`[Database] Created code_embeddings vec0 table (dimension: ${embeddingDim})`)
         }
     } catch (error) {
-        logger.warn('[Database] Failed to create code_embeddings table (sqlite-vec may not be loaded):', error)
+        dbLogger.warn('[Database] Failed to create code_embeddings table (sqlite-vec may not be loaded):', error)
     }
 
     // Indexing jobs table
@@ -597,7 +614,7 @@ function createNonlinearTables() {
     // Migrate existing labels to label definitions
     migrateLabelsToDefinitions()
 
-    logger.info('[Database] Nonlinear tables initialized')
+    dbLogger.info('[Database] Nonlinear tables initialized')
 }
 
 /**
@@ -639,10 +656,10 @@ function migrateAssigneeData() {
         }
 
         if (migratedCount > 0) {
-            logger.info(`[Database] Migrated ${migratedCount} existing assignees to ticket_assignees table`)
+            dbLogger.info(`[Database] Migrated ${migratedCount} existing assignees to ticket_assignees table`)
         }
     } catch (error) {
-        logger.warn(`[Database] Error migrating assignee data: ${error}`)
+        dbLogger.warn(`[Database] Error migrating assignee data: ${error}`)
         // Don't throw - migration failure shouldn't block initialization
     }
 }
@@ -688,10 +705,10 @@ function migrateLabelsToDefinitions() {
         }
 
         if (migratedCount > 0) {
-            logger.info(`[Database] Migrated ${migratedCount} existing labels to label_definitions table`)
+            dbLogger.info(`[Database] Migrated ${migratedCount} existing labels to label_definitions table`)
         }
     } catch (error) {
-        logger.warn(`[Database] Error migrating labels: ${error}`)
+        dbLogger.warn(`[Database] Error migrating labels: ${error}`)
         // Don't throw - migration failure shouldn't block initialization
     }
 }
@@ -929,7 +946,7 @@ function initializePresetTags() {
     for (const tag of presetTags) {
         // Validate tag format (hyphens only)
         if (!/^[a-z0-9:-]+$/.test(tag.name) || tag.name.includes('_')) {
-            logger.warn(`[Database] Invalid tag format (must use hyphens): ${tag.name}`)
+            dbLogger.warn(`[Database] Invalid tag format (must use hyphens): ${tag.name}`)
             continue
         }
 
@@ -941,7 +958,7 @@ function initializePresetTags() {
         }
     }
 
-    logger.info('[Database] Initialized preset tags')
+    dbLogger.info('[Database] Initialized preset tags')
 }
 
 export function getDb(): Database {
