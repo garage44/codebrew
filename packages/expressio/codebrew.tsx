@@ -1,8 +1,10 @@
-import type {VNode} from 'preact'
-
 /** @jsxImportSource preact */
-import {registerApp} from '@garage44/common/lib/codebrew-registry'
+import type {VNode} from 'preact'
 import {h} from 'preact'
+
+import {registerApp} from '@garage44/common/lib/codebrew-registry'
+
+import {logger} from './service'
 
 export function Placeholder({name}: {name: string}): VNode {
     return (
@@ -23,6 +25,7 @@ registerApp({
         {href: '/expressio/config', icon: 'workspace', text: 'Settings'},
     ],
     name: 'Expressio',
+    onInit: () => logger.info('initialized'),
     routes: [
         {component: (): VNode => <Placeholder name='Expressio' />, default: true, path: '/expressio/translations'},
         {component: (): VNode => <Placeholder name='Expressio Settings' />, path: '/expressio/config'},

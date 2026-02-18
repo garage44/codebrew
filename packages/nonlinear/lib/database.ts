@@ -178,14 +178,14 @@ export function initDatabase(dbPath?: string, logger?: DatabaseLogger): Database
             Promise.all([import('./fixtures.ts'), import('./workspace.ts')])
                 .then(([{initializeFixtures}, {findWorkspaceRoot}]) => {
                     const workspaceRoot = findWorkspaceRoot() || process.cwd()
-                    dbLogger.info(`[Database] Initializing fixtures from ${workspaceRoot}`)
+                    dbLogger.info(`[db] initializing fixtures from ${workspaceRoot}`)
                     return initializeFixtures(db!, workspaceRoot)
                 })
                 .catch((error) => {
-                    dbLogger.error('[Database] Failed to initialize fixtures:', error)
+                    dbLogger.error('[db] failed to initialize fixtures:', error)
                 })
         } else {
-            dbLogger.info('[Database] Workspace already exists, skipping fixture initialization')
+            dbLogger.info('[db] workspace already exists, skipping fixture initialization')
         }
     }
 
@@ -206,24 +206,24 @@ function loadVecExtension(db: Database): void {
             try {
                 const {load} = require('sqlite-vec')
                 load(db)
-                dbLogger.info('[Database] Loaded sqlite-vec extension')
+                dbLogger.info('[db] loaded sqlite-vec extension')
                 return
             } catch {
                 // Fallback to ES module import
                 import('sqlite-vec')
                     .then(({load}) => {
                         load(db)
-                        dbLogger.info('[Database] Loaded sqlite-vec extension')
+                        dbLogger.info('[db] loaded sqlite-vec extension')
                     })
                     .catch((importError) => {
-                        dbLogger.warn('[Database] Failed to load sqlite-vec extension via import:', importError)
+                        dbLogger.warn('[db] failed to load sqlite-vec extension via import:', importError)
                     })
             }
         } else {
-            dbLogger.warn('[Database] Database does not support loadExtension')
+            dbLogger.warn('[db] database does not support loadExtension')
         }
     } catch (error) {
-        dbLogger.warn('[Database] Failed to load sqlite-vec extension:', error)
+        dbLogger.warn('[db] failed to load sqlite-vec extension:', error)
         // Continue without vector search - can add embeddings later
     }
 }
@@ -521,7 +521,7 @@ function createNonlinearTables() {
              * Note: vec0 tables can't be altered, so we'd need to drop and recreate
              * For now, just log a warning if dimension might mismatch
              */
-            dbLogger.info(`[Database] vec0 table already exists, using dimension: ${embeddingDim}`)
+            dbLogger.info(`[db] vec0 table already exists, using dimension: ${embeddingDim}`)
         } else {
             // Create new table with correct dimension
             db.exec(`
@@ -534,10 +534,10 @@ function createNonlinearTables() {
                     metadata TEXT
                 )
             `)
-            dbLogger.info(`[Database] Created vec0 virtual table for vector search (dimension: ${embeddingDim})`)
+            dbLogger.info(`[db] created vec0 virtual table for vector search (dimension: ${embeddingDim})`)
         }
     } catch (error) {
-        dbLogger.warn('[Database] Failed to create vec0 table (sqlite-vec may not be loaded):', error)
+        dbLogger.warn('[db] failed to create vec0 table (sqlite-vec may not be loaded):', error)
     }
 
     /*
@@ -573,10 +573,10 @@ function createNonlinearTables() {
                     metadata TEXT
                 )
             `)
-            dbLogger.info(`[Database] Created code_embeddings vec0 table (dimension: ${embeddingDim})`)
+            dbLogger.info(`[db] created code_embeddings vec0 table (dimension: ${embeddingDim})`)
         }
     } catch (error) {
-        dbLogger.warn('[Database] Failed to create code_embeddings table (sqlite-vec may not be loaded):', error)
+        dbLogger.warn('[db] failed to create code_embeddings table (sqlite-vec may not be loaded):', error)
     }
 
     // Indexing jobs table
@@ -614,7 +614,7 @@ function createNonlinearTables() {
     // Migrate existing labels to label definitions
     migrateLabelsToDefinitions()
 
-    dbLogger.info('[Database] Nonlinear tables initialized')
+    dbLogger.info('[db] nonlinear tables initialized')
 }
 
 /**
@@ -656,10 +656,10 @@ function migrateAssigneeData() {
         }
 
         if (migratedCount > 0) {
-            dbLogger.info(`[Database] Migrated ${migratedCount} existing assignees to ticket_assignees table`)
+            dbLogger.info(`[db] migrated ${migratedCount} existing assignees to ticket_assignees table`)
         }
     } catch (error) {
-        dbLogger.warn(`[Database] Error migrating assignee data: ${error}`)
+        dbLogger.warn(`[db] error migrating assignee data: ${error}`)
         // Don't throw - migration failure shouldn't block initialization
     }
 }
@@ -705,10 +705,10 @@ function migrateLabelsToDefinitions() {
         }
 
         if (migratedCount > 0) {
-            dbLogger.info(`[Database] Migrated ${migratedCount} existing labels to label_definitions table`)
+            dbLogger.info(`[db] migrated ${migratedCount} existing labels to label_definitions table`)
         }
     } catch (error) {
-        dbLogger.warn(`[Database] Error migrating labels: ${error}`)
+        dbLogger.warn(`[db] error migrating labels: ${error}`)
         // Don't throw - migration failure shouldn't block initialization
     }
 }
@@ -946,7 +946,7 @@ function initializePresetTags() {
     for (const tag of presetTags) {
         // Validate tag format (hyphens only)
         if (!/^[a-z0-9:-]+$/.test(tag.name) || tag.name.includes('_')) {
-            dbLogger.warn(`[Database] Invalid tag format (must use hyphens): ${tag.name}`)
+            dbLogger.warn(`[db] invalid tag format (must use hyphens): ${tag.name}`)
             continue
         }
 
@@ -958,7 +958,7 @@ function initializePresetTags() {
         }
     }
 
-    dbLogger.info('[Database] Initialized preset tags')
+    dbLogger.info('[db] initialized preset tags')
 }
 
 export function getDb(): Database {

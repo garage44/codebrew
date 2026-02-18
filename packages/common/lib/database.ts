@@ -23,7 +23,7 @@ export function createUsersTable(db: Database, logger?: Logger): boolean {
 
     // Debug logging
     if (logger) {
-        logger.info(`[Database] Checking if users table exists... Result: ${result ? JSON.stringify(result) : 'null/undefined'}`)
+        logger.info(`[db] checking if users table exists... result: ${result ? JSON.stringify(result) : 'null/undefined'}`)
     }
 
     const tableExists = result !== null && result !== undefined
@@ -31,7 +31,7 @@ export function createUsersTable(db: Database, logger?: Logger): boolean {
     // Only create if it doesn't exist
     if (!tableExists) {
         if (logger) {
-            logger.info('[Database] Users table does not exist, creating it...')
+            logger.info('[db] users table does not exist, creating it...')
         }
         db.exec(`
             CREATE TABLE users (
@@ -48,7 +48,7 @@ export function createUsersTable(db: Database, logger?: Logger): boolean {
         return true
     }
     if (logger) {
-        logger.info('[Database] Users table already exists')
+        logger.info('[db] users table already exists')
     }
     // Table already existed
     return false
@@ -72,14 +72,14 @@ export function initDatabase(dbPath?: string, appName?: string, logger?: Logger)
     const finalPath = dbPath || envDbPath || (appName ? path.join(homedir(), `.${appName}.db`) : path.join(homedir(), '.app.db'))
 
     if (logger) {
-        logger.info(`[Database] Initializing SQLite database at ${finalPath}`)
+        logger.info(`[db] initializing sqlite database at ${finalPath}`)
     }
 
     // Check if database file exists
     const dbExists = fs.pathExistsSync(finalPath)
 
     if (logger) {
-        logger.info(`[Database] Database file exists: ${dbExists}`)
+        logger.info(`[db] database file exists: ${dbExists}`)
     }
 
     /*
@@ -100,18 +100,18 @@ export function initDatabase(dbPath?: string, appName?: string, logger?: Logger)
             if (fs.pathExistsSync(walPath)) {
                 fs.removeSync(walPath)
                 if (logger) {
-                    logger.info(`[Database] Removed orphaned WAL file: ${walPath}`)
+                    logger.info(`[db] removed orphaned wal file: ${walPath}`)
                 }
             }
             if (fs.pathExistsSync(shmPath)) {
                 fs.removeSync(shmPath)
                 if (logger) {
-                    logger.info(`[Database] Removed orphaned SHM file: ${shmPath}`)
+                    logger.info(`[db] removed orphaned shm file: ${shmPath}`)
                 }
             }
         } catch (cleanupError) {
             if (logger) {
-                logger.warn?.(`[Database] Cleanup warning: ${cleanupError}`)
+                logger.warn?.(`[db] cleanup warning: ${cleanupError}`)
             }
         }
     }
@@ -128,20 +128,20 @@ export function initDatabase(dbPath?: string, appName?: string, logger?: Logger)
         const journalModeStmt = db.prepare('PRAGMA journal_mode')
         const currentMode = journalModeStmt.get() as {journal_mode: string} | undefined
         if (logger) {
-            logger.info(`[Database] Current journal mode: ${currentMode?.journal_mode || 'unknown'}`)
+            logger.info(`[db] current journal mode: ${currentMode?.journal_mode || 'unknown'}`)
         }
         // Only set WAL mode if not already set (don't force it)
         if (currentMode?.journal_mode !== 'wal') {
             db.exec('PRAGMA journal_mode = WAL')
             if (logger) {
-                logger.info('[Database] Set journal mode to WAL')
+                logger.info('[db] set journal mode to wal')
             }
         }
     } else {
         // New database - set WAL mode
         db.exec('PRAGMA journal_mode = WAL')
         if (logger) {
-            logger.info('[Database] New database, set journal mode to WAL')
+            logger.info('[db] new database, set journal mode to wal')
         }
     }
 
@@ -152,9 +152,9 @@ export function initDatabase(dbPath?: string, appName?: string, logger?: Logger)
 
     if (logger) {
         if (tableWasCreated) {
-            logger.info('[Database] Common users table created successfully')
+            logger.info('[db] common users table created successfully')
         } else {
-            logger.info('[Database] Common users table already exists, skipping creation')
+            logger.info('[db] common users table already exists, skipping creation')
         }
     }
 

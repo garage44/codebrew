@@ -52,7 +52,7 @@ export class CIRunner {
         `)
             .run(runId, ticketId, startedAt)
 
-        logger.info(`[CI] Starting CI run ${runId} for ticket ${ticketId}`)
+        logger.info(`[ci] starting ci run ${runId} for ticket ${ticketId}`)
 
         const originalCwd = process.cwd()
         const fixesApplied: {command: string; output: string}[] = []
@@ -67,13 +67,13 @@ export class CIRunner {
                 attempt += 1
 
                 // Run tests
-                logger.info(`[CI] Running tests (attempt ${attempt}/${this.maxAttempts})`)
+                logger.info(`[ci] running tests (attempt ${attempt}/${this.maxAttempts})`)
                 // eslint-disable-next-line no-await-in-loop
                 const testResult = await $`bun test`.quiet().nothrow()
 
                 if (testResult.exitCode === 0) {
                     // Tests passed, run linting
-                    logger.info('[CI] Tests passed, running linting')
+                    logger.info('[ci] tests passed, running linting')
                     // eslint-disable-next-line no-await-in-loop
                     const lintResult = await $`bun run lint:ts`.quiet().nothrow()
 
@@ -92,7 +92,7 @@ export class CIRunner {
                     lastError = `Linting failed: ${lintError}`
 
                     if (attempt < this.maxAttempts) {
-                        logger.info('[CI] Linting failed, attempting auto-fix')
+                        logger.info('[ci] linting failed, attempting auto-fix')
                         // eslint-disable-next-line no-await-in-loop
                         const fixResult = await this.attemptFix('linting', lintError, repoPath)
                         if (fixResult) {
@@ -108,7 +108,7 @@ export class CIRunner {
                     lastError = `Tests failed: ${testError}`
 
                     if (attempt < this.maxAttempts) {
-                        logger.info('[CI] Tests failed, attempting auto-fix')
+                        logger.info('[ci] tests failed, attempting auto-fix')
                         // eslint-disable-next-line no-await-in-loop
                         const fixResult = await this.attemptFix('tests', testError, repoPath)
                         if (fixResult) {
@@ -132,7 +132,7 @@ export class CIRunner {
             }
         } catch (error: unknown) {
             const errorMsg = error instanceof Error ? error.message : String(error)
-            logger.error(`[CI] Error during CI run: ${errorMsg}`)
+            logger.error(`[ci] error during ci run: ${errorMsg}`)
             this.completeRun(runId, 'failed', `Error: ${errorMsg}`, fixesApplied)
             return {
                 error: errorMsg,
@@ -207,18 +207,18 @@ Generate a command to fix this issue.`
             const remainingHeader = response.headers.get('anthropic-ratelimit-tokens-remaining')
             const resetHeader = response.headers.get('anthropic-ratelimit-tokens-reset')
 
-            logger.debug('[CI Runner] API Response Headers:')
+            logger.debug('[ci] api response headers:')
             logger.debug(`  anthropic-ratelimit-tokens-limit: ${limitHeader}`)
             logger.debug(`  anthropic-ratelimit-tokens-remaining: ${remainingHeader}`)
             logger.debug(`  anthropic-ratelimit-tokens-reset: ${resetHeader}`)
-            logger.debug(`  All headers: ${JSON.stringify(Object.fromEntries(response.headers.entries()))}`)
+            logger.debug(`  all headers: ${JSON.stringify(Object.fromEntries(response.headers.entries()))}`)
 
             if (limitHeader && remainingHeader) {
                 const limit = Number.parseInt(limitHeader, 10)
                 const remaining = Number.parseInt(remainingHeader, 10)
                 const used = limit - remaining
 
-                logger.info(`[CI Runner] Token Usage: ${used}/${limit} (${remaining} remaining)`)
+                logger.info(`[ci] token usage: ${used}/${limit} (${remaining} remaining)`)
 
                 updateUsageFromHeaders({
                     limit,
@@ -226,7 +226,7 @@ Generate a command to fix this issue.`
                     ...(resetHeader === null ? {} : {reset: resetHeader}),
                 })
             } else {
-                logger.warn('[CI Runner] Rate limit headers not found in response')
+                logger.warn('[ci] rate limit headers not found in response')
             }
 
             const content = data.content[0]
@@ -254,22 +254,22 @@ Generate a command to fix this issue.`
             }
 
             // Execute fix command
-            logger.info(`[CI] Running fix command: ${fixPlan.command}`)
+            logger.info(`[ci] running fix command: ${fixPlan.command}`)
             const fixResult = await $`${fixPlan.command}`.quiet().nothrow()
 
             const fixOutput = fixResult.stdout?.toString() || fixResult.stderr?.toString() || ''
 
             if (fixResult.exitCode === 0) {
-                logger.info(`[CI] Fix applied successfully: ${fixPlan.explanation}`)
+                logger.info(`[ci] fix applied successfully: ${fixPlan.explanation}`)
                 return {
                     command: fixPlan.command,
                     output: fixOutput,
                 }
             }
-            logger.warn(`[CI] Fix command failed: ${fixOutput}`)
+            logger.warn(`[ci] fix command failed: ${fixOutput}`)
             return null
         } catch (error: unknown) {
-            logger.error(`[CI] Error attempting fix: ${error}`)
+            logger.error(`[ci] error attempting fix: ${error}`)
             return null
         }
     }

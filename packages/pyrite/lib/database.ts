@@ -1,5 +1,6 @@
+import type {Database} from 'bun:sqlite'
+
 import {initDatabase as initCommonDatabase} from '@garage44/common/lib/database'
-import {Database} from 'bun:sqlite'
 import {homedir} from 'node:os'
 import path from 'node:path'
 
@@ -70,7 +71,9 @@ export function initDatabase(dbPath?: string): Database {
  * Users table is created by common database initialization
  */
 function createPyriteTables() {
-    if (!db) throw new Error('Database not initialized')
+    if (!db) {
+        throw new Error('Database not initialized')
+    }
 
     // Channels table
     db.exec(`
@@ -90,14 +93,14 @@ function createPyriteTables() {
     // Add is_default column if it doesn't exist (migration for existing databases)
     try {
         // Check if column exists by querying table info
-        const tableInfo = db.prepare('PRAGMA table_info(channels)').all() as Array<{name: string}>
+        const tableInfo = db.prepare('PRAGMA table_info(channels)').all() as {name: string}[]
         const hasIsDefaultColumn = tableInfo.some((col) => col.name === 'is_default')
         if (!hasIsDefaultColumn) {
             db.exec('ALTER TABLE channels ADD COLUMN is_default INTEGER NOT NULL DEFAULT 0')
-            logger.info('[Database] Added is_default column to channels table')
+            logger.info('[db] added is_default column to channels table')
         }
     } catch (alterError) {
-        logger.warn('[Database] Failed to check/add is_default column:', alterError)
+        logger.warn('[db] failed to check/add is_default column:', alterError)
     }
 
     /*
@@ -138,7 +141,7 @@ function createPyriteTables() {
     db.exec('CREATE INDEX IF NOT EXISTS idx_messages_channel_timestamp ON messages(channel_id, timestamp DESC)')
     db.exec('CREATE INDEX IF NOT EXISTS idx_channel_members_user ON channel_members(user_id)')
 
-    logger.info('[Database] Pyrite-specific tables created successfully')
+    logger.info('[db] pyrite-specific tables created successfully')
 }
 
 /**
@@ -146,7 +149,9 @@ function createPyriteTables() {
  * User initialization is handled by UserManager in common service
  */
 export async function initializeDefaultData() {
-    if (!db) throw new Error('Database not initialized')
+    if (!db) {
+        throw new Error('Database not initialized')
+    }
 
     try {
         // Check if we have any channels
@@ -154,19 +159,19 @@ export async function initializeDefaultData() {
         const channelCount = channelCountStmt.get() as {count: number} | undefined
 
         if (!channelCount || channelCount.count === 0) {
-            logger.info('[Database] Initializing Pyrite default data...')
+            logger.info('[db] initializing pyrite default data...')
 
             // Get the admin user ID (created by UserManager)
             const adminUserQuery = db.prepare('SELECT id, username FROM users WHERE username = ?')
             const adminUser = adminUserQuery.get('admin') as {id: string; username: string} | undefined
 
             if (!adminUser) {
-                logger.warn('[Database] Admin user not found, skipping Pyrite default data initialization')
-                logger.warn('[Database] Available users:', db.prepare('SELECT id, username FROM users').all())
+                logger.warn('[db] admin user not found, skipping pyrite default data initialization')
+                logger.warn('[db] available users:', db.prepare('SELECT id, username FROM users').all())
                 return
             }
 
-            logger.info(`[Database] Found admin user: ${adminUser.username} (${adminUser.id})`)
+            logger.info(`[db] found admin user: ${adminUser.username} (${adminUser.id})`)
 
             const now = Date.now()
 
@@ -182,11 +187,11 @@ export async function initializeDefaultData() {
             const channelId = channelResult.lastInsertRowid as number
 
             if (!channelId || channelId <= 0) {
-                logger.error('[Database] Failed to create general channel - no channel ID returned')
+                logger.error('[db] failed to create general channel - no channel id returned')
                 return
             }
 
-            logger.info(`[Database] Created general channel (id: ${channelId})`)
+            logger.info(`[db] created general channel (id: ${channelId})`)
 
             // Add admin to general channel
             const memberInsert = db.prepare(`
@@ -195,20 +200,20 @@ export async function initializeDefaultData() {
             `)
             memberInsert.run(channelId, adminUser.id, 'admin', now)
 
-            logger.info(`[Database] Added admin user (${adminUser.username}) to general channel`)
+            logger.info(`[db] added admin user (${adminUser.username}) to general channel`)
 
             // Create default "pyrite" channel
             const pyriteChannelResult = channelInsert.run('pyrite', 'pyrite', 'Pyrite discussion channel', now)
             const pyriteChannelId = pyriteChannelResult.lastInsertRowid as number
 
             if (!pyriteChannelId || pyriteChannelId <= 0) {
-                logger.error('[Database] Failed to create pyrite channel - no channel ID returned')
+                logger.error('[db] failed to create pyrite channel - no channel id returned')
             } else {
-                logger.info(`[Database] Created pyrite channel (id: ${pyriteChannelId})`)
+                logger.info(`[db] created pyrite channel (id: ${pyriteChannelId})`)
 
                 // Add admin to pyrite channel
                 memberInsert.run(pyriteChannelId, adminUser.id, 'admin', now)
-                logger.info(`[Database] Added admin user (${adminUser.username}) to pyrite channel`)
+                logger.info(`[db] added admin user (${adminUser.username}) to pyrite channel`)
             }
 
             // Sync default channels to Galene groups
@@ -216,12 +221,12 @@ export async function initializeDefaultData() {
                 const {ChannelManager} = await import('./channel-manager.ts')
                 const channelManager = new ChannelManager(db)
                 const syncResult = await channelManager.syncAllChannelsToGalene()
-                logger.info(`[Database] Synced ${syncResult.success} default channel(s) to Galene groups`)
+                logger.info(`[db] synced ${syncResult.success} default channel(s) to galene groups`)
                 if (syncResult.failed > 0) {
-                    logger.warn(`[Database] Failed to sync ${syncResult.failed} channel(s) to Galene`)
+                    logger.warn(`[db] failed to sync ${syncResult.failed} channel(s) to galene`)
                 }
             } catch (syncError) {
-                logger.error('[Database] Failed to sync default channels to Galene (non-fatal):', syncError)
+                logger.error('[db] failed to sync default channels to galene (non-fatal):', syncError)
                 // Don't fail initialization if sync fails - channels are still created
             }
 
@@ -229,18 +234,18 @@ export async function initializeDefaultData() {
             try {
                 const {syncUsersToGalene} = await import('./sync.ts')
                 await syncUsersToGalene()
-                logger.info('[Database] Synced users to Galene (global config and group files)')
+                logger.info('[db] synced users to galene (global config and group files)')
             } catch (syncError) {
-                logger.error('[Database] Failed to sync users to Galene (non-fatal):', syncError)
+                logger.error('[db] failed to sync users to galene (non-fatal):', syncError)
                 // Don't fail initialization if sync fails - users can be synced later
             }
 
-            logger.info('[Database] Pyrite default data initialization completed successfully')
+            logger.info('[db] pyrite default data initialization completed successfully')
         } else {
-            logger.info(`[Database] Channels already exist (${channelCount.count}), skipping default data initialization`)
+            logger.info(`[db] channels already exist (${channelCount.count}), skipping default data initialization`)
         }
     } catch (error) {
-        logger.error('[Database] Error initializing Pyrite default data:', error)
+        logger.error('[db] error initializing pyrite default data:', error)
         throw error
     }
 }
@@ -262,6 +267,6 @@ export function closeDatabase() {
     if (db) {
         db.close()
         db = null
-        logger.info('[Database] Connection closed')
+        logger.info('[db] connection closed')
     }
 }

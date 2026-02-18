@@ -2,6 +2,28 @@ import path from 'node:path'
 
 import type {UserManager} from './user-manager'
 
+function getClientIP(request: Request, server?: unknown): string {
+    const forwarded = request.headers.get('x-forwarded-for')
+    if (forwarded) {
+        return forwarded.split(',')[0].trim()
+    }
+    const realIp = request.headers.get('x-real-ip')
+    if (realIp) {
+        return realIp.trim()
+    }
+    const cfIp = request.headers.get('cf-connecting-ip')
+    if (cfIp) {
+        return cfIp.trim()
+    }
+    if (server && typeof (server as {requestIP?: (req: Request) => {address?: string} | null}).requestIP === 'function') {
+        const addr = (server as {requestIP: (req: Request) => {address?: string} | null}).requestIP(request)
+        if (addr?.address) {
+            return addr.address
+        }
+    }
+    return 'unknown'
+}
+
 // Configuration interface for package-specific middleware behavior
 export interface MiddlewareConfig {
     configPath: string
@@ -230,6 +252,7 @@ export const createMiddleware = (config: MiddlewareConfig, userManager: UserMana
                 const success = (server as {upgrade: (req: Request, data: unknown) => boolean}).upgrade(request, {
                     data: {
                         endpoint: url.pathname,
+                        ip: getClientIP(request, server),
                         session,
                     },
                 })
@@ -300,6 +323,7 @@ export const createFinalHandler = (config: {
 
     return async (request: Request, server?: unknown): Promise<Response | undefined> => {
         const url = new URL(request.url)
+        const ip = getClientIP(request, server)
 
         config.devContext.addHttp({method: request.method, ts: Date.now(), url: url.pathname})
 
@@ -318,7 +342,7 @@ export const createFinalHandler = (config: {
                 if (user) {
                     ;(session as {userid?: string}).userid = user.username
                     sessions.set(sessionId, session)
-                    config.logger.debug(`[Middleware] debug_user override: session ${sessionId} -> ${user.username}`)
+                    config.logger.debug(`[mw] debug_user override: session ${sessionId} -> ${user.username}`)
                 }
 
                 // Redirect to same URL without the debug_user param
@@ -335,7 +359,7 @@ export const createFinalHandler = (config: {
                 sessions.set(sessionId, session)
                 const userId = (session as {userid?: string}).userid
                 if (userId) {
-                    config.logger.debug(`[Middleware] Cycled session ${sessionId} -> ${userId}`)
+                    config.logger.debug(`[mw] cycled session ${sessionId} -> ${userId}`)
                 }
             }
         }
@@ -542,7 +566,7 @@ export const createFinalHandler = (config: {
             try {
                 const file = Bun.file(filePath)
                 if (await file.exists()) {
-                    config.logger.debug(`[HTTP] GET ${filePath}`)
+                    config.logger.debug(`[http] get ${filePath} [${ip}]`)
                     config.devContext.addHttp({method: 'GET', status: 200, ts: Date.now(), url: filePath})
 
                     // Use custom MIME types if provided (Pyrite), otherwise default
@@ -558,14 +582,14 @@ export const createFinalHandler = (config: {
                 }
             } catch (error) {
                 // File doesn't exist, continue to next handler
-                config.logger.debug(`[HTTP] static file not found: ${filePath} (${error})`)
+                config.logger.debug(`[http] static file not found: ${filePath} (${error}) [${ip}]`)
             }
         }
 
         // Try the router for HTTP API endpoints
         const apiResponse = await config.router.route(request, finalSession as Record<string, string>)
         if (apiResponse) {
-            config.logger.info(`[HTTP] API route matched ${url.pathname}`)
+            config.logger.info(`[http] api route matched ${url.pathname} [${ip}]`)
             config.devContext.addHttp({method: request.method, status: apiResponse.status, ts: Date.now(), url: url.pathname})
             // Set session cookie if this is a new session
             return unifiedMiddleware.setSessionCookie(apiResponse, finalSessionId, request)
@@ -583,11 +607,11 @@ export const createFinalHandler = (config: {
             }
         } catch (error) {
             // Index.html doesn't exist
-            config.logger.debug(`[HTTP] SPA fallback index.html not found: ${error}`)
+            config.logger.debug(`[http] spa fallback index.html not found: ${error} [${ip}]`)
         }
 
         // Final fallback - 404
-        config.logger.info(`[HTTP] 404 for ${url.pathname}`)
+        config.logger.info(`[http] 404 for ${url.pathname} [${ip}]`)
         const response = new Response('Not Found', {status: 404})
         config.devContext.addHttp({method: request.method, status: 404, ts: Date.now(), url: url.pathname})
         return unifiedMiddleware.setSessionCookie(response, finalSessionId, request)

@@ -57,7 +57,11 @@ const logger = loggerTransports(
         level: (config.logger.level || 'debug') as 'error' | 'warn' | 'info' | 'success' | 'verbose' | 'debug',
     },
     'service',
+    process.env.CODEBREW_PLUGIN_COLOR,
 )
+if (import.meta.main) {
+    logger.info('initialized')
+}
 const enola = new Enola()
 const workspaces = new Workspaces()
 
@@ -108,8 +112,8 @@ void cli
             const outputPath = path.resolve(argv.output as string)
 
             if (await fs.pathExists(outputPath)) {
-                logger.error(`File already exists: ${outputPath}`)
-                logger.info('Use a different output path or remove the existing file')
+                logger.error(`file already exists: ${outputPath}`)
+                logger.info('use a different output path or remove the existing file')
                 process.exit(1)
             }
 
@@ -164,10 +168,10 @@ void cli
             }
 
             await fs.writeFile(outputPath, `${JSON.stringify(template, null, 2)}\n`, 'utf8')
-            logger.info(`Created workspace file: ${outputPath}`)
-            logger.info(`Workspace ID: ${argv.workspaceId}`)
-            logger.info(`Source language: ${argv.sourceLanguage}`)
-            logger.info('Edit the file to add your translations and configure target languages')
+            logger.info(`created workspace file: ${outputPath}`)
+            logger.info(`workspace id: ${argv.workspaceId}`)
+            logger.info(`source language: ${argv.sourceLanguage}`)
+            logger.info('edit the file to add your translations and configure target languages')
         },
     )
     .command(
@@ -209,10 +213,10 @@ void cli
             )
 
             const inputFile = path.resolve(argv.input as string)
-            logger.info(`Importing from: ${inputFile}`)
+            logger.info(`importing from: ${inputFile}`)
 
             if (!(await fs.pathExists(inputFile))) {
-                logger.error(`Input file not found: ${inputFile}`)
+                logger.error(`input file not found: ${inputFile}`)
                 process.exit(1)
             }
 
@@ -267,14 +271,14 @@ void cli
             })
 
             await workspace.save()
-            logger.info(`Imported: ${createTags.length} tags`)
+            logger.info(`imported: ${createTags.length} tags`)
             if (skipTags.length) {
-                logger.info(`Skipped: ${skipTags.length} tags (existing or invalid)`)
+                logger.info(`skipped: ${skipTags.length} tags (existing or invalid)`)
             }
 
             // Auto-translate if requested
             if (argv.translate && createTags.length > 0) {
-                logger.info('Starting automatic translation...')
+                logger.info('starting automatic translation...')
                 await enola.init({...config.enola, languages: enola.config.languages} as unknown as EnolaConfig, logger)
 
                 // eslint-disable-next-line no-await-in-loop
@@ -284,18 +288,18 @@ void cli
                         if (pathRefResult?.id) {
                             const tagRef = pathRefResult.ref[pathRefResult.id] as {source?: string} | undefined
                             if (tagRef?.source) {
-                                logger.info(`Translating: ${tagPath.join('.')}`)
+                                logger.info(`translating: ${tagPath.join('.')}`)
                                 // eslint-disable-next-line no-await-in-loop
                                 await translate_tag(workspace, tagPath, tagRef.source, true)
                             }
                         }
                     } catch {
-                        logger.error(`Failed to translate ${tagPath.join('.')}`)
+                        logger.error(`failed to translate ${tagPath.join('.')}`)
                     }
                 }
 
                 await workspace.save()
-                logger.info('Translation complete!')
+                logger.info('translation complete!')
             }
         },
     )
@@ -364,11 +368,11 @@ void cli
             })
 
             if (tagsToTranslate.length === 0) {
-                logger.info('All tags are up to date!')
+                logger.info('all tags are up to date!')
                 process.exit(0)
             }
 
-            logger.info(`Found ${tagsToTranslate.length} tags to translate`)
+            logger.info(`found ${tagsToTranslate.length} tags to translate`)
 
             // eslint-disable-next-line no-await-in-loop
             for (const [index, tagPath] of tagsToTranslate.entries()) {
@@ -377,18 +381,18 @@ void cli
                     if (pathRefResult?.id) {
                         const tagRef = pathRefResult.ref[pathRefResult.id] as {source?: string} | undefined
                         if (tagRef?.source) {
-                            logger.info(`[${index + 1}/${tagsToTranslate.length}] Translating: ${tagPath.join('.')}`)
+                            logger.info(`[${index + 1}/${tagsToTranslate.length}] translating: ${tagPath.join('.')}`)
                             // eslint-disable-next-line no-await-in-loop
                             await translate_tag(workspace, tagPath, tagRef.source, true)
                         }
                     }
                 } catch {
-                    logger.error(`Failed to translate ${tagPath.join('.')}`)
+                    logger.error(`failed to translate ${tagPath.join('.')}`)
                 }
             }
 
             await workspace.save()
-            logger.info('Translation complete!')
+            logger.info('translation complete!')
         },
     )
     .command(
@@ -576,7 +580,7 @@ void cli
                 : workspace.config.languages.target
 
             if (argv.language && languagesToExport.length === 0) {
-                logger.error(`Language '${argv.language}' not found in workspace`)
+                logger.error(`language '${argv.language}' not found in workspace`)
                 process.exit(1)
             }
 
@@ -590,7 +594,7 @@ void cli
 
                     // eslint-disable-next-line no-await-in-loop
                     await fs.writeFile(outputFile, JSON.stringify(translations, null, 2), 'utf8')
-                    logger.info(`Exported ${langWithName.name} to: ${outputFile}`)
+                    logger.info(`exported ${langWithName.name} to: ${outputFile}`)
                 }
             } else {
                 // Export all languages to a single file
@@ -598,10 +602,10 @@ void cli
                 const translations = i18nFormat(workspace.i18n, languagesToExport)
 
                 await fs.writeFile(bundleTarget, JSON.stringify(translations, null, 2), 'utf8')
-                logger.info(`Exported to: ${bundleTarget}`)
+                logger.info(`exported to: ${bundleTarget}`)
             }
 
-            logger.info('Export complete!')
+            logger.info('export complete!')
         },
     )
     .command(
@@ -775,6 +779,12 @@ void cli
     )
     .demandCommand()
     .help('help')
-    .showHelpOnFail(true).argv
+    .showHelpOnFail(true)
+
+// When loaded as a dependency (e.g. by codebrew), don't run our CLI
+if (!process.argv[1]?.includes('codebrew')) {
+    // eslint-disable-next-line no-void
+    void cli.parse()
+}
 
 export {enola, logger, runtime, workspaces}

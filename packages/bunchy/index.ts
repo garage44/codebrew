@@ -8,7 +8,39 @@ import {URL, fileURLToPath} from 'node:url'
 import {tasks} from './tasks'
 import {generateRandomId, showConfig} from './utils'
 
-const logger = new Logger()
+const _logger = new Logger()
+
+function shouldLog(): boolean {
+    return settings.debug === true
+}
+
+const logger = {
+    debug: (msg: string, ...args: unknown[]): void => {
+        if (shouldLog()) {
+            _logger.debug(msg, ...args)
+        }
+    },
+    error: (msg: string, ...args: unknown[]): void => {
+        if (shouldLog()) {
+            _logger.error(msg, ...args)
+        }
+    },
+    info: (msg: string, ...args: unknown[]): void => {
+        if (shouldLog()) {
+            _logger.info(msg, ...args)
+        }
+    },
+    remote: (msg: string, ...args: unknown[]): void => {
+        if (shouldLog()) {
+            _logger.remote(msg, ...args)
+        }
+    },
+    warn: (msg: string, ...args: unknown[]): void => {
+        if (shouldLog()) {
+            _logger.warn(msg, ...args)
+        }
+    },
+}
 
 // Import the real broadcast function - will be set during bunchyService initialization
 let broadcastFn: ((url: string, data: MessageData, method?: string) => void) | null = null
@@ -42,6 +74,7 @@ const tooling = {} as {
 
 interface Config {
     common: string
+    debug?: boolean
     minify?: boolean
     quiet?: boolean
     reload_ignore: string[]
@@ -54,6 +87,7 @@ interface Config {
 function applySettings(config: Config): void {
     Object.assign(settings, {
         buildId: generateRandomId(),
+        debug: config.debug,
         dir: {
             assets: path.resolve(path.join(config.workspace, 'src', 'assets')),
             bunchy: currentDir,
@@ -91,15 +125,15 @@ async function bunchyService(server: unknown, config: Config, wsManager?: WsMana
         broadcastFn = (url: string, data: MessageData, method = 'POST'): void => {
             wsManager.broadcast(url, data, method)
         }
-        logger.info('[bunchy] connected to WebSocket broadcast system')
+        logger.info('[bunchy] connected to websocket broadcast system')
 
         // Set up log forwarding route
         setupLogForwarding(wsManager)
     } else {
-        logger.warn('[bunchy] no WebSocket manager provided - broadcasts will be disabled')
+        logger.warn('[bunchy] no websocket manager provided - broadcasts will be disabled')
     }
 
-    logger.info('[bunchy] Development service ready')
+    logger.info('[bunchy] development service ready')
 
     await tasks.dev.start({minify: false, sourcemap: true})
     return server
@@ -160,10 +194,10 @@ function bunchyArgs(yargs: YargsInstance, config: Config): YargsInstance {
 // For backward compatibility, re-export connections from the manager
 const connections = {
     add: (ws: WebSocket): void => {
-        logger.info('[bunchy] WebSocket connection added')
+        logger.info('[bunchy] websocket connection added')
     },
     delete: (ws: WebSocket): void => {
-        logger.info('[bunchy] WebSocket connection removed')
+        logger.info('[bunchy] websocket connection removed')
     },
     has: (_ws: WebSocket): boolean => false,
     get size(): number {
@@ -175,9 +209,9 @@ const connections = {
 const broadcast = (url: string, data: MessageData, method = 'POST'): void => {
     if (broadcastFn) {
         broadcastFn(url, data, method)
-        logger.debug('[bunchy] Broadcast sent:', url, data, method)
+        logger.debug('[bunchy] broadcast sent:', url, data, method)
     } else {
-        logger.warn('[bunchy] Broadcast attempted but WebSocket not connected:', url, data, method)
+        logger.warn('[bunchy] broadcast attempted but websocket not connected:', url, data, method)
     }
 }
 
@@ -277,7 +311,7 @@ function wrapFetchHandler(
                 return new Response('WebSocket server not available', {status: 500})
             }
         } catch (error) {
-            logger.error(`[bunchy] Error in fetch wrapper: ${error}`)
+            logger.error(`[bunchy] error in fetch wrapper: ${error}`)
         }
         // Call original fetch handler
         return fetchHandler(request, server)

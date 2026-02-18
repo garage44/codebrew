@@ -57,7 +57,7 @@ async function tryPublicFile(baseDir: string, pathname: string, logger: unknown)
     const publicPath = path.join(baseDir, 'public', pathname)
     const publicFile = Bun.file(publicPath)
     if (await publicFile.exists()) {
-        ;(logger as {debug?: (msg: string) => void})?.debug?.(`[Static] Serving from public: ${publicPath}`)
+        ;(logger as {debug?: (msg: string) => void})?.debug?.(`[static] serving from public: ${publicPath}`)
         return new Response(publicFile)
     }
     return null
@@ -73,7 +73,7 @@ async function tryFallbackDirs(
         const fallbackPath = path.join(baseDir, fallbackDir, pathname)
         const fallbackFile = Bun.file(fallbackPath)
         if (await fallbackFile.exists()) {
-            ;(logger as {debug?: (msg: string) => void})?.debug?.(`[Static] Serving from ${fallbackDir}: ${fallbackPath}`)
+            ;(logger as {debug?: (msg: string) => void})?.debug?.(`[static] serving from ${fallbackDir}: ${fallbackPath}`)
             return new Response(fallbackFile)
         }
         return null
@@ -188,6 +188,7 @@ ${pc.cyan(figlet.textSync(title))}\n
 }
 
 export interface BunchyConfigOptions {
+    debug?: boolean
     logPrefix: string
     quiet?: boolean
     reloadIgnore?: string[]
@@ -198,6 +199,7 @@ export interface BunchyConfigOptions {
 
 export function setupBunchyConfig(options: BunchyConfigOptions): {
     common: string
+    debug?: boolean
     logPrefix: string
     quiet?: boolean
     reload_ignore: string[]
@@ -206,9 +208,11 @@ export function setupBunchyConfig(options: BunchyConfigOptions): {
     workspace: string
 } {
     const {logPrefix, quiet, reloadIgnore = [], separateAssets, serviceDir, version} = options
+    const debug = options.debug ?? process.env.BUNCHY_DEBUG === '1'
 
     return {
         common: path.resolve(serviceDir, '../', 'common'),
+        debug,
         logPrefix,
         quiet,
         reload_ignore: reloadIgnore,

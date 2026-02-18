@@ -11,7 +11,9 @@ type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE'
 
 interface WebSocketContext {
     broadcast: (url: string, data: MessageData, method?: string) => void
+    ip?: string
     method: HttpMethod
+    pluginId?: string
     session?: {
         [key: string]: unknown
         userid: string
@@ -39,6 +41,7 @@ interface RouteHandler {
     matchFn: (path: string) => false | {params: Record<string, string>}
     method: HttpMethod
     middlewares: Middleware[]
+    pluginId?: string
     route: string
 }
 
@@ -85,7 +88,9 @@ class WebSocketServerManager extends EventEmitter {
             const startTime = Date.now()
             try {
                 const result = await next(ctx)
-                logger.debug(`${ctx.method} ${ctx.url} - ${Date.now() - startTime}ms`)
+                const prefixPart = ctx.pluginId ? `[${ctx.pluginId}] ` : ''
+                const ipPart = ctx.ip ? ` [${ctx.ip}]` : ''
+                logger.debug(`${prefixPart}${ctx.method} ${ctx.url} - ${Date.now() - startTime}ms${ipPart}`)
                 return result
             } catch (error) {
                 // Suppress error logs during tests (expected errors from error handling tests)
@@ -96,7 +101,9 @@ class WebSocketServerManager extends EventEmitter {
                         process.argv.some((arg) => arg.includes('test')))
                 if (!isTest) {
                     const errorMessage = error instanceof Error ? error.message : String(error)
-                    logger.error(`${ctx.method} ${ctx.url} - Failed: ${errorMessage}`)
+                    const prefixPart = ctx.pluginId ? `[${ctx.pluginId}] ` : ''
+                    const ipPart = ctx.ip ? ` [${ctx.ip}]` : ''
+                    logger.error(`${prefixPart}${ctx.method} ${ctx.url} - failed: ${errorMessage}${ipPart}`)
                 }
                 throw error
             }
@@ -126,6 +133,14 @@ class WebSocketServerManager extends EventEmitter {
         }
     }
 
+    setPluginContext(pluginId: string | undefined): void {
+        this.pluginContext = pluginId
+    }
+
+    clearPluginContext(): void {
+        this.pluginContext = undefined
+    }
+
     composeMiddleware(middlewares: Middleware[], handler: ApiHandler): ApiHandler {
         return (ctx: WebSocketContext, request: ApiRequest) => {
             let index = -1
@@ -147,7 +162,6 @@ class WebSocketServerManager extends EventEmitter {
     }
 
     registerApi(method: HttpMethod, route: string, handler: ApiHandler, middlewares: Middleware[] = []) {
-        logger.debug(`[WS] Registering route: ${method} ${route}`)
         const matchFn = match(route, {decode: decodeURIComponent})
         this.routeHandlers.push({
             handler: this.composeMiddleware([...this.globalMiddlewares, ...middlewares], handler),
@@ -165,6 +179,7 @@ class WebSocketServerManager extends EventEmitter {
             },
             method,
             middlewares,
+            pluginId: this.pluginContext,
             route,
         })
     }
@@ -211,7 +226,7 @@ class WebSocketServerManager extends EventEmitter {
             this.cleanupSubscriptions(ws)
         }
         if (deadConnections.length > 0) {
-            logger.debug(`[WS] Cleaned up ${deadConnections.length} dead connection(s)`)
+            logger.debug(`[ws] cleaned up ${deadConnections.length} dead connection(s)`)
         }
     }
 
@@ -236,7 +251,7 @@ class WebSocketServerManager extends EventEmitter {
                 try {
                     ws.send(messageStr)
                 } catch (error) {
-                    logger.debug(`[WS] Failed to send broadcast to connection: ${error}`)
+                    logger.debug(`[ws] failed to send broadcast to connection: ${error}`)
                     deadConnections.push(ws)
                 }
             } else {
@@ -263,7 +278,7 @@ class WebSocketServerManager extends EventEmitter {
                     try {
                         ws.send(messageStr)
                     } catch (error) {
-                        logger.debug(`[WS] Failed to send event to subscribed connection: ${error}`)
+                        logger.debug(`[ws] failed to send event to subscribed connection: ${error}`)
                         deadConnections.push(ws)
                     }
                 } else {
@@ -307,12 +322,12 @@ class WebSocketServerManager extends EventEmitter {
     open(ws: WebSocketConnection, request?: {session?: {userid?: string}} | undefined) {
         // Check authentication if required
         if (this.authOptions && !this.checkAuth(request)) {
-            logger.warn(`[WS] connection denied (unauthorized) on ${this.endpoint}`)
+            logger.warn(`[ws] connection denied (unauthorized) on ${this.endpoint}`)
             ws.close(1008, 'Unauthorized')
             return
         }
 
-        logger.success(`[WS] connection established: ${this.endpoint}`)
+        logger.success(`[ws] connection established: ${this.endpoint}`)
         try {
             devContext.addWs({endpoint: this.endpoint, ts: Date.now(), type: 'open'})
         } catch {}
@@ -321,7 +336,7 @@ class WebSocketServerManager extends EventEmitter {
 
     // Handle WebSocket connection close
     close(ws: WebSocketConnection & {data?: {session?: {userid?: string}}}) {
-        logger.debug(`[WS] connection closed: ${this.endpoint}`)
+        logger.debug(`[ws] connection closed: ${this.endpoint}`)
         try {
             devContext.addWs({endpoint: this.endpoint, ts: Date.now(), type: 'close'})
         } catch {}
@@ -355,7 +370,7 @@ class WebSocketServerManager extends EventEmitter {
                 ws.send(JSON.stringify(errorMsg))
             } catch {}
             // Log at debug level - this is expected for invalid messages
-            logger.debug('[WS] Failed to parse message:', error)
+            logger.debug('[ws] failed to parse message:', error)
             return
         }
 
@@ -374,7 +389,7 @@ class WebSocketServerManager extends EventEmitter {
                 ws.send(JSON.stringify(errorMsg))
             } catch {}
             // Log at debug level - this is expected for malformed messages
-            logger.debug('[WS] Message missing url field')
+            logger.debug('[ws] message missing url field')
             return
         }
 
@@ -410,9 +425,10 @@ class WebSocketServerManager extends EventEmitter {
             }
         }
 
-        // Create context for this request
+        const wsData = ws as {data?: {ip?: string; session?: {userid?: string}}}
         const ctx: WebSocketContext = {
             broadcast: this.broadcast.bind(this),
+            ip: wsData.data?.ip,
             method: method as HttpMethod,
             session: request?.session as {[key: string]: unknown; userid: string} | undefined,
             subscribe: (topic: string) => this.subscribe(ws, topic),
@@ -423,12 +439,14 @@ class WebSocketServerManager extends EventEmitter {
 
         // Find matching route handler
         let matched = false
-        for (const {handler, matchFn, method: handlerMethod} of this.routeHandlers) {
+        for (const routeHandler of this.routeHandlers) {
+            const {handler, matchFn, method: handlerMethod, pluginId: routePluginId} = routeHandler
             const matchResult = matchFn(pathname)
 
             // Check both URL pattern match AND matching HTTP method
             if (matchResult !== false && handlerMethod === method) {
                 matched = true
+                ctx.pluginId = routePluginId
                 try {
                     const request: ApiRequest = {
                         data,
@@ -444,7 +462,7 @@ class WebSocketServerManager extends EventEmitter {
                             const response = constructMessage(url, (result as MessageData) || null, id)
                             ws.send(JSON.stringify(response))
                         } catch (sendError) {
-                            logger.error('[WS] Failed to send response:', sendError)
+                            logger.error('[ws] failed to send response:', sendError)
                         }
                     }
                 } catch (error) {
@@ -456,7 +474,7 @@ class WebSocketServerManager extends EventEmitter {
                         )
                         ws.send(JSON.stringify(errorResponse))
                     } catch (sendError) {
-                        logger.error('[WS] Failed to send error response:', sendError)
+                        logger.error('[ws] failed to send error response:', sendError)
                     }
                     // Suppress handler error logs during tests (expected errors from error handling tests)
                     const isTest =
@@ -484,10 +502,10 @@ class WebSocketServerManager extends EventEmitter {
                 )
                 ws.send(JSON.stringify(errorResponse))
             } catch (sendError) {
-                logger.error('[WS] Failed to send no-route error:', sendError)
+                logger.error('[ws] failed to send no-route error:', sendError)
             }
         } else if (!matched) {
-            logger.debug(`[WS] No route matched for: ${method} ${url}`)
+            logger.debug(`[ws] no route matched for: ${method} ${url}`)
         }
     }
 }
@@ -501,7 +519,7 @@ function createBunWebSocketHandler(managers: Map<string, WebSocketServerManager>
                 try {
                     ws.data.upstream.close()
                 } catch (error) {
-                    logger.debug(`[WS Proxy] Error closing upstream connection: ${error}`)
+                    logger.debug(`[ws-proxy] error closing upstream connection: ${error}`)
                 }
                 return
             }
@@ -523,7 +541,7 @@ function createBunWebSocketHandler(managers: Map<string, WebSocketServerManager>
                 try {
                     ws.data.upstream.send(message)
                 } catch (error) {
-                    logger.error(`[WS Proxy] Error forwarding message: ${error}`)
+                    logger.error(`[ws-proxy] error forwarding message: ${error}`)
                 }
                 return
             }
@@ -549,13 +567,13 @@ function createBunWebSocketHandler(managers: Map<string, WebSocketServerManager>
                             ws.send(event.data)
                         }
                     } catch (error) {
-                        logger.error(`[WS Proxy] Error forwarding message from upstream: ${error}`)
+                        logger.error(`[ws-proxy] error forwarding message from upstream: ${error}`)
                     }
                 }
 
                 // Forward errors and close events
                 upstream.onerror = (error: Event) => {
-                    logger.error(`[WS Proxy] Upstream connection error: ${error}`)
+                    logger.error(`[ws-proxy] upstream connection error: ${error}`)
                     try {
                         ws.close(1011, 'Upstream Error')
                     } catch {
@@ -564,7 +582,7 @@ function createBunWebSocketHandler(managers: Map<string, WebSocketServerManager>
                 }
 
                 upstream.onclose = (event: CloseEvent) => {
-                    logger.debug(`[WS Proxy] Upstream connection closed: ${event.code} ${event.reason}`)
+                    logger.debug(`[ws-proxy] upstream connection closed: ${event.code} ${event.reason}`)
                     try {
                         ws.close(event.code || 1000, event.reason || 'Upstream Closed')
                     } catch {
@@ -572,7 +590,7 @@ function createBunWebSocketHandler(managers: Map<string, WebSocketServerManager>
                     }
                 }
 
-                logger.info(`[WS Proxy] Proxy connection established for ${ws.data?.endpoint || 'unknown'}`)
+                logger.info(`[ws-proxy] proxy connection established for ${ws.data?.endpoint || 'unknown'}`)
                 return
             }
 
@@ -583,7 +601,7 @@ function createBunWebSocketHandler(managers: Map<string, WebSocketServerManager>
                 if (manager) {
                     manager.open(ws, ws.data as {session?: {userid?: string}})
                 } else {
-                    logger.error(`[WS] no manager found for endpoint: ${endpoint}`)
+                    logger.error(`[ws] no manager found for endpoint: ${endpoint}`)
                     ws.close(1011, 'Server Error')
                 }
             }

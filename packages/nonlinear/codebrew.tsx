@@ -1,8 +1,8 @@
-import type {ComponentType, VNode} from 'preact'
-
 /** @jsxImportSource preact */
-import {registerApp} from '@garage44/common/lib/codebrew-registry'
+import type {ComponentType, VNode} from 'preact'
 import {h} from 'preact'
+
+import {registerApp} from '@garage44/common/lib/codebrew-registry'
 
 import {registerAgentsWebSocketApiRoutes} from './api/agents'
 import {registerCIWebSocketApiRoutes} from './api/ci'
@@ -11,6 +11,7 @@ import apiDocs, {registerDocsWebSocketApiRoutes} from './api/docs'
 import {registerLabelsWebSocketApiRoutes} from './api/labels'
 import apiRepositories, {registerRepositoriesWebSocketApiRoutes} from './api/repositories'
 import {registerTicketsWebSocketApiRoutes} from './api/tickets'
+import {logger} from './service'
 import {Board, Docs, Settings, TicketDetail} from './src/components/pages'
 
 registerApp({
@@ -31,6 +32,7 @@ registerApp({
         {href: '/nonlinear/board', icon: 'view_kanban', text: 'Development'},
     ],
     name: 'Nonlinear',
+    onInit: () => logger.info('initialized'),
     routes: [
         {component: Docs, path: '/nonlinear/docs'},
         {component: Board, default: true, path: '/nonlinear/board'},

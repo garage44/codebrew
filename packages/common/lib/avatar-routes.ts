@@ -11,7 +11,7 @@ import type {Logger} from './logger.node'
 
 interface AvatarRoutesOptions {
     appName: string
-    logger?: Logger
+    logger: Logger
     runtime: {
         service_dir: string
     }
@@ -71,7 +71,7 @@ export function createAvatarRoutes(options: AvatarRoutesOptions) {
                         status: 404,
                     })
                 } catch (error) {
-                    logger?.error(`[Avatar Routes] Error serving avatar ${filename}:`, error)
+                    logger.error(`[avatar] error serving avatar ${filename}:`, error)
                     return new Response(JSON.stringify({error: 'failed to serve avatar'}), {
                         headers: {'Content-Type': 'application/json'},
                         status: 500,
@@ -126,7 +126,7 @@ export function createAvatarRoutes(options: AvatarRoutesOptions) {
                         status: 404,
                     })
                 } catch (error) {
-                    logger?.error(`[Avatar Routes] Error serving image ${filename}:`, error)
+                    logger.error(`[avatar] error serving image ${filename}:`, error)
                     return new Response(JSON.stringify({error: 'failed to serve image'}), {
                         headers: {'Content-Type': 'application/json'},
                         status: 500,

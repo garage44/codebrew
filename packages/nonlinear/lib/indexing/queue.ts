@@ -48,10 +48,10 @@ export async function queueIndexingJob(job: IndexingJobInput): Promise<string> {
                 Date.now(),
             )
 
-        logger.debug(`[IndexingQueue] Queued job ${jobId} (${job.type})`)
+        logger.debug(`[idx] queued job ${jobId} (${job.type})`)
         return jobId
     } catch (error: unknown) {
-        logger.error('[IndexingQueue] Failed to queue job:', error)
+        logger.error('[idx] failed to queue job:', error)
         throw error
     }
 }
@@ -71,7 +71,7 @@ export async function queueCodeFiles(repositoryId: string, filePaths: string[]):
 
     const jobIds = await Promise.all(jobPromises)
 
-    logger.info(`[IndexingQueue] Queued ${jobIds.length} code files for indexing`)
+    logger.info(`[idx] queued ${jobIds.length} code files for indexing`)
     return jobIds
 }
 

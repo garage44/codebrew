@@ -26,6 +26,7 @@ export interface CodebrewAppPlugin {
         text: string
     }[]
     name: string
+    onInit?: () => void
     routes: CodebrewRoute[]
     wsRoutes?: (wsManager: WebSocketServerManager) => void
 }

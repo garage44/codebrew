@@ -34,6 +34,9 @@ function welcomeBanner(): string {
 let bunchyConfig = null
 
 const logger = loggerTransports(config.logger as LoggerConfig, 'service')
+if (import.meta.main) {
+    logger.info('initialized')
+}
 
 const BUN_ENV = process.env.BUN_ENV || 'production'
 
@@ -155,7 +158,7 @@ cli.usage('Usage: $0 [task]')
                 await bunchyService(server, bunchyConfig, bunchyManager as Parameters<typeof bunchyService>[2])
             }
 
-            logger.info(`Nonlinear service started on http://${argv.host}:${argv.port}`)
+            logger.info(`nonlinear service started on http://${argv.host}:${argv.port}`)
 
             // Autostart agents if configured (command-line option takes precedence)
             const {autostartAgents} = await import('./api/agents.ts')
@@ -362,18 +365,23 @@ cli.usage('Usage: $0 [task]')
         const service = new IndexingService()
 
         // Initialize logger after config is loaded
-        const loggerInstance = loggerTransports(config.logger as LoggerConfig, 'service')
+        const loggerInstance = loggerTransports(
+            config.logger as LoggerConfig,
+            'service',
+            process.env.CODEBREW_PLUGIN_ID,
+            process.env.CODEBREW_PLUGIN_COLOR,
+        )
         service.setLogger(loggerInstance)
 
         // Handle graceful shutdown
         process.on('SIGINT', (): void => {
-            loggerInstance.info('[IndexingService] Received SIGINT, shutting down...')
+            loggerInstance.info('[idx] received sigint, shutting down...')
             service.stop()
             process.exit(0)
         })
 
         process.on('SIGTERM', (): void => {
-            loggerInstance.info('[IndexingService] Received SIGTERM, shutting down...')
+            loggerInstance.info('[idx] received sigterm, shutting down...')
             service.stop()
             process.exit(0)
         })
@@ -387,7 +395,7 @@ cli.usage('Usage: $0 [task]')
         setInterval((): void => {
             const status = service.getStatus()
             loggerInstance.info(
-                `[IndexingService] Status: ${status.pendingJobs} pending, ` +
+                `[idx] status: ${status.pendingJobs} pending, ` +
                     `${status.processingJobs} processing, ${status.failedJobs} failed`,
             )
         }, 60_000)
@@ -492,13 +500,13 @@ cli.usage('Usage: $0 [task]')
 
             // Handle graceful shutdown
             process.on('SIGINT', (): void => {
-                loggerInstance.info(`[AgentService] Received SIGINT, shutting down agent ${agentId}...`)
+                loggerInstance.info(`[agent] received sigint, shutting down agent ${agentId}...`)
                 service.stop()
                 process.exit(0)
             })
 
             process.on('SIGTERM', (): void => {
-                loggerInstance.info(`[AgentService] Received SIGTERM, shutting down agent ${agentId}...`)
+                loggerInstance.info(`[agent] received sigterm, shutting down agent ${agentId}...`)
                 service.stop()
                 process.exit(0)
             })
@@ -509,7 +517,7 @@ cli.usage('Usage: $0 [task]')
             setInterval((): void => {
                 // Log status every minute
                 const status = service.getStatus()
-                loggerInstance.info(`[AgentService] Status: ${JSON.stringify(status)}`)
+                loggerInstance.info(`[agent] status: ${JSON.stringify(status)}`)
             }, 60_000)
         },
     )

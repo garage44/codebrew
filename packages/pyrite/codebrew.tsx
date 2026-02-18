@@ -1,8 +1,10 @@
-import type {VNode} from 'preact'
-
 /** @jsxImportSource preact */
-import {registerApp} from '@garage44/common/lib/codebrew-registry'
+import type {VNode} from 'preact'
 import {h} from 'preact'
+
+import {registerApp} from '@garage44/common/lib/codebrew-registry'
+
+import {logger} from './service'
 
 export function Placeholder({name}: {name: string}): VNode {
     return (
@@ -23,6 +25,7 @@ registerApp({
         {href: '/pyrite/settings', icon: 'settings', text: 'Settings'},
     ],
     name: 'Pyrite',
+    onInit: () => logger.info('initialized'),
     routes: [
         {component: (): VNode => <Placeholder name='Pyrite' />, default: true, path: '/pyrite'},
         {component: (): VNode => <Placeholder name='Pyrite Settings' />, path: '/pyrite/settings'},

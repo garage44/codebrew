@@ -34,7 +34,7 @@ class IndexingService {
     // Poll every 5 seconds
     private pollInterval = 5000
 
-    private pollTimer: ReturnType<typeof setInterval> | null = null
+    private pollTimer?: ReturnType<typeof setInterval>
 
     private processing = false
 
@@ -56,14 +56,14 @@ class IndexingService {
         }
 
         if (this.running) {
-            this.logger.warn('[IndexingService] Service already running')
+            this.logger.warn('[idx] service already running')
             return
         }
 
         this.running = true
-        this.logger.info('[IndexingService] Starting indexing service...')
-        this.logger.info(`[IndexingService] Max concurrent jobs: ${this.maxConcurrent}`)
-        this.logger.info(`[IndexingService] Poll interval: ${this.pollInterval}ms`)
+        this.logger.info('[idx] starting indexing service...')
+        this.logger.info(`[idx] max concurrent jobs: ${this.maxConcurrent}`)
+        this.logger.info(`[idx] poll interval: ${this.pollInterval}ms`)
 
         // Process immediately
         this.processJobs()
@@ -73,7 +73,7 @@ class IndexingService {
             this.processJobs()
         }, this.pollInterval)
 
-        this.logger.info('[IndexingService] Indexing service started')
+        this.logger.info('[idx] indexing service started')
     }
 
     /**
@@ -91,7 +91,7 @@ class IndexingService {
         }
 
         if (this.logger) {
-            this.logger.info('[IndexingService] Indexing service stopped')
+            this.logger.info('[idx] indexing service stopped')
         }
     }
 
@@ -144,7 +144,7 @@ class IndexingService {
             this.processing = false
         } catch (error: unknown) {
             if (this.logger) {
-                this.logger.error('[IndexingService] Error processing jobs:', error)
+                this.logger.error('[idx] Error processing jobs:', error)
             }
             this.processing = false
         }
@@ -165,7 +165,7 @@ class IndexingService {
                 .run(Date.now(), job.id)
 
             if (this.logger) {
-                this.logger.info(`[IndexingService] Processing job ${job.id} (${job.type})`)
+                this.logger.info(`[idx] processing job ${job.id} (${job.type})`)
             }
 
             // Process based on type
@@ -208,12 +208,12 @@ class IndexingService {
                 .run(Date.now(), job.id)
 
             if (this.logger) {
-                this.logger.info(`[IndexingService] Completed job ${job.id} (${job.type})`)
+                this.logger.info(`[idx] completed job ${job.id} (${job.type})`)
             }
         } catch (error: unknown) {
             const errorMsg = error instanceof Error ? error.message : String(error)
             if (this.logger) {
-                this.logger.error(`[IndexingService] Failed job ${job.id}:`, errorMsg)
+                this.logger.error(`[idx] Failed job ${job.id}:`, errorMsg)
             }
 
             // Mark failed
@@ -269,9 +269,8 @@ class IndexingService {
 if (import.meta.main) {
     const service = new IndexingService()
 
-        // Initialize and start
-        // eslint-disable-next-line unicorn/prefer-top-level-await -- IIFE needed for conditional service startup
-        ;(async (): Promise<void> => {
+    // Initialize and start
+    ;(async (): Promise<void> => {
         await initConfig(config)
         initDatabase()
 
@@ -279,18 +278,20 @@ if (import.meta.main) {
         const loggerInstance = loggerTransports(
             config.logger as {file: string; level: 'debug' | 'info' | 'warn' | 'error'},
             'service',
+            process.env.CODEBREW_PLUGIN_ID,
+            process.env.CODEBREW_PLUGIN_COLOR,
         )
         service.setLogger(loggerInstance)
 
         // Handle graceful shutdown (after logger is initialized)
         process.on('SIGINT', (): void => {
-            loggerInstance.info('[IndexingService] Received SIGINT, shutting down...')
+            loggerInstance.info('[idx] Received SIGINT, shutting down...')
             service.stop()
             process.exit(0)
         })
 
         process.on('SIGTERM', (): void => {
-            loggerInstance.info('[IndexingService] Received SIGTERM, shutting down...')
+            loggerInstance.info('[idx] Received SIGTERM, shutting down...')
             service.stop()
             process.exit(0)
         })
@@ -302,7 +303,7 @@ if (import.meta.main) {
         setInterval((): void => {
             const status = service.getStatus()
             loggerInstance.info(
-                `[IndexingService] Status: ${status.pendingJobs} pending, ` +
+                `[idx] Status: ${status.pendingJobs} pending, ` +
                     `${status.processingJobs} processing, ${status.failedJobs} failed`,
             )
         }, 60_000)

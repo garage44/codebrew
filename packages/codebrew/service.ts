@@ -1,5 +1,4 @@
 #!/usr/bin/env bun
-import './lib/plugins'
 import type {LoggerConfig} from '@garage44/common/types'
 
 import {bunchyArgs, bunchyService} from '@garage44/bunchy'
@@ -23,6 +22,7 @@ import {hideBin} from 'yargs/helpers'
 
 import {config, initConfig} from './lib/config'
 import {initMiddleware} from './lib/middleware'
+import {getPluginColor} from './lib/plugins'
 
 export const serviceDir = fileURLToPath(new URL('.', import.meta.url))
 
@@ -30,10 +30,13 @@ const runtime = createRuntime(serviceDir, path.join(serviceDir, 'package.json'))
 
 function welcomeBanner(): string {
     const plugins = getApps()
-    const lines = plugins.map((p): string => ` - ${p.name}${p.description ? ` - ${p.description}` : ''}`)
+    const lines = plugins.map((p): string => {
+        const color = getPluginColor(p.id)
+        return ` - ${color(p.name)}${p.description ? ` - ${p.description}` : ''}`
+    })
     return `${createWelcomeBanner('Codebrew', 'Unified workspace', runtime.version).trimEnd()}
  ${pc.gray('Plugins:')}
-${lines.map((l): string => ` ${pc.gray(l)}`).join('\n')}
+${lines.map((l): string => ` ${l}`).join('\n')}
 `
 }
 
@@ -49,6 +52,7 @@ cli.scriptName('codebrew')
 
 if (BUN_ENV === 'development') {
     bunchyConfig = setupBunchyConfig({
+        debug: process.env.BUNCHY_DEBUG === '1',
         logPrefix: 'C',
         quiet: true,
         serviceDir: runtime.service_dir,
@@ -80,6 +84,18 @@ void cli
                     type: 'number',
                 }),
         async (argv: {host: string; port: number}) => {
+            const {getApps} = await import('@garage44/common/lib/codebrew-registry')
+            const {loadPlugins} = await import('./lib/plugins')
+            await loadPlugins()
+
+            // oxlint-disable-next-line no-console
+            console.log(welcomeBanner())
+
+            logger.info('initialized')
+            for (const plugin of getApps()) {
+                plugin.onInit?.()
+            }
+
             await initConfig()
 
             const dbPath = process.env.DB_PATH || path.join(homedir(), '.codebrew.db')
@@ -90,13 +106,9 @@ void cli
 
             const {handleRequest, sessionMiddleware} = await initMiddleware(bunchyConfig)
 
-            // oxlint-disable-next-line no-console
-            console.log(welcomeBanner())
-
             const {bunchyManager, wsManager} = createWebSocketManagers(undefined, sessionMiddleware)
 
             // Register WebSocket routes from each plugin
-            const {getApps} = await import('@garage44/common/lib/codebrew-registry')
             for (const plugin of getApps()) {
                 if (plugin.wsRoutes) {
                     plugin.wsRoutes(wsManager)

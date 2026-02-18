@@ -1,10 +1,9 @@
 #!/usr/bin/env bun
-import {URL, fileURLToPath} from 'node:url'
-import {createBunWebSocketHandler} from '@garage44/common/lib/ws-server'
-import {bunchyArgs, bunchyService} from '@garage44/bunchy'
-import {config, initConfig} from './lib/config.ts'
-import {devContext} from '@garage44/common/lib/dev-context'
 import type {LoggerConfig} from '@garage44/common/types.ts'
+
+import {bunchyArgs, bunchyService} from '@garage44/bunchy'
+import {devContext} from '@garage44/common/lib/dev-context'
+import {createBunWebSocketHandler} from '@garage44/common/lib/ws-server'
 import {
     createRuntime,
     createWebSocketManagers,
@@ -13,15 +12,18 @@ import {
     service,
     setupBunchyConfig,
 } from '@garage44/common/service'
-import {hideBin} from 'yargs/helpers'
-import {initMiddleware} from './lib/middleware.ts'
 import path from 'node:path'
+import {URL, fileURLToPath} from 'node:url'
+import yargs from 'yargs'
+import {hideBin} from 'yargs/helpers'
+
+import {registerChannelsWebSocket} from './api/ws-channels'
 import {registerChatWebSocket} from './api/ws-chat'
 import {registerGroupsWebSocket} from './api/ws-groups'
 import {registerPresenceWebSocket} from './api/ws-presence'
-import {registerChannelsWebSocket} from './api/ws-channels'
+import {config, initConfig} from './lib/config.ts'
 import {initDatabase, initializeDefaultData} from './lib/database.ts'
-import yargs from 'yargs'
+import {initMiddleware} from './lib/middleware.ts'
 
 const pyriteDir = fileURLToPath(new URL('.', import.meta.url))
 
@@ -35,6 +37,9 @@ function welcomeBanner(): string {
 let bunchyConfig: Awaited<ReturnType<typeof setupBunchyConfig>> | null = null
 
 const logger = loggerTransports(config.logger as LoggerConfig, 'service')
+if (import.meta.main) {
+    logger.info('initialized')
+}
 
 const BUN_ENV = process.env.BUN_ENV || 'production'
 
@@ -91,96 +96,101 @@ cli.usage('Usage: $0 [task]')
                 })
         },
         async (argv: {cert?: string; host?: string; key?: string; port?: number}): Promise<void> => {
-        await initConfig(config)
+            await initConfig(config)
 
-        // Initialize database
-        const database = initDatabase()
+            // Initialize database
+            const database = initDatabase()
 
-        /*
-         * Initialize common service (including UserManager) with database
-         * This creates the default admin user if it doesn't exist
-         * Use environment variable for config path if set (for PR deployments)
-         */
-        const configPath = process.env.CONFIG_PATH || '~/.pyriterc'
-        await service.init({appName: 'pyrite', configPath, useBcrypt: false}, database)
+            /*
+             * Initialize common service (including UserManager) with database
+             * This creates the default admin user if it doesn't exist
+             * Use environment variable for config path if set (for PR deployments)
+             */
+            const configPath = process.env.CONFIG_PATH || '~/.pyriterc'
+            await service.init({appName: 'pyrite', configPath, useBcrypt: false}, database)
 
-        /*
-         * Initialize Pyrite-specific default data (channels, etc.)
-         * Must run AFTER service.init() so that the admin user exists
-         */
-        await initializeDefaultData()
+            /*
+             * Initialize Pyrite-specific default data (channels, etc.)
+             * Must run AFTER service.init() so that the admin user exists
+             */
+            await initializeDefaultData()
 
-        // Initialize middleware and WebSocket server (after UserManager is initialized)
-        const {handleRequest} = await initMiddleware(bunchyConfig)
+            // Initialize middleware and WebSocket server (after UserManager is initialized)
+            const {handleRequest} = await initMiddleware(bunchyConfig)
 
-        // Create WebSocket managers
-        const {bunchyManager, wsManager} = createWebSocketManagers(config.authOptions, config.sessionMiddleware)
+            // Create WebSocket managers
+            const {bunchyManager, wsManager} = createWebSocketManagers(config.authOptions, config.sessionMiddleware)
 
-        // Map of endpoint to manager for the handler
-        const wsManagers = new Map([
-            ['/ws', wsManager],
-            ['/bunchy', bunchyManager],
-        ])
+            // Map of endpoint to manager for the handler
+            const wsManagers = new Map([
+                ['/ws', wsManager],
+                ['/bunchy', bunchyManager],
+            ])
 
-        const enhancedWebSocketHandler = createBunWebSocketHandler(wsManagers)
+            const enhancedWebSocketHandler = createBunWebSocketHandler(wsManagers)
 
-        // Register WebSocket API routes
-        registerChatWebSocket(wsManager)
-        registerGroupsWebSocket(wsManager)
-        registerPresenceWebSocket(wsManager)
-        registerChannelsWebSocket(wsManager)
+            // Register WebSocket API routes
+            registerChatWebSocket(wsManager)
+            registerGroupsWebSocket(wsManager)
+            registerPresenceWebSocket(wsManager)
+            registerChannelsWebSocket(wsManager)
 
-        // Configure TLS if certificates are provided
-        let tlsOptions = null
-        if (argv.cert && argv.key) {
-            try {
-                const certFile = Bun.file(argv.cert)
-                const keyFile = Bun.file(argv.key)
-                if (await certFile.exists() && await keyFile.exists()) {
-                    tlsOptions = {
-                        cert: await certFile.text(),
-                        key: await keyFile.text(),
+            // Configure TLS if certificates are provided
+            let tlsOptions = null
+            if (argv.cert && argv.key) {
+                try {
+                    const certFile = Bun.file(argv.cert)
+                    const keyFile = Bun.file(argv.key)
+                    if ((await certFile.exists()) && (await keyFile.exists())) {
+                        tlsOptions = {
+                            cert: await certFile.text(),
+                            key: await keyFile.text(),
+                        }
+                    } else {
+                        logger.warn(`[tls] certificate files not found: cert=${argv.cert}, key=${argv.key}`)
                     }
-                } else {
-                    logger.warn(`[TLS] Certificate files not found: cert=${argv.cert}, key=${argv.key}`)
+                } catch (error: unknown) {
+                    const message = error instanceof Error ? error.message : String(error)
+                    logger.error(`[tls] failed to load certificate files: ${message}`)
                 }
-            } catch(error: unknown) {
-                const message = error instanceof Error ? error.message : String(error)
-                logger.error(`[TLS] Failed to load certificate files: ${message}`)
             }
-        }
 
-        // Start Bun.serve server
-        const server = Bun.serve({
-            fetch: async(req, server): Promise<Response> => {
-                const url = new URL(req.url)
-                if (url.pathname === '/dev/snapshot') {
-                    return Response.json(devContext.snapshot({
-                        version: runtime.version,
-                        workspace: 'pyrite',
-                    }))
-                }
-                const response = await handleRequest(req, server)
-                return response ?? new Response('Not Found', {status: 404})
-            },
-            hostname: (argv.host as string) ?? 'localhost',
-            port: (argv.port as number) ?? 3030,
-            websocket: enhancedWebSocketHandler,
-            ...tlsOptions ? {tls: tlsOptions} : {},
-        })
+            // Start Bun.serve server
+            const server = Bun.serve({
+                fetch: async (req, server): Promise<Response> => {
+                    const url = new URL(req.url)
+                    if (url.pathname === '/dev/snapshot') {
+                        return Response.json(
+                            devContext.snapshot({
+                                version: runtime.version,
+                                workspace: 'pyrite',
+                            }),
+                        )
+                    }
+                    const response = await handleRequest(req, server)
+                    return response ?? new Response('Not Found', {status: 404})
+                },
+                hostname: (argv.host as string) ?? 'localhost',
+                port: (argv.port as number) ?? 3030,
+                websocket: enhancedWebSocketHandler,
+                ...(tlsOptions ? {tls: tlsOptions} : {}),
+            })
 
-        if (BUN_ENV === 'development' && bunchyConfig) {
-            await bunchyService(server, bunchyConfig, bunchyManager as Parameters<typeof bunchyService>[2])
-        }
+            if (BUN_ENV === 'development' && bunchyConfig) {
+                await bunchyService(server, bunchyConfig, bunchyManager as Parameters<typeof bunchyService>[2])
+            }
 
-        logger.info(`service: ${tlsOptions ? 'https' : 'http'}://${argv.host ?? 'localhost'}:${argv.port ?? 3030}`)
-    })
+            logger.info(`service: ${tlsOptions ? 'https' : 'http'}://${argv.host ?? 'localhost'}:${argv.port ?? 3030}`)
+        },
+    )
     .demandCommand()
     .help('help')
     .showHelpOnFail(true)
-    .argv
 
-export {
-    logger,
-    runtime,
+// When loaded as a dependency (e.g. by codebrew), don't run our CLI
+if (!process.argv[1]?.includes('codebrew')) {
+    // eslint-disable-next-line no-void
+    void cli.parse()
 }
+
+export {logger, runtime}

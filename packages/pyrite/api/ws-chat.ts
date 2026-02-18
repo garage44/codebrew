@@ -45,7 +45,7 @@ export const registerChatWebSocket = (wsManager: WebSocketServerManager) => {
         channelManager = new ChannelManager(getDatabase())
     }
 
-    logger.info('[Chat WebSocket] Registering chat API routes...')
+    logger.info('[chat] registering chat api routes...')
 
     /**
      * Send a message to a channel
@@ -118,7 +118,7 @@ export const registerChatWebSocket = (wsManager: WebSocketServerManager) => {
             }
             return response
         } catch (error) {
-            logger.error('[Chat API] Error sending message:', error)
+            logger.error('[chat] error sending message:', error)
             return {
                 error: error instanceof Error ? error.message : String(error),
                 success: false,
@@ -168,7 +168,7 @@ export const registerChatWebSocket = (wsManager: WebSocketServerManager) => {
 
             return {success: true}
         } catch (error) {
-            logger.error('[Chat API] Error sending typing indicator:', error)
+            logger.error('[chat] error sending typing indicator:', error)
             return {
                 error: error instanceof Error ? error.message : String(error),
                 success: false,
@@ -238,7 +238,7 @@ export const registerChatWebSocket = (wsManager: WebSocketServerManager) => {
                 success: true,
             }
         } catch (error) {
-            logger.error('[Chat API] Error getting message history:', error)
+            logger.error('[chat] error getting message history:', error)
             return {
                 error: error instanceof Error ? error.message : String(error),
                 success: false,

@@ -12,20 +12,20 @@ const LEVELS: Record<LogLevel, number> = {
 
 const ESC = String.fromCodePoint(27)
 const COLORS = {
-    // gray
+    // Gray
     debug: `${ESC}[90m`,
-    // red
+    // Red
     error: `${ESC}[31m`,
-    // blue
+    // Blue
     info: `${ESC}[34m`,
-    // purple
+    // Purple
     remote: `${ESC}[38;5;166m`,
     reset: `${ESC}[0m`,
-    // muted green (matches browser #27ae60)
+    // Muted green (matches browser #27ae60)
     success: `${ESC}[38;2;39;174;96m`,
-    // cyan
+    // Cyan
     verbose: `${ESC}[36m`,
-    // yellow
+    // Yellow
     warn: `${ESC}[33m`,
 }
 
@@ -34,11 +34,22 @@ export class Logger {
 
     private fileStream?: NodeJS.WritableStream
 
-    constructor({file, level = 'info'}: {file?: string; level?: LogLevel} = {}) {
+    private prefix?: string
+
+    private prefixColor?: string
+
+    constructor({
+        file,
+        level = 'info',
+        prefix,
+        prefixColor,
+    }: {file?: string; level?: LogLevel; prefix?: string; prefixColor?: string} = {}) {
         this.level = level
+        this.prefix = prefix
+        this.prefixColor = prefixColor
         if (file) {
-            const fs = require('fs')
-            const path = require('path')
+            const fs = require('node:fs')
+            const path = require('node:path')
             fs.mkdirSync(path.dirname(file), {recursive: true})
             this.fileStream = fs.createWriteStream(file, {flags: 'a'})
         }
@@ -79,7 +90,7 @@ export class Logger {
         }
 
         if (level === 'remote') {
-            // purple
+            // Purple
             const purple = '\u001B[38;5;166m'
             return `${color}[${levelStr[0]}]${COLORS.reset} ${purple}[${ts}] ${msg}${COLORS.reset}`
         }
