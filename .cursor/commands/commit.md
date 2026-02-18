@@ -39,3 +39,4 @@ Extract from package name (e.g., `packages/pyrite/` → `pyrite`). Omit if multi
 
 - Use `--no-verify` to skip hooks (linting runs manually)
 - Subject: imperative mood, lowercase, no period
+- Omit lint/tooling changes from the subject (e.g. script renames, eslint→oxfmt); focus on the main feature or fix
