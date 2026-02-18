@@ -365,12 +365,7 @@ cli.usage('Usage: $0 [task]')
         const service = new IndexingService()
 
         // Initialize logger after config is loaded
-        const loggerInstance = loggerTransports(
-            config.logger as LoggerConfig,
-            'service',
-            process.env.CODEBREW_PLUGIN_ID,
-            process.env.CODEBREW_PLUGIN_COLOR,
-        )
+        const loggerInstance = loggerTransports(config.logger as LoggerConfig, 'service')
         service.setLogger(loggerInstance)
 
         // Handle graceful shutdown

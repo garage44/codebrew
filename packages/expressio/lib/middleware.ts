@@ -93,7 +93,7 @@ async function initMiddleware(_bunchyConfig: unknown) {
     // Register common avatar routes (placeholder images and uploaded avatars)
     const avatarRoutes = createAvatarRoutes({
         appName: 'expressio',
-        logger: logger as Logger | undefined,
+        logger,
         runtime,
     })
     const routerAdapter = {

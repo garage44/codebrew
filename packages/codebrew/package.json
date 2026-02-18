@@ -61,7 +61,7 @@
     "lint:ts": "bun run lint:ts-syntax && bun run lint:ts-format && bun run lint:ts-types",
     "lint:ts-syntax": "oxlint **/*.{ts,tsx} --config ../../.oxlintrc.json",
     "lint:ts-format": "oxfmt --write **/*.{ts,tsx}",
-    "lint:ts-types": "bun tsgo --noEmit",
+    "lint:ts-types": "bun tsgo --noEmit -p tsconfig.lint.json",
     "test": "bun test"
   }
 }

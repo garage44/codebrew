@@ -1,8 +1,8 @@
 /** @jsxImportSource preact */
 import type {ComponentType, VNode} from 'preact'
-import {h} from 'preact'
 
 import {registerApp} from '@garage44/common/lib/codebrew-registry'
+import {h} from 'preact'
 
 import {registerAgentsWebSocketApiRoutes} from './api/agents'
 import {registerCIWebSocketApiRoutes} from './api/ci'

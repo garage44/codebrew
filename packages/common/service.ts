@@ -7,32 +7,36 @@ import pc from 'picocolors'
 
 import type {LoggerConfig} from './types.ts'
 
-import {Logger} from './lib/logger.ts'
+import {Logger, logger} from './lib/logger.ts'
 import {UserManager} from './lib/user-manager.ts'
 import {WebSocketServerManager} from './lib/ws-server.ts'
+
+let loggerConfigured = false
 
 function serviceLogger(logger_config: LoggerConfig): InstanceType<typeof Logger> {
     return new Logger(logger_config)
 }
 
 function loggerTransports(logger_config: LoggerConfig, type: 'cli' | 'service'): InstanceType<typeof Logger> {
-    if (type === 'cli') {
-        // CLI mode: console only, no timestamps, colors enabled
-        return new Logger({
-            level: logger_config.level || 'info',
-        })
+    if (!loggerConfigured) {
+        loggerConfigured = true
+        if (type === 'cli') {
+            logger.configure({
+                level: (logger_config.level || 'info') as 'error' | 'warn' | 'info' | 'success' | 'verbose' | 'debug',
+            })
+        } else if (type === 'service') {
+            logger.configure({
+                file: logger_config.file,
+                level: (logger_config.level || 'info') as 'error' | 'warn' | 'info' | 'success' | 'verbose' | 'debug',
+            })
+        } else {
+            logger.configure({
+                file: logger_config.file,
+                level: logger_config.level as 'error' | 'warn' | 'info' | 'success' | 'verbose' | 'debug',
+            })
+        }
     }
-    if (type === 'service') {
-        // Service mode: console + file, timestamps enabled, colors enabled for console
-        return new Logger({
-            file: logger_config.file,
-            level: logger_config.level || 'info',
-        })
-    }
-    return new Logger({
-        file: logger_config.file,
-        level: logger_config.level,
-    })
+    return logger as InstanceType<typeof Logger>
 }
 
 interface StaticFileServerOptions {

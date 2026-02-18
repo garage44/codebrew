@@ -36,17 +36,9 @@ export class Logger {
 
     private prefix?: string
 
-    private prefixColor?: string
-
-    constructor({
-        file,
-        level = 'info',
-        prefix,
-        prefixColor,
-    }: {file?: string; level?: LogLevel; prefix?: string; prefixColor?: string} = {}) {
+    constructor({file, level = 'info', prefix}: {file?: string; level?: LogLevel; prefix?: string} = {}) {
         this.level = level
         this.prefix = prefix
-        this.prefixColor = prefixColor
         if (file) {
             const fs = require('node:fs')
             const path = require('node:path')
@@ -59,7 +51,13 @@ export class Logger {
         return LEVELS[level] <= LEVELS[this.level]
     }
 
+    setPrefix(prefix?: string): void {
+        this.prefix = prefix
+    }
+
     private format(level: LogLevel, msg: string) {
+        const prefixPart = this.prefix !== undefined && this.prefix !== '' ? `${this.prefix} ` : ''
+
         const now = new Date()
         const year = now.getFullYear()
         const month = String(now.getMonth() + 1).padStart(2, '0')
@@ -77,7 +75,7 @@ export class Logger {
              * medium gray
              */
             const mediumGrey = '\u001B[38;5;244m'
-            return `${color}[${levelStr[0]}]${COLORS.reset} ${mediumGrey}[${ts}] ${msg}${COLORS.reset}`
+            return `${color}[${levelStr[0]}]${COLORS.reset} ${prefixPart}${mediumGrey}[${ts}] ${msg}${COLORS.reset}`
         }
 
         if (level === 'warn') {
@@ -86,13 +84,13 @@ export class Logger {
              * light orange pastel
              */
             const lightOrange = '\u001B[38;5;215m'
-            return `${color}[${levelStr[0]}]${COLORS.reset} ${lightOrange}[${ts}] ${msg}${COLORS.reset}`
+            return `${color}[${levelStr[0]}]${COLORS.reset} ${prefixPart}${lightOrange}[${ts}] ${msg}${COLORS.reset}`
         }
 
         if (level === 'remote') {
             // Purple
             const purple = '\u001B[38;5;166m'
-            return `${color}[${levelStr[0]}]${COLORS.reset} ${purple}[${ts}] ${msg}${COLORS.reset}`
+            return `${color}[${levelStr[0]}]${COLORS.reset} ${prefixPart}${purple}[${ts}] ${msg}${COLORS.reset}`
         }
 
         if (level === 'success') {
@@ -101,7 +99,7 @@ export class Logger {
              * light green pastel
              */
             const lightGreen = '\u001B[38;5;156m'
-            return `${color}[${levelStr[0]}]${COLORS.reset} ${lightGreen}[${ts}] ${msg}${COLORS.reset}`
+            return `${color}[${levelStr[0]}]${COLORS.reset} ${prefixPart}${lightGreen}[${ts}] ${msg}${COLORS.reset}`
         }
 
         if (level === 'info') {
@@ -110,7 +108,7 @@ export class Logger {
              * pastel blue
              */
             const pastelBlue = '\u001B[38;5;153m'
-            return `${color}[${levelStr[0]}]${COLORS.reset} ${pastelBlue}[${ts}] ${msg}${COLORS.reset}`
+            return `${color}[${levelStr[0]}]${COLORS.reset} ${prefixPart}${pastelBlue}[${ts}] ${msg}${COLORS.reset}`
         }
 
         if (level === 'error') {
@@ -119,10 +117,10 @@ export class Logger {
              * pastel red
              */
             const pastelRed = '\u001B[38;5;210m'
-            return `${color}[${levelStr[0]}]${COLORS.reset} ${pastelRed}[${ts}] ${msg}${COLORS.reset}`
+            return `${color}[${levelStr[0]}]${COLORS.reset} ${prefixPart}${pastelRed}[${ts}] ${msg}${COLORS.reset}`
         }
 
-        return `${color}[${levelStr[0]}]${COLORS.reset} [${ts}] ${msg}`
+        return `${color}[${levelStr[0]}]${COLORS.reset} ${prefixPart}[${ts}] ${msg}`
     }
 
     private logToFile(msg: string) {
@@ -178,6 +176,21 @@ export class Logger {
 
     setLevel(level: LogLevel) {
         this.level = level
+    }
+
+    configure(options: {file?: string; level?: LogLevel}): void {
+        if (options.level !== undefined) {
+            this.level = options.level
+        }
+        if (options.file !== undefined) {
+            if (this.fileStream) {
+                this.fileStream.end()
+            }
+            const fs = require('node:fs')
+            const path = require('node:path')
+            fs.mkdirSync(path.dirname(options.file), {recursive: true})
+            this.fileStream = fs.createWriteStream(options.file, {flags: 'a'})
+        }
     }
 
     close() {

@@ -57,7 +57,6 @@ const logger = loggerTransports(
         level: (config.logger.level || 'debug') as 'error' | 'warn' | 'info' | 'success' | 'verbose' | 'debug',
     },
     'service',
-    process.env.CODEBREW_PLUGIN_COLOR,
 )
 if (import.meta.main) {
     logger.info('initialized')

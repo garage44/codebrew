@@ -1,8 +1,8 @@
 /** @jsxImportSource preact */
 import type {VNode} from 'preact'
-import {h} from 'preact'
 
 import {registerApp} from '@garage44/common/lib/codebrew-registry'
+import {h} from 'preact'
 
 import {logger} from './service'
 

@@ -69,6 +69,8 @@ type WebSocketConnection =
 class WebSocketServerManager extends EventEmitter {
     connections = new Set<WebSocketConnection>()
 
+    private pluginContext: string | undefined = undefined
+
     routeHandlers: RouteHandler[] = []
 
     subscriptions: Record<string, Set<WebSocketConnection>> = {}

@@ -92,9 +92,14 @@ void cli
             console.log(welcomeBanner())
 
             logger.info('initialized')
-            for (const plugin of getApps()) {
+            const plugins = getApps()
+            const prefixWidth = Math.max(...plugins.map((p) => `[${p.id}]`.length), 0)
+            for (const plugin of plugins) {
+                const prefix = `[${plugin.id}]`.padEnd(prefixWidth)
+                logger.setPrefix(getPluginColor(plugin.id)(prefix))
                 plugin.onInit?.()
             }
+            logger.setPrefix(undefined)
 
             await initConfig()
 

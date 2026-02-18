@@ -19,6 +19,12 @@ const applyTheme = (themePreference: 'light' | 'dark' | 'system'): void => {
 }
 
 export default function env(env: Record<string, unknown>, _storeParam: Store | null = null): void {
+    if (typeof globalThis.matchMedia !== 'function' || globalThis.navigator === undefined) {
+        env.layout = 'desktop'
+        env.isBrowser = false
+        return
+    }
+
     env.ua = navigator.userAgent.toLowerCase()
 
     if (globalThis.navigator) {

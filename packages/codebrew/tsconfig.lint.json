@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "*": ["./*"],
+      "@/*": ["./src/*", "../common/*"],
+      "@garage44/common/*": ["../common/*"],
+      "@garage44/expressio/codebrew": ["./plugin-types.d.ts"],
+      "@garage44/nonlinear/codebrew": ["./plugin-types.d.ts"],
+      "@garage44/nonlinear/lib/database": ["./workspace-deps/nonlinear-database.d.ts"],
+      "@garage44/pyrite/codebrew": ["./plugin-types.d.ts"]
+    }
+  }
+}

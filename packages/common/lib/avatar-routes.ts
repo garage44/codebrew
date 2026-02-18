@@ -7,11 +7,13 @@
 import {homedir} from 'node:os'
 import path from 'node:path'
 
-import type {Logger} from './logger.node'
+interface AvatarLogger {
+    error(msg: string, ...args: unknown[]): void
+}
 
 interface AvatarRoutesOptions {
     appName: string
-    logger: Logger
+    logger: AvatarLogger
     runtime: {
         service_dir: string
     }

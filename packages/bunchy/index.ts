@@ -49,6 +49,7 @@ const currentDir = fileURLToPath(new URL('.', import.meta.url))
 
 interface Settings {
     buildId: string
+    debug?: boolean
     dir: {
         assets: string
         bunchy: string

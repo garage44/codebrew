@@ -136,6 +136,14 @@ class Logger {
         this.level = level
     }
 
+    setPrefix(_prefix?: string): void {
+        // No-op in browser - prefix is for unified mode (Node only)
+    }
+
+    configure(_options: {file?: string; level?: LogLevel}): void {
+        // No-op in browser - configure is for Node service mode
+    }
+
     close() {}
 }
 

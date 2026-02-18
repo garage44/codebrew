@@ -54,6 +54,10 @@ class App {
         translations: unknown,
         options: InitOptions = {},
     ): Promise<void> {
+        if (!('window' in globalThis) || !('document' in globalThis)) {
+            return
+        }
+
         const globalState = globalThis as unknown as {
             __HMR_UPDATING__?: boolean
             __HMR_MAIN_COMPONENT__?: unknown

@@ -87,7 +87,7 @@ class IndexingService {
         this.running = false
         if (this.pollTimer) {
             clearInterval(this.pollTimer)
-            this.pollTimer = null
+            delete this.pollTimer
         }
 
         if (this.logger) {
@@ -278,8 +278,6 @@ if (import.meta.main) {
         const loggerInstance = loggerTransports(
             config.logger as {file: string; level: 'debug' | 'info' | 'warn' | 'error'},
             'service',
-            process.env.CODEBREW_PLUGIN_ID,
-            process.env.CODEBREW_PLUGIN_COLOR,
         )
         service.setLogger(loggerInstance)
 
