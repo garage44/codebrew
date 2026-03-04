@@ -172,7 +172,6 @@ class App {
             // Don't emit app:init event (already initialized above)
             return
         }
-
         // oxlint-disable-next-line no-console
         console.log('[App] Normal initialization path')
 

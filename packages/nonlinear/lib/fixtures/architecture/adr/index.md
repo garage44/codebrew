@@ -62,6 +62,7 @@ AI Decision Records (ADRs) are structured documents that capture important archi
 | [032](./032-zod-api-typing.md) | Zod-Based API Typing and Validation for Nonlinear | Architecture | Accepted | 2026-02-04 |
 | [033](./033-zod-api-typing-expressio.md) | Zod-Based API Typing and Validation for Expressio | Architecture | Proposed | 2026-02-05 |
 | [034](./034-codebrew-package-reuse-optimization.md) | Codebrew Package Reuse Optimization | Architecture | Proposed | 2026-02-12 |
+| [035](./035-code-quality-improvement-roadmap.md) | Code Quality Improvement Roadmap | Architecture | Proposed | 2026-03-04 |
 
 ### ADRs by Decision Type
 
@@ -95,6 +96,7 @@ AI Decision Records (ADRs) are structured documents that capture important archi
 - [ADR-032](./032-zod-api-typing.md): Zod-Based API Typing and Validation for Nonlinear
 - [ADR-033](./033-zod-api-typing-expressio.md): Zod-Based API Typing and Validation for Expressio
 - [ADR-034](./034-codebrew-package-reuse-optimization.md): Codebrew Package Reuse Optimization
+- [ADR-035](./035-code-quality-improvement-roadmap.md): Code Quality Improvement Roadmap
 - Pattern: [Architecture Pattern](./guide/PATTERNS.md#architecture-pattern)
 
 **Tool Adoption/Replacement** (Developer Tooling):
@@ -114,16 +116,16 @@ AI Decision Records (ADRs) are structured documents that capture important archi
 ### ADRs by Impact Area
 
 **Common Package** (Shared utilities):
-- ADR-004, ADR-008, ADR-011, ADR-012, ADR-014, ADR-019, ADR-034
+- ADR-004, ADR-008, ADR-011, ADR-012, ADR-014, ADR-019, ADR-034, ADR-035
 
 **Expressio** (i18n application):
-- ADR-001, ADR-003, ADR-004, ADR-006, ADR-007, ADR-011, ADR-019, ADR-034
+- ADR-001, ADR-003, ADR-004, ADR-006, ADR-007, ADR-011, ADR-019, ADR-034, ADR-035
 
 **Pyrite** (Video conferencing):
-- ADR-001, ADR-003, ADR-004, ADR-011, ADR-012, ADR-016, ADR-017, ADR-019, ADR-034
+- ADR-001, ADR-003, ADR-004, ADR-011, ADR-012, ADR-016, ADR-017, ADR-019, ADR-034, ADR-035
 
 **Nonlinear** (Project management):
-- ADR-021, ADR-034
+- ADR-021, ADR-034, ADR-035
 
 **Infrastructure** (Build, deployment):
 - ADR-001, ADR-003, ADR-005, ADR-007, ADR-010, ADR-011, ADR-017, ADR-024
@@ -132,13 +134,14 @@ AI Decision Records (ADRs) are structured documents that capture important archi
 
 **Frontend**: ADR-004, ADR-011, ADR-012, ADR-013, ADR-014, ADR-016, ADR-019, ADR-032
 **Real-time**: ADR-004, ADR-006, ADR-028, ADR-029, ADR-030
-**Backend**: ADR-003, ADR-006, ADR-007, ADR-008, ADR-017, ADR-025, ADR-026, ADR-028, ADR-029, ADR-030, ADR-032, ADR-033, ADR-034
-**Infrastructure**: ADR-001, ADR-003, ADR-005, ADR-007, ADR-010, ADR-011, ADR-017, ADR-024, ADR-034
+**Backend**: ADR-003, ADR-006, ADR-007, ADR-008, ADR-017, ADR-025, ADR-026, ADR-028, ADR-029, ADR-030, ADR-032, ADR-033, ADR-034, ADR-035
+**Infrastructure**: ADR-001, ADR-003, ADR-005, ADR-007, ADR-010, ADR-011, ADR-017, ADR-024, ADR-034, ADR-035
 **Tooling**: ADR-003, ADR-007, ADR-010, ADR-011, ADR-019, ADR-032, ADR-033
-**Performance**: ADR-003, ADR-010, ADR-011
+**Performance**: ADR-003, ADR-010, ADR-011, ADR-035
 **UX**: ADR-011, ADR-012, ADR-013, ADR-014, ADR-016
-**Developer-Experience**: ADR-003, ADR-010, ADR-019, ADR-032, ADR-033, ADR-034
+**Developer-Experience**: ADR-003, ADR-010, ADR-019, ADR-032, ADR-033, ADR-034, ADR-035
 **Package-Reuse**: ADR-034
+**Code-Quality**: ADR-035
 
 ## Architectural Principles
 
@@ -208,6 +211,7 @@ grep -i "technology adoption\|migration pattern" adr/guide/PATTERNS.md
 - **Architecture**: ADR-001, ADR-004, ADR-008, ADR-021, ADR-025, ADR-026, ADR-027, ADR-028, ADR-029, ADR-034
 - **Migration**: ADR-006, ADR-007, ADR-011
 - **Package Reuse/Codebrew**: ADR-034
+- **Code Quality**: ADR-035
 
 ### For Humans
 
@@ -260,6 +264,12 @@ grep -i "technology adoption\|migration pattern" adr/guide/PATTERNS.md
 - ✅ Use: createServiceBootstrap, createAppBootstrap factories from common
 - ✅ Extract: Duplicated Router, requireAdmin to common first
 - ✅ Compose: Route-based or lazy-loaded sub-app modules
+
+**Scenario: "What code quality improvements should I prioritize?"**
+- 📖 Read: ADR-035 (Code Quality Improvement Roadmap)
+- 🎯 Pattern: Architecture Pattern
+- ✅ Follow: Priority matrix (P0 → P1 → P2 → P3)
+- ✅ Pillars: DRY, Style, Performance, Typing
 
 **Scenario: "Should I replace this development tool?"**
 - 📖 Read: ADR-010 (OxLint)
@@ -383,6 +393,7 @@ See [PATTERNS.md](./guide/PATTERNS.md) for complete library. Summary:
 | [Migration](./guide/PATTERNS.md#migration-pattern) | Moving from X to Y | ADR-006, ADR-007, ADR-011 | High |
 | [Architecture](./guide/PATTERNS.md#architecture-pattern) | Defining structure/boundaries | ADR-001, ADR-004, ADR-034 | High |
 | [Package Reuse](./034-codebrew-package-reuse-optimization.md) | Multi-app composition, reducing duplication | ADR-034 | Proposed |
+| [Code Quality Roadmap](./035-code-quality-improvement-roadmap.md) | DRY, style, performance, typing improvements | ADR-035 | Proposed |
 | [Design System](./guide/PATTERNS.md#design-system-pattern) | UI/styling decisions | ADR-011, ADR-012 | High |
 | [Tool Replacement](./guide/PATTERNS.md#tool-replacement-pattern) | Replacing dev tools | ADR-010 | High |
 
@@ -418,7 +429,7 @@ If you detect these patterns, flag them and suggest following the established AD
 ## Future Considerations
 
 Watch for decisions that might need new ADRs:
-- **Codebrew**: Unified app implementation (ADR-034), shared session strategy, routing approach
+- **Codebrew**: Unified app implementation (ADR-034), code quality roadmap (ADR-035), shared session strategy, routing approach
 - **Expressio**: Translation provider integrations, performance optimization
 - **Pyrite**: WebRTC architecture, recording formats
 - **Infrastructure**: Deployment strategies, monitoring systems

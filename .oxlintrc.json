@@ -18,6 +18,7 @@
   "rules": {
     "import/max-dependencies": "off",
     "eslint/require-await": "off",
+    "eslint/sort-keys": "error",
     "eslint/max-depth": [
       "error",
       6
