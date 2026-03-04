@@ -77,6 +77,12 @@
       100
     ],
     "eslint/class-methods-use-this": "off",
+    "eslint/no-shadow": [
+      "error",
+      {
+        "allow": ["err", "error"]
+      }
+    ],
     "unicorn/prefer-top-level-await": "off"
   },
   "env": {
