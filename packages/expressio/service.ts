@@ -84,8 +84,8 @@ void cli
     .command(
         'init',
         'Initialize a new .expressio.json workspace file',
-        (yargs): typeof yargs =>
-            yargs
+        (subYargs): typeof subYargs =>
+            subYargs
                 .option('output', {
                     alias: 'o',
                     default: './src/.expressio.json',
@@ -173,8 +173,8 @@ void cli
     .command(
         'import',
         'Import source translations from i18next file',
-        (yargs): typeof yargs =>
-            yargs
+        (subYargs): typeof subYargs =>
+            subYargs
                 .option('workspace', {
                     alias: 'w',
                     default: './src/.expressio.json',
@@ -302,8 +302,8 @@ void cli
     .command(
         'translate-all',
         'Translate all untranslated or outdated tags',
-        (yargs): typeof yargs =>
-            yargs
+        (subYargs): typeof subYargs =>
+            subYargs
                 .option('workspace', {
                     alias: 'w',
                     default: './src/.expressio.json',
@@ -394,8 +394,8 @@ void cli
     .command(
         'stats',
         'Show translation statistics',
-        (yargs): typeof yargs =>
-            yargs.option('workspace', {
+        (subYargs): typeof subYargs =>
+            subYargs.option('workspace', {
                 alias: 'w',
                 default: './src/.expressio.json',
                 describe: 'Workspace file to use',
@@ -523,8 +523,8 @@ void cli
     .command(
         'export',
         'Export target translations to i18next format',
-        (yargs): typeof yargs =>
-            yargs
+        (subYargs): typeof subYargs =>
+            subYargs
                 .option('workspace', {
                     alias: 'w',
                     default: './src/.expressio.json',
@@ -607,8 +607,8 @@ void cli
     .command(
         'lint',
         'Lint translations',
-        (yargs): typeof yargs =>
-            yargs.option('workspace', {
+        (subYargs): typeof subYargs =>
+            subYargs.option('workspace', {
                 alias: 'w',
                 default: './src/.expressio.json',
                 describe: 'Workspace file to use',
@@ -681,10 +681,10 @@ void cli
     .command(
         'start',
         'Start the Expressio service',
-        (yargs): typeof yargs => {
+        (subYargs): typeof subYargs => {
             // oxlint-disable-next-line no-console
             console.log(welcomeBanner())
-            return yargs
+            return subYargs
                 .option('host', {
                     alias: 'h',
                     default: 'localhost',
@@ -735,7 +735,7 @@ void cli
 
             // Start Bun.serve server
             const server = Bun.serve({
-                fetch: async (req: Request, server: unknown): Promise<Response> => {
+                fetch: async (req: Request, srv: unknown): Promise<Response> => {
                     const url = new URL(req.url)
                     if (url.pathname === '/dev/snapshot') {
                         return Response.json(
@@ -745,7 +745,7 @@ void cli
                             }),
                         )
                     }
-                    const response = await handleRequest(req, server)
+                    const response = await handleRequest(req, srv)
                     return response || new Response('Not Found', {status: 404})
                 },
                 hostname: argv.host as string | undefined,

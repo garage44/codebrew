@@ -201,8 +201,8 @@ ${JSON.stringify(ticketsContext, null, 2)}`
                 WHERE id = ?
             `)
 
-            const updateTransaction = getDb().transaction((prioritizations): void => {
-                for (const prioritization of prioritizations) {
+            const updateTransaction = getDb().transaction((prios): void => {
+                for (const prioritization of prios) {
                     const newStatus = prioritization.should_move_to_todo ? 'todo' : 'backlog'
                     updateStmt.run(prioritization.priority, newStatus, Date.now(), prioritization.ticket_id)
 

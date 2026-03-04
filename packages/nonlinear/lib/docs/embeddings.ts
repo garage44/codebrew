@@ -10,26 +10,6 @@ import {getDb} from '../database.ts'
 import {type Chunk, chunkMarkdown} from './chunking.ts'
 
 /**
- * Generate embedding for text
- * Uses local model by default, can use Voyage AI or OpenAI if configured
- */
-export async function generateEmbedding(text: string): Promise<Float32Array> {
-    if (config.embeddings.provider === 'voyageai') {
-        return await generateVoyageEmbedding(text)
-    }
-
-    if (config.embeddings.provider === 'local') {
-        return await generateLocalEmbedding(text)
-    }
-
-    if (config.embeddings.provider === 'openai') {
-        return await generateOpenAIEmbedding(text)
-    }
-
-    throw new Error(`Unknown embedding provider: ${config.embeddings.provider}`)
-}
-
-/**
  * Generate embedding using Voyage AI API
  */
 async function generateVoyageEmbedding(text: string): Promise<Float32Array> {
@@ -119,25 +99,23 @@ async function generateOpenAIEmbedding(text: string): Promise<Float32Array> {
 }
 
 /**
- * Generate embeddings for documentation
- * Chunks content and generates embeddings for each chunk
+ * Generate embedding for text
+ * Uses local model by default, can use Voyage AI or OpenAI if configured
  */
-export async function generateDocEmbeddings(docId: string, content: string): Promise<void> {
-    // Chunk content
-    const chunks = chunkMarkdown(content, config.embeddings.chunkSize || 1000, config.embeddings.chunkOverlap || 200)
+export async function generateEmbedding(text: string): Promise<Float32Array> {
+    if (config.embeddings.provider === 'voyageai') {
+        return await generateVoyageEmbedding(text)
+    }
 
-    // Generate embeddings for each chunk
-    const chunksWithEmbeddings = await Promise.all(
-        chunks.map(
-            async (chunk): Promise<Chunk & {embedding: Float32Array}> => ({
-                ...chunk,
-                embedding: await generateEmbedding(chunk.text),
-            }),
-        ),
-    )
+    if (config.embeddings.provider === 'local') {
+        return await generateLocalEmbedding(text)
+    }
 
-    // Store embeddings
-    await storeDocEmbeddings(docId, chunksWithEmbeddings)
+    if (config.embeddings.provider === 'openai') {
+        return await generateOpenAIEmbedding(text)
+    }
+
+    throw new Error(`Unknown embedding provider: ${config.embeddings.provider}`)
 }
 
 /**
@@ -189,6 +167,28 @@ async function storeDocEmbeddings(docId: string, chunks: (Chunk & {embedding: Fl
     }
 
     logger.info(`[Embeddings] Stored ${chunks.length} embeddings for doc ${docId}`)
+}
+
+/**
+ * Generate embeddings for documentation
+ * Chunks content and generates embeddings for each chunk
+ */
+export async function generateDocEmbeddings(docId: string, content: string): Promise<void> {
+    // Chunk content
+    const chunks = chunkMarkdown(content, config.embeddings.chunkSize || 1000, config.embeddings.chunkOverlap || 200)
+
+    // Generate embeddings for each chunk
+    const chunksWithEmbeddings = await Promise.all(
+        chunks.map(
+            async (chunk): Promise<Chunk & {embedding: Float32Array}> => ({
+                ...chunk,
+                embedding: await generateEmbedding(chunk.text),
+            }),
+        ),
+    )
+
+    // Store embeddings
+    await storeDocEmbeddings(docId, chunksWithEmbeddings)
 }
 
 /**

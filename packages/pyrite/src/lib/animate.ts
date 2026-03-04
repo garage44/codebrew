@@ -1,3 +1,7 @@
+function easeOut(progress: number, power = 2): number {
+    return 1 - (1 - progress) ** power
+}
+
 /*
  * Simple tween animation; used because ResizeObserver doesn't capture
  * CSS transforms, and we want to be able to animate UI elements
@@ -24,18 +28,18 @@ export default function tween({
     function update(currentTime: number): void {
         const elapsed = currentTime - startTime
         const progress = Math.min(elapsed / duration, 1)
-        const latest = from + (ease(progress) * delta)
+        const latest = from + ease(progress) * delta
 
-        if (onUpdate) {onUpdate(latest)}
+        if (onUpdate) {
+            onUpdate(latest)
+        }
 
         if (progress < 1) {
             requestAnimationFrame(update)
-        } else if (onFinish) {onFinish()}
+        } else if (onFinish) {
+            onFinish()
+        }
     }
 
     requestAnimationFrame(update)
-}
-
-function easeOut(progress: number, power = 2): number {
-    return 1 - ((1 - progress) ** power)
 }

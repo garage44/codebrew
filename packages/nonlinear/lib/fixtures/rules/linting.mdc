@@ -45,6 +45,8 @@ bun run lint:ts-types    # TypeScript type checking
 
 **CRITICAL: Fix types at interface definitions, not at usage sites.**
 
+**CRITICAL: MUST NOT change runtime behaviour while fixing typing or lint errors.** Fixes must be purely additive (types, renames, reordering) or structural (moving declarations). Do not add conditionals, change control flow, or alter logic to satisfy the linter.
+
 When fixing TypeScript errors:
 
 1. **Trace errors to source**: Find the interface/type definition causing the issue

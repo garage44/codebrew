@@ -1,5 +1,7 @@
-import {$s} from '@/app'
 import {$t, logger, notifier} from '@garage44/common/app'
+
+import {$s} from '@/app'
+
 import * as sfu from './sfu/sfu.ts'
 
 export let localStream: MediaStream | null | undefined = null
@@ -15,45 +17,6 @@ let fakeAudioGain: GainNode | null = null
 let fakeAudioAnalyser: AnalyserNode | null = null
 let fakeAudioDataArray: Uint8Array | null = null
 let fakeAudioSource: MediaStreamAudioSourceNode | null = null
-
-/**
- * Helper function to create fake stream fallback when no devices are available
- */
-async function createFakeStreamFallback(selectedVideoDevice: unknown, selectedAudioDevice: unknown): Promise<void> {
-    logger.info(`[media] No devices available, creating fake stream as fallback`)
-    try {
-        const width = (selectedVideoDevice && typeof selectedVideoDevice === 'object' && 'width' in selectedVideoDevice && typeof selectedVideoDevice.width === 'object' && selectedVideoDevice.width !== null && 'ideal' in selectedVideoDevice.width ? selectedVideoDevice.width.ideal : 640) as number
-        const height = (selectedVideoDevice && typeof selectedVideoDevice === 'object' && 'height' in selectedVideoDevice && typeof selectedVideoDevice.height === 'object' && selectedVideoDevice.height !== null && 'ideal' in selectedVideoDevice.height ? selectedVideoDevice.height.ideal : 480) as number
-
-        // Try to get microphone access if audio is enabled and video is fake
-        // This allows the pattern to oscillate with microphone input
-        let microphoneStream: MediaStream | null = null
-        if (selectedVideoDevice && selectedAudioDevice) {
-            // Video is fake, but try to get real microphone for pattern oscillation
-            try {
-                microphoneStream = await navigator.mediaDevices.getUserMedia({audio: true, video: false})
-                logger.debug(`[media] Got microphone access for pattern oscillation`)
-            } catch (error) {
-                logger.debug(`[media] Could not get microphone access: ${error}`)
-            }
-        }
-
-        localStream = createFakeStream({
-            audio: Boolean(selectedAudioDevice),
-            height,
-            microphoneStream: microphoneStream || null,
-            video: Boolean(selectedVideoDevice),
-            width,
-        })
-
-        notifier.notify({
-            level: 'info',
-            message: microphoneStream ? 'No camera available. Using test pattern with microphone input.' : 'No devices available. Using test pattern stream.',
-        })
-    } catch (error) {
-        logger.error(`[media] Failed to create fake stream: ${error}`)
-    }
-}
 
 /**
  * Creates a fake MediaStream with synthetic video and/or audio tracks.
@@ -108,7 +71,9 @@ function createFakeStream(options: {
 
         let frame = 0
         const drawFrame = (): void => {
-            if (!fakeVideoContext || !fakeVideoCanvas) {return}
+            if (!fakeVideoContext || !fakeVideoCanvas) {
+                return
+            }
 
             // Get audio level if microphone is available
             if (fakeAudioAnalyser && fakeAudioDataArray) {
@@ -192,8 +157,12 @@ function createFakeStream(options: {
                 const gradientOuterRadius = Math.min(clampedRadius * 1.1, maxEffectiveRadius)
                 // Inner circle (gradient start), outer circle (gradient end, clamped)
                 const gradient = ctx.createRadialGradient(
-                    centerX, centerY, clampedRadius * 0.7,
-                    centerX, centerY, gradientOuterRadius
+                    centerX,
+                    centerY,
+                    clampedRadius * 0.7,
+                    centerX,
+                    centerY,
+                    gradientOuterRadius,
                 )
 
                 // Inner color (brighter, more saturated)
@@ -336,6 +305,65 @@ function createFakeStream(options: {
     return stream
 }
 
+/**
+ * Helper function to create fake stream fallback when no devices are available
+ */
+async function createFakeStreamFallback(selectedVideoDevice: unknown, selectedAudioDevice: unknown): Promise<void> {
+    logger.info(`[media] No devices available, creating fake stream as fallback`)
+    try {
+        const width = (
+            selectedVideoDevice &&
+            typeof selectedVideoDevice === 'object' &&
+            'width' in selectedVideoDevice &&
+            typeof selectedVideoDevice.width === 'object' &&
+            selectedVideoDevice.width !== null &&
+            'ideal' in selectedVideoDevice.width
+                ? selectedVideoDevice.width.ideal
+                : 640
+        ) as number
+        const height = (
+            selectedVideoDevice &&
+            typeof selectedVideoDevice === 'object' &&
+            'height' in selectedVideoDevice &&
+            typeof selectedVideoDevice.height === 'object' &&
+            selectedVideoDevice.height !== null &&
+            'ideal' in selectedVideoDevice.height
+                ? selectedVideoDevice.height.ideal
+                : 480
+        ) as number
+
+        // Try to get microphone access if audio is enabled and video is fake
+        // This allows the pattern to oscillate with microphone input
+        let microphoneStream: MediaStream | null = null
+        if (selectedVideoDevice && selectedAudioDevice) {
+            // Video is fake, but try to get real microphone for pattern oscillation
+            try {
+                microphoneStream = await navigator.mediaDevices.getUserMedia({audio: true, video: false})
+                logger.debug(`[media] Got microphone access for pattern oscillation`)
+            } catch (error) {
+                logger.debug(`[media] Could not get microphone access: ${error}`)
+            }
+        }
+
+        localStream = createFakeStream({
+            audio: Boolean(selectedAudioDevice),
+            height,
+            microphoneStream: microphoneStream || null,
+            video: Boolean(selectedVideoDevice),
+            width,
+        })
+
+        notifier.notify({
+            level: 'info',
+            message: microphoneStream
+                ? 'No camera available. Using test pattern with microphone input.'
+                : 'No devices available. Using test pattern stream.',
+        })
+    } catch (error) {
+        logger.error(`[media] Failed to create fake stream: ${error}`)
+    }
+}
+
 // eslint-disable-next-line complexity, max-statements
 export async function getUserMedia(presence: unknown): Promise<MediaStream | null> {
     logger.info(`[media] getUserMedia called, channel.connected=${$s.sfu.channel.connected}`)
@@ -354,16 +382,22 @@ export async function getUserMedia(presence: unknown): Promise<MediaStream | nul
     }
 
     let selectedAudioDevice: boolean | {deviceId: string} = false
-    let selectedVideoDevice: boolean | {deviceId: string; width?: {ideal: number; min: number}; height?: {ideal: number; min: number}} = false
+    let selectedVideoDevice:
+        | boolean
+        | {deviceId: string; width?: {ideal: number; min: number}; height?: {ideal: number; min: number}} = false
     // Track if this was triggered by user action
     let userAction = false
 
     // Validate and check if devices are selected
     const FAKE_STREAM_ID = '__fake_stream__'
     const validateDeviceExists = (deviceId: string, deviceType: 'mic' | 'cam'): boolean => {
-        if (!deviceId) {return false}
+        if (!deviceId) {
+            return false
+        }
         // Fake stream is always valid
-        if (deviceId === FAKE_STREAM_ID) {return true}
+        if (deviceId === FAKE_STREAM_ID) {
+            return true
+        }
         const availableDevices = $s.devices[deviceType].options
         // Defensive check: ensure options is an array (may not be initialized yet)
         if (!Array.isArray(availableDevices)) {
@@ -564,13 +598,22 @@ export async function getUserMedia(presence: unknown): Promise<MediaStream | nul
 
     try {
         localStream = await navigator.mediaDevices.getUserMedia(constraints)
-        logger.debug(`[media] getUserMedia successful, tracks: ${localStream.getTracks().map((track): string => `${track.kind}:${track.id}`).join(', ')}`)
+        logger.debug(
+            `[media] getUserMedia successful, tracks: ${localStream
+                .getTracks()
+                .map((track): string => `${track.kind}:${track.id}`)
+                .join(', ')}`,
+        )
     } catch (error: unknown) {
         logger.error(`[media] getUserMedia failed: ${error}`)
 
         // Handle NotFoundError - device ID doesn't exist or is invalid
         const errorObj = error instanceof Error ? error : {message: String(error), name: ''}
-        if (errorObj.name === 'NotFoundError' || errorObj.name === 'NotReadableError' || (typeof errorObj.message === 'string' && errorObj.message.includes('not be found'))) {
+        if (
+            errorObj.name === 'NotFoundError' ||
+            errorObj.name === 'NotReadableError' ||
+            (typeof errorObj.message === 'string' && errorObj.message.includes('not be found'))
+        ) {
             logger.warn(`[media] selected device not found, falling back to browser default`)
 
             // Retry with browser default (no deviceId specified)
@@ -578,20 +621,37 @@ export async function getUserMedia(presence: unknown): Promise<MediaStream | nul
             if (selectedAudioDevice) {
                 audioValue = typeof selectedAudioDevice === 'object' ? true : selectedAudioDevice
             }
-            let videoValue: boolean | {deviceId: string; width?: {ideal: number; min: number}; height?: {ideal: number; min: number}} | null = false
+            let videoValue:
+                | boolean
+                | {deviceId: string; width?: {ideal: number; min: number}; height?: {ideal: number; min: number}}
+                | null = false
             if (selectedVideoDevice) {
                 videoValue = typeof selectedVideoDevice === 'object' ? true : selectedVideoDevice
             }
-            const fallbackConstraints: {audio: boolean | {deviceId: string} | null; video: boolean | {deviceId: string; width?: {ideal: number; min: number}; height?: {ideal: number; min: number}} | null} = {
+            const fallbackConstraints: {
+                audio: boolean | {deviceId: string} | null
+                video:
+                    | boolean
+                    | {deviceId: string; width?: {ideal: number; min: number}; height?: {ideal: number; min: number}}
+                    | null
+            } = {
                 audio: audioValue,
                 video: videoValue,
             }
 
             // Remove deviceId if it was specified - let browser choose
-            if (fallbackConstraints.audio && typeof fallbackConstraints.audio === 'object' && 'deviceId' in fallbackConstraints.audio) {
+            if (
+                fallbackConstraints.audio &&
+                typeof fallbackConstraints.audio === 'object' &&
+                'deviceId' in fallbackConstraints.audio
+            ) {
                 fallbackConstraints.audio = true
             }
-            if (fallbackConstraints.video && typeof fallbackConstraints.video === 'object' && 'deviceId' in fallbackConstraints.video) {
+            if (
+                fallbackConstraints.video &&
+                typeof fallbackConstraints.video === 'object' &&
+                'deviceId' in fallbackConstraints.video
+            ) {
                 fallbackConstraints.video = true
             }
 
@@ -606,11 +666,21 @@ export async function getUserMedia(presence: unknown): Promise<MediaStream | nul
                     logger.debug(`[media] getUserMedia with browser default successful`)
 
                     // Clear invalid device selection - browser will use default
-                    if (constraints.audio && typeof constraints.audio === 'object' && 'deviceId' in constraints.audio && constraints.audio.deviceId) {
+                    if (
+                        constraints.audio &&
+                        typeof constraints.audio === 'object' &&
+                        'deviceId' in constraints.audio &&
+                        constraints.audio.deviceId
+                    ) {
                         logger.debug(`[media] clearing invalid mic device selection`)
                         $s.devices.mic.selected = {id: null, name: ''}
                     }
-                    if (constraints.video && typeof constraints.video === 'object' && 'deviceId' in constraints.video && constraints.video.deviceId) {
+                    if (
+                        constraints.video &&
+                        typeof constraints.video === 'object' &&
+                        'deviceId' in constraints.video &&
+                        constraints.video.deviceId
+                    ) {
                         logger.debug(`[media] clearing invalid cam device selection`)
                         $s.devices.cam.selected = {id: null, name: ''}
                     }
@@ -623,8 +693,9 @@ export async function getUserMedia(presence: unknown): Promise<MediaStream | nul
                     logger.error(`[media] getUserMedia fallback also failed: ${error}`)
 
                     // Check if no devices are available - use fake stream as last resort
-                    const hasNoDevices = (!$s.devices.cam.options.length && selectedVideoDevice) ||
-                                        (!$s.devices.mic.options.length && selectedAudioDevice)
+                    const hasNoDevices =
+                        (!$s.devices.cam.options.length && selectedVideoDevice) ||
+                        (!$s.devices.mic.options.length && selectedAudioDevice)
 
                     if (hasNoDevices && (selectedVideoDevice || selectedAudioDevice)) {
                         await createFakeStreamFallback(selectedVideoDevice, selectedAudioDevice)
@@ -645,15 +716,19 @@ export async function getUserMedia(presence: unknown): Promise<MediaStream | nul
             }
         } else {
             // Other errors (permission denied, etc.) - check if we should use fake stream
-            const hasNoDevices = (!$s.devices.cam.options.length && selectedVideoDevice) ||
-                                (!$s.devices.mic.options.length && selectedAudioDevice)
+            const hasNoDevices =
+                (!$s.devices.cam.options.length && selectedVideoDevice) || (!$s.devices.mic.options.length && selectedAudioDevice)
 
             if (hasNoDevices && (selectedVideoDevice || selectedAudioDevice)) {
-                const errorObj = error instanceof Error ? error : {name: String(error)}
-                logger.info(`[media] No devices available (${errorObj.name}), creating fake stream as fallback`)
+                const errInfo = error instanceof Error ? error : {name: String(error)}
+                logger.info(`[media] No devices available (${errInfo.name}), creating fake stream as fallback`)
                 try {
-                    const width = selectedVideoDevice && typeof selectedVideoDevice === 'object' && selectedVideoDevice.width?.ideal || 640
-                    const height = selectedVideoDevice && typeof selectedVideoDevice === 'object' && selectedVideoDevice.height?.ideal || 480
+                    const width =
+                        (selectedVideoDevice && typeof selectedVideoDevice === 'object' && selectedVideoDevice.width?.ideal) ||
+                        640
+                    const height =
+                        (selectedVideoDevice && typeof selectedVideoDevice === 'object' && selectedVideoDevice.height?.ideal) ||
+                        480
 
                     // Try to get microphone access if audio is enabled and video is fake
                     // This allows the pattern to oscillate with microphone input
@@ -678,7 +753,9 @@ export async function getUserMedia(presence: unknown): Promise<MediaStream | nul
 
                     notifier.notify({
                         level: 'info',
-                        message: microphoneStream ? 'No camera available. Using test pattern with microphone input.' : 'No devices available. Using test pattern stream.',
+                        message: microphoneStream
+                            ? 'No camera available. Using test pattern with microphone input.'
+                            : 'No devices available. Using test pattern stream.',
                     })
                 } catch (error) {
                     logger.error(`[media] Failed to create fake stream: ${error}`)
@@ -721,7 +798,9 @@ export async function getUserMedia(presence: unknown): Promise<MediaStream | nul
     }
 
     $s.mediaReady = true
-    logger.info(`[media] getUserMedia complete, mediaReady=true, cam.enabled=${$s.devices.cam.enabled}, mic.enabled=${$s.devices.mic.enabled}`)
+    logger.info(
+        `[media] getUserMedia complete, mediaReady=true, cam.enabled=${$s.devices.cam.enabled}, mic.enabled=${$s.devices.mic.enabled}`,
+    )
     return localStream
 }
 
@@ -791,21 +870,25 @@ export async function queryDevices(): Promise<void> {
             let name = device.label
 
             if (device.kind === 'videoinput') {
-                if (!name) {name = `Camera ${labelnr.cam}`}
+                if (!name) {
+                    name = `Camera ${labelnr.cam}`
+                }
                 $s.devices.cam.options.push({id: device.deviceId ? device.deviceId : name, name})
                 labelnr.cam += 1
             } else if (device.kind === 'audioinput') {
-            // Provide fallback name if label is empty (happens when permissions not granted)
-            if (!name || name.trim() === '') {
-                name = `Microphone ${labelnr.mic}`
-                logger.debug(`[media] Microphone device has no label, using fallback name: ${name}`)
-            }
+                // Provide fallback name if label is empty (happens when permissions not granted)
+                if (!name || name.trim() === '') {
+                    name = `Microphone ${labelnr.mic}`
+                    logger.debug(`[media] Microphone device has no label, using fallback name: ${name}`)
+                }
                 $s.devices.mic.options.push({id: device.deviceId, name})
                 logger.debug(`[media] Added microphone device: ${name} (${device.deviceId})`)
                 labelnr.mic += 1
             } else if (device.kind === 'audiooutput') {
                 // Firefox doesn't support audio output enumeration and setSinkid
-                if (!name) {name = `Output ${labelnr.audio}`}
+                if (!name) {
+                    name = `Output ${labelnr.audio}`
+                }
                 $s.devices.audio.options.push({id: device.deviceId ? device.deviceId : name, name})
                 labelnr.audio += 1
             }
@@ -826,14 +909,25 @@ export async function queryDevices(): Promise<void> {
     if (micCount === 0 && devices.length > 0) {
         const audioInputDevices = devices.filter((device): boolean => device.kind === 'audioinput')
         if (audioInputDevices.length > 0) {
-            logger.warn(`[media] Found ${audioInputDevices.length} audio input device(s) but none were added. This may indicate missing deviceIds or permission issues.`)
-            logger.debug(`[media] Audio input devices found:`, audioInputDevices.map((device): {deviceId: string | null; kind: string; label: string} => ({deviceId: device.deviceId, kind: device.kind, label: device.label})))
+            logger.warn(
+                `[media] Found ${audioInputDevices.length} audio input device(s) but none were added. This may indicate missing deviceIds or permission issues.`,
+            )
+            logger.debug(
+                `[media] Audio input devices found:`,
+                audioInputDevices.map((device): {deviceId: string | null; kind: string; label: string} => ({
+                    deviceId: device.deviceId,
+                    kind: device.kind,
+                    label: device.label,
+                })),
+            )
         }
     }
 
     // Notify user if no microphones found but system likely has them
     if (micCount === 0) {
-        logger.warn(`[media] No microphone devices found. If your system has microphones, please grant microphone permissions and refresh.`)
+        logger.warn(
+            `[media] No microphone devices found. If your system has microphones, please grant microphone permissions and refresh.`,
+        )
     }
 }
 
@@ -878,17 +972,26 @@ export function removeLocalStream(): void {
     localStream = null
 }
 
+export function validateDevices(): {audio: boolean; cam: boolean; mic: boolean} {
+    const {devices} = $s
+    return {
+        audio:
+            !$s.env.isFirefox &&
+            (!devices.audio.options.length ||
+                !devices.audio.options.some((opt): boolean => opt.id === devices.audio.selected.id)),
+        cam: !devices.cam.options.length || !devices.cam.options.some((opt): boolean => opt.id === devices.cam.selected.id),
+        mic: !devices.mic.options.length || !devices.mic.options.some((opt): boolean => opt.id === devices.mic.selected.id),
+    }
+}
+
 export function setDefaultDevice(useFirstAvailable = true): void {
     const invalidDevices = validateDevices()
     const emptyOption = {id: null, name: ''}
     const deviceKeys = ['audio', 'cam', 'mic'] as const
     for (const key of deviceKeys) {
         if ((key !== 'audio' || !$s.env.isFirefox) && (invalidDevices[key] || $s.devices[key].selected.id === null)) {
-            if (useFirstAvailable && $s.devices[key].options.length) {
-                $s.devices[key].selected = $s.devices[key].options[0]
-            } else {
-                $s.devices[key].selected = emptyOption
-            }
+            $s.devices[key].selected =
+                useFirstAvailable && $s.devices[key].options.length ? $s.devices[key].options[0] : emptyOption
         }
     }
 }
@@ -897,20 +1000,7 @@ export function setScreenStream(stream: MediaStream | null): void {
     screenStream = stream
 }
 
-export function validateDevices(): {audio: boolean; cam: boolean; mic: boolean} {
-    const {devices} = $s
-    return {
-        audio:
-            !$s.env.isFirefox &&
-            (!devices.audio.options.length || !devices.audio.options.some((opt): boolean => opt.id === devices.audio.selected.id)),
-        cam:
-            !devices.cam.options.length || !devices.cam.options.some((opt): boolean => opt.id === devices.cam.selected.id),
-        mic:
-            !devices.mic.options.length || !devices.mic.options.some((opt): boolean => opt.id === devices.mic.selected.id),
-    }
-}
-
-navigator.mediaDevices.ondevicechange = async(): Promise<void> => {
+navigator.mediaDevices.ondevicechange = async (): Promise<void> => {
     const oldDevices = JSON.parse(JSON.stringify($s.devices))
     await queryDevices()
     let added: {id: string | null; name: string}[] = []
@@ -918,13 +1008,25 @@ navigator.mediaDevices.ondevicechange = async(): Promise<void> => {
     for (const deviceType of Object.keys($s.devices)) {
         const deviceKey = deviceType as 'audio' | 'cam' | 'mic'
         const currentDevice = $s.devices[deviceKey]
-        const deviceOptions = Array.isArray(currentDevice.options) ? currentDevice.options as {id: string | null; name: string}[] : []
+        const deviceOptions = Array.isArray(currentDevice.options)
+            ? (currentDevice.options as {id: string | null; name: string}[])
+            : []
         const oldDevice = oldDevices[deviceKey]
-        const oldDeviceOptions = Array.isArray(oldDevice?.options) ? oldDevice.options as {id: string | null; name: string}[] : []
-        const _added = deviceOptions.filter((current): boolean => !oldDeviceOptions.some((existing): boolean => current.id === existing.id))
-        const _removed = oldDeviceOptions.filter((current): boolean => !deviceOptions.some((existing): boolean => current.id === existing.id))
-        if (_added.length) {added = [...added, ..._added]}
-        if (_removed.length) {removed = [...removed, ..._removed]}
+        const oldDeviceOptions = Array.isArray(oldDevice?.options)
+            ? (oldDevice.options as {id: string | null; name: string}[])
+            : []
+        const _added = deviceOptions.filter(
+            (current): boolean => !oldDeviceOptions.some((existing): boolean => current.id === existing.id),
+        )
+        const _removed = oldDeviceOptions.filter(
+            (current): boolean => !deviceOptions.some((existing): boolean => current.id === existing.id),
+        )
+        if (_added.length) {
+            added = [...added, ..._added]
+        }
+        if (_removed.length) {
+            removed = [...removed, ..._removed]
+        }
     }
 
     if (added.length) {
@@ -961,5 +1063,4 @@ navigator.mediaDevices.ondevicechange = async(): Promise<void> => {
     } else {
         setDefaultDevice(true)
     }
-
 }

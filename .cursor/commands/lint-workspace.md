@@ -34,6 +34,7 @@ bun run lint:css
 - ✅ Auto-fix first (handles 80%+ of issues)
 - ✅ Read error output once, fix all errors, then verify
 - ✅ Fix type definitions before usage sites
+- ✅ **MUST NOT change runtime behaviour** - fixes must be purely additive (types, renames, reordering) or structural (moving declarations); no new conditionals, control flow changes, or logic changes
 - ✅ Process one file completely before next
 - ❌ Don't re-run linter after each fix
 - ❌ Don't parse JSON (read text output directly)

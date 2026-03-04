@@ -55,11 +55,11 @@ cli.usage('Usage: $0 [task]')
     .command(
         'start',
         'Start the Nonlinear service',
-        (yargs): typeof yargs => {
+        (subYargs): typeof subYargs => {
             // eslint-disable-line @typescript-eslint/no-floating-promises
             // oxlint-disable-next-line no-console
             console.log(welcomeBanner())
-            return yargs
+            return subYargs
                 .option('host', {
                     alias: 'h',
                     default: 'localhost',
@@ -179,8 +179,8 @@ cli.usage('Usage: $0 [task]')
     .command(
         'deploy-pr',
         'Deploy a PR branch manually (for Cursor agent)',
-        (yargs): typeof yargs =>
-            yargs
+        (subYargs): typeof subYargs =>
+            subYargs
                 .option('number', {
                     demandOption: true,
                     describe: 'PR number to deploy',
@@ -257,8 +257,8 @@ cli.usage('Usage: $0 [task]')
     .command(
         'cleanup-pr',
         'Cleanup a specific PR deployment',
-        (yargs): typeof yargs =>
-            yargs.option('number', {
+        (subYargs): typeof subYargs =>
+            subYargs.option('number', {
                 demandOption: true,
                 describe: 'PR number to cleanup',
                 type: 'number',
@@ -274,8 +274,8 @@ cli.usage('Usage: $0 [task]')
     .command(
         'cleanup-stale-prs',
         'Cleanup stale PR deployments',
-        (yargs): typeof yargs =>
-            yargs.option('max-age-days', {
+        (subYargs): typeof subYargs =>
+            subYargs.option('max-age-days', {
                 default: 7,
                 describe: 'Maximum age in days',
                 type: 'number',
@@ -290,8 +290,8 @@ cli.usage('Usage: $0 [task]')
     .command(
         'regenerate-pr-nginx',
         'Regenerate nginx configs for an existing PR deployment',
-        (yargs): typeof yargs =>
-            yargs.option('number', {
+        (subYargs): typeof subYargs =>
+            subYargs.option('number', {
                 demandOption: true,
                 describe: 'PR number to regenerate nginx configs for',
                 type: 'number',
@@ -307,8 +307,8 @@ cli.usage('Usage: $0 [task]')
     .command(
         'generate-systemd',
         'Generate systemd service files',
-        (yargs): typeof yargs =>
-            yargs.option('domain', {
+        (subYargs): typeof subYargs =>
+            subYargs.option('domain', {
                 demandOption: true,
                 describe: 'Domain name (e.g., garage44.org)',
                 type: 'string',
@@ -323,8 +323,8 @@ cli.usage('Usage: $0 [task]')
     .command(
         'generate-nginx',
         'Generate nginx configuration',
-        (yargs): typeof yargs =>
-            yargs.option('domain', {
+        (subYargs): typeof subYargs =>
+            subYargs.option('domain', {
                 demandOption: true,
                 describe: 'Domain name (e.g., garage44.org)',
                 type: 'string',
@@ -357,34 +357,34 @@ cli.usage('Usage: $0 [task]')
         initDatabase()
 
         const {IndexingService} = await import('./lib/indexing/service.ts')
-        const {loggerTransports} = await import('@garage44/common/service')
-        const service = new IndexingService()
+        const {loggerTransports: subLoggerTransports} = await import('@garage44/common/service')
+        const indexingService = new IndexingService()
 
         // Initialize logger after config is loaded
-        const loggerInstance = loggerTransports(config.logger as LoggerConfig, 'service')
-        service.setLogger(loggerInstance)
+        const loggerInstance = subLoggerTransports(config.logger as LoggerConfig, 'service')
+        indexingService.setLogger(loggerInstance)
 
         // Handle graceful shutdown
         process.on('SIGINT', (): void => {
             loggerInstance.info('[IndexingService] Received SIGINT, shutting down...')
-            service.stop()
+            indexingService.stop()
             process.exit(0)
         })
 
         process.on('SIGTERM', (): void => {
             loggerInstance.info('[IndexingService] Received SIGTERM, shutting down...')
-            service.stop()
+            indexingService.stop()
             process.exit(0)
         })
 
-        service.start()
+        indexingService.start()
 
         /*
          * Keep process alive and log status periodically
          * Log status every minute
          */
         setInterval((): void => {
-            const status = service.getStatus()
+            const status = indexingService.getStatus()
             loggerInstance.info(
                 `[IndexingService] Status: ${status.pendingJobs} pending, ` +
                     `${status.processingJobs} processing, ${status.failedJobs} failed`,
@@ -394,8 +394,8 @@ cli.usage('Usage: $0 [task]')
     .command(
         'agent',
         'Run an agent interactively',
-        (yargs): typeof yargs =>
-            yargs
+        (subYargs): typeof subYargs =>
+            subYargs
                 .option('ticket-id', {
                     alias: 't',
                     describe: 'Ticket ID to work on',
@@ -469,8 +469,8 @@ cli.usage('Usage: $0 [task]')
     .command(
         'agent:service',
         'Run an agent as background service',
-        (yargs): typeof yargs =>
-            yargs.option('agent-id', {
+        (subYargs): typeof subYargs =>
+            subYargs.option('agent-id', {
                 alias: 'a',
                 demandOption: true,
                 describe: 'Agent ID from database',
@@ -482,32 +482,32 @@ cli.usage('Usage: $0 [task]')
 
             const {AgentService} = await import('./lib/agent/service.ts')
             const agentId = argv.agentId as string
-            const {loggerTransports} = await import('@garage44/common/service')
-            const service = new AgentService(agentId)
+            const {loggerTransports: subLoggerTransports} = await import('@garage44/common/service')
+            const agentSrv = new AgentService(agentId)
 
             // Initialize logger after config is loaded
-            const loggerInstance = loggerTransports(config.logger as LoggerConfig, 'service')
-            service.setLogger(loggerInstance)
+            const loggerInstance = subLoggerTransports(config.logger as LoggerConfig, 'service')
+            agentSrv.setLogger(loggerInstance)
 
             // Handle graceful shutdown
             process.on('SIGINT', (): void => {
                 loggerInstance.info(`[AgentService] Received SIGINT, shutting down agent ${agentId}...`)
-                service.stop()
+                agentSrv.stop()
                 process.exit(0)
             })
 
             process.on('SIGTERM', (): void => {
                 loggerInstance.info(`[AgentService] Received SIGTERM, shutting down agent ${agentId}...`)
-                service.stop()
+                agentSrv.stop()
                 process.exit(0)
             })
 
-            service.start()
+            agentSrv.start()
 
             // Keep process alive and log status periodically
             setInterval((): void => {
                 // Log status every minute
-                const status = service.getStatus()
+                const status = agentSrv.getStatus()
                 loggerInstance.info(`[AgentService] Status: ${JSON.stringify(status)}`)
             }, 60_000)
         },
@@ -515,8 +515,8 @@ cli.usage('Usage: $0 [task]')
     .command(
         'agent:run',
         'Run an agent interactively in foreground',
-        (yargs): typeof yargs =>
-            yargs
+        (subYargs): typeof subYargs =>
+            subYargs
                 .option('agent-id', {
                     alias: 'a',
                     demandOption: true,
@@ -604,8 +604,8 @@ cli.usage('Usage: $0 [task]')
     .command(
         'agent:trigger',
         'Trigger an agent to process work',
-        (yargs): typeof yargs =>
-            yargs
+        (subYargs): typeof subYargs =>
+            subYargs
                 .option('agent-id', {
                     alias: 'a',
                     demandOption: true,

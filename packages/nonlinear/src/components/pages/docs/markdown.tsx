@@ -1,7 +1,5 @@
 import {marked} from 'marked'
 
-import './markdown.css'
-
 interface MarkdownProps {
     content: string
 }
@@ -34,7 +32,9 @@ function parseFrontmatter(content: string): {body: string; frontmatter: Frontmat
 
     for (const line of lines) {
         const trimmed = line.trim()
-        if (!trimmed || trimmed.startsWith('#')) continue
+        if (!trimmed || trimmed.startsWith('#')) {
+            continue
+        }
 
         // Check if this is an array item (starts with -)
         if (trimmed.startsWith('-')) {
@@ -55,7 +55,9 @@ function parseFrontmatter(content: string): {body: string; frontmatter: Frontmat
         currentArray = null
 
         const colonIndex = trimmed.indexOf(':')
-        if (colonIndex === -1) continue
+        if (colonIndex === -1) {
+            continue
+        }
 
         const key = trimmed.slice(0, colonIndex).trim()
         let value: unknown = trimmed.slice(colonIndex + 1).trim()

@@ -1,5 +1,5 @@
-import {WebSocketClient} from '@garage44/common/lib/ws-client'
 import {logger} from '@garage44/common/lib/logger'
+import {WebSocketClient} from '@garage44/common/lib/ws-client'
 
 // Keep track of which stylesheets are currently being updated
 const pendingStylesheetUpdates = new Set<string>()
@@ -17,8 +17,9 @@ function updateStylesheet(filename: string, publicPath: string): void {
     pendingStylesheetUpdates.add(filename)
 
     // Get all stylesheet links
-    const allLinks = [...document.querySelectorAll('link[rel=stylesheet]')]
-        .map((link: Element): HTMLLinkElement => link as HTMLLinkElement)
+    const allLinks = [...document.querySelectorAll('link[rel=stylesheet]')].map(
+        (link: Element): HTMLLinkElement => link as HTMLLinkElement,
+    )
 
     // Find matching stylesheet by base name (without hash)
     // Extract 'app' from 'app.axuasllor.css'
@@ -40,7 +41,7 @@ function updateStylesheet(filename: string, publicPath: string): void {
     newLink.rel = 'stylesheet'
     newLink.href = `/public/${filename}?${Date.now()}`
 
-        // When the new stylesheet loads, remove all old ones
+    // When the new stylesheet loads, remove all old ones
     newLink.onload = (): void => {
         // Remove all matching old stylesheets
         for (const oldLink of linkElements) {
@@ -243,9 +244,15 @@ async function handleHMRUpdate(_filePath: string, timestamp: number): Promise<vo
         hideExceptionPage()
 
         // Initialize HMR state storage if not exists
-        if (!globalObj.__HMR_STATE__) {globalObj.__HMR_STATE__ = null}
-        if (!globalObj.__HMR_COMPONENT_STATES__) {globalObj.__HMR_COMPONENT_STATES__ = {}}
-        if (!globalObj.__HMR_REGISTRY__) {globalObj.__HMR_REGISTRY__ = {}}
+        if (!globalObj.__HMR_STATE__) {
+            globalObj.__HMR_STATE__ = null
+        }
+        if (!globalObj.__HMR_COMPONENT_STATES__) {
+            globalObj.__HMR_COMPONENT_STATES__ = {}
+        }
+        if (!globalObj.__HMR_REGISTRY__) {
+            globalObj.__HMR_REGISTRY__ = {}
+        }
 
         // Save global store state
         try {
@@ -253,7 +260,7 @@ async function handleHMRUpdate(_filePath: string, timestamp: number): Promise<vo
             if (store?.state) {
                 globalObj.__HMR_STATE__ = JSON.parse(JSON.stringify(store.state))
             }
-        } catch(error) {
+        } catch (error) {
             // eslint-disable-next-line no-console
             console.warn('[Bunchy HMR] Could not access store state:', error)
         }
@@ -307,7 +314,7 @@ async function handleHMRUpdate(_filePath: string, timestamp: number): Promise<vo
         newScript.src = `${originalSrc}?t=${timestamp}`
 
         // Wait for script to load
-        newScript.onload = async(): Promise<void> => {
+        newScript.onload = async (): Promise<void> => {
             /*
              * The new script will execute and call app.init() with HMR flag set
              * app.init() will detect HMR and re-initialize services, then re-render
@@ -335,29 +342,18 @@ async function handleHMRUpdate(_filePath: string, timestamp: number): Promise<vo
 
         // Insert new script - this will cause it to execute immediately
         document.head.append(newScript)
-    } catch(error) {
+    } catch (error) {
         // eslint-disable-next-line no-console
         console.error('[Bunchy HMR] Failed:', error)
         globalThis.location.reload()
     }
 }
 
-/*
- * Helper function to initialize Bunchy
- * Only initialize once to prevent multiple connections
- */
-function initializeBunchy(): BunchyClient | undefined {
-    const globalObj = globalThis as unknown as {__BUNCHY_INITIALIZED__?: boolean}
-    if (globalObj.__BUNCHY_INITIALIZED__) {
-        return
-    }
-    globalObj.__BUNCHY_INITIALIZED__ = true
-    return new BunchyClient()
-}
-
 function setupLoggerForwarding(client: WebSocketClient): void {
     // Set up log forwarding for the browser logger
-    const loggerWithForwarder = logger as unknown as {setLogForwarder?: (forwarder: (logLevel: string, msg: string, args: unknown[]) => void) => void}
+    const loggerWithForwarder = logger as unknown as {
+        setLogForwarder?: (forwarder: (logLevel: string, msg: string, args: unknown[]) => void) => void
+    }
     if (typeof loggerWithForwarder.setLogForwarder === 'function') {
         // eslint-disable-next-line no-console
         console.log('[Bunchy] Setting up log forwarder')
@@ -406,7 +402,7 @@ function setupLoggerForwarding(client: WebSocketClient): void {
 function getWebSocketUrl(path: string): string {
     const protocol = globalThis.location.protocol === 'https:' ? 'wss:' : 'ws:'
     const {hostname} = globalThis.location
-    const {port} = (globalThis.location as {port?: string})
+    const {port} = globalThis.location as {port?: string}
 
     /*
      * Only include port if it's explicitly set and not the default (80 for HTTP, 443 for HTTPS)
@@ -485,6 +481,19 @@ class BunchyClient extends WebSocketClient {
     setupLogForwarding(): void {
         setupLoggerForwarding(this)
     }
+}
+
+/*
+ * Helper function to initialize Bunchy
+ * Only initialize once to prevent multiple connections
+ */
+function initializeBunchy(): BunchyClient | undefined {
+    const globalObj = globalThis as unknown as {__BUNCHY_INITIALIZED__?: boolean}
+    if (globalObj.__BUNCHY_INITIALIZED__) {
+        return
+    }
+    globalObj.__BUNCHY_INITIALIZED__ = true
+    return new BunchyClient()
 }
 
 /*

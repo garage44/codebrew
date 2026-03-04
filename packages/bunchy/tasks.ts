@@ -47,6 +47,22 @@ function normalizeSourceMap(map: Uint8Array, sourceFileDir: string, publicDir: s
     return JSON.stringify(sourceMapObj, null, 2)
 }
 
+interface Tasks {
+    [key: string]: Task
+    assets: Task
+    build: Task
+    clean: Task
+    code_bunchy: Task
+    code_frontend: Task
+    dev: Task
+    html: Task
+    styles: Task
+    stylesApp: Task
+    stylesComponents: Task
+}
+
+const tasks: Tasks = {} as Tasks
+
 const runner = {
     assets: throttle(
         async (): Promise<void> => {
@@ -195,73 +211,55 @@ const runner = {
     },
 }
 
-// Add this interface before the tasks declaration
-interface Tasks {
-    [key: string]: Task
-    assets: Task
-    build: Task
-    clean: Task
-    code_bunchy: Task
-    code_frontend: Task
-    dev: Task
-    html: Task
-    styles: Task
-    stylesApp: Task
-    stylesComponents: Task
-}
+tasks.assets = new Task('assets', async function taskAssets(): Promise<void> {
+    await fs.ensureDir(path.join(settings.dir.public, 'fonts'))
+    await fs.ensureDir(path.join(settings.dir.public, 'img'))
 
-// Update the tasks declaration
-const tasks: Tasks = {
-    assets: new Task('assets', async function taskAssets(): Promise<void> {
-        await fs.ensureDir(path.join(settings.dir.public, 'fonts'))
-        await fs.ensureDir(path.join(settings.dir.public, 'img'))
+    const copyOperations = [
+        // Copy fonts from common package (shared across all projects)
+        {
+            from: path.join(settings.dir.common, 'fonts'),
+            to: path.join(settings.dir.public, 'fonts'),
+        },
+        // Copy images from common package (shared placeholder avatars)
+        {
+            from: path.join(settings.dir.common, 'assets', 'img'),
+            to: path.join(settings.dir.public, 'img'),
+        },
+        // Copy local assets if they exist (app-specific images)
+        {
+            from: path.join(settings.dir.assets, 'img'),
+            to: path.join(settings.dir.public, 'img'),
+        },
+    ]
 
-        const copyOperations = [
-            // Copy fonts from common package (shared across all projects)
-            {
-                from: path.join(settings.dir.common, 'fonts'),
-                to: path.join(settings.dir.public, 'fonts'),
-            },
-            // Copy images from common package (shared placeholder avatars)
-            {
-                from: path.join(settings.dir.common, 'assets', 'img'),
-                to: path.join(settings.dir.public, 'img'),
-            },
-            // Copy local assets if they exist (app-specific images)
-            {
-                from: path.join(settings.dir.assets, 'img'),
-                to: path.join(settings.dir.public, 'img'),
-            },
-        ]
-
-        // Handle separate assets config if provided (e.g., service worker files)
-        if (settings.separateAssets) {
-            for (const assetFile of settings.separateAssets) {
-                copyOperations.push({
-                    from: path.join(settings.dir.assets, assetFile),
-                    to: path.join(settings.dir.public, assetFile),
-                })
-            }
+    // Handle separate assets config if provided (e.g., service worker files)
+    if (settings.separateAssets) {
+        for (const assetFile of settings.separateAssets) {
+            copyOperations.push({
+                from: path.join(settings.dir.assets, assetFile),
+                to: path.join(settings.dir.public, assetFile),
+            })
         }
+    }
 
-        // Execute copy operations, skipping if source doesn't exist
-        await Promise.all(
-            copyOperations.map(async (operation): Promise<void> => {
-                try {
-                    await fs.copy(operation.from, operation.to)
-                } catch (error) {
-                    // Skip if source directory doesn't exist
-                    const errorCode = (error as {code?: string}).code
-                    // eslint-disable-next-line no-console
-                    console.log('ERROR', error)
-                    if (errorCode !== 'ENOENT') {
-                        throw error
-                    }
+    // Execute copy operations, skipping if source doesn't exist
+    await Promise.all(
+        copyOperations.map(async (operation): Promise<void> => {
+            try {
+                await fs.copy(operation.from, operation.to)
+            } catch (error) {
+                // Skip if source directory doesn't exist
+                const errorCode = (error as {code?: string}).code
+                // eslint-disable-next-line no-console
+                console.log('ERROR', error)
+                if (errorCode !== 'ENOENT') {
+                    throw error
                 }
-            }),
-        )
-    }),
-} as Tasks
+            }
+        }),
+    )
+})
 
 tasks.build = new Task('build', async function taskBuild(...args: unknown[]): Promise<void> {
     const {minify = false, sourcemap = false} = (args[0] as {minify?: boolean; sourcemap?: boolean} | undefined) ?? {}

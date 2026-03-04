@@ -320,11 +320,9 @@ ${result.doc.content}
         const context = this.buildToolContext()
         const result = await tool.execute(params, context)
 
-        if (result.success) {
-            await this.streamReasoning(`✅ ${toolName} completed successfully`)
-        } else {
-            await this.streamReasoning(`❌ ${toolName} failed: ${result.error || 'Unknown error'}`)
-        }
+        await (result.success
+            ? this.streamReasoning(`✅ ${toolName} completed successfully`)
+            : this.streamReasoning(`❌ ${toolName} failed: ${result.error || 'Unknown error'}`))
 
         return result
     }
@@ -469,14 +467,10 @@ ${result.doc.content}
                         // eslint-disable-next-line no-await-in-loop
                         const result = await tool.execute(toolUse.input, toolContext)
 
-                        // eslint-disable-next-line max-depth
-                        if (result.success) {
-                            // eslint-disable-next-line no-await-in-loop
-                            await this.streamReasoning(`✅ ${toolUse.name} completed successfully`)
-                        } else {
-                            // eslint-disable-next-line no-await-in-loop
-                            await this.streamReasoning(`❌ ${toolUse.name} failed: ${result.error || 'Unknown error'}`)
-                        }
+                        // eslint-disable-next-line no-await-in-loop
+                        await (result.success
+                            ? this.streamReasoning(`✅ ${toolUse.name} completed successfully`)
+                            : this.streamReasoning(`❌ ${toolUse.name} failed: ${result.error || 'Unknown error'}`))
 
                         // Format result as JSON string for tool result content
                         const resultContent = result.success

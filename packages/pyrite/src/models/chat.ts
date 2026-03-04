@@ -1,6 +1,140 @@
-import {$s} from '@/app'
 import {api, events, notifier, ws} from '@garage44/common/app'
 import {logger} from '@garage44/common/lib/logger'
+
+import {$s} from '@/app'
+
+// Track ongoing load requests to prevent duplicates
+const loadingChannels = new Set<string | number>()
+
+export async function loadChannelHistory(channelSlug: string | number): Promise<void> {
+    // Prevent duplicate requests for the same channel
+    if (loadingChannels.has(channelSlug)) {
+        logger.debug(`[Chat] Already loading history for channel ${channelSlug}`)
+        return
+    }
+
+    try {
+        loadingChannels.add(channelSlug)
+        const channelKey = channelSlug.toString()
+
+        // Pre-create channel entry if it doesn't exist for immediate UI feedback
+        if (!$s.chat.channels[channelKey]) {
+            $s.chat.channels[channelKey] = {
+                id: channelKey,
+                messages: [],
+                unread: 0,
+            }
+        }
+
+        logger.debug(`[Chat] Loading history for channel ${channelSlug}`)
+
+        // Load channel members first to get avatars
+        const membersResponse = await ws.get(`/channels/${channelSlug}/members`)
+        const members: Record<string, {avatar: string}> = {}
+
+        if (
+            membersResponse &&
+            typeof membersResponse === 'object' &&
+            'success' in membersResponse &&
+            membersResponse.success &&
+            'members' in membersResponse &&
+            Array.isArray(membersResponse.members)
+        ) {
+            for (const member of membersResponse.members) {
+                if (
+                    typeof member === 'object' &&
+                    member !== null &&
+                    'user_id' in member &&
+                    'avatar' in member &&
+                    'username' in member
+                ) {
+                    const typedMember = member as {user_id: string; avatar: string; username: string}
+                    members[typedMember.user_id] = {avatar: typedMember.avatar}
+
+                    // Also update global users
+                    if (!$s.chat.users) {
+                        $s.chat.users = {}
+                    }
+                    const users = $s.chat.users as Record<string, {avatar: string; username: string}>
+                    users[typedMember.user_id] = {
+                        avatar: typedMember.avatar,
+                        username: typedMember.username,
+                    }
+                }
+            }
+        }
+
+        const response = await ws.get(`/channels/${channelSlug}/messages`)
+
+        if (response && response.success && response.messages) {
+            // Transform database message format to frontend format
+            // DB format: {id, channel_id, user_id, username, message, timestamp, kind}
+            // Frontend format: {kind, message, nick, time, user_id}
+            const messagesArray = Array.isArray(response.messages) ? response.messages : []
+            const transformedMessages = messagesArray.map(
+                (msg: {
+                    kind?: string
+                    message: string
+                    timestamp: number
+                    user_id: string
+                    username: string
+                }): {kind: string; message: string; nick: string; time: number; user_id: string} => ({
+                    kind: msg.kind || 'message',
+                    message: msg.message,
+                    nick: msg.username,
+                    time: msg.timestamp,
+                    user_id: msg.user_id,
+                }),
+            )
+
+            logger.debug(`[Chat] Loaded ${transformedMessages.length} messages for channel ${channelSlug}`)
+
+            // Assign entire array to trigger DeepSignal reactivity
+            $s.chat.channels[channelKey].messages = transformedMessages
+
+            // Store members for avatar lookup
+            if (!$s.chat.channels[channelKey].members) {
+                $s.chat.channels[channelKey].members = {}
+            }
+            Object.assign($s.chat.channels[channelKey].members, members)
+        } else {
+            logger.warn(`[Chat] No messages in response for channel ${channelSlug}:`, response)
+        }
+    } catch (error) {
+        logger.error('[Chat] Error loading channel history:', error)
+    } finally {
+        loadingChannels.delete(channelSlug)
+    }
+}
+
+export function selectChannel(channelSlug: string | number): void {
+    // ChannelSlug can be a channel slug (string) or a legacy numeric ID (for backward compatibility during migration)
+    // For non-channel chat (e.g., 'main', user IDs), treat as string
+    if (typeof channelSlug === 'string') {
+        // Check if it's a Pyrite channel slug (by checking if it exists in channels)
+        const channel = $s.channels.find((ch): boolean => ch.slug === channelSlug)
+        if (channel) {
+            $s.chat.activeChannelSlug = channelSlug
+            $s.chat.channel = channelSlug
+            // Load channel history
+            loadChannelHistory(channelSlug)
+        } else {
+            // Legacy chat channel (e.g., 'main', user IDs)
+            $s.chat.activeChannelSlug = null
+            $s.chat.channel = channelSlug
+        }
+    } else {
+        // Legacy numeric ID (during migration)
+        $s.chat.activeChannelSlug = null
+        $s.chat.channel = channelSlug.toString()
+        loadChannelHistory(channelSlug)
+    }
+
+    // Clear unread count for the selected channel
+    if ($s.chat.channels[$s.chat.channel]) {
+        $s.chat.channels[$s.chat.channel].unread = 0
+    }
+}
 
 export function _events(): void {
     // Implement reactivity for panels.chat collapsed state
@@ -98,48 +232,12 @@ export async function onMessage(messageData: {
     // Channel is active. Not that the chat history is also replayed through
     // OnMessage. This is why no chat channel is selected initially;
     // We don't want to show those messages while entering the group.
-    if (
-        $s.chat.channels[$s.chat.channel] &&
-        ((channelId !== $s.chat.channel) || $s.panels.chat?.collapsed)
-    ) {
+    if ($s.chat.channels[$s.chat.channel] && (channelId !== $s.chat.channel || $s.panels.chat?.collapsed)) {
         $s.chat.channels[channelId].unread += 1
     }
-
 }
 
 export const emojiLookup = new Set()
-
-export function selectChannel(channelSlug: string | number): void {
-    // ChannelSlug can be a channel slug (string) or a legacy numeric ID (for backward compatibility during migration)
-    // For non-channel chat (e.g., 'main', user IDs), treat as string
-    if (typeof channelSlug === 'string') {
-        // Check if it's a Pyrite channel slug (by checking if it exists in channels)
-        const channel = $s.channels.find((ch): boolean => ch.slug === channelSlug)
-        if (channel) {
-            $s.chat.activeChannelSlug = channelSlug
-            $s.chat.channel = channelSlug
-            // Load channel history
-            loadChannelHistory(channelSlug)
-        } else {
-            // Legacy chat channel (e.g., 'main', user IDs)
-            $s.chat.activeChannelSlug = null
-            $s.chat.channel = channelSlug
-        }
-    } else {
-        // Legacy numeric ID (during migration)
-        $s.chat.activeChannelSlug = null
-        $s.chat.channel = channelSlug.toString()
-        loadChannelHistory(channelSlug)
-    }
-
-    // Clear unread count for the selected channel
-    if ($s.chat.channels[$s.chat.channel]) {
-        $s.chat.channels[$s.chat.channel].unread = 0
-    }
-}
-
-// Track ongoing load requests to prevent duplicates
-const loadingChannels = new Set<string | number>()
 
 /**
  * Load all users globally from all accessible channels
@@ -201,9 +299,16 @@ export async function loadGlobalUsers(): Promise<void> {
         // Also load members from all channels to get real-time presence and update avatars
         if ($s.channels.length) {
             const channelsArray = Array.isArray($s.channels) ? $s.channels : []
-            const channelPromises = channelsArray.map(async(channel): Promise<void> => {
+            const channelPromises = channelsArray.map(async (channel): Promise<void> => {
                 const membersResponse = await ws.get(`/channels/${channel.slug}/members`)
-                if (membersResponse && typeof membersResponse === 'object' && 'success' in membersResponse && membersResponse.success && 'members' in membersResponse && Array.isArray(membersResponse.members)) {
+                if (
+                    membersResponse &&
+                    typeof membersResponse === 'object' &&
+                    'success' in membersResponse &&
+                    membersResponse.success &&
+                    'members' in membersResponse &&
+                    Array.isArray(membersResponse.members)
+                ) {
                     for (const member of membersResponse.members) {
                         // Update existing user or create if doesn't exist
                         if (member.user_id) {
@@ -225,7 +330,9 @@ export async function loadGlobalUsers(): Promise<void> {
                                     users[userId].status = 'online'
                                 }
                             } else {
-                                if (!$s.chat.users) {$s.chat.users = {}}
+                                if (!$s.chat.users) {
+                                    $s.chat.users = {}
+                                }
                                 // Users in channels are online
                                 $s.chat.users[userId] = {
                                     avatar: member.avatar,
@@ -253,98 +360,14 @@ export async function loadGlobalUsers(): Promise<void> {
     }
 }
 
-export async function loadChannelHistory(channelSlug: string | number): Promise<void> {
-    // Prevent duplicate requests for the same channel
-    if (loadingChannels.has(channelSlug)) {
-        logger.debug(`[Chat] Already loading history for channel ${channelSlug}`)
-        return
-    }
-
-    try {
-        loadingChannels.add(channelSlug)
-        const channelKey = channelSlug.toString()
-
-        // Pre-create channel entry if it doesn't exist for immediate UI feedback
-        if (!$s.chat.channels[channelKey]) {
-            $s.chat.channels[channelKey] = {
-                id: channelKey,
-                messages: [],
-                unread: 0
-            }
-        }
-
-        logger.debug(`[Chat] Loading history for channel ${channelSlug}`)
-
-        // Load channel members first to get avatars
-        const membersResponse = await ws.get(`/channels/${channelSlug}/members`)
-        const members: Record<string, {avatar: string}> = {}
-
-        if (membersResponse && typeof membersResponse === 'object' && 'success' in membersResponse && membersResponse.success && 'members' in membersResponse && Array.isArray(membersResponse.members)) {
-            for (const member of membersResponse.members) {
-                if (typeof member === 'object' && member !== null && 'user_id' in member && 'avatar' in member && 'username' in member) {
-                    const typedMember = member as {user_id: string; avatar: string; username: string}
-                    members[typedMember.user_id] = {avatar: typedMember.avatar}
-
-                    // Also update global users
-                    if (!$s.chat.users) {
-                        $s.chat.users = {}
-                    }
-                    const users = $s.chat.users as Record<string, {avatar: string; username: string}>
-                    users[typedMember.user_id] = {
-                        avatar: typedMember.avatar,
-                        username: typedMember.username,
-                    }
-                }
-            }
-        }
-
-        const response = await ws.get(`/channels/${channelSlug}/messages`)
-
-        if (response && response.success && response.messages) {
-            // Transform database message format to frontend format
-            // DB format: {id, channel_id, user_id, username, message, timestamp, kind}
-            // Frontend format: {kind, message, nick, time, user_id}
-            const messagesArray = Array.isArray(response.messages) ? response.messages : []
-            const transformedMessages = messagesArray.map((msg: {
-                kind?: string
-                message: string
-                timestamp: number
-                user_id: string
-                username: string
-            }): {kind: string; message: string; nick: string; time: number; user_id: string} => ({
-                kind: msg.kind || 'message',
-                message: msg.message,
-                nick: msg.username,
-                time: msg.timestamp,
-                user_id: msg.user_id,
-            }))
-
-            logger.debug(`[Chat] Loaded ${transformedMessages.length} messages for channel ${channelSlug}`)
-
-            // Assign entire array to trigger DeepSignal reactivity
-            $s.chat.channels[channelKey].messages = transformedMessages
-
-            // Store members for avatar lookup
-            if (!$s.chat.channels[channelKey].members) {
-                $s.chat.channels[channelKey].members = {}
-            }
-            Object.assign($s.chat.channels[channelKey].members, members)
-        } else {
-            logger.warn(`[Chat] No messages in response for channel ${channelSlug}:`, response)
-        }
-    } catch (error) {
-        logger.error('[Chat] Error loading channel history:', error)
-    } finally {
-        loadingChannels.delete(channelSlug)
-    }
-}
-
 /**
  * Send typing indicator for current channel
  */
 export async function sendTypingIndicator(typing: boolean, channelSlug?: string): Promise<void> {
     const targetChannelSlug = channelSlug || $s.chat.activeChannelSlug
-    if (!targetChannelSlug) {return}
+    if (!targetChannelSlug) {
+        return
+    }
 
     try {
         await ws.post(`/channels/${targetChannelSlug}/typing`, {
@@ -360,7 +383,7 @@ export async function sendMessage(message: string): Promise<void> {
     if (!$s.chat.activeChannelSlug) {
         notifier.notify({
             level: 'error',
-            message: 'No channel selected'
+            message: 'No channel selected',
         })
         return
     }
@@ -411,14 +434,14 @@ export async function sendMessage(message: string): Promise<void> {
             const errorMessage = (response as {error?: string}).error || 'Failed to send message'
             notifier.notify({
                 level: 'error',
-                message: errorMessage
+                message: errorMessage,
             })
         }
     } catch (error) {
         logger.error('[Chat] Error sending message:', error)
         notifier.notify({
             level: 'error',
-            message: 'Failed to send message'
+            message: 'Failed to send message',
         })
     }
 }

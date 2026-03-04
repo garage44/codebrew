@@ -63,31 +63,6 @@ function deduplicateUsers(): void {
 }
 
 /**
- * Initialize all WebSocket subscriptions
- * Called after WebSocket connection is established
- */
-export const initWebSocketSubscriptions = (): void => {
-    logger.info('Initializing WebSocket subscriptions')
-
-    // Set up reactive deduplication - watches $s.users and removes duplicates automatically
-    effect((): void => {
-        // Access $s.users to track changes
-        const {users} = $s
-        if (users && users.length > 0) {
-            // Deduplicate whenever users array changes
-            deduplicateUsers()
-        }
-    })
-
-    // Listen for broadcasts from backend
-    initChatSubscriptions()
-    initPresenceSubscriptions()
-    initGroupSubscriptions()
-
-    logger.info('WebSocket subscriptions initialized')
-}
-
-/**
  * Chat WebSocket subscriptions
  * Listen for broadcasts from backend
  */
@@ -150,9 +125,7 @@ const initChatSubscriptions = (): void => {
                     const memberAvatar = channel?.members?.[userId]?.avatar
 
                     const users = $s.chat.users
-                    const existingUser = users?.[userId] as
-                        | {avatar?: string; username: string; status?: string}
-                        | undefined
+                    const existingUser = users?.[userId] as {avatar?: string; username: string; status?: string} | undefined
                     if (existingUser) {
                         // Update username/avatar if they changed
                         existingUser.username = username
@@ -227,10 +200,10 @@ const initChatSubscriptions = (): void => {
                         }
                     } else if (channels[channelKey].typing) {
                         // Remove typing indicator when user stops typing
-                        const {typing} = channels[channelKey]
-                        if (typing && typeof typing === 'object') {
+                        const channelTyping = channels[channelKey].typing
+                        if (channelTyping && typeof channelTyping === 'object') {
                             // eslint-disable-next-line no-dynamic-delete
-                            delete typing[userId]
+                            delete channelTyping[userId]
                         }
                     }
                 }
@@ -284,8 +257,8 @@ const initPresenceSubscriptions = (): void => {
                     return
                 }
 
-                const userIndex = $s.users.findIndex(
-                    (usr): boolean => Boolean(usr && usr.id && String(usr.id).trim() === normalizedUserId),
+                const userIndex = $s.users.findIndex((usr): boolean =>
+                    Boolean(usr && usr.id && String(usr.id).trim() === normalizedUserId),
                 )
                 if (userIndex === -1) {
                     // User doesn't exist, add it
@@ -338,8 +311,8 @@ const initPresenceSubscriptions = (): void => {
             if ($s.sfu.channel.name === groupId) {
                 // Normalize userId to string for consistent comparison
                 const normalizedUserId = String(userId).trim()
-                const userIndex = $s.users.findIndex(
-                    (usr): boolean => Boolean(usr && usr.id && String(usr.id).trim() === normalizedUserId),
+                const userIndex = $s.users.findIndex((usr): boolean =>
+                    Boolean(usr && usr.id && String(usr.id).trim() === normalizedUserId),
                 )
                 if (userIndex !== -1) {
                     $s.users.splice(userIndex, 1)
@@ -364,9 +337,7 @@ const initPresenceSubscriptions = (): void => {
 
             // Normalize userId to string for consistent comparison
             const normalizedUserId = String(userId).trim()
-            const user = $s.users.find(
-                (usr): boolean => Boolean(usr && usr.id && String(usr.id).trim() === normalizedUserId),
-            )
+            const user = $s.users.find((usr): boolean => Boolean(usr && usr.id && String(usr.id).trim() === normalizedUserId))
             if (user && status !== null && typeof status === 'object') {
                 Object.assign(user.data as Record<string, unknown>, status as Record<string, unknown>)
             }
@@ -492,8 +463,8 @@ const initGroupSubscriptions = (): void => {
 
             // Normalize targetUserId to string for consistent comparison
             const normalizedTargetUserId = String(targetUserId).trim()
-            const targetUser = $s.users.find(
-                (usr): boolean => Boolean(usr && usr.id && String(usr.id).trim() === normalizedTargetUserId),
+            const targetUser = $s.users.find((usr): boolean =>
+                Boolean(usr && usr.id && String(usr.id).trim() === normalizedTargetUserId),
             )
 
             switch (action) {
@@ -512,9 +483,8 @@ const initGroupSubscriptions = (): void => {
                         }
                     } else if (targetUser) {
                         // Another user was kicked
-                        const userIndex = $s.users.findIndex(
-                            (usr): boolean =>
-                                Boolean(usr && usr.id && String(usr.id).trim() === normalizedTargetUserId),
+                        const userIndex = $s.users.findIndex((usr): boolean =>
+                            Boolean(usr && usr.id && String(usr.id).trim() === normalizedTargetUserId),
                         )
                         if (userIndex !== -1) {
                             $s.users.splice(userIndex, 1)
@@ -522,7 +492,6 @@ const initGroupSubscriptions = (): void => {
                     }
                     break
                 }
-
 
                 case 'mute': {
                     // Mute user's microphone
@@ -533,7 +502,6 @@ const initGroupSubscriptions = (): void => {
                     }
                     break
                 }
-
 
                 case 'op':
                 case 'unop': {
@@ -552,7 +520,6 @@ const initGroupSubscriptions = (): void => {
                     break
                 }
 
-
                 case 'present':
                 case 'unpresent': {
                     // Update presenter permissions
@@ -570,15 +537,38 @@ const initGroupSubscriptions = (): void => {
                     break
                 }
 
-
                 default: {
                     logger.warn(`[handleGroupAction] Unknown action: ${action}`)
                     break
                 }
-
             }
         })
     })
+}
+
+/**
+ * Initialize all WebSocket subscriptions
+ * Called after WebSocket connection is established
+ */
+export const initWebSocketSubscriptions = (): void => {
+    logger.info('Initializing WebSocket subscriptions')
+
+    // Set up reactive deduplication - watches $s.users and removes duplicates automatically
+    effect((): void => {
+        // Access $s.users to track changes
+        const {users} = $s
+        if (users && users.length > 0) {
+            // Deduplicate whenever users array changes
+            deduplicateUsers()
+        }
+    })
+
+    // Listen for broadcasts from backend
+    initChatSubscriptions()
+    initPresenceSubscriptions()
+    initGroupSubscriptions()
+
+    logger.info('WebSocket subscriptions initialized')
 }
 
 /**
@@ -652,8 +642,8 @@ export const joinGroup = async (groupId: string): Promise<void> => {
                 // Normalize member.id to string for consistent comparison
                 if (member && member.id) {
                     const normalizedMemberId = String(member.id).trim()
-                    const userIndex = $s.users.findIndex(
-                        (usr): boolean => Boolean(usr && usr.id && String(usr.id).trim() === normalizedMemberId),
+                    const userIndex = $s.users.findIndex((usr): boolean =>
+                        Boolean(usr && usr.id && String(usr.id).trim() === normalizedMemberId),
                     )
                     if (userIndex === -1) {
                         // User doesn't exist, add it

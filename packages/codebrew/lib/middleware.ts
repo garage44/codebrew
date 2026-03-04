@@ -18,37 +18,49 @@ class Router {
         path: RegExp
     }[] = []
 
-    get(path: string, handler: (req: Request, params: Record<string, string>, session?: Session) => Promise<Response>): void {
-        this.add('GET', path, handler)
+    get(
+        routePath: string,
+        handler: (req: Request, params: Record<string, string>, session?: Session) => Promise<Response>,
+    ): void {
+        this.add('GET', routePath, handler)
     }
 
-    post(path: string, handler: (req: Request, params: Record<string, string>, session?: Session) => Promise<Response>): void {
-        this.add('POST', path, handler)
+    post(
+        routePath: string,
+        handler: (req: Request, params: Record<string, string>, session?: Session) => Promise<Response>,
+    ): void {
+        this.add('POST', routePath, handler)
     }
 
-    put(path: string, handler: (req: Request, params: Record<string, string>, session?: Session) => Promise<Response>): void {
-        this.add('PUT', path, handler)
+    put(
+        routePath: string,
+        handler: (req: Request, params: Record<string, string>, session?: Session) => Promise<Response>,
+    ): void {
+        this.add('PUT', routePath, handler)
     }
 
-    delete(path: string, handler: (req: Request, params: Record<string, string>, session?: Session) => Promise<Response>): void {
-        this.add('DELETE', path, handler)
+    delete(
+        routePath: string,
+        handler: (req: Request, params: Record<string, string>, session?: Session) => Promise<Response>,
+    ): void {
+        this.add('DELETE', routePath, handler)
     }
 
     private add(
         method: string,
-        path: string,
+        routePath: string,
         handler: (req: Request, params: Record<string, string>, session?: Session) => Promise<Response>,
     ): void {
-        const regex = new RegExp(`^${path.replaceAll(/:[^/]+/g, '([^/]+)')}$`)
+        const regex = new RegExp(`^${routePath.replaceAll(/:[^/]+/g, '([^/]+)')}$`)
         this.routes.push({handler, method, path: regex})
     }
 
     async route(req: Request, session?: Session): Promise<Response | null> {
         const url = new URL(req.url)
         const {pathname} = url
-        for (const {handler, method, path} of this.routes) {
-            if (req.method === method && path.test(pathname)) {
-                const paramValues = pathname.match(path)?.slice(1) || []
+        for (const {handler, method, path: pathRegex} of this.routes) {
+            if (req.method === method && pathRegex.test(pathname)) {
+                const paramValues = pathname.match(pathRegex)?.slice(1) || []
                 const params: Record<string, string> = {}
                 for (const [idx, val] of paramValues.entries()) {
                     params[`param${idx}`] = val

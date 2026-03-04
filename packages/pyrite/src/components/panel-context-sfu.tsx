@@ -84,8 +84,8 @@ export function PanelContextSfu(): ReturnType<typeof h> {
         const handleResize = (): void => {
             const availableWidth = calculateAvailableWidth()
             // Only update if current width exceeds available space
-            const currentWidth = $s.panels.context.width || 350
-            if (currentWidth > availableWidth) {
+            const panelWidth = $s.panels.context.width || 350
+            if (panelWidth > availableWidth) {
                 $s.panels.context.width = availableWidth
                 store.save()
             }

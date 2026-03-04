@@ -7,7 +7,6 @@ import {$s} from '@/app'
 
 import {DocEditor} from './editor'
 import {Markdown} from './markdown'
-import './docs.css'
 
 // Use api for public access, ws for authenticated
 const getApi = () => ($s.profile.authenticated ? ws : api)

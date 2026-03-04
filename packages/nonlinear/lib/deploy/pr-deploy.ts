@@ -2,13 +2,8 @@ import {$} from 'bun'
 import {existsSync, mkdirSync} from 'node:fs'
 import {homedir} from 'node:os'
 import path from 'node:path'
-import {
-    type PRDeployment,
-    addPRDeployment,
-    getPRDeployment,
-    listActivePRDeployments,
-    updatePRDeployment,
-} from './pr-registry'
+
+import {type PRDeployment, addPRDeployment, getPRDeployment, listActivePRDeployments, updatePRDeployment} from './pr-registry'
 import {extractWorkspacePackages, findWorkspaceRoot, isApplicationPackage} from './workspace'
 
 const PR_DEPLOYMENTS_DIR = path.join(homedir(), '.nonlinear', 'pr-deployments')
@@ -56,7 +51,7 @@ async function fetchMainRepository(): Promise<string | null> {
             console.warn(`[pr-deploy] Git fetch failed (non-fatal): ${stderr || stdout || 'Unknown error'}`)
         }
         return mainRepoPath
-    } catch(error: unknown) {
+    } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error)
         // eslint-disable-next-line no-console
         console.warn(`[pr-deploy] Git fetch error (non-fatal): ${message}`)
@@ -122,7 +117,7 @@ export function allocatePRPorts(prNumber: number): {
     nonlinear: number
     pyrite: number
 } {
-    const base = PR_PORT_BASE + ((prNumber % PR_PORT_RANGE) * 3)
+    const base = PR_PORT_BASE + (prNumber % PR_PORT_RANGE) * 3
     return {
         expressio: base,
         nonlinear: base + 1,
@@ -156,307 +151,243 @@ export async function generatePRToken(prNumber: number): Promise<string> {
 }
 
 /**
- * Deploy a PR branch
+ * Discover which packages should be deployed for a PR
  */
-export async function deployPR(pr: PRMetadata): Promise<{
-    deployment: PRDeployment | null
-    message: string
-    success: boolean
-}> {
-    try {
-        // eslint-disable-next-line no-console
-        // eslint-disable-next-line no-console
-        console.log(`[pr-deploy] Starting deployment for PR #${pr.number}`)
+function discoverPackagesToDeploy(repoDir: string): string[] {
+    const allPackages = extractWorkspacePackages(repoDir)
+    const appPackages = allPackages.filter((pkg): boolean => isApplicationPackage(pkg))
+    // Always include nonlinear
+    return [...appPackages, 'nonlinear']
+}
 
-        // Fetch branches to ensure branch info is available
-        await fetchMainRepository()
-
-        // Resolve SHA if not provided
-        let prData = pr
-        let {head_sha} = prData
-        if (!head_sha) {
-            const sha = await getBranchSHA(prData.head_ref)
-            if (!sha) {
-                return {
-                    deployment: null,
-                    message: `Failed to resolve SHA for branch ${prData.head_ref}. Make sure the branch exists on remote.`,
-                    success: false,
-                }
-            }
-            head_sha = sha
-            prData = {...prData, head_sha: sha}
-        }
-
-        // Validate PR source - block forks completely
-        const trustLevel = validatePRSource(prData)
-        if (trustLevel !== 'trusted') {
-            return {
-                deployment: null,
-                message: `PR #${prData.number} blocked - only contributor PRs allowed (no forks)`,
-                success: false,
-            }
-        }
-
-        // Check if already deployed
-        const existing = await getPRDeployment(prData.number)
-        if (existing && existing.status === 'running') {
-            // eslint-disable-next-line no-console
-            // eslint-disable-next-line no-console
-            console.log(`[pr-deploy] PR #${prData.number} already deployed, updating...`)
-            return await updateExistingPRDeployment(prData)
-        }
-
-        // Create deployment directory
-        const prDir = path.join(PR_DEPLOYMENTS_DIR, `pr-${prData.number}`)
-        const repoDir = path.join(prDir, 'repo')
-        const logsDir = path.join(prDir, 'logs')
-        const dataDir = path.join(prDir, 'data')
-
-        if (!existsSync(prDir)) {
-            mkdirSync(prDir, {recursive: true})
-        }
-        if (!existsSync(logsDir)) {
-            mkdirSync(logsDir, {recursive: true})
-        }
-        if (!existsSync(dataDir)) {
-            mkdirSync(dataDir, {recursive: true})
-        }
-
-        // Allocate ports
-        const ports = allocatePRPorts(prData.number)
-
-        // Generate access token
-        const token = await generatePRToken(prData.number)
-
-        // Create deployment record
-        const deployment: PRDeployment = {
-            author: prData.author,
-            created: Date.now(),
-            directory: prDir,
-            head_ref: prData.head_ref,
-            head_sha: head_sha,
-            number: prData.number,
-            ports,
-            status: 'deploying',
-            token,
-            updated: Date.now(),
-        }
-
-        await addPRDeployment(deployment)
-
-        // Clone or pull repository
-        if (existsSync(repoDir)) {
-            // eslint-disable-next-line no-console
-            console.log('[pr-deploy] Repository directory already exists, skipping clone')
-        } else {
-            // eslint-disable-next-line no-console
-            console.log('[pr-deploy] Cloning repository...')
-
-            /*
-             * Use GitHub URL instead of local path for cloning
-             * Construct URL from repo_full_name (e.g., "owner/repo" -> "https://github.com/owner/repo.git")
-             */
-            const githubUrl = `https://github.com/${prData.repo_full_name}.git`
-            // eslint-disable-next-line no-console
-            console.log(`[pr-deploy] Source: ${githubUrl}`)
-            // eslint-disable-next-line no-console
-            console.log(`[pr-deploy] Target: ${repoDir}`)
-            const cloneResult = await $`git clone ${githubUrl} ${repoDir}`.nothrow()
-            if (cloneResult.exitCode !== 0) {
-                const stderr = cloneResult.stderr?.toString() || ''
-                const stdout = cloneResult.stdout?.toString() || ''
-                const errorDetails = stderr || stdout || 'Unknown clone error'
-                // eslint-disable-next-line no-console
-                console.error(`[pr-deploy] Clone failed with exit code ${cloneResult.exitCode}`)
-                // eslint-disable-next-line no-console
-                console.error(`[pr-deploy] Clone stderr: ${stderr}`)
-                // eslint-disable-next-line no-console
-                console.error(`[pr-deploy] Clone stdout: ${stdout}`)
-                await updatePRDeployment(pr.number, {status: 'failed'})
-                throw new Error(`Failed to clone repository: ${errorDetails.slice(0, 500)}`)
-            }
-            // eslint-disable-next-line no-console
-            console.log('[pr-deploy] Repository cloned successfully')
-        }
-
-        // Fetch and checkout PR branch
-        // eslint-disable-next-line no-console
-        console.log(`[pr-deploy] Checking out PR branch ${prData.head_ref}...`)
-        process.chdir(repoDir)
-        // eslint-disable-next-line no-console
-        console.log(`[pr-deploy] Working directory: ${process.cwd()}`)
-
-        // Ensure remote is set correctly (in case repo was cloned from local path previously)
-        const githubUrl = `https://github.com/${pr.repo_full_name}.git`
-        const remoteSetResult = await $`git remote set-url origin ${githubUrl}`.nothrow()
-        if (remoteSetResult.exitCode !== 0) {
-            // eslint-disable-next-line no-console
-            console.warn('[pr-deploy] Failed to update remote URL, continuing with existing remote')
-        }
-
-        const fetchResult = await $`git fetch origin ${pr.head_ref}`.quiet()
-        if (fetchResult.exitCode !== 0) {
-            await updatePRDeployment(pr.number, {status: 'failed'})
-            throw new Error('Failed to fetch PR branch')
-        }
-
-        const checkoutResult = await $`git checkout ${head_sha}`.quiet()
-        if (checkoutResult.exitCode !== 0) {
-            await updatePRDeployment(pr.number, {status: 'failed'})
-            throw new Error('Failed to checkout PR commit')
-        }
-        // eslint-disable-next-line no-console
-        console.log(`[pr-deploy] Checked out commit: ${head_sha}`)
-
-        // Install dependencies (must be run from workspace root)
-        // eslint-disable-next-line no-console
-        console.log('[pr-deploy] Installing dependencies...')
-        // eslint-disable-next-line no-console
-        console.log(`[pr-deploy] Installing from: ${process.cwd()}`)
-
-        // First, install workspace dependencies
-        const installResult = await $`bun install`.nothrow()
-        if (installResult.exitCode !== 0) {
-            const stderr = installResult.stderr?.toString() || ''
-            const stdout = installResult.stdout?.toString() || ''
-            const errorDetails = stderr || stdout || 'Unknown install error'
-            // eslint-disable-next-line no-console
-            console.error(`[pr-deploy] Install failed with exit code ${installResult.exitCode}`)
-            // eslint-disable-next-line no-console
-            console.error(`[pr-deploy] Install stderr: ${stderr}`)
-            // eslint-disable-next-line no-console
-            console.error(`[pr-deploy] Install stdout: ${stdout}`)
-            await updatePRDeployment(pr.number, {status: 'failed'})
-            throw new Error(`Failed to install dependencies: ${errorDetails.slice(0, 500)}`)
-        }
-        // eslint-disable-next-line no-console
-        console.log('[pr-deploy] Dependencies installed successfully')
-
-        // Build packages
-        // eslint-disable-next-line no-console
-        console.log('[pr-deploy] Building packages...')
-        try {
-            // Run build without quiet() first to capture any errors
-            const buildResult = await $`bun run build`.nothrow()
-            if (buildResult.exitCode !== 0) {
-                const stderr = buildResult.stderr?.toString() || ''
-                const stdout = buildResult.stdout?.toString() || ''
-                const errorOutput = stderr || stdout || 'Unknown build error'
-                // eslint-disable-next-line no-console
-                console.error(`[pr-deploy] Build failed with exit code ${buildResult.exitCode}`)
-                // eslint-disable-next-line no-console
-                console.error(`[pr-deploy] Build stderr: ${stderr}`)
-                // eslint-disable-next-line no-console
-                console.error(`[pr-deploy] Build stdout: ${stdout}`)
-                await updatePRDeployment(pr.number, {status: 'failed'})
-                throw new Error(`Build failed: ${errorOutput.slice(0, 1000)}`)
-            }
-            // eslint-disable-next-line no-console
-            console.log('[pr-deploy] Build completed successfully')
-        } catch(error: unknown) {
-            if (error instanceof Error && error.message.includes('Build failed')) {
-                throw error
-            }
-            await updatePRDeployment(pr.number, {status: 'failed'})
-            throw new Error(`Build failed: ${error instanceof Error ? error.message : String(error)}`, {cause: error})
-        }
-
-        // Discover which packages to deploy
-        const packagesToDeploy = discoverPackagesToDeploy(repoDir)
-        // eslint-disable-next-line no-console
-        console.log(`[pr-deploy] Discovered packages to deploy: ${packagesToDeploy.join(', ')}`)
-
-        // Generate systemd service files
-        await generateSystemdServices(deployment, packagesToDeploy)
-
-        // Generate nginx configuration
-        await generateNginxConfig(deployment, packagesToDeploy)
-
-        // Start services
-        // eslint-disable-next-line no-console
-        console.log('[pr-deploy] Starting services...')
-        for (const packageName of packagesToDeploy) {
-            // eslint-disable-next-line no-await-in-loop
-            const startResult = await $`sudo systemctl start pr-${pr.number}-${packageName}.service`.nothrow()
-            if (startResult.exitCode === 0) {
-                // eslint-disable-next-line no-console
-                console.log(`[pr-deploy] Started ${packageName} service`)
-            } else {
-                const stderr = startResult.stderr?.toString() || ''
-                const stdout = startResult.stdout?.toString() || ''
-                const errorDetails = stderr || stdout || 'Unknown error'
-                // eslint-disable-next-line no-console
-                console.error(`[pr-deploy] Failed to start ${packageName} service`)
-                // eslint-disable-next-line no-console
-                console.error(`[pr-deploy] systemctl stderr: ${stderr}`)
-                // eslint-disable-next-line no-console
-                console.error(`[pr-deploy] systemctl stdout: ${stdout}`)
-                // Check service status for more details
-                // eslint-disable-next-line no-await-in-loop
-                const statusResult = await $`sudo systemctl status pr-${pr.number}-${packageName}.service --no-pager -l`.nothrow()
-                if (statusResult.exitCode === 0) {
-                    const statusOutput = statusResult.stdout?.toString() || ''
-                    // eslint-disable-next-line no-console
-                    console.error(`[pr-deploy] Service status:\n${statusOutput}`)
-                }
-                throw new Error(`Failed to start ${packageName} service: ${errorDetails}`)
-            }
-        }
-
-        // Update deployment status
-        await updatePRDeployment(pr.number, {status: 'running'})
-
-        // Port mapping for display
-        const portMap: Record<string, number> = {
-            expressio: deployment.ports.expressio,
-            nonlinear: deployment.ports.nonlinear,
-            pyrite: deployment.ports.pyrite,
-        }
-
-        // eslint-disable-next-line no-console
-        console.log(`[pr-deploy] PR #${pr.number} deployed successfully`)
-        // eslint-disable-next-line no-console
-        console.log('[pr-deploy] URLs (public access, no token required):')
-        for (const packageName of packagesToDeploy) {
-            const port = portMap[packageName] || deployment.ports.nonlinear
-            const subdomain = `pr-${pr.number}-${packageName}.garage44.org`
-            // eslint-disable-next-line no-console
-            console.log(`[pr-deploy]   ${packageName}: https://${subdomain} (port ${port})`)
-        }
-
-        /*
-         * Note: We do NOT restart the main nonlinear service here because:
-         * 1. PR deployments don't affect the main nonlinear service
-         * 2. Restarting during a webhook request would kill the connection
-         * 3. The main service only needs restart on main branch deployments
-         */
-
-        return {
-            deployment: {
-                ...deployment,
-                status: 'running',
-            },
-            message: `PR #${pr.number} deployed successfully`,
-            success: true,
-        }
-    } catch(error: unknown) {
-        const message = error instanceof Error ? error.message : String(error)
-        // eslint-disable-next-line no-console
-        console.error(`[pr-deploy] Deployment failed: ${message}`)
-
-        /*
-         * Note: We do NOT restart the main nonlinear service here because:
-         * 1. PR deployments don't affect the main nonlinear service
-         * 2. Restarting during a webhook request would kill the connection
-         * 3. The main service only needs restart on main branch deployments
-         */
-
-        return {
-            deployment: null,
-            message: `Deployment failed: ${message}`,
-            success: false,
-        }
+/**
+ * Generate systemd service files for PR deployment
+ */
+async function generateSystemdServices(deployment: PRDeployment, packagesToDeploy: string[]): Promise<void> {
+    // Map package names to port allocations
+    const portMap: Record<string, number> = {
+        expressio: deployment.ports.expressio,
+        nonlinear: deployment.ports.nonlinear,
+        pyrite: deployment.ports.pyrite,
     }
+
+    for (const packageName of packagesToDeploy) {
+        const port = portMap[packageName] || deployment.ports.nonlinear
+        const workdir = path.join(deployment.directory, `repo/packages/${packageName}`)
+
+        // Check if package directory exists
+        if (!existsSync(workdir)) {
+            // eslint-disable-next-line no-console
+            console.warn(`[pr-deploy] Package directory not found: ${workdir}, skipping ${packageName}`)
+            // eslint-disable-next-line no-continue
+            continue
+        }
+
+        const serviceFile = `/etc/systemd/system/pr-${deployment.number}-${packageName}.service`
+        // Use isolated database and config paths for PR deployments
+        const prDataDir = path.join(deployment.directory, 'data')
+        const dbPath = path.join(prDataDir, `${packageName}.db`)
+        const configPath = path.join(prDataDir, `.${packageName}rc`)
+        // Use absolute path to service.ts to avoid path resolution issues
+        const serviceTsPath = path.join(workdir, 'service.ts')
+
+        const content = `[Unit]
+Description=PR #${deployment.number} ${packageName} service
+After=network.target
+
+[Service]
+Type=simple
+User=garage44
+Group=garage44
+WorkingDirectory=${workdir}
+Environment="NODE_ENV=production"
+Environment="BUN_ENV=production"
+Environment="DB_PATH=${dbPath}"
+Environment="CONFIG_PATH=${configPath}"
+Environment="PATH=/home/garage44/.bun/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+ExecStart=/home/garage44/.bun/bin/bun ${serviceTsPath} start --port ${port}
+Restart=no
+StandardOutput=journal
+StandardError=journal
+
+# Resource limits for PR deployments
+MemoryMax=512M
+MemoryHigh=400M
+CPUQuota=50%
+TasksMax=100
+
+[Install]
+WantedBy=multi-user.target
+`
+
+        /*
+         * Write service file using sudo (required for /etc/systemd/system/)
+         * Use a temporary file and then move it with sudo to avoid shell escaping issues
+         */
+        const tempFile = `/tmp/pr-${deployment.number}-${packageName}.service`
+        // eslint-disable-next-line no-await-in-loop
+        await Bun.write(tempFile, content)
+        // eslint-disable-next-line no-await-in-loop
+        const writeResult = await $`sudo mv ${tempFile} ${serviceFile}`.nothrow()
+        if (writeResult.exitCode !== 0) {
+            const stderr = writeResult.stderr?.toString() || ''
+            const stdout = writeResult.stdout?.toString() || ''
+            // Clean up temp file if move failed
+            try {
+                // eslint-disable-next-line no-await-in-loop
+                if (await Bun.file(tempFile).exists()) {
+                    // eslint-disable-next-line no-await-in-loop
+                    await Bun.file(tempFile).unlink()
+                }
+            } catch {
+                // Ignore cleanup errors
+            }
+            throw new Error(`Failed to write systemd service file: ${stderr || stdout}`)
+        }
+        // eslint-disable-next-line no-console
+        console.log(`[pr-deploy] Generated systemd service for ${packageName}`)
+    }
+
+    // Reload systemd
+    const reloadResult = await $`sudo systemctl daemon-reload`.nothrow()
+    if (reloadResult.exitCode !== 0) {
+        const stderr = reloadResult.stderr?.toString() || ''
+        const stdout = reloadResult.stdout?.toString() || ''
+        throw new Error(`Failed to reload systemd daemon: ${stderr || stdout || 'Unknown error'}`)
+    }
+    // eslint-disable-next-line no-console
+    console.log('[pr-deploy] Systemd daemon reloaded')
+}
+
+/**
+ * Generate nginx configuration for PR deployment
+ * Public access for contributor PRs (no token required)
+ * Creates separate subdomains for each package: pr-{number}.{package}.garage44.org
+ */
+async function generateNginxConfig(deployment: PRDeployment, packagesToDeploy: string[]): Promise<void> {
+    const prNumber = deployment.number
+    const baseDomain = 'garage44.org'
+
+    // Port mapping for packages
+    const portMap: Record<string, number> = {
+        expressio: deployment.ports.expressio,
+        nonlinear: deployment.ports.nonlinear,
+        pyrite: deployment.ports.pyrite,
+    }
+
+    // Validate that ports are different (sanity check)
+    const uniquePorts = new Set(Object.values(portMap))
+    if (uniquePorts.size !== Object.keys(portMap).length) {
+        // eslint-disable-next-line no-console
+        console.warn(`[pr-deploy] WARNING: Some packages have duplicate ports! Ports: ${JSON.stringify(portMap)}`)
+    }
+
+    // Packages that need WebSocket support
+    const websocketPackages = new Set(['expressio', 'pyrite', 'nonlinear'])
+
+    // Generate nginx config for each package
+    for (const packageName of packagesToDeploy) {
+        const port = portMap[packageName] || deployment.ports.nonlinear
+
+        // Validate port is in the expected range
+        if (port < PR_PORT_BASE || port >= PR_PORT_BASE + PR_PORT_RANGE) {
+            // eslint-disable-next-line no-console
+            console.warn(
+                `[pr-deploy] WARNING: Port ${port} for ${packageName} is outside expected range [${
+                    PR_PORT_BASE
+                }, ${PR_PORT_BASE + PR_PORT_RANGE})`,
+            )
+        }
+
+        // Log port mapping for debugging
+        // eslint-disable-next-line no-console
+        console.log(
+            `[pr-deploy] Generating nginx config for ${packageName}: port ${port} ` +
+                `(subdomain: pr-${prNumber}-${packageName}.${baseDomain})`,
+        )
+
+        // Use single-level subdomain (pr-999-nonlinear.garage44.org) to work with *.garage44.org wildcard cert
+        const subdomain = `pr-${prNumber}-${packageName}.${baseDomain}`
+        const configFile = `/etc/nginx/sites-available/${subdomain}`
+        const enabledLink = `/etc/nginx/sites-enabled/${subdomain}`
+
+        let content = `# PR #${prNumber} - ${packageName} service (subdomain: ${subdomain})
+# Note: Rate limiting can be added by defining limit_req_zone in main nginx.conf
+# limit_req_zone $binary_remote_addr zone=pr_public:10m rate=10r/s;
+
+# HTTP to HTTPS redirect
+server {
+    listen 80;
+    server_name ${subdomain};
+    return 301 https://$server_name$request_uri;
+}
+
+# HTTPS server
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name ${subdomain};
+
+    # Wildcard SSL certificate
+    ssl_certificate /etc/letsencrypt/live/garage44.org/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/garage44.org/privkey.pem;
+
+    # SSL configuration
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+`
+
+        content += websocketPackages.has(packageName)
+            ? `
+    location / {
+        proxy_pass http://127.0.0.1:${port};
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+`
+            : `
+    location / {
+        proxy_pass http://127.0.0.1:${port};
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+`
+
+        content += `}
+
+# Prevent search engine indexing of PR deployments
+add_header X-Robots-Tag "noindex, nofollow" always;
+`
+
+        // eslint-disable-next-line no-await-in-loop
+        await Bun.write(configFile, content)
+        // eslint-disable-next-line no-await-in-loop
+        const symlinkResult = await $`sudo ln -sf ${configFile} ${enabledLink}`.nothrow()
+        if (symlinkResult.exitCode !== 0) {
+            const stderr = symlinkResult.stderr?.toString() || ''
+            const stdout = symlinkResult.stdout?.toString() || ''
+            throw new Error(`Failed to enable nginx config: ${stderr || stdout || 'Unknown error'}`)
+        }
+        // eslint-disable-next-line no-console
+        console.log(`[pr-deploy] Generated nginx config for ${packageName}`)
+    }
+
+    // Reload nginx
+    const reloadResult = await $`sudo nginx -t && sudo systemctl reload nginx`.nothrow()
+    if (reloadResult.exitCode !== 0) {
+        const stderr = reloadResult.stderr?.toString() || ''
+        const stdout = reloadResult.stdout?.toString() || ''
+        throw new Error(`Failed to reload nginx: ${stderr || stdout || 'Unknown error'}`)
+    }
+    // eslint-disable-next-line no-console
+    console.log('[pr-deploy] Nginx reloaded')
 }
 
 /**
@@ -661,7 +592,7 @@ async function updateExistingPRDeployment(pr: PRMetadata): Promise<{
             message: `PR #${pr.number} updated successfully`,
             success: true,
         }
-    } catch(error: unknown) {
+    } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error)
         // eslint-disable-next-line no-console
         console.error(`[pr-deploy] Update failed: ${message}`)
@@ -669,7 +600,7 @@ async function updateExistingPRDeployment(pr: PRMetadata): Promise<{
         // Update deployment status to failed
         try {
             await updatePRDeployment(pr.number, {status: 'failed'})
-        } catch(error: unknown) {
+        } catch (error: unknown) {
             // eslint-disable-next-line no-console
             console.error('[pr-deploy] Failed to update deployment status:', error)
         }
@@ -684,6 +615,310 @@ async function updateExistingPRDeployment(pr: PRMetadata): Promise<{
         return {
             deployment: null,
             message: `Update failed: ${message}`,
+            success: false,
+        }
+    }
+}
+
+/**
+ * Deploy a PR branch
+ */
+export async function deployPR(pr: PRMetadata): Promise<{
+    deployment: PRDeployment | null
+    message: string
+    success: boolean
+}> {
+    try {
+        // eslint-disable-next-line no-console
+        // eslint-disable-next-line no-console
+        console.log(`[pr-deploy] Starting deployment for PR #${pr.number}`)
+
+        // Fetch branches to ensure branch info is available
+        await fetchMainRepository()
+
+        // Resolve SHA if not provided
+        let prData = pr
+        let {head_sha} = prData
+        if (!head_sha) {
+            const sha = await getBranchSHA(prData.head_ref)
+            if (!sha) {
+                return {
+                    deployment: null,
+                    message: `Failed to resolve SHA for branch ${prData.head_ref}. Make sure the branch exists on remote.`,
+                    success: false,
+                }
+            }
+            head_sha = sha
+            prData = {...prData, head_sha: sha}
+        }
+
+        // Validate PR source - block forks completely
+        const trustLevel = validatePRSource(prData)
+        if (trustLevel !== 'trusted') {
+            return {
+                deployment: null,
+                message: `PR #${prData.number} blocked - only contributor PRs allowed (no forks)`,
+                success: false,
+            }
+        }
+
+        // Check if already deployed
+        const existing = await getPRDeployment(prData.number)
+        if (existing && existing.status === 'running') {
+            // eslint-disable-next-line no-console
+            // eslint-disable-next-line no-console
+            console.log(`[pr-deploy] PR #${prData.number} already deployed, updating...`)
+            return await updateExistingPRDeployment(prData)
+        }
+
+        // Create deployment directory
+        const prDir = path.join(PR_DEPLOYMENTS_DIR, `pr-${prData.number}`)
+        const repoDir = path.join(prDir, 'repo')
+        const logsDir = path.join(prDir, 'logs')
+        const dataDir = path.join(prDir, 'data')
+
+        if (!existsSync(prDir)) {
+            mkdirSync(prDir, {recursive: true})
+        }
+        if (!existsSync(logsDir)) {
+            mkdirSync(logsDir, {recursive: true})
+        }
+        if (!existsSync(dataDir)) {
+            mkdirSync(dataDir, {recursive: true})
+        }
+
+        // Allocate ports
+        const ports = allocatePRPorts(prData.number)
+
+        // Generate access token
+        const token = await generatePRToken(prData.number)
+
+        // Create deployment record
+        const deployment: PRDeployment = {
+            author: prData.author,
+            created: Date.now(),
+            directory: prDir,
+            head_ref: prData.head_ref,
+            head_sha: head_sha,
+            number: prData.number,
+            ports,
+            status: 'deploying',
+            token,
+            updated: Date.now(),
+        }
+
+        await addPRDeployment(deployment)
+
+        // Clone or pull repository
+        if (existsSync(repoDir)) {
+            // eslint-disable-next-line no-console
+            console.log('[pr-deploy] Repository directory already exists, skipping clone')
+        } else {
+            // eslint-disable-next-line no-console
+            console.log('[pr-deploy] Cloning repository...')
+
+            /*
+             * Use GitHub URL instead of local path for cloning
+             * Construct URL from repo_full_name (e.g., "owner/repo" -> "https://github.com/owner/repo.git")
+             */
+            const githubUrl = `https://github.com/${prData.repo_full_name}.git`
+            // eslint-disable-next-line no-console
+            console.log(`[pr-deploy] Source: ${githubUrl}`)
+            // eslint-disable-next-line no-console
+            console.log(`[pr-deploy] Target: ${repoDir}`)
+            const cloneResult = await $`git clone ${githubUrl} ${repoDir}`.nothrow()
+            if (cloneResult.exitCode !== 0) {
+                const stderr = cloneResult.stderr?.toString() || ''
+                const stdout = cloneResult.stdout?.toString() || ''
+                const errorDetails = stderr || stdout || 'Unknown clone error'
+                // eslint-disable-next-line no-console
+                console.error(`[pr-deploy] Clone failed with exit code ${cloneResult.exitCode}`)
+                // eslint-disable-next-line no-console
+                console.error(`[pr-deploy] Clone stderr: ${stderr}`)
+                // eslint-disable-next-line no-console
+                console.error(`[pr-deploy] Clone stdout: ${stdout}`)
+                await updatePRDeployment(pr.number, {status: 'failed'})
+                throw new Error(`Failed to clone repository: ${errorDetails.slice(0, 500)}`)
+            }
+            // eslint-disable-next-line no-console
+            console.log('[pr-deploy] Repository cloned successfully')
+        }
+
+        // Fetch and checkout PR branch
+        // eslint-disable-next-line no-console
+        console.log(`[pr-deploy] Checking out PR branch ${prData.head_ref}...`)
+        process.chdir(repoDir)
+        // eslint-disable-next-line no-console
+        console.log(`[pr-deploy] Working directory: ${process.cwd()}`)
+
+        // Ensure remote is set correctly (in case repo was cloned from local path previously)
+        const githubUrl = `https://github.com/${pr.repo_full_name}.git`
+        const remoteSetResult = await $`git remote set-url origin ${githubUrl}`.nothrow()
+        if (remoteSetResult.exitCode !== 0) {
+            // eslint-disable-next-line no-console
+            console.warn('[pr-deploy] Failed to update remote URL, continuing with existing remote')
+        }
+
+        const fetchResult = await $`git fetch origin ${pr.head_ref}`.quiet()
+        if (fetchResult.exitCode !== 0) {
+            await updatePRDeployment(pr.number, {status: 'failed'})
+            throw new Error('Failed to fetch PR branch')
+        }
+
+        const checkoutResult = await $`git checkout ${head_sha}`.quiet()
+        if (checkoutResult.exitCode !== 0) {
+            await updatePRDeployment(pr.number, {status: 'failed'})
+            throw new Error('Failed to checkout PR commit')
+        }
+        // eslint-disable-next-line no-console
+        console.log(`[pr-deploy] Checked out commit: ${head_sha}`)
+
+        // Install dependencies (must be run from workspace root)
+        // eslint-disable-next-line no-console
+        console.log('[pr-deploy] Installing dependencies...')
+        // eslint-disable-next-line no-console
+        console.log(`[pr-deploy] Installing from: ${process.cwd()}`)
+
+        // First, install workspace dependencies
+        const installResult = await $`bun install`.nothrow()
+        if (installResult.exitCode !== 0) {
+            const stderr = installResult.stderr?.toString() || ''
+            const stdout = installResult.stdout?.toString() || ''
+            const errorDetails = stderr || stdout || 'Unknown install error'
+            // eslint-disable-next-line no-console
+            console.error(`[pr-deploy] Install failed with exit code ${installResult.exitCode}`)
+            // eslint-disable-next-line no-console
+            console.error(`[pr-deploy] Install stderr: ${stderr}`)
+            // eslint-disable-next-line no-console
+            console.error(`[pr-deploy] Install stdout: ${stdout}`)
+            await updatePRDeployment(pr.number, {status: 'failed'})
+            throw new Error(`Failed to install dependencies: ${errorDetails.slice(0, 500)}`)
+        }
+        // eslint-disable-next-line no-console
+        console.log('[pr-deploy] Dependencies installed successfully')
+
+        // Build packages
+        // eslint-disable-next-line no-console
+        console.log('[pr-deploy] Building packages...')
+        try {
+            // Run build without quiet() first to capture any errors
+            const buildResult = await $`bun run build`.nothrow()
+            if (buildResult.exitCode !== 0) {
+                const stderr = buildResult.stderr?.toString() || ''
+                const stdout = buildResult.stdout?.toString() || ''
+                const errorOutput = stderr || stdout || 'Unknown build error'
+                // eslint-disable-next-line no-console
+                console.error(`[pr-deploy] Build failed with exit code ${buildResult.exitCode}`)
+                // eslint-disable-next-line no-console
+                console.error(`[pr-deploy] Build stderr: ${stderr}`)
+                // eslint-disable-next-line no-console
+                console.error(`[pr-deploy] Build stdout: ${stdout}`)
+                await updatePRDeployment(pr.number, {status: 'failed'})
+                throw new Error(`Build failed: ${errorOutput.slice(0, 1000)}`)
+            }
+            // eslint-disable-next-line no-console
+            console.log('[pr-deploy] Build completed successfully')
+        } catch (error: unknown) {
+            if (error instanceof Error && error.message.includes('Build failed')) {
+                throw error
+            }
+            await updatePRDeployment(pr.number, {status: 'failed'})
+            throw new Error(`Build failed: ${error instanceof Error ? error.message : String(error)}`, {cause: error})
+        }
+
+        // Discover which packages to deploy
+        const packagesToDeploy = discoverPackagesToDeploy(repoDir)
+        // eslint-disable-next-line no-console
+        console.log(`[pr-deploy] Discovered packages to deploy: ${packagesToDeploy.join(', ')}`)
+
+        // Generate systemd service files
+        await generateSystemdServices(deployment, packagesToDeploy)
+
+        // Generate nginx configuration
+        await generateNginxConfig(deployment, packagesToDeploy)
+
+        // Start services
+        // eslint-disable-next-line no-console
+        console.log('[pr-deploy] Starting services...')
+        for (const packageName of packagesToDeploy) {
+            // eslint-disable-next-line no-await-in-loop
+            const startResult = await $`sudo systemctl start pr-${pr.number}-${packageName}.service`.nothrow()
+            if (startResult.exitCode === 0) {
+                // eslint-disable-next-line no-console
+                console.log(`[pr-deploy] Started ${packageName} service`)
+            } else {
+                const stderr = startResult.stderr?.toString() || ''
+                const stdout = startResult.stdout?.toString() || ''
+                const errorDetails = stderr || stdout || 'Unknown error'
+                // eslint-disable-next-line no-console
+                console.error(`[pr-deploy] Failed to start ${packageName} service`)
+                // eslint-disable-next-line no-console
+                console.error(`[pr-deploy] systemctl stderr: ${stderr}`)
+                // eslint-disable-next-line no-console
+                console.error(`[pr-deploy] systemctl stdout: ${stdout}`)
+                // Check service status for more details
+                // eslint-disable-next-line no-await-in-loop
+                const statusResult = await $`sudo systemctl status pr-${pr.number}-${packageName}.service --no-pager -l`.nothrow()
+                if (statusResult.exitCode === 0) {
+                    const statusOutput = statusResult.stdout?.toString() || ''
+                    // eslint-disable-next-line no-console
+                    console.error(`[pr-deploy] Service status:\n${statusOutput}`)
+                }
+                throw new Error(`Failed to start ${packageName} service: ${errorDetails}`)
+            }
+        }
+
+        // Update deployment status
+        await updatePRDeployment(pr.number, {status: 'running'})
+
+        // Port mapping for display
+        const portMap: Record<string, number> = {
+            expressio: deployment.ports.expressio,
+            nonlinear: deployment.ports.nonlinear,
+            pyrite: deployment.ports.pyrite,
+        }
+
+        // eslint-disable-next-line no-console
+        console.log(`[pr-deploy] PR #${pr.number} deployed successfully`)
+        // eslint-disable-next-line no-console
+        console.log('[pr-deploy] URLs (public access, no token required):')
+        for (const packageName of packagesToDeploy) {
+            const port = portMap[packageName] || deployment.ports.nonlinear
+            const subdomain = `pr-${pr.number}-${packageName}.garage44.org`
+            // eslint-disable-next-line no-console
+            console.log(`[pr-deploy]   ${packageName}: https://${subdomain} (port ${port})`)
+        }
+
+        /*
+         * Note: We do NOT restart the main nonlinear service here because:
+         * 1. PR deployments don't affect the main nonlinear service
+         * 2. Restarting during a webhook request would kill the connection
+         * 3. The main service only needs restart on main branch deployments
+         */
+
+        return {
+            deployment: {
+                ...deployment,
+                status: 'running',
+            },
+            message: `PR #${pr.number} deployed successfully`,
+            success: true,
+        }
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error)
+        // eslint-disable-next-line no-console
+        console.error(`[pr-deploy] Deployment failed: ${message}`)
+
+        /*
+         * Note: We do NOT restart the main nonlinear service here because:
+         * 1. PR deployments don't affect the main nonlinear service
+         * 2. Restarting during a webhook request would kill the connection
+         * 3. The main service only needs restart on main branch deployments
+         */
+
+        return {
+            deployment: null,
+            message: `Deployment failed: ${message}`,
             success: false,
         }
     }
@@ -879,7 +1114,7 @@ async function updatePRDeploymentWithMain(deployment: PRDeployment): Promise<boo
         // eslint-disable-next-line no-console
         console.log(`[pr-deploy] PR #${deployment.number} successfully updated with main branch changes`)
         return true
-    } catch(error: unknown) {
+    } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error)
         // eslint-disable-next-line no-console
         console.error(`[pr-deploy] Error updating PR #${deployment.number} with main: ${message}`)
@@ -959,7 +1194,7 @@ export async function updateAllPRDeploymentsWithMain(): Promise<{
             skipped,
             updated,
         }
-    } catch(error: unknown) {
+    } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error)
         // eslint-disable-next-line no-console
         console.error(`[pr-deploy] Error updating PR deployments with main: ${message}`)
@@ -970,313 +1205,6 @@ export async function updateAllPRDeploymentsWithMain(): Promise<{
             updated: 0,
         }
     }
-}
-
-/**
- * Discover which packages should be deployed for a PR
- */
-function discoverPackagesToDeploy(repoDir: string): string[] {
-    const allPackages = extractWorkspacePackages(repoDir)
-    const appPackages = allPackages.filter((pkg): boolean => isApplicationPackage(pkg))
-    // Always include nonlinear
-    return [...appPackages, 'nonlinear']
-}
-
-/**
- * Generate systemd service files for PR deployment
- */
-async function generateSystemdServices(deployment: PRDeployment, packagesToDeploy: string[]): Promise<void> {
-    // Map package names to port allocations
-    const portMap: Record<string, number> = {
-        expressio: deployment.ports.expressio,
-        nonlinear: deployment.ports.nonlinear,
-        pyrite: deployment.ports.pyrite,
-    }
-
-    for (const packageName of packagesToDeploy) {
-        const port = portMap[packageName] || deployment.ports.nonlinear
-        const workdir = path.join(deployment.directory, `repo/packages/${packageName}`)
-
-        // Check if package directory exists
-        if (!existsSync(workdir)) {
-            // eslint-disable-next-line no-console
-            console.warn(`[pr-deploy] Package directory not found: ${workdir}, skipping ${packageName}`)
-            // eslint-disable-next-line no-continue
-            continue
-        }
-
-        const serviceFile = `/etc/systemd/system/pr-${deployment.number}-${packageName}.service`
-        // Use isolated database and config paths for PR deployments
-        const prDataDir = path.join(deployment.directory, 'data')
-        const dbPath = path.join(prDataDir, `${packageName}.db`)
-        const configPath = path.join(prDataDir, `.${packageName}rc`)
-        // Use absolute path to service.ts to avoid path resolution issues
-        const serviceTsPath = path.join(workdir, 'service.ts')
-
-        const content = `[Unit]
-Description=PR #${deployment.number} ${packageName} service
-After=network.target
-
-[Service]
-Type=simple
-User=garage44
-Group=garage44
-WorkingDirectory=${workdir}
-Environment="NODE_ENV=production"
-Environment="BUN_ENV=production"
-Environment="DB_PATH=${dbPath}"
-Environment="CONFIG_PATH=${configPath}"
-Environment="PATH=/home/garage44/.bun/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-ExecStart=/home/garage44/.bun/bin/bun ${serviceTsPath} start --port ${port}
-Restart=no
-StandardOutput=journal
-StandardError=journal
-
-# Resource limits for PR deployments
-MemoryMax=512M
-MemoryHigh=400M
-CPUQuota=50%
-TasksMax=100
-
-[Install]
-WantedBy=multi-user.target
-`
-
-        /*
-         * Write service file using sudo (required for /etc/systemd/system/)
-         * Use a temporary file and then move it with sudo to avoid shell escaping issues
-         */
-        const tempFile = `/tmp/pr-${deployment.number}-${packageName}.service`
-        // eslint-disable-next-line no-await-in-loop
-        await Bun.write(tempFile, content)
-        // eslint-disable-next-line no-await-in-loop
-        const writeResult = await $`sudo mv ${tempFile} ${serviceFile}`.nothrow()
-        if (writeResult.exitCode !== 0) {
-            const stderr = writeResult.stderr?.toString() || ''
-            const stdout = writeResult.stdout?.toString() || ''
-            // Clean up temp file if move failed
-            try {
-                    // eslint-disable-next-line no-await-in-loop
-                    if (await Bun.file(tempFile).exists()) {
-                        // eslint-disable-next-line no-await-in-loop
-                        await Bun.file(tempFile).unlink()
-                    }
-            } catch {
-                // Ignore cleanup errors
-            }
-            throw new Error(`Failed to write systemd service file: ${stderr || stdout}`)
-        }
-        // eslint-disable-next-line no-console
-        console.log(`[pr-deploy] Generated systemd service for ${packageName}`)
-    }
-
-    // Reload systemd
-    const reloadResult = await $`sudo systemctl daemon-reload`.nothrow()
-    if (reloadResult.exitCode !== 0) {
-        const stderr = reloadResult.stderr?.toString() || ''
-        const stdout = reloadResult.stdout?.toString() || ''
-        throw new Error(`Failed to reload systemd daemon: ${stderr || stdout || 'Unknown error'}`)
-    }
-    // eslint-disable-next-line no-console
-    console.log('[pr-deploy] Systemd daemon reloaded')
-}
-
-/**
- * Generate nginx configuration for PR deployment
- * Public access for contributor PRs (no token required)
- * Creates separate subdomains for each package: pr-{number}.{package}.garage44.org
- */
-async function generateNginxConfig(deployment: PRDeployment, packagesToDeploy: string[]): Promise<void> {
-    const prNumber = deployment.number
-    const baseDomain = 'garage44.org'
-
-    // Port mapping for packages
-    const portMap: Record<string, number> = {
-        expressio: deployment.ports.expressio,
-        nonlinear: deployment.ports.nonlinear,
-        pyrite: deployment.ports.pyrite,
-    }
-
-    // Validate that ports are different (sanity check)
-    const uniquePorts = new Set(Object.values(portMap))
-    if (uniquePorts.size !== Object.keys(portMap).length) {
-        // eslint-disable-next-line no-console
-        console.warn(`[pr-deploy] WARNING: Some packages have duplicate ports! Ports: ${JSON.stringify(portMap)}`)
-    }
-
-    // Packages that need WebSocket support
-    const websocketPackages = new Set(['expressio', 'pyrite', 'nonlinear'])
-
-    // Generate nginx config for each package
-    for (const packageName of packagesToDeploy) {
-        const port = portMap[packageName] || deployment.ports.nonlinear
-
-        // Validate port is in the expected range
-        if (port < PR_PORT_BASE || port >= PR_PORT_BASE + PR_PORT_RANGE) {
-            // eslint-disable-next-line no-console
-            console.warn(
-                `[pr-deploy] WARNING: Port ${port} for ${packageName} is outside expected range [${
-                    PR_PORT_BASE
-                }, ${PR_PORT_BASE + PR_PORT_RANGE})`,
-            )
-        }
-
-        // Log port mapping for debugging
-        // eslint-disable-next-line no-console
-        console.log(
-            `[pr-deploy] Generating nginx config for ${packageName}: port ${port} ` +
-            `(subdomain: pr-${prNumber}-${packageName}.${baseDomain})`,
-        )
-
-        // Use single-level subdomain (pr-999-nonlinear.garage44.org) to work with *.garage44.org wildcard cert
-        const subdomain = `pr-${prNumber}-${packageName}.${baseDomain}`
-        const configFile = `/etc/nginx/sites-available/${subdomain}`
-        const enabledLink = `/etc/nginx/sites-enabled/${subdomain}`
-
-        let content = `# PR #${prNumber} - ${packageName} service (subdomain: ${subdomain})
-# Note: Rate limiting can be added by defining limit_req_zone in main nginx.conf
-# limit_req_zone $binary_remote_addr zone=pr_public:10m rate=10r/s;
-
-# HTTP to HTTPS redirect
-server {
-    listen 80;
-    server_name ${subdomain};
-    return 301 https://$server_name$request_uri;
-}
-
-# HTTPS server
-server {
-    listen 443 ssl;
-    http2 on;
-    server_name ${subdomain};
-
-    # Wildcard SSL certificate
-    ssl_certificate /etc/letsencrypt/live/garage44.org/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/garage44.org/privkey.pem;
-
-    # SSL configuration
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers HIGH:!aNULL:!MD5;
-    ssl_prefer_server_ciphers on;
-    ssl_session_cache shared:SSL:10m;
-    ssl_session_timeout 10m;
-
-    # Prevent search engine indexing
-    add_header X-Robots-Tag "noindex, nofollow, noarchive" always;
-
-    # PR deployment indicator
-    add_header X-PR-Deployment "${prNumber}" always;
-
-    # Rate limiting for public access (uncomment if zone is defined in main nginx.conf)
-    # limit_req zone=pr_public burst=20 nodelay;
-    # limit_req_status 429;
-`
-
-        // Add WebSocket support for packages that need it
-        if (websocketPackages.has(packageName)) {
-            if (packageName === 'pyrite') {
-                // Pyrite has both /ws and /sfu endpoints
-                content += `
-    # SFU WebSocket endpoint (Galène)
-    location /sfu {
-        proxy_pass http://localhost:${port};
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_read_timeout 86400;
-        proxy_send_timeout 86400;
-    }
-`
-            }
-
-            content += `
-    # WebSocket endpoint
-    location /ws {
-        proxy_pass http://localhost:${port};
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_read_timeout 86400;
-        proxy_send_timeout 86400;
-    }
-`
-        }
-
-        // Main location block
-        content += `
-    # Main location
-    location / {
-        proxy_pass http://localhost:${port};
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-`
-
-        // Add WebSocket headers to main location for WebSocket packages
-        if (websocketPackages.has(packageName)) {
-            content += `        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-`
-        }
-
-        content += `    }
-}
-`
-
-        /*
-         * Write nginx config file using sudo (required for /etc/nginx/)
-         * Use a temporary file and then move it with sudo to avoid shell escaping issues
-         */
-        const tempNginxFile = `/tmp/pr-${prNumber}-${packageName}.nginx.conf`
-        // eslint-disable-next-line no-await-in-loop
-        await Bun.write(tempNginxFile, content)
-        // eslint-disable-next-line no-await-in-loop
-        const nginxWriteResult = await $`sudo mv ${tempNginxFile} ${configFile}`.nothrow()
-        if (nginxWriteResult.exitCode !== 0) {
-            const stderr = nginxWriteResult.stderr?.toString() || ''
-            const stdout = nginxWriteResult.stdout?.toString() || ''
-            // Clean up temp file if move failed
-            try {
-                // eslint-disable-next-line no-await-in-loop
-                if (await Bun.file(tempNginxFile).exists()) {
-                    // eslint-disable-next-line no-await-in-loop
-                    await Bun.file(tempNginxFile).unlink()
-                }
-            } catch {
-                // Ignore cleanup errors
-            }
-            throw new Error(`Failed to write nginx config file: ${stderr || stdout}`)
-        }
-
-        // Create symlink if it doesn't exist
-        if (!existsSync(enabledLink)) {
-            // eslint-disable-next-line no-await-in-loop
-            await $`sudo ln -s ${configFile} ${enabledLink}`.quiet()
-        }
-    }
-
-    // Reload nginx
-    const nginxReloadResult = await $`sudo nginx -s reload`.nothrow()
-    if (nginxReloadResult.exitCode !== 0) {
-        const stderr = nginxReloadResult.stderr?.toString() || ''
-        const stdout = nginxReloadResult.stdout?.toString() || ''
-        // Check nginx config for syntax errors
-        const testResult = await $`sudo nginx -t`.nothrow()
-        const testOutput = testResult.stdout?.toString() || testResult.stderr?.toString() || ''
-        throw new Error(`Failed to reload nginx: ${stderr || stdout || 'Unknown error'}\nNginx config test: ${testOutput}`)
-    }
-    // eslint-disable-next-line no-console
-    console.log('[pr-deploy] Nginx reloaded successfully')
 }
 
 /**
@@ -1323,7 +1251,7 @@ export async function regeneratePRNginx(prNumber: number): Promise<{
             message: `Nginx configs regenerated successfully for PR #${prNumber}`,
             success: true,
         }
-    } catch(error: unknown) {
+    } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error)
         // eslint-disable-next-line no-console
         console.error(`[pr-deploy] Failed to regenerate nginx configs: ${message}`)

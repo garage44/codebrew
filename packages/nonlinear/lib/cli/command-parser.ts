@@ -4,7 +4,41 @@
  */
 
 import pc from 'picocolors'
+
 import type {Tool, ToolContext, ToolResult} from '../fixtures/tools/types.ts'
+
+/**
+ * Parse a string value to appropriate type
+ */
+function parseValue(value: string): unknown {
+    // Try to parse as number
+    if (/^-?\d+$/.test(value)) {
+        return Number.parseInt(value, 10)
+    }
+    if (/^-?\d+\.\d+$/.test(value)) {
+        return Number.parseFloat(value)
+    }
+
+    // Try to parse as boolean
+    if (value === 'true') {
+        return true
+    }
+    if (value === 'false') {
+        return false
+    }
+
+    // Try to parse as JSON
+    if ((value.startsWith('{') && value.endsWith('}')) || (value.startsWith('[') && value.endsWith(']'))) {
+        try {
+            return JSON.parse(value)
+        } catch {
+            // Not valid JSON, return as string
+        }
+    }
+
+    // Return as string
+    return value
+}
 
 /**
  * Parse command-line style arguments into a params object
@@ -49,39 +83,6 @@ function parseArgs(args: string[]): Record<string, unknown> {
 }
 
 /**
- * Parse a string value to appropriate type
- */
-function parseValue(value: string): unknown {
-    // Try to parse as number
-    if (/^-?\d+$/.test(value)) {
-        return Number.parseInt(value, 10)
-    }
-    if (/^-?\d+\.\d+$/.test(value)) {
-        return Number.parseFloat(value)
-    }
-
-    // Try to parse as boolean
-    if (value === 'true') {
-        return true
-    }
-    if (value === 'false') {
-        return false
-    }
-
-    // Try to parse as JSON
-    if ((value.startsWith('{') && value.endsWith('}')) || (value.startsWith('[') && value.endsWith(']'))) {
-        try {
-            return JSON.parse(value)
-        } catch {
-            // Not valid JSON, return as string
-        }
-    }
-
-    // Return as string
-    return value
-}
-
-/**
  * Validate parameters against tool schema
  */
 function validateParams(params: Record<string, unknown>, tool: Tool): {errors: string[]; valid: boolean} {
@@ -89,7 +90,7 @@ function validateParams(params: Record<string, unknown>, tool: Tool): {errors: s
 
     // Check required parameters
     for (const param of tool.parameters) {
-        if (param.required && !(param.name in params) || params[param.name] === null) {
+        if ((param.required && !(param.name in params)) || params[param.name] === null) {
             errors.push(`Missing required parameter: ${param.name}`)
         }
     }
@@ -165,7 +166,7 @@ export async function executeToolCommand(
     try {
         const result = await tool.execute(params, toolContext)
         return result
-    } catch(error: unknown) {
+    } catch (error: unknown) {
         return {
             error: error instanceof Error ? error.message : String(error),
             success: false,

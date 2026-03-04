@@ -80,6 +80,70 @@ interface WsManager {
     broadcast: (url: string, data: MessageData, method?: string) => void
 }
 
+// Set up log forwarding from client to server (defined before bunchyService which uses it)
+function setupLogForwarding(wsManager: WsManager): void {
+    if (!wsManager.api?.post) {
+        return
+    }
+    wsManager.api.post('/logs/forward', async (_ctx: unknown, req: {data?: unknown}): Promise<{status: string}> => {
+        const {args, level, message, source, timestamp} = req.data as {
+            args: string[]
+            level: string
+            message: string
+            source: string
+            timestamp: string
+        }
+
+        // Format the log message for server output
+        const formattedMessage = `[BROWSER] ${message}`
+        const formattedArgs = args && args.length > 0 ? args : []
+
+        // Log using the server logger with appropriate level
+        try {
+            devContext.addLog('remote', `${formattedMessage} ${formattedArgs.join(' ')}`)
+        } catch {
+            // Ignore errors in dev context logging
+        }
+        switch (level) {
+            case 'error': {
+                logger.remote(formattedMessage, ...formattedArgs)
+                break
+            }
+
+            case 'warn': {
+                logger.remote(formattedMessage, ...formattedArgs)
+                break
+            }
+
+            case 'info': {
+                logger.remote(formattedMessage, ...formattedArgs)
+                break
+            }
+
+            case 'success': {
+                logger.remote(formattedMessage, ...formattedArgs)
+                break
+            }
+
+            case 'verbose': {
+                logger.remote(formattedMessage, ...formattedArgs)
+                break
+            }
+
+            case 'debug': {
+                logger.remote(formattedMessage, ...formattedArgs)
+                break
+            }
+
+            default: {
+                logger.remote(formattedMessage, ...formattedArgs)
+            }
+        }
+
+        return {status: 'ok'}
+    })
+}
+
 async function bunchyService(server: unknown, config: Config, wsManager?: WsManager): Promise<unknown> {
     applySettings(config)
 
@@ -111,10 +175,10 @@ interface YargsInstance {
     ) => YargsInstance
 }
 
-function bunchyArgs(yargs: YargsInstance, config: Config): YargsInstance {
+function bunchyArgs(yargsInstance: YargsInstance, config: Config): YargsInstance {
     applySettings(config)
 
-    yargs
+    yargsInstance
         .option('minify', {
             default: false,
             description: '[Bunchy] Minify output',
@@ -130,28 +194,28 @@ function bunchyArgs(yargs: YargsInstance, config: Config): YargsInstance {
             describe: '[Bunchy] Directory to build to',
             type: 'string',
         })
-        .command('build', '[Bunchy] build application', (yargs: YargsInstance): void => {
-            applySettings({...config, minify: yargs.argv.minify, sourcemap: yargs.argv.sourcemap})
+        .command('build', '[Bunchy] build application', (subYargs: YargsInstance): void => {
+            applySettings({...config, minify: subYargs.argv.minify, sourcemap: subYargs.argv.sourcemap})
             tasks.build.start({minify: true, sourcemap: true})
         })
-        .command('code_backend', '[Bunchy] bundle backend javascript', (yargs: YargsInstance): void => {
-            applySettings({...config, minify: yargs.argv.minify, sourcemap: yargs.argv.sourcemap})
+        .command('code_backend', '[Bunchy] bundle backend javascript', (subYargs: YargsInstance): void => {
+            applySettings({...config, minify: subYargs.argv.minify, sourcemap: subYargs.argv.sourcemap})
             tasks.code_backend.start({minify: true, sourcemap: true})
         })
-        .command('code_frontend', '[Bunchy] bundle frontend javascript', (yargs: YargsInstance): void => {
-            applySettings({...config, minify: yargs.argv.minify, sourcemap: yargs.argv.sourcemap})
+        .command('code_frontend', '[Bunchy] bundle frontend javascript', (subYargs: YargsInstance): void => {
+            applySettings({...config, minify: subYargs.argv.minify, sourcemap: subYargs.argv.sourcemap})
             tasks.code_frontend.start({minify: true, sourcemap: true})
         })
-        .command('html', '[Bunchy] build html file', (yargs: YargsInstance): void => {
-            applySettings({...config, minify: yargs.argv.minify, sourcemap: yargs.argv.sourcemap})
+        .command('html', '[Bunchy] build html file', (subYargs: YargsInstance): void => {
+            applySettings({...config, minify: subYargs.argv.minify, sourcemap: subYargs.argv.sourcemap})
             tasks.html.start({minify: true, sourcemap: true})
         })
-        .command('styles', '[Bunchy] bundle styles', (yargs: YargsInstance): void => {
-            applySettings({...config, minify: yargs.argv.minify, sourcemap: yargs.argv.sourcemap})
+        .command('styles', '[Bunchy] bundle styles', (subYargs: YargsInstance): void => {
+            applySettings({...config, minify: subYargs.argv.minify, sourcemap: subYargs.argv.sourcemap})
             tasks.styles.start({minify: true, sourcemap: true})
         })
 
-    return yargs
+    return yargsInstance
 }
 
 // For backward compatibility, re-export connections from the manager
@@ -176,77 +240,6 @@ const broadcast = (url: string, data: MessageData, method = 'POST'): void => {
     } else {
         logger.warn('[bunchy] Broadcast attempted but WebSocket not connected:', url, data, method)
     }
-}
-
-// Set up log forwarding from client to server
-function setupLogForwarding(wsManager: WsManager): void {
-    if (!wsManager.api?.post) {
-        return
-    }
-    wsManager.api.post('/logs/forward', async (_ctx: unknown, req: {data?: unknown}): Promise<{status: string}> => {
-        const {args, level, message, source, timestamp} = req.data as {
-            args: string[]
-            level: string
-            message: string
-            source: string
-            timestamp: string
-        }
-
-        // Format the log message for server output
-        const formattedMessage = `[BROWSER] ${message}`
-        const formattedArgs = args && args.length > 0 ? args : []
-
-        // Log using the server logger with appropriate level
-        try {
-            devContext.addLog('remote', `${formattedMessage} ${formattedArgs.join(' ')}`)
-        } catch {
-            // Ignore errors in dev context logging
-        }
-        switch (level) {
-            case 'error': {
-                logger.remote(formattedMessage, ...formattedArgs)
-                break
-            }
-
-
-            case 'warn': {
-                logger.remote(formattedMessage, ...formattedArgs)
-                break
-            }
-
-
-            case 'info': {
-                logger.remote(formattedMessage, ...formattedArgs)
-                break
-            }
-
-
-            case 'success': {
-                logger.remote(formattedMessage, ...formattedArgs)
-                break
-            }
-
-
-            case 'verbose': {
-                logger.remote(formattedMessage, ...formattedArgs)
-                break
-            }
-
-
-            case 'debug': {
-                logger.remote(formattedMessage, ...formattedArgs)
-                break
-            }
-
-
-            default: {
-                logger.remote(formattedMessage, ...formattedArgs)
-            }
-
-        }
-
-        return {status: 'ok'}
-    })
 }
 
 /**

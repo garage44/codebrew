@@ -9,6 +9,8 @@ description: Fix TypeScript type errors by updating interface definitions, not u
 
 **Fix types at interface definitions, not at usage sites.**
 
+**MUST NOT change runtime behaviour** - fixes must be purely additive (types, renames, reordering) or structural (moving declarations). Do not add conditionals, change control flow, or alter logic to satisfy the linter.
+
 ## Quick Start
 
 1. **Read the error** → Find the interface/type definition
